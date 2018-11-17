@@ -1,0 +1,103 @@
+/*初始化要设置的内容*/
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    background-color: #fff;
+    color: #555;
+    font-family: "Lato", 'Arial', sans-serif;
+    font-size: 20px;
+    font-weight: 300;
+    text-rendering: optimizeLegibility; /*这是一个新属性，用于设置渲染方式*/
+}
+
+.row {
+    max-width: 1140px; /*对于响应式网页，不能固定宽度，只能写最大宽度*/
+    margin: 0 auto;
+}
+
+/*注意这里的全页图片显示方法，结合高度为100vh和cover属性*/
+
+header {
+    background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url(img/hero.jpg); /*给图片增加遮罩以提高对比度*/
+    height: 100vh;
+    background-size: cover;
+}
+
+.hero-text-box {
+    position: absolute;
+    width: 1140px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+h1 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #fff;
+    font-size: 200%;
+    font-weight: 300;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    word-spacing: 4px;
+}
+
+.btn:link,
+.btn:visited {
+    display: inline-block;
+    padding: 10px 30px;
+    font-weight: 300;
+    text-decoration: none;
+    border-radius: 200px;
+    transition: background-color 0.3s, color 0.3s, border 0.3s;
+}
+
+
+
+.btn-full:link,
+.btn-full:visited {
+    background-color: #e67e22;
+    border: 1px solid #e67e22;
+    color: #fff;
+    margin-right: 15px;
+}
+
+.btn-ghost:link,
+.btn-ghost:visited {
+    border: 1px solid #e67e22;
+    color: #e67e22;
+}
+
+
+
+.btn-full:hover,
+.btn-full:active {
+    background-color: #cf6d17;
+    border: 1px solid #cf6d17;
+
+}
+
+.btn-ghost:hover,
+.btn-ghost:active {
+    border: 1px solid #cf6d17;
+    background-color: #cf6d17;
+    color: #fff;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
