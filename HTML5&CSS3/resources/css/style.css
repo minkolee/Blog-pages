@@ -19,20 +19,88 @@ html {
     margin: 0 auto;
 }
 
+.clearfix {zoom: 1}
+
+.clearfix:after {
+    content: ".";
+    display: block;
+    clear: both;
+    height: 0;
+    visibility: hidden;
+}
+
 /*注意这里的全页图片显示方法，结合高度为100vh和cover属性*/
 
 
 /*可复用部分*/
+h1,
+h2,
+h3 {
+    font-weight: 300;
+    text-transform: uppercase;
+}
+
 h1 {
     margin-top: 0;
     margin-bottom: 20px;
     color: #fff;
-    font-size: 200%;
-    font-weight: 300;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-size: 240%;
     word-spacing: 4px;
+    letter-spacing: 1px;
+
 }
+
+h2 {
+    font-size: 180%;
+    word-spacing: 2px;
+    text-align: center;
+    margin-bottom: 30px;
+    letter-spacing: 1px;
+
+}
+
+h2:after {
+    content: "";
+    display: block;
+    height: 2px;
+    background-color: #e67e22;
+    width: 100px;
+    margin: 30px auto 0;
+}
+
+h3 {
+    font-size: 110%;
+    margin-bottom: 15px;
+}
+
+
+/*-------PARAGRAPHS--------*/
+.long-copy {
+    line-height: 145%;
+    width: 70%;
+    margin-left: 15%;
+    margin-right: 15%;
+}
+
+.box {
+    padding: 1%;
+}
+
+.box p {
+    font-size: 90%;
+    line-height: 145%;
+}
+
+/*---------icons---------*/
+
+.icon-big {
+    font-size: 350%;
+    display: block;
+    color: #e67e22;
+}
+
+
+
 
 .btn:link,
 .btn:visited {
@@ -122,10 +190,110 @@ header {
 }
 /*对于边框，将原来的边框设置为透明，可以避免动画时出现位置偏移*/
 
-
 .main-nav li a:hover,
 .main-nav li a:active {
     border-bottom: 2px solid #e67e22;
 }
 
+/*features*/
+section {
+    padding: 60px 0;
+}
 
+.section-features .long-copy {
+    margin-bottom: 40px;
+}
+
+.section-steps {
+    background-color: #f4f4f4;
+}
+
+
+/*-----------meals*/
+
+.section-meals {
+    padding: 0;
+}
+
+.meals-showcase {
+    list-style: none;
+    width: 100%;
+}
+
+.meals-showcase li {
+    display: block;
+    float: left;
+    width: 25%;
+}
+
+.meal-photo {
+    width: 100%;
+    margin: 0;
+    overflow: hidden;
+    background-color: #000;
+}
+
+/*想让图片变暗，就用底色黑色，然后让图片部分透明即可，这和背景图遮罩有异曲同工之妙*/
+
+.meal-photo img {
+    opacity: 0.7;
+    width: 100%;
+    height: auto;
+    vertical-align: bottom;
+    transform: scale(1.15);
+    transition:transform 0.5s, opacity 0.5s;
+}
+
+.meal-photo img:hover {
+    transform: scale(1);
+    opacity: 1;
+}
+
+/*--------------How it works---------------*/
+.steps-box {
+}
+
+.steps-box:first-child {
+    text-align: right;
+    padding-right: 3%;
+    margin-top: 30px;
+
+}
+
+.steps-box:last-child {
+    padding-left: 3%;
+    margin-top: 70px;
+}
+
+.app-screen {
+    width: 40%;
+}
+
+.works-step {
+    margin-bottom: 50px;
+}
+
+.works-step:last-of-type {
+    margin-bottom: 80px;
+}
+
+
+.works-step>div {
+    color: #e67e22;
+    border: 2px solid #e67e22;
+    display: inline-block;
+    border-radius: 50%;
+    height: 55px;
+    width: 55px;
+    text-align: center;
+    padding: 5px;
+    float: left;
+    font-size: 150%;
+    margin-right: 25px;
+}
+
+.btn-app img {
+    height: 50px;
+    width: auto;
+    margin-right: 10px;
+}
