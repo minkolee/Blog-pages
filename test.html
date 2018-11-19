@@ -27,10 +27,16 @@
     <li>element.onclick=function(){}</li>
 </ul>
 <script>
-    ( function x() {
-         console.log("no need to call me");
-         }() );
-
+    function add(x) {
+        function inner(y) {
+            return x+y;
+        }
+        return inner
+    }
+    
+    b = add(3)(4);
+    console.log(b);
+    
 </script>
 
 
