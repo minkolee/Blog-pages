@@ -528,19 +528,19 @@ footer {
     transition: color 0.2s;
 }
 
-.ion-logo-facebook:hover {
+.social-links .ion-logo-facebook:hover {
     color: #3b5998;
 }
 
-.ion-logo-twitter:hover {
+.social-links .ion-logo-twitter:hover {
     color: #00aced;
 }
 
-.ion-logo-googleplus:hover {
+.social-links .ion-logo-googleplus:hover {
     color: #dd4b39;
 }
 
-.ion-logo-instagram:hover {
+.social-links .ion-logo-instagram:hover {
     color: #007bb6;
 }
 
