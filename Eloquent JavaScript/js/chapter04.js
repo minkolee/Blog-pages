@@ -124,4 +124,30 @@ function nthRecursion(list, n) {
         return nth(list.rest, n - 1);
 }
 
-console.log(nthRecursion(arrayToList([10, 20, 30]), 1));
+
+// 第四题,核心在于Object.keys 函数。 你给它一个对象，它返回一个字符串数组 - 对象的属性名称。
+
+function deepEqual(obj1,obj2) {
+    if(!obj1 || !obj2){
+        return false
+    }
+
+    if (typeof obj1 !==typeof obj2){
+        return false
+    }
+
+    let obj1Keys = Object.keys(obj1);
+    let obj2Keys = Object.keys(obj1);
+    if(obj1Keys.length!==obj2Keys.length){
+        return false
+    }
+
+    for(let eachAttr of obj1Keys){
+        console.log(obj1[eachAttr]);
+        console.log(obj2[eachAttr]);
+        if(obj1[eachAttr]!==obj2[eachAttr]){
+            return false;
+        }
+    }
+    return true
+}
