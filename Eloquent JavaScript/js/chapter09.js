@@ -3,3 +3,27 @@
 
 let re1 = new RegExp("abc");
 let re2 = /abc/;
+
+// 这两个正则表达式对象都表示相同的模式：字符 a 后紧跟一个 b ，接着紧跟一个 c 。
+// 使用 RegExp 构造器时，需要将模式书写成普通的字符串，因此反斜杠的使用规则与往常相同。
+
+// 第二种写法将模式写在斜杠之间，处理反斜杠的方式与第一种方法略有差别。首先，由于斜
+// 杠会结束整个模式，因此模式中包含斜杠时，需在斜杠前加上反斜杠。此外，如果反斜杠不
+// 是特殊字符代码（比如 \n ）的一部分，则会保留反斜杠，不像字符串中会将其忽略，也不会
+// 改变模式的含义。一些字符，比如问号、加号在正则表达式中有特殊含义，如果你想要表示
+// 其字符本身，需要在字符前加上反斜杠。
+//
+// test 方法是匹配正则表达式最简单的方法。该方法只负责判断字符串是否与某个模式匹配。
+// 正则表达式还有一个 exec （执行，execute）方法，如果无法匹配模式则返回 null ，否则返
+// 回一个表示匹配字符串信息的对象。
+//
+// let match = /\d+/.exec("one two 100");
+// console.log(match);
+// console.log(typeof match);
+// console.log(match.index);
+//
+// let quotedText = /'([^']*)'/;
+// console.log(quotedText.exec("she said 'hello'"));
+
+console.log(/(bad)\w+(bad)/.exec("badsavdferdfsbad"));
+
