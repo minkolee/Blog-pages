@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>15</title>
+    <style>
+        .trail { /* className for the trail elements */
+            position: absolute;
+            height: 6px; width: 6px;
+            border-radius: 3px;
+            background: teal;
+        }
+        body {
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+
+<script>
+    let dots = [];
+    for (let i = 0; i < 12; i++) {
+        let node = document.createElement("div");
+        node.className = "trail";
+        document.body.appendChild(node);
+        dots.push(node);
+    }
+    let currentDot = 0;
+
+    window.addEventListener("mousemove", event => {
+        let dot = dots[currentDot];
+        dot.style.left = (event.pageX - 3) + "px";
+        dot.style.top = (event.pageY - 3) + "px";
+        currentDot = (currentDot + 1) % dots.length;
+    });
+</script>
+
+
+<!--addEventListener 方法允许您添加任意数量的处理器，因此即使元素上已经存在另一个处理器，添加处理器也是安全的。-->
+<!--removeEventListener 方法将删除一个处理器，使用类似于 addEventListener 的参数调用。-->
+</body>
+</html>
+
+
+<!--习题一-->
+<!--<div id="back">-->
+<!--<span style="font-size: 20px;display:inline-block" id="balloon"></span>-->
+<!--<button id="up">ArrowUp</button>-->
+<!--<button id="down">ArrowDown</button>-->
+<!--</div>-->
+
+<!--<script>-->
+<!--let ball = document.getElementById("balloon");-->
+<!--let start = 40;-->
+<!--ball.innerText = "\ud83c\udf88";-->
+<!--ball.style.fontSize = start + "px";-->
+
+<!--document.getElementById("up").addEventListener('click', up )-->
+
+<!--document.getElementById("down").addEventListener('click',down )-->
+
+<!--function up(event) {-->
+<!--if (Number(ball.style.fontSize.replace(/px/, "")) * 1.1 > 220) {-->
+<!--boom();-->
+<!--}-->
+<!--ball.style.fontSize = Number(ball.style.fontSize.replace(/px/, "")) * 1.1 + "px";-->
+
+<!--}-->
+
+<!--function down(event) {-->
+<!--ball.style.fontSize = Number(ball.style.fontSize.replace(/px/, "")) / 1.1 + "px";-->
+<!--}-->
+
+
+<!--function boom() {-->
+<!--document.getElementById("up").removeEventListener('click',up);-->
+<!--document.getElementById("down").removeEventListener('click',down);-->
+<!--ball.innerText = "\ud83d\udca5";-->
+<!--}-->
+
+<!--</script>-->
+
+<!--习题二-->
+<!--每次清空画布并且绘制队列,感觉还有更好的方法-->
+
+
+<!--<style>-->
+<!--.trail { /* className for the trail elements */-->
+<!--position: absolute;-->
+<!--height: 6px; width: 6px;-->
+<!--border-radius: 3px;-->
+<!--background: teal;-->
+<!--}-->
+<!--body {-->
+<!--height: 300px;-->
+<!--position: relative;-->
+<!--}-->
+<!--</style>-->
+<!--<script>-->
+<!--body = document.querySelector('body');-->
+<!--let maxTrail = 3;-->
+<!--let trails = [];-->
+<!--function handlemove(event){-->
+<!--newTrail = document.createElement("div");-->
+<!--newTrail.classList.add("trail");-->
+<!--newTrail.style.top = event.clientY-6 +"px";-->
+<!--newTrail.style.left = event.clientX-6 +"px";-->
+<!--draw(newTrail);-->
+<!--}-->
+<!--function draw(trail){-->
+<!--if (trails.length==5){-->
+<!--trails.shift();-->
+<!--trails.push(trail)-->
+<!--}else {-->
+<!--trails.push(trail)-->
+<!--}-->
+
+<!--body.innerHTML = ""-->
+<!--for(let eachTrail of trails){-->
+<!--body.appendChild(eachTrail)-->
+<!--}-->
+<!--setTimeout(function () {-->
+<!--body.innerHTML="";-->
+<!--},250)-->
+<!--}-->
+
+<!--body.addEventListener('mousemove',handlemove);-->
+<!--</script>-->
+
+
+<!--习题三-->
+
+<!--<style>-->
+    <!--* {-->
+        <!--margin: 0;-->
+        <!--padding: 0;-->
+    <!--}-->
+
+    <!--ul {-->
+        <!--list-style: none;-->
+    <!--}-->
+
+    <!--li {-->
+        <!--display: inline-block;-->
+        <!--box-sizing: border-box;-->
+        <!--border: 1px solid black;-->
+        <!--cursor: pointer;-->
+    <!--}-->
+
+    <!--#card {-->
+        <!--width: 500px;-->
+        <!--height: 500px;-->
+        <!--border: 1px solid black;-->
+    <!--}-->
+
+    <!--div[data-tabname] {-->
+        <!--display: inline-block;-->
+    <!--}-->
+
+    <!--.active {-->
+        <!--background-color: red;-->
+    <!--}-->
+
+    <!--.hide {-->
+        <!--display: none;-->
+    <!--}-->
+<!--</style>-->
+<!--<div id="card">-->
+    <!--<ul>-->
+        <!--<li data-tabname="one">Tab one</li>-->
+        <!--<li data-tabname="two">Tab two</li>-->
+        <!--<li data-tabname="three">Tab three</li>-->
+    <!--</ul>-->
+    <!--<div id="one">-->
+        <!--<button>1-1</button>-->
+        <!--<button>1-2</button>-->
+        <!--<button>1-3</button>-->
+        <!--<button>1-4</button>-->
+    <!--</div>-->
+    <!--<div id="two" class="hide">-->
+        <!--<button>2-1</button>-->
+        <!--<button>2-2</button>-->
+        <!--<button>2-3</button>-->
+        <!--<button>2-4</button>-->
+    <!--</div>-->
+    <!--<div id="three" class="hide">-->
+        <!--<button>3-1</button>-->
+        <!--<button>3-2</button>-->
+        <!--<button>3-3</button>-->
+        <!--<button>3-4</button>-->
+    <!--</div>-->
+<!--</div>-->
+<!--<script>-->
+    <!--let lis = document.querySelectorAll('li');-->
+    <!--let card = document.getElementById("card");-->
+    <!--let cards = card.getElementsByTagName('div');-->
+
+    <!--for (let li of lis) {-->
+        <!--li.addEventListener('click', function (event) {-->
+            <!--for (let li of lis) {-->
+                <!--li.classList.remove('active');-->
+            <!--}-->
+            <!--event.target.classList.add('active');-->
+            <!--for(let card of cards){-->
+                <!--card.classList.add('hide');-->
+                <!--document.getElementById(event.target.getAttribute('data-tabname')).classList.remove('hide');-->
+            <!--}-->
+        <!--})-->
+
+    <!--}-->
+<!--</script>-->
