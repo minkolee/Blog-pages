@@ -24,6 +24,127 @@ let re2 = /abc/;
 //
 // let quotedText = /'([^']*)'/;
 // console.log(quotedText.exec("she said 'hello'"));
+// replace 是将全字符串加上分组匹配的部分,按照顺序传给回调函数.
 
-console.log(/(bad)\w+(bad)/.exec("badsavdferdfsbad"));
+// \d 任意数字符号
+// \w 字母和数字符号（单词符号）
+// \s 任意空白符号（空格，制表符，换行符等类似符号）
+// \D 非数字符号
+// \W 非字母和数字符号
+// \S 非空白符号
+// . 除了换行符以外的任意符号
+
+// /abc/ ：字符序列
+// 139
+// /[abc]/ ：字符集中的任何字符
+// /[^abc]/ ：不在字符集中的任何字符
+// /[0-9]/ ：字符范围内的任何字符
+// /x+/ ：出现一次或多次
+// /x+?/ ：出现一次或多次，非贪婪模式
+// /x*/ ：出现零次或多次
+// /x??/ ：出现零次或多次，非贪婪模式
+// /x{2，4}/ ：出现两次到四次
+// /(abc)/ ：元组
+// /a|b|c/ ：匹配任意一个模式
+// /\d/ ：数字字符
+// /\w/ ：字母和数字字符（单词字符）
+// /\s/ ：任意空白字符
+// /./ ：任意字符（除换行符外）
+// /\b/ ：单词边界
+// /^/ ：输入起始位置
+// /$/ ：输入结束位置
+
+
+//习题一
+// function verify(regexp,array1,array2){
+//     for(let eachstring of array1){
+//         console.log(regexp.test(eachstring))
+//     }
+//     for(let eachstring of array2){
+//         console.log(regexp.test(eachstring))
+//     }
+// }
+
+// 1. car 和 cat
+// let regexp = /ca[rt]/;
+//
+// verify(regexp,
+//     ["my car", "bad cats"],
+//     ["camper", "high art"]);
+
+// 2. pop 和 prop
+// let regexp = /pr?op/;
+//
+// verify(regexp,
+//     ["pop culture", "mad props"],
+//     ["plop", "prrrop"]);
+
+// 3. ferret 、 ferry 和 ferrari
+
+// verify(/ferr(et|y|ari)/,
+//     ["ferret", "ferry", "ferrari"],
+//     ["ferrum", "transfer A"]);
+
+// 4. 以 ious 结尾的单词
+
+// verify(/ious\b/,
+//     ["how delicious", "spacious room"],
+//     ["ruinous", "consciousness"]);
+
+// 5. 句号、冒号、分号之前的空白字符
+// verify(/\s[.,;:]/,
+//     ["bad punctuation ."],
+//     ["escape the period"]);
+
+
+// 6. 多于六个字母的单词
+// verify(/[\w]{7}\b/,
+//     ["hottentottententen"],
+//     ["no", "hotten totten tenten"]);
+
+// 7. 不包含 e （或者 E ）的单词
+
+// verify(/\b[^\WeE]+\b/,
+//     ["red platypus", "wobbling nest"],
+//     ["earth bed", "learning ape", "BEET"]);
+
+// 习题二
+// 前后的区别就是,单引号要么是字符开头,要么之前是非字母和数字,结束的单引号之后是非字母和数字结束,这两种模式都替换掉
+// let text = "'I'm the cook,' he said, 'it's my job.'";
+//
+// let regexp = /(^|\W)'|'(\W|$)/g;.
+// console.log(text.replace(regexp,'$1"$2' ));
+
+
+// 习题三
+// 数字部分
+// let number = /^[+-]?\d+$|^[+-]?\d+\.\d+$|^[+-]?\d\.+$|^[+-]?\.\d+$|(^[+-]?\d+|^[+-]?\d\.+|^[+-]?\d+\.\d+)[eE][+-]?\d+$/;
+// //              整数             前后数字      前小数点     后小数点       只存在整数 前后数字,后小数点的状态,三选一然后接大小E,正负号,和以整数结尾
+// for (let str of ["1", "-1", "+15", "1.55", ".5", "5.",
+//     "1.3e2", "1E-4", "1e+12"]) {
+//     if (!number.test(str)) {
+//         console.log(`Failed to match '${str}'`);
+//     }
+// } for (
+//     let str of ["1a", "+-1", "1.2.3", "1+1", "1e4.5", ".5.", "1f5", "."]) {
+//     if (number.test(str)) {
+//         console.log(`Incorrectly accepted '${str}'`);
+//     }
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

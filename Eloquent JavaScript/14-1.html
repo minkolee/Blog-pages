@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Eloquent JS</title>
+
+</head>
+<body>
+<table border="1" id="">
+    <tr id="thead"></tr>
+</table>
+
+
+<script>
+    let thead = document.getElementById("thead");
+    const MOUNTAINS = [
+        {name: "Kilimanjaro", height: 5895, place: "Tanzania"},
+        {name: "Everest", height: 8848, place: "Nepal"},
+        {name: "Mount Fuji", height: 3776, place: "Japan"},
+        {name: "Vaalserberg", height: 323, place: "Netherlands"},
+        {name: "Denali", height: 6168, place: "United States"},
+        {name: "Popocatepetl", height: 5465, place: "Mexico"},
+        {name: "Mont Blanc", height: 4808, place: "Italy/France"}
+    ];
+
+    for(let key of Object.keys(MOUNTAINS[0])){
+        let newTh=document.createElement("th");
+        newTh.innerText = key;
+        thead.appendChild(newTh);
+    }
+
+    for(let mountain of MOUNTAINS){
+        let newTR = document.createElement("tr");
+        let newName = document.createElement("td");
+        newName.innerText = mountain.name;
+        let newHeight = document.createElement("td");
+        newHeight.innerText = mountain.height;
+        let newPlace = document.createElement("td");
+        newPlace.innerText = mountain.place;
+        newTR.appendChild(newName);
+        newTR.appendChild(newHeight);
+        newTR.appendChild(newPlace);
+        thead.parentElement.appendChild(newTR);
+    }
+
+    thead.parentElement.style.textAlign = 'right';
+
+
+</script>
+</body>
+</html>
