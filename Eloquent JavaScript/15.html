@@ -6,35 +6,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>15</title>
     <style>
-        .trail { /* className for the trail elements */
+        /*.trail { !* className for the trail elements *!*/
+            /*position: absolute;*/
+            /*height: 6px; width: 6px;*/
+            /*border-radius: 3px;*/
+            /*background: teal;*/
+        /*}*/
+        /*body {*/
+            /*height: 300px;*/
+        /*}*/
+
+        #back {
+            height: 100vh;
+            position: relative;
+        }
+
+        #balloon {
+            display: inline-block;
             position: absolute;
-            height: 6px; width: 6px;
-            border-radius: 3px;
-            background: teal;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
         }
-        body {
-            height: 300px;
-        }
+
     </style>
 </head>
 <body>
 
-<script>
-    let dots = [];
-    for (let i = 0; i < 12; i++) {
-        let node = document.createElement("div");
-        node.className = "trail";
-        document.body.appendChild(node);
-        dots.push(node);
-    }
-    let currentDot = 0;
+<div id="back">
+    <span style="font-size: 20px;display:inline-block" id="balloon"></span>
+    <button id="up">ArrowUp</button>
+    <button id="down">ArrowDown</button>
+</div>
 
-    window.addEventListener("mousemove", event => {
-        let dot = dots[currentDot];
-        dot.style.left = (event.pageX - 3) + "px";
-        dot.style.top = (event.pageY - 3) + "px";
-        currentDot = (currentDot + 1) % dots.length;
-    });
+<script>
+    let ball = document.getElementById("balloon");
+    let start = 40;
+    ball.innerText = "\ud83c\udf88";
+    ball.style.fontSize = start + "px";
+
+    document.getElementById("up").addEventListener('click', up );
+
+    document.getElementById("down").addEventListener('click',down );
+
+    function up(event) {
+        if (Number(ball.style.fontSize.replace(/px/, "")) * 1.1 > 220) {
+            boom();
+        }
+        ball.style.fontSize = Number(ball.style.fontSize.replace(/px/, "")) * 1.1 + "px";
+
+    }
+
+    function down(event) {
+        ball.style.fontSize = Number(ball.style.fontSize.replace(/px/, "")) / 1.1 + "px";
+    }
+
+
+    function boom() {
+        document.getElementById("up").removeEventListener('click',up);
+        document.getElementById("down").removeEventListener('click',down);
+        ball.innerText = "\ud83d\udca5";
+    }
+
 </script>
 
 
@@ -45,42 +78,7 @@
 
 
 <!--习题一-->
-<!--<div id="back">-->
-<!--<span style="font-size: 20px;display:inline-block" id="balloon"></span>-->
-<!--<button id="up">ArrowUp</button>-->
-<!--<button id="down">ArrowDown</button>-->
-<!--</div>-->
 
-<!--<script>-->
-<!--let ball = document.getElementById("balloon");-->
-<!--let start = 40;-->
-<!--ball.innerText = "\ud83c\udf88";-->
-<!--ball.style.fontSize = start + "px";-->
-
-<!--document.getElementById("up").addEventListener('click', up )-->
-
-<!--document.getElementById("down").addEventListener('click',down )-->
-
-<!--function up(event) {-->
-<!--if (Number(ball.style.fontSize.replace(/px/, "")) * 1.1 > 220) {-->
-<!--boom();-->
-<!--}-->
-<!--ball.style.fontSize = Number(ball.style.fontSize.replace(/px/, "")) * 1.1 + "px";-->
-
-<!--}-->
-
-<!--function down(event) {-->
-<!--ball.style.fontSize = Number(ball.style.fontSize.replace(/px/, "")) / 1.1 + "px";-->
-<!--}-->
-
-
-<!--function boom() {-->
-<!--document.getElementById("up").removeEventListener('click',up);-->
-<!--document.getElementById("down").removeEventListener('click',down);-->
-<!--ball.innerText = "\ud83d\udca5";-->
-<!--}-->
-
-<!--</script>-->
 
 <!--习题二-->
 <!--每次清空画布并且绘制队列,感觉还有更好的方法-->

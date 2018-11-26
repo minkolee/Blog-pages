@@ -126,7 +126,7 @@ function nthRecursion(list, n) {
 
 
 // 第四题,核心在于Object.keys 函数。 你给它一个对象，它返回一个字符串数组 - 对象的属性名称。
-
+// 如果遇到两个对象比较，就继续调用该函数
 function deepEqual(obj1,obj2) {
     if(!obj1 || !obj2){
         return false
@@ -143,11 +143,16 @@ function deepEqual(obj1,obj2) {
     }
 
     for(let eachAttr of obj1Keys){
-        console.log(obj1[eachAttr]);
-        console.log(obj2[eachAttr]);
-        if(obj1[eachAttr]!==obj2[eachAttr]){
-            return false;
+        if(typeof obj1[eachAttr]==="object" || typeof obj2[eachAttr]==="object"){
+            if(!(deepEqual(obj1[eachAttr],obj2[eachAttr]))){
+                return false
+            }
+        }else {
+            if(obj1[eachAttr]!==obj2[eachAttr]){
+                return false
+            }
         }
     }
+
     return true
 }
