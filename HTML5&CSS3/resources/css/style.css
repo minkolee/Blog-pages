@@ -175,6 +175,14 @@ header {
     margin-top: 20px;
 }
 
+.logo-black {
+    display: none;
+    height: 50px;
+    width: auto;
+    float: left;
+}
+
+
 .main-nav {
     list-style: none;
     float: right;
@@ -202,6 +210,48 @@ header {
 .main-nav li a:active {
     border-bottom: 2px solid #e67e22;
 }
+
+/*sticky nav*/
+.sticky {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: #fff;
+}
+
+.sticky .main-nav li a:link,
+.sticky .main-nav li a:visited {
+    padding: 8px 0;
+    color: #555;
+
+}
+
+.sticky .logo{display: none}
+.sticky .logo-black {display: block}
+
+.main-nav {
+    list-style: none;
+    float: right;
+    margin-top: 15px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*features*/
 section {
