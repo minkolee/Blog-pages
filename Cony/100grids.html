@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>100Grid</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #e7e7e7;
+            font-family: sans-serif;
+        }
+
+        .w {
+            max-width: 1080px;
+            margin: 1em auto;
+        }
+
+        .grid {
+            height: 80px;
+            width: 10%;
+            background-color: #fff;
+            float: left;
+            text-align: center;
+            line-height: 70px;
+            box-sizing: border-box;
+            border: 1px solid #e7e7e7;
+            font-size: 2em;
+            transition: background-color 1s;
+        }
+
+        .buttons {
+            padding: 2em;
+        }
+
+        .buttons:before {
+            content: "";
+            display: table;
+            clear: both;
+        }
+
+        .btn {
+            display: inline-block;
+            height: 60px;
+            border-radius: 5px;
+            font-size: 2em;
+            padding: 0 0.5em;
+            color: #555555;
+            background-color: #fff;
+        }
+
+        #odd {
+            background-color: orange;
+        }
+
+        #even {
+            background-color: yellowgreen;
+        }
+
+        .divi {
+            display: inline-block;
+            height: 60px;
+            line-height: 60px;
+            color: #555555;
+            font-size: 2em;
+        }
+
+        .divi input {
+            padding: 0;
+            line-height: 60px;
+            height: 40px;
+            font-size: 1em;
+        }
+
+        @media only screen and (max-width: 768px) {
+            .grid {
+                height: 40px;
+                font-size: 1em;
+                line-height: 40px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+<div id="wrapper">
+    <div class="w">
+        <div class="grid">1</div>
+        <div class="grid">2</div>
+        <div class="grid">3</div>
+        <div class="grid">4</div>
+        <div class="grid">5</div>
+        <div class="grid">6</div>
+        <div class="grid">7</div>
+        <div class="grid">8</div>
+        <div class="grid">9</div>
+        <div class="grid">10</div>
+        <div class="grid">11</div>
+        <div class="grid">12</div>
+        <div class="grid">13</div>
+        <div class="grid">14</div>
+        <div class="grid">15</div>
+        <div class="grid">16</div>
+        <div class="grid">17</div>
+        <div class="grid">18</div>
+        <div class="grid">19</div>
+        <div class="grid">20</div>
+        <div class="grid">21</div>
+        <div class="grid">22</div>
+        <div class="grid">23</div>
+        <div class="grid">24</div>
+        <div class="grid">25</div>
+        <div class="grid">26</div>
+        <div class="grid">27</div>
+        <div class="grid">28</div>
+        <div class="grid">29</div>
+        <div class="grid">30</div>
+        <div class="grid">31</div>
+        <div class="grid">32</div>
+        <div class="grid">33</div>
+        <div class="grid">34</div>
+        <div class="grid">35</div>
+        <div class="grid">36</div>
+        <div class="grid">37</div>
+        <div class="grid">38</div>
+        <div class="grid">39</div>
+        <div class="grid">40</div>
+        <div class="grid">41</div>
+        <div class="grid">42</div>
+        <div class="grid">43</div>
+        <div class="grid">44</div>
+        <div class="grid">45</div>
+        <div class="grid">46</div>
+        <div class="grid">47</div>
+        <div class="grid">48</div>
+        <div class="grid">49</div>
+        <div class="grid">50</div>
+        <div class="grid">51</div>
+        <div class="grid">52</div>
+        <div class="grid">53</div>
+        <div class="grid">54</div>
+        <div class="grid">55</div>
+        <div class="grid">56</div>
+        <div class="grid">57</div>
+        <div class="grid">58</div>
+        <div class="grid">59</div>
+        <div class="grid">60</div>
+        <div class="grid">61</div>
+        <div class="grid">62</div>
+        <div class="grid">63</div>
+        <div class="grid">64</div>
+        <div class="grid">65</div>
+        <div class="grid">66</div>
+        <div class="grid">67</div>
+        <div class="grid">68</div>
+        <div class="grid">69</div>
+        <div class="grid">70</div>
+        <div class="grid">71</div>
+        <div class="grid">72</div>
+        <div class="grid">73</div>
+        <div class="grid">74</div>
+        <div class="grid">75</div>
+        <div class="grid">76</div>
+        <div class="grid">77</div>
+        <div class="grid">78</div>
+        <div class="grid">79</div>
+        <div class="grid">80</div>
+        <div class="grid">81</div>
+        <div class="grid">82</div>
+        <div class="grid">83</div>
+        <div class="grid">84</div>
+        <div class="grid">85</div>
+        <div class="grid">86</div>
+        <div class="grid">87</div>
+        <div class="grid">88</div>
+        <div class="grid">89</div>
+        <div class="grid">90</div>
+        <div class="grid">91</div>
+        <div class="grid">92</div>
+        <div class="grid">93</div>
+        <div class="grid">94</div>
+        <div class="grid">95</div>
+        <div class="grid">96</div>
+        <div class="grid">97</div>
+        <div class="grid">98</div>
+        <div class="grid">99</div>
+        <div class="grid">100</div>
+    </div>
+</div>
+<div class="buttons">
+    <div class="w">
+        <button class="btn" id="odd" data-type="odd">奇数/单数</button>
+        <button class="btn" id="even" data-type="even">偶数/双数</button>
+        <div class="divi">
+            能被<input id="dividedby" type="number" min="1" max="10">整除
+        </div>
+        <button class="btn" id="reset" data-type="reset">重置</button>
+
+    </div>
+</div>
+
+
+<script>
+    let odd = document.getElementById("odd");
+    let even = document.getElementById("even");
+    let reset = document.getElementById("reset");
+    let divide = document.getElementById("dividedby");
+    let grids = document.getElementsByClassName("grid");
+    odd.addEventListener('click', clickHandler);
+    even.addEventListener('click', clickHandler);
+    reset.addEventListener('click', clickHandler);
+    divide.addEventListener("input", inputHandler);
+    let timer = null;
+
+    function clickHandler() {
+        clearInterval(timer);
+        if (this.getAttribute('data-type') === "odd") {
+            for (let i = 0; i < grids.length; i++) {
+                if (i % 2 === 0) {
+                    grids[i].style.backgroundColor = "orange";
+                    grids[i].style.color = "";
+                } else {
+                    grids[i].style.backgroundColor = "";
+                    grids[i].style.color = "";
+                }
+            }
+        }
+        if (this.getAttribute('data-type') === "even") {
+            for (let i = 0; i < grids.length; i++) {
+                if (i % 2 !== 0) {
+                    grids[i].style.backgroundColor = "yellowgreen";
+                    grids[i].style.color = "";
+                } else {
+                    grids[i].style.backgroundColor = "";
+                    grids[i].style.color = "";
+                }
+            }
+        }
+
+        if (this.getAttribute("data-type") === "reset") {
+            for (let i = 0; i < grids.length; i++) {
+                grids[i].style.backgroundColor = "";
+                grids[i].style.color = "";
+            }
+            timer = setInterval(randomColor, 1500);
+        }
+        divide.value = "";
+    }
+
+    function inputHandler() {
+        clearInterval(timer)
+        let value = parseInt(this.value);
+        console.log(value)
+        for (let i = 0; i < grids.length; i++) {
+            if ((i + 1) % value === 0) {
+                grids[i].style.backgroundColor = "cyan";
+                grids[i].style.color = "";
+            } else {
+                grids[i].style.backgroundColor = "";
+                grids[i].style.color = "";
+            }
+        }
+    }
+
+    timer = setInterval(randomColor, 1500)
+
+    function randomColor() {
+        let index = parseInt(Math.random() * 100);
+        let red = parseInt(Math.random() * 255);
+        let green = parseInt(Math.random() * 255);
+        let blue = parseInt(Math.random() * 255);
+        for (let i = 0; i < grids.length; i++) {
+            grids[i].style.backgroundColor = "";
+            grids[i].style.color = "";
+
+        }
+        if(red<100 && green<100 && blue<100){
+            grids[index].style.color = '#e7e7e7'
+        }
+        grids[index].style.backgroundColor = "rgb(" + red + "," + green + "," + blue + ")";
+    }
+
+</script>
+
+
+</body>
+</html>
