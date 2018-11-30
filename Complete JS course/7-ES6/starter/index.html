@@ -1,33 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>Section 7: Get Ready for the Future: ES6 / ES2015</title>
-        
-        <style>
-            .box {
-                width: 200px;
-                padding: 60px;
-                text-align: center;
-                font-size: 30px;
-                margin-top: 50px;
-            }
-            
-            .green { background-color: green; }
-            .blue { background-color: dodgerblue; }
-            .orange { background-color: orangered; }
-            
-        </style>
-        
-    </head>
+<head>
+    <meta charset="UTF-8">
+    <title>Section 7: Get Ready for the Future: ES6 / ES2015</title>
 
-    <body>
-        <h1>Section 7: Get Ready for the Future: ES6 / ES2015</h1>
-        
-        <div class="box green">I'm green!</div>
-        <div class="box blue">I'm blue!</div>
-        <div class="box orange">I'm orange!</div>
-        
-        <script src="script.js"></script>
-    </body>
+    <style>
+        .box {
+            width: 200px;
+            padding: 60px;
+            text-align: center;
+            font-size: 30px;
+            margin-top: 50px;
+        }
+
+        .green {
+            background-color: green;
+        }
+
+        .blue {
+            background-color: dodgerblue;
+        }
+
+        .orange {
+            background-color: orangered;
+        }
+
+    </style>
+
+</head>
+
+<body>
+<h1>Section 7: Get Ready for the Future: ES6 / ES2015</h1>
+
+<div class="box green">I'm green!</div>
+<div class="box blue">I'm blue!</div>
+<div class="box orange">I'm orange!</div>
+
+<script>
+    // var name5 = "Jane Smith";
+    // var age5 = 23;
+    // name5 = "Jane Miller";
+    // console.log(name5);
+
+    //const 常量,改变其值会报错
+    // const  name6 = "Jane Smith";
+    // name6 = "Jane Miller";
+    // console.log(name6);
+
+
+    //引用常量,其实是指针,指针地址不变,指向的对象的内容可以修改
+    // const arr = [1,2,3,4];
+    // arr.push(5);
+    // console.log(arr);
+    // arr = [];
+
+    //var 在函数内部是函数环境, let 则是严格的块级作用域
+    //var和let对于闭包不同效果,let变量无需再闭包闭进去,实际操作就行了
+
+
+    //块级作用域不会影响外边的同级元素
+    // let i =23;
+    //
+    // for(let i=0;i<5;i++){
+    //     console.log(i);
+    // }
+    // console.log(i);
+
+
+    // 新的BLock和IIFEs的方法
+
+    // 使用花括号直接创建一个Block块区域或者说是IIFE,注意,这个不是创建对象
+    // {
+    //     const a = 1;
+    //     let b = 2;
+    //     var c = 3;
+    // }
+    //
+    // console.log(a + b);
+    // console.log(c)  //var根本无块级作用域可言,所以直接就泄露到了全局环境中,ES6中应该避免使用var
+
+    // ES6中新的字符串方法
+
+    let firstName = "john";
+    let lastName = "Smith";
+    const yearOfBirth = 1990;
+    function calcAge(year) {
+        return 2016-year;
+    }
+
+    //ES6
+    console.log(firstName.startsWith('J'));
+    console.log(firstName.endsWith('n'));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</script>
+</body>
 </html>
