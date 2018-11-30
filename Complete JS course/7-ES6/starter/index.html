@@ -81,24 +81,116 @@
 
     // ES6中新的字符串方法
 
-    let firstName = "john";
-    let lastName = "Smith";
-    const yearOfBirth = 1990;
-    function calcAge(year) {
-        return 2016-year;
+    // let firstName = "john";
+    // let lastName = "Smith";
+    // const yearOfBirth = 1990;
+    // function calcAge(year) {
+    //     return 2016-year;
+    // }
+
+    //ES6 字符串新方法
+    // console.log(firstName.startsWith('J'));
+    // console.log(firstName.endsWith('n'));
+    // console.log(firstName.includes("oh"));
+    // console.log(`${firstName}`.repeat(5));
+
+    // ES6 箭头函数
+    // const years = [1990, 1965, 1982, 1937];
+
+    //ES5操作
+    // var ages5 = years.map(function (el) {
+    //     return 2016 - el;
+    // });
+
+    // console.log(ages5);
+
+    // ES6匿名函数使用箭头函数
+
+    // let ages6 = years.map(el => 2016 - el);
+    // console.log(ages6);
+    //
+    // ages6 = years.map((el,index)=> `Age element ${index+1}:${2016-el}.`);
+    // console.log(ages6);
+    //
+    // ages6 = years.map((el,index)=>{
+    //     const now = new Date().getFullYear();
+    //     const age = now - el;
+    //     return `Age element ${index+1}:${age}.`
+    // });
+    // console.log(ages6);
+
+    // ES6箭头函数最重要的是不会重新定义this属性
+    // ES5
+
+    // var box5 = {
+    //     color: 'green',
+    //     position: 1,
+    //     clickMe: function () {
+    //         document.querySelector(".green").addEventListener("click", function () {
+    //             alert(this.color);
+    //         })
+    //     }
+    // };
+    // // 由于callback 函数不是由对象调用,所以this.color为undefined,无法显示
+    // box5.clickMe();
+
+    // ES6
+    // let box6 = {
+    //     color: 'green',
+    //     position: 1,
+    //     clickMe: function () {
+    //         document.querySelector(".green").addEventListener("click", e => {
+    //             alert(this.color);
+    //         })
+    //     }
+    // };
+    // box6.clickMe();
+
+    // destructing 直接命名变量对应数组内元素,在函数形参中也可以使用
+    //ES5
+    // var john = ['john', 26];
+    // var name = john[0];
+    // var age = john[1];
+    //
+    // ES6
+    // let john = ['john',26];
+    //
+    //
+    // function show([name,age]) {
+    //     console.log(name);
+    //     console.log(age);
+    // }
+    //
+    // show(john);
+    //    还可以解构对象
+
+    // const obj = {
+    //     firstName: 'John',
+    //     lastName: "Smith"
+    // };
+
+    // const {firstName,lastName} = obj;
+    //
+    // console.log(firstName);
+    // console.log(lastName);
+
+    // 解构实际的属性并赋予别名
+    // const {firstName:a, lastName:b} = obj;
+    //
+    // console.log(a);//别名a对应firstName属性
+    // console.log(b);
+    // console.log(firstName);//此时这个不生效
+    // console.log(lastName);//此时这个不生效
+
+    function calcAgeRetirement(year) {
+        const age = new Date().getFullYear() - year;
+        return [age,65-age]
     }
 
-    //ES6
-    console.log(firstName.startsWith('J'));
-    console.log(firstName.endsWith('n'));
+    const [age,retirement] = calcAgeRetirement(1990);
 
-
-
-
-
-
-
-
+    console.log(age);
+    console.log(retirement);
 
 
 
