@@ -265,30 +265,84 @@
     //ES6 函数默认值
     //默认值自己已经搞定了,还写了一篇小文章
 
+    //Maps ES6新增数据类型
+    //ES5对象是一个散列表.但是对象的键只能是字符串,ES6新数据结构Map可以使用字符串以外的可哈希值作为键.
+    // const question = new Map();
+    // //使用set方法设置键值对
+    // question.set('question', 'What is the official name of the latest major JavaScript version?');
+    // question.set(1, 'ES5');
+    // question.set(2, 'ES6');
+    // question.set(3, 'ES2015');
+    // question.set(4, 'ES7');
+    // question.set("correct", 3);
+    // question.set(true, 'Correct answer');
+    // question.set(false, "Wrong, please try again!");
+    // console.log(question);
+    //
+    // question.get('question');
+    // question.delete(4);
+    // question.has(4);//检查是否存在该键
+
+    //回调函数传入的是先value后key
+    // question.forEach((value, key) => {
+    //     console.log(value);
+    //     console.log(key);
+    //
+    // });
+    //
+    //
+    // question.entries();//是一个键值对的迭代器,可以用for of 来遍历所有键值对
+    //
+    // for(let [key,value] of question.entries()){
+    //     console.log(`${key}====${value}`)
+    // }
+    //要注意回调函数的键值顺序和这里相反
+    //总结一下,这玩意其实就是Python的字典,原来的对象键值对比较简陋
 
 
+    //class 类
+    //ES6的类没有提供任何新的内容,仅仅是语法糖
+
+    //ES5创建类
+    //注意,构造函数里写方法,会将方法直接绑定到每个对象,开销太大,一定要绑定到原型上去
+    var Person5 = function (name, year, job) {
+        this.name = name;
+        this.year = year;
+        this.job = job;
+    }
+
+    Person5.prototype.showName = function () {
+        console.log(this.name);
+    }
 
 
+    var john5 = new Person5("John", 1990, 'teacher');
+    //
+    // //ES6
+    //
+    // class Person6 {
+    //     constructor(name, year, job) {
+    //         this.name = name;
+    //         this.year = year;
+    //         this.job = job;
+    //     }
+    //     // 类方法直接使用方法名定义即可
+    //     showName(){
+    //         console.log(this.name);
+    //     }
+    //
+    //     //ES6能够添加静态方法也就是类方法啦,和Python里的类方法是一样的,只能由类调用,而不是对象.
+    //     static greeting(){
+    //         console.log("Hey there!")
+    //     }
+    // }
+    //
+    // var john6 = new Person5("John", 1990, 'teacher');
+    // // 使用class会将方法绑定到原型上,因此class 就是ES5对象的语法糖,没有任何新增内容
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    // 类的继承
+    //ES5需要在子类的构造函数内调用父类的构造函数,而且是以.call方式调用,这样就是以当前的对象设置属性.然后再把新增的属性设置上.
+    //然后再把子类的prototype指向父类的prototype,就完成了基于原型链的继承
 
 
 </script>
