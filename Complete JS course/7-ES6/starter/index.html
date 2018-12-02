@@ -182,15 +182,103 @@
     // console.log(firstName);//此时这个不生效
     // console.log(lastName);//此时这个不生效
 
-    function calcAgeRetirement(year) {
-        const age = new Date().getFullYear() - year;
-        return [age,65-age]
-    }
+    // function calcAgeRetirement(year) {
+    //     const age = new Date().getFullYear() - year;
+    //     return [age,65-age]
+    // }
+    //
+    // const [age,retirement] = calcAgeRetirement(1990);
+    //
+    // console.log(age);
+    // console.log(retirement);
 
-    const [age,retirement] = calcAgeRetirement(1990);
+    // const boxes = document.querySelectorAll(".box");
+    // console.log(boxes);
 
-    console.log(age);
-    console.log(retirement);
+    // ES5
+    // 转换为数组需要在boxes上调用slice方法
+    // var boxesArr5 = Array.prototype.slice.call(boxes);
+    // boxesArr5.forEach(function (cur) {
+    //     cur.style.backgroundColor = "blue";
+    // });
+
+    // ES6
+    // 新方法Array.from直接可以生成数组
+
+    // const boxesArr6 = Array.from(boxes);
+    // boxesArr6.forEach(cur => cur.style.backgroundColor="orange");
+
+    // 遍历数组元素
+    // ES5遍历数组并且操作元素通常使用for
+    // for(var i = 0;i<boxesArr5.length;i++){
+    //     if(boxesArr5[i].className ==="box blue"){
+    //         continue;
+    //     } else {
+    //         boxesArr5[i].textContent='I am not blue.';
+    //     }
+    // }
+
+    // ES6使用 for of 遍历数组元素
+    // 遍历类名的时候可以考虑使用字符串新的includes方法
+    // for(let element of boxesArr6){
+    //     if(element.className.includes("blue")){
+    //         element.textContent = 'I am blue also in ES6.';
+    //     }
+    // }
+
+    // ES6中的indexof方法
+    //ES5找到一个符合条件的数据所在的索引很麻烦
+    // var ages = [12, 17, 8, 21, 24, 11];
+    //
+    // var full = ages.map(function (cur) {
+    //     return cur>=18;
+    // });
+    // console.log(full);
+    // console.log(full.indexOf(true));
+
+    // ES6
+    // let full = ages.findIndex(cur => cur >= 18);//找索引
+    // console.log(full);
+    //
+    // let fullage = ages.find(cur=>cur>=18);
+    // console.log(fullage)
+
+    // ES6中的拆解数组的参数和使用,类似于python中的**kwargs
+    // function addFourAges(a,b,c,d) {
+    //     return a+b+c+d;
+    // }
+    //
+    // var sum1 = addFourAges(10,20,30,36);
+    // console.log(sum1);
+
+    // ES5
+    // var ages = [18,20,30,36];
+    // var sum2 = addFourAges.apply(null,ages);//用apply调用,数组的元素会一一对应函数内arguments对象的位置
+    // console.log(sum2);
+    // ES6
+    //在传参和拆解数组合并新数组的时候都可以使用,Python也可以.
+    // let sum6 = addFourAges(...ages);
+    // console.log(sum6)
+    // 对于类似列表的组合比如选择器选出来的东西也适用
+    // 与这个类似,用来将若干参数收集为一个数组的叫做 REST parameters
+
+    //ES6 函数默认值
+    //默认值自己已经搞定了,还写了一篇小文章
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
