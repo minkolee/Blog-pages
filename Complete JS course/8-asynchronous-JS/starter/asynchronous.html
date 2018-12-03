@@ -52,8 +52,17 @@
 
     //await 用于处理成功resolve的情况
 
-    fetch(" ")
+    let response = fetch(" ");
+    response.then(result => {
+        console.log(result);
+        let res = JSON.parse(result);
+        console.log(res);
+    }).catch(error => {
+        console.log(error);
+    })
 
+    //ES6的fetch封装的就是一个AJAX请求,使用Promise的方式
+    //由于fetch也是浏览器对象,所以天生异步,并不是JS的组成部分
 
 
 
