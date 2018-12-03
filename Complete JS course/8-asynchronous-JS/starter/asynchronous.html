@@ -7,9 +7,118 @@
     <title>Asynchronous JavaScript</title>
 </head>
 <body>
-    <h1>Asynchronous JavaScript</h1>
-    <script>
-        
-    </script>
+<h1>Asynchronous JavaScript</h1>
+<script>
+    // function getRecipe() {
+    //     setTimeout(() => {
+    //         const recipeID = [523, 883, 432, 974];
+    //         console.log(recipeID);
+    //
+    //
+    //         setTimeout((id) => {
+    //             const recipe = {title: "Fresh tomato paste", publisher: "Jonas"};
+    //             console.log(`${id}:${recipe.title}`);
+    //
+    //             setTimeout(publisher => {
+    //                 const recipe = {title: 'Italian Pizza', publisher: "Minko"};
+    //             }, 1500, recipe.publisher);
+    //                 console.log(`${id}:${recipe.publisher}`);
+    //
+    //         }, 1500, recipeID[2])
+    //         //setTimeout的第三个参数是传递给callback函数的参数
+    //
+    //     }, 1500)
+    // }
+    //
+    // getRecipe();
+    //上边的叫做callback地狱,即嵌套的一层又一层根据上一个执行情况进行回调
+    //ES6有更好的方式 ,叫做promise
+    //Promise是一个对象,根据最后的状态,有两种,fullfilled促成成功执行,reject表示失败
+    //创建一个Promise就是设置了Promise,然后给回调函数传入两个函数参数,分别表示成功和失败的时候进行的处理.
+
+    // //resolve表是成功执行的时候,向then方法中的回调函数传入的数据
+    //
+    // //Promise有两个参数,then表示成功的时候执行
+    // //这个then里边的回调匿名函数使用的就是Promise执行体中传给resolve的参数
+    // getIDs.then(IDs=>{
+    //     console.log(...IDs);
+    // })
+    //     .catch(error => {
+    //         console.log(error);
+    //     })
+    // //如果执行体中改成了reject,则会将结果传给catch中的回调函数.
+    // //这样就可以在执行体中,通过不同的条件分别使用resolve和reject,之后就可以通过then 和 catch 方法来对Promise返回的结果进行处理.
+    //
+
+    //await 用于处理成功resolve的情况
+
+    fetch(" ")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</script>
 </body>
 </html>
