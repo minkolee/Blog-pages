@@ -1,0 +1,13 @@
+        h1 {
+            color:#6a94cc;
+            font-size: 3em;
+            margin:0;
+        }
+        
+        p {
+            font-size:1.25em;
+            color:#616161;
+            line-height: 150%;
+            margin-top: 10px;
+            margin-left: 60px
+        }
