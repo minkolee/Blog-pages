@@ -21,13 +21,13 @@ const controlSearch = async () => {
 
         // 3 准备UI元素,更新查询结果
         searchView.clearInput();
-        searchView.clearResults();
 
         // 4 查询结果
 
         await state.search.getResults();
 
         // 5 在UI上渲染结果
+        searchView.clearResults();
         searchView.renderResults(state.search.result)
     }
 }

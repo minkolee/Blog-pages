@@ -14,6 +14,21 @@ export const clearResults = () => {
     elements.seachResList.innerHTML = "";
 }
 
+//"Pasta with tomato and spinach"
+
+const limitRecipeTitle = (title,limit=17) =>{
+    const newTitle = [];
+    if(title.length > limit) {
+        title.split(' ').reduce((acc,curr) =>{
+            if(acc+cur.length <= limit){
+                newTitle.push(cur);
+            }
+            return acc + cur.length;
+        },0)
+    }
+    return `${newTitle.join(" ")} ...)`;
+}
+
 const renderRecipe = recipe => {
     //渲染模板字符串
     const markup = `

@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Selector Basics</title>
+  <style>
+    .test {
+      max-width: 1140px;
+      line-height: 150%;
+    }
+    
+    .test h1 {
+      text-align: center;
+      font-size: 2rem;
+      color: #555;
+    }
+    
+    .test p {
+      line-height: 200%;
+      font-size: 1.5rem;
+      background-color: #ddd;
+    }
+    
+    .test a:active, .test a:link {
+      text-decoration: none ;
+      display: inline-block;
+      background-color: #eee;
+      color: #666;
+    }
+
+    .test p::first-letter {
+      font-size: 2rem;
+      color: darkred;
+      text-transform: uppercase;
+    }
+
+    .test input:focus {
+      background-color: yellow;
+    }
+
+    ::selection {
+      color: #FFF;
+      background-color: #993366;
+    }
+  </style>  
+  
+  
+  
+  
+</head>
+<body>
+
+<div class="test">
+  <h1>Test of class 1</h1>
+  <p>dfsajklkjsdajsklfjklsfdskljkvjckjjksdjkfkjsdjkf</p>
+  <p>sdfuiofiuosuiaiu<a href="http://conyli.cc">柚子小站</a></p>
+  <input type="text">
+</div>
+
+<div class="orin">
+  <h1>Test of class 1</h1>
+  <p>dfsajklkjsdajsklfjklsfdskljkvjckjjksdjkfkjsdjkf</p>
+  <p>sdfuiofiuosuiaiu<a href="http://conyli.cc">柚子小站</a></p>
+</div>
+
+
+
+
+
+
+
+
+
+</body>
+</html>
+
+
