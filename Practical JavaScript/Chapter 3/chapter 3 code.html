@@ -13,15 +13,15 @@
 
 
         .center {
-            max-width: 33%;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            /*max-width: 33%;*/
+            /*position: absolute;*/
+            /*top: 50%;*/
+            /*left: 50%;*/
+            /*transform: translate(-50%, -50%);*/
         }
 
         .center h1 {
-            text-align: center;
+            /*text-align: center;*/
         }
 
         .center input {
@@ -30,25 +30,34 @@
             font-size: 2em;
         }
 
+        #result {
+            position: relative;
+            max-width: 300px;
+        }
 
     </style>
 </head>
 <body>
-
 <div class="center">
-    <h1>Login</h1>
-    <form action=".">
-        <div class="form-line">Username
-            <label><input type="text" name="username"></label>
-        </div>
-        <div class="form-line">Password
-            <label><input type="password" name="password"></label>
-        </div>
-        <input type="submit">
-    </form>
+    <h1>Result</h1>
+
 </div>
+
+<div id="result">Test</div>
+
+
 
 <script src="chapter3.js"></script>
 <script src="jscript.array.js"></script>
+<script src="jscript.browser.js"></script>
+<script src="jscript.datetime.js"></script>
+<script src="jscript.debug.js"></script>
+<script src="jscript.dom.js"></script>
+<script>
+    var result = document.getElementById("result");
+    result.innerText = jscript.browser.getBrowserIdentity();
+    // var  log = new jscript.debug.DivLogger();
+    // log.setTargetDiv(result);
+</script>
 </body>
 </html>
