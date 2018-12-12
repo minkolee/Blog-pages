@@ -26,6 +26,25 @@
         return character.toUpperCase();
     }
 
+    let testObj = (function () {
+        let a = 0;
+        let b = [];
+
+        function increa(el) {
+            a += el;
+        }
+
+        function increb(el) {
+            b.push(el);
+        }
+
+        function showall() {
+            console.log("a is " + a + "| b is " + b);
+        }
+
+        return {"ina": increa, "inb": increb,"show":showall}
+    })()
+
 
 
 </script>
