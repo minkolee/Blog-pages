@@ -104,15 +104,11 @@
 
 <script>
     let hardcore = document.querySelector(".hardcore");
-    let timer = null;
-    timer = setInterval(moveHardcore, 3000);
+    setInterval(moveHardcore, 3000);
     function moveHardcore() {
         hardcore.style.top = parseInt(Math.random() * 95) + "vh";
         hardcore.style.left =parseInt(Math.random() * 95)  + "vw";
     }
-
-
-
 </script>
 </body>
 
