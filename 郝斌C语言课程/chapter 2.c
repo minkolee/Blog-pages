@@ -70,15 +70,44 @@
 
 //练习1-5 用for编写300-0的逆序输出温度函数 
 
-int main (void){	
-	int fahr;
-	for (fahr = 300; fahr >= 0; fahr = fahr - 20)
-	printf("%3d %6.1f\n", fahr, (5.0/9.0)*(fahr-32));	 
-}
+//int main (void){	
+//	int fahr;
+//	for (fahr = 300; fahr >= 0; fahr = fahr - 20)
+//	printf("%3d %6.1f\n", fahr, (5.0/9.0)*(fahr-32));	 
+//}
 
 
 // 用define 定义常量
 
 
 // getchar 与 putchar
+
+//练习1.6 验证表达式 getchar()!=EOF的值
+//int main(void){
+//    int c;
+//    while((c=getchar()) != '\n'){
+//        putchar(c);
+//    }
+//    return 0;
+//} 
+
+int main(void){
+    int * a= {1,2,3,4,5};
+    
+    printf("%d\n",sizeof(a));
+    return 0;
+} 
+
+
+
+
+
+
+
+
+
+
+
+
+
 
