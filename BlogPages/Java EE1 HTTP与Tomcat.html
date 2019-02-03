@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TITLE</title>
+    <link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css"
+          integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+</head>
+<body>
+<h1 style="text-align: center;">Java Web 开发纵览</h1>
+<p>Web开发哟，我又回来了！</p>
+<p>先说一下开始JavaEE的感想，之前传智的课程在开始Java EE 之前有个热身的从XML加载配置然后用反射启动程序的教程。这里就不由自主的想到了Django 也是如此。加上想起来之前在某处看到的话：Web框架一般都是采取了反射技术，一下就理解更深了。学习编程果然是一个螺旋式探索的过程。像极了生化危机里绕了一大圈开门回到警察局大厅，打开了一条新的通路</p>
+<p>在学习Django的时候，Web服务使用的是uWSGI，数据库服务是PymySQL或者PostgreSQL的库，中间的框架自然就是Django，来看看Java Web开发所要用到的技术栈吧：</p>
+
+<table style="text-align: center">
+    <thead>
+    <tr >
+        <th style="text-align: center">Web 服务层</th>
+        <th style="text-align: center">Service 业务层</th>
+        <th style="text-align: center">DAO 数据层</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>tomcat+jsp+servelt<br>struts2<br>SpringMVC</td>
+        <td>spring</td>
+        <td>JDBC<br>DBUtils<br>hibernate</td>
+    </tr>
+    </tbody>
+</table>
+
+<h1 style="text-align: center;">HTTP协议</h1>
+<p>在原来的Django开发中，主要集中在业务层面的开发，HTTP协议被淡化，虽然一般教程中也会提到request对象的使用和增加自定义头部信息，但整体很少使用这个技术。但是在Java开发中，就要更深入的使用HTTP协议了。</p>
+<p>HTTP协议是约束Web服务器与访问者行为的规定。请求和响应必须成对，先有请求后有响应。默认端口是80。</p>
+<p>HTTP1.0版本一次请求创建一个连接，获取一个资源，HTTP1.1版本创建一个连接，可以获取多个资源。</p>
+<p>现在的HTTP都是1.1版本，已经没有1.0版本。</p>
+<h2>HTTP请求</h2>
+<p>请求方式，HTTP规范里有很多，但实际上日常用到的只有GET和POST</p>
+<h3>请求头</h3>
+<p>请求头由key:value构成，有固定的写法：</p>
+<table style="text-align: center">
+    <thead>
+    <tr >
+        <th style="text-align: center">请求头</th>
+        <th style="text-align: center">解释</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>Accept</td>
+        <td>数据类型，用大类型/小类型[参数]表示，传输文件和请求是不同的，要注意</td>
+    </tr>
+    <tr>
+        <td style="color:red">Referer</td>
+        <td>浏览器通知服务器，当前请求来自何处。如果是直接访问，则不会有这个头。常用于：防盗链</td>
+    </tr>
+    <tr>
+        <td>Accept-Language</td>
+        <td>浏览器通知服务器，能够支持的语言</td>
+    </tr>
+    <tr>
+        <td>User-Agent</td>
+        <td>浏览器和操作系统信息</td>
+    </tr>
+    <tr>
+        <td>Content-Type</td>
+        <td>如果是POST请求，就有这个头，表示请求体内容使用的编码，上传文件时候就需要特别设置</td>
+    </tr>
+    <tr>
+        <td>Accept-Encoding</td>
+        <td>浏览器通知服务器，能接受的数据压缩格式</td>
+    </tr>
+    <tr>
+        <td>Host</td>
+        <td>请求的服务器主机名与端口</td>
+    </tr>
+    <tr>
+        <td>Content-Length</td>
+        <td>请求体的长度</td>
+    </tr>
+    <tr>
+        <td>Connection</td>
+        <td>连接状态，如果是Keep-Alive就是保持连接，close就是已关闭</td>
+    </tr>
+    <tr>
+        <td style="color:red">If—Modified—Since</td>
+        <td>浏览器通知服务器，本地缓存的最后变更时间，与其他响应头共同控制浏览器页面的缓存</td>
+    </tr>
+    <tr>
+        <td style="color:red">Cookie</td>
+        <td>与会话有关的技术，用于存放cookie信息</td>
+    </tr>
+    </tbody>
+</table>
+<p>标红色的是比较重要的请求头。此外还要注意的是，发送请求和回复请求，以及网络上传输的所有数据比如HTML文件，最终都是以UTF-8格式发送的二进制字节流。所以编码和解码也很重要。</p>
+<h3>请求体</h3>
+<p>请求头与请求体之间，有两个换行符 /r/n/r/n 来区分</p>
+<p>POST提交的数据 都会放在请求体中。GET请求的参数则会放在请求头中。</p>
+
+<h2>HTTP响应</h2>
+<p>响应与请求成对出现，接受到一个请求，服务器就应该发送一个响应。</p>
+<p>响应也分为头部信息和响应体，来看看常见的响应头部信息：</p>
+<table style="text-align: center">
+    <thead>
+    <tr >
+        <th style="text-align: center">响应头</th>
+        <th style="text-align: center">解释</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td style="color:red">Location</td>
+        <td>指定响应路径，与302一起配合使用完成跳转功能</td>
+    </tr>
+    <tr>
+        <td style="color:red">content-type</td>
+        <td>文件数据类型，使用大类型/小类型 来标识数据类型，还可以带上字符集参数，很重要</td>
+    </tr>
+    <tr>
+        <td style="color:red">Content-Disposition</td>
+        <td>通过浏览器以下载方式解析正文，参数可以是attachment;filename=xx.zip之类</td>
+    </tr>
+    <tr>
+        <td style="color:red">Set-Cookie</td>
+        <td>设置Cookie，服务器向浏览器传输Cookie</td>
+    </tr>
+    <tr>
+        <td>content-encoding</td>
+        <td>服务器支持的压缩格式</td>
+    </tr>
+    <tr>
+        <td>Refresh</td>
+        <td>定时刷新，参数格式为 秒数;url=路径。 url可以省略，默认值为当前页</td>
+    </tr>
+    <tr>
+        <td>Server</td>
+        <td>指服务器名称，可以由服务器端自定义</td>
+    </tr>
+    <tr>
+        <td>Content-Length</td>
+        <td>响应正文的长度</td>
+    </tr>
+    <tr>
+        <td>Last-Modified</td>
+        <td>服务器通知浏览器，最后修改时间，与请求头的If—Modified—Since配合可以检测页面更新情况进而做操作</td>
+    </tr>
+    </tbody>
+</table>
+<p>响应中还一个很重要的内容就是状态码。</p>
+<p>请求和响应的具体键值有很多种设置，只要知道常用的，还有一些核心的内容，其他的在用到的时候可以查询。</p>
+<p>通过设置请求头和请求体，就可以实现浏览器和服务器在基础连接和协议方面的沟通，在此基础上可以传输任意的数据，传输的具体数据就是响应体。</p>
+
+<h2>Web服务</h2>
+<p>Web服务的B/S和C/S已经知道了，如今就是要做C/S架构的Web应用了。</p>
+<p>首先就是Tomcat的配置，类似于Django前端用于解析request的中间件，就像Django自带测试服务器一样。</p>
+<p>看了网上的配置文件，创建的时候选择Java EE 然后Web，实际上这个只影响创建文件的体系，还需要在Run-config的时候加入Tomcat服务，这个网上有很多教程了。</p>
+<p>自己在尝试的时候，发现只能启动项目名称外加Build名称默认路径下的内容，无法自定义访问路径，估计还有些东西不太清楚如何操作。</p>
+
+
+
+
+
+
+</body>
+</html>
