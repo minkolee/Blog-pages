@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring初步</title>
+
+</head>
+<body>
+<p>教学视频中采用的是Eclipse作为IDE，先是安装Tomcat9，然后是Eclipse，之后是在Eclipse中配置Tomcat部署。我用的是IntelliJ IDEA 2018 Ultimate 2018.3，就记录一下自己的方式吧。</p>
+
+<h1>Tomcat 和 IntelliJ的配置与连接</h1>
+<p>这一步之前的Java EE的时候已经做过了，但是没有系统总结过，就重新做一下吧。</p>
+<p>首先Tomcat 9 下载压缩包，然后配置JAVA_HOME和JRE_HOME环境变量，之后是CATALINA_HOME变量，然后到Tomcat的bin目录下启动tomcat，到localhost:8080检测一下就完毕了。</p>
+<p>如果不动Tomcat的高深配置，一般就这么简单。</p>
+<p>之后是在Intellij里配置Tomcat。其实Intellij并不是从项目中集成Tomcat，而是将Tomcat作为一个构建要素。只要符合目录结构的项目，引入了Tomcat，都可以部署成Web应用。</p>
+<p>由于Spring并不一定需要符合Web要素的目录，而是在任何项目中都能够作为一个库导入，所以目前可以采用先创建Web项目，配置Tomcat服务器，然后安装Spring作为第三方库的方式。具体步骤如下：</p>
+<ol>
+    <li>New Project-->左侧选择Java Enterprise，旁边选择JDK8，然后添加Tomcat服务器，选择安装路径即可，然后勾上下边选项中的Web Application，创建一个Web应用。</li>
+    <li>在右上角的Tomcat运行的地方选择配置，可以自定义项目的路径名称和tomcat服务器启动时候的一系列参数。此时可以配置一下Web.xml，测试一个最简单的Web应用是否工作正常。</li>
+    <li>在右上角的Tomcat运行的地方选择配置，可以自定义项目的路径名称和tomcat服务器启动时候的一系列参数。此时可以配置一下Web.xml，测试一个最简单的Web应用是否工作正常。</li>
+</ol>
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring初步</title>
+
+</head>
+<body>
+<h1 style="text-align: center;">Spring的一些基础概念</h1>
+<p>一句话来说，Spring就是为了简化Web开发而存在的。</p>
+<p>这几天为了学Spring找了不少Spring的教程，不管是不是入门的，上来都是在讲Spring的基础理念：依赖注入，应用切面，模板代码等。</p>
+<p>说实在这些东西一上来有些不好理解，但实际上多看看，就算Java没写过什么程序，但是这些问题已经出现在了之前的JSP学习中，只是还没有清醒的意识到而已。</p>
+<p>话不多说，不管什么教程，开始学才是最重要的，目前就采用Udemy上的一个<a href="https://www.udemy.com/spring-hibernate-tutorial/">Spring & Hibernate for Beginners (includes Spring Boot)</a>课程以及经典的<a href="https://item.jd.com/11899370.html">Spring
+    in Action 4</a>的中文版开始搞了。</p>
+
+
+<h2 style="text-align: center;">依赖注入 Dependency Injection</h2>
+<p>在目前JSP的学习中，已经逐步区分了Web层，Service层和Dao层，但是在每一层的方法中，直接定义死了一个下一层里对象的具体方法，比如从Service层调用Dao层的查询用户的方法，会写成这样：</p>
+<pre>
+import javax.servlet.http.HttpServlet;
+
+public class Service extends HttpServlet {
+
+    private Dao dao = new Dao();
+
+    public User getUser() {
+        return dao.getUser();
+    }
+}
+</pre>
+<p>这样的一大弊端就是Service类在自己的内部创建了一个Dao层的实例，使得与具体的某个Dao层紧密绑定，如果再让这个查询用户的方法到另外一个Dao层里去做查询，那么就需要修改代码。如果很多代码都这么写死了，那么在更换DAO层的时候，工作量就非常恐怖。</p>
+<p>Spring的一大好处就是使用了依赖注入的方法，在上边的代码中，Service类依赖Dao类进行工作，即一定要让Service知道Dao的存在，所以设置了一个类变量。</p>
+<p>而在依赖注入中，Service类并不需要知道它自己依赖Dao类（即无需写private Dao dao = new Dao(); 当然下边的方法也没有必要写），知道依赖关系的不是Service类，而是我们程序员操作的Spring框架。</p>
+<p>Spring框架通过一个容器，将Service和Dao都加载为一个组件（Bean），然后按照我们告诉Spring这些类之间的依赖关系，将其组装起来。</p>
+<p>Spring In Action 4的第一章的例子就非常好的说明了这一方法的优点，而且如果是按照实现的接口注入，那么实际上两个类并不会与具体的特定实现发生耦合，这样就极大的实现了灵活性，可以在对象本身不知道的情况下，用任何不同的具体实现进行替换。</p>
+<p>Spring的配置可以分为Java配置和XML配置，框架对于每一种配置都提供了上下文加载器，加载以后从中得到Spring容器的引用，此时需要使用一个具体的组件的对象，就无需直接实例化使用，而是通过容器的引用获得装配后的Bean对象来使用。</p>
+
+<h2 style="text-align: center;">应用切面 Aspect Oriented Programming</h2>
+<p>这个东西让我回想起我自己开发的<a href="https://cms.doorta.com">合同管理系统</a>，后端为Python+Django，对于这个项目的日志，我是配置好了日志之后，在所有需要日志功能的视图函数中，都加上了logging的引入的使用的代码。</p>
+<p>如果需要进行修改，确实工程量很大。</p>
+<p>如果把每个功能都看成一个模块，一个豆子的话，这个豆子的某一层都是日志模块，有没有办法不用在每个豆子里加一层，而是把豆子排列好，一刀切下去，剖一个面出来做日志功能呢。</p>
+<p>上边就是我初步读到AOP里脑子里出现的一副图景，既然是横切关注点，那就不要具体配置在每个对象里，让每个业务对象专注于做业务，然后以声明的方式声明出一系列切面出来，让这些切面在业务对象的某个时刻执行就行了。这些豆子还不知道这些刀的存在，这个思路确实好，进一步解耦了。</p>
+
+<h2 style="text-align: center;">模板</h2>
+<p>这个概念相比上边理解就容易多了，在之前JDBC上只要一写数据库操作，肯定那几个步骤，就算用上了DBUtils等第三方库，一样需要先获取池子并且进行配置，获取连接.....等一串都背出来的代码依然要重复写很多遍。让我想起一个现在很多年轻人估计不知道的名词：样板戏。</p>
+<p>所以在学JDBC的时候，封装是免不了的，弄一个函数专门应对某一个具体查询就行了，然而问题还是在于，如果需求变了怎么办，全部都改吗？</p>
+<p>Spring提供了一套模板用于迅速的操作数据库，而且无需迎合JDBC的逻辑，而是集中于编写自己的业务逻辑代码。</p>
+<p>Spring in Action 4 第一章的模板理论好懂，但是还没有具体学，模板代码里一层又一层的匿名对象看着也比较搞，但是确实简单了不少，而且逻辑还是能够看懂的。</p>
+
+<h2 style="text-align: center;">Spring IOC（Inversion of Control）容器 </h2>
+<p>上边也提到了，在使用了Spring之后，就不是简单的直接使用自己编写的类了，一切都变成了面向Spring容器进行操作。</p>
+<p>Spring容器就是Spring的核心，有两种Spring容器，第一种是基于Bean工厂，提供基本的DI服务。第二种是应用上下文（context）容器，提供框架级别的服务。</p>
+<p>Spring in action 原书里简单说了Bean工厂对于大部分应用太低级了，就略过了这个内容，仅采用应用上下文容器。这里简单的说一下今天刚看到的原因：</p>
+<p>工厂模式还是停留在直接使用原始代码的方式上的，如果Bean发生较大的改变，工厂内容也需要改变，而Spring的应用上下文容器采用反射方式，实现控制倒转，即使Bean发生变化也可以动态的响应变化。</p>
+<p>Spring提供了针对不同配置类的应用上下文对象，就是从不同的配置文件生成不同的具体容器了。</p>
+<p>传统的编程中，我们一般是new 出全部需要的对象，然后操作，操作完之后虚拟机就回收了。但在Spring中，bean的生命周期在Spring容器里完成，这一部分由于还没有具体接触代码，只能先有个大概印象了。</p>
+
+<h2 style="text-align: center;">Spring的历史</h2>
+<p>旧式的EJB开发需要部署大量代码，仅仅为了完成简单的功能，而且执行效率低下。</p>
+<p>从2004年开始，Spring就作为一个框架打算改掉EJB的缺点，<a href="https://www.youtube.com/watch?v=Tx6hBQQH3eI&feature=youtu.be&list=PLEx5khR4g7PJW7u0GKxRPIQddtu69boT3">经过15年的发展</a>，Spring现在是一个生态健全的框架，不仅可以用于JavaEE即Web开发，还可以用于其他很多方面。</p>
+
+<h2 style="text-align: center;">Spring 5.0</h2>
+<p>Spring 5.0于2017年9月发布，新变化是：</p>
+<ol>
+    <li>最低支持Java 8</li>
+    <li>去掉了一些对第三方的集成，比如Tiles，Veloctiy的支持</li>
+    <li>Spring MVC升级到4.0版的Servlet API</li>
+    <li>加入了新的反应式框架：Spring WebFlux，是基于事件流的异步框架，一个很重要的新功能</li>
+    <li>详细的<a href="https://github.com/spring-projects/spring-framework/wiki/What%27s-New-in-Spring-Framework-5.x">Spring 5 Release Note</a>和<a
+            href="https://github.com/spring-projects/spring-framework/wiki/Spring-Framework-5-FAQ">Spring 5 FAQs</a></li>
+</ol>
+
+
+<h2 style="text-align: center;">Spring 的模块</h2>
+<p>核心容器 Core Container：</p>
+<p>Spring的核心模块里就有很多模块，还有一系列的不属于核心模块的外围模块，在官方网站的Project中可以看到有很多模块。这里先集中看最核心的东西：Spring的核心容器。</p>
+<p>Spring的Core Container通过载入配置文件和依赖关系，进行装配Bean并且维持Bean的依赖关系。核心容器启动之后里边有四个东西：所有的Bean，Spring框架的核心，Spring表达式语言以及上下文环境（就是容器自己的引用）</p>
+
+<p>基础组件 Infrastucture</p>
+<p>基础组件主要提供AOP支持，用于创建整个Web应用所需要的功能，比如日志，权限，事务等，通过声明式的切面执行统一功能，而无需修改具体业务代码。</p>
+<p>其中的Instrumention是一个代理，能够起到类加载器的作用，比如给Tomcat传递类文件，这个还有点难以理解。</p>
+
+<p>数据存取层： Data Access Layer</p>
+<p>这里封装了JDBC的模板，还有ORM和事务的支持，据说可以减少50%的JDBC代码量。</p>
+<p>数据存取层中还有一个消息系统JMS，可以传递消息给消息代理</p>
+
+<p>Web层： Web Layer</p>
+<p>这是Spring MVC的所在地，也是Web开发的重点部分。一般来说，使用Spring MVC进行Web开发，基本上就使用Spring MVC的API，而不是Servelet的AP，还可以支持远程调用。I</p>
+
+<p>测试层</p>
+<p>支持单元测试和Mock，由于前边说的装配式的依赖注入，所以可以针对POJO在Spring IOC容器之外进行测试。</p>
+
+<p>上边的几个分层是视频课程中的分层，其实际的分类与Spring in Action 4的分类是完全一致的。可见对于Spring的架构大家也有着清晰统一的认识。</p>
+
+<h2 style="text-align: center;">什么是Spring Projects</h2>
+<p>在浏览官网的时候，除了Spring Framework，还可以看到Spring有很多Projects，这里可以将Project理解为建立在Spring 核心框架基础上的各个附加功能，需要的时候就拿来使用。</p>
+
+
+<p>看了一堆概念，下边就要开始实战了，写一个最简单的Spring项目。</p>
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
