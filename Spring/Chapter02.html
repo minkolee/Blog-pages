@@ -10,7 +10,7 @@
 <body>
 <p>教学视频中采用的是Eclipse作为IDE，先是安装Tomcat9，然后是Eclipse，之后是在Eclipse中配置Tomcat部署。我用的是IntelliJ IDEA 2018 Ultimate 2018.3，就记录一下自己的方式吧。</p>
 
-<h1 style="text-align: center;">Tomcat 和 IntelliJ的配置与连接</h1>
+<h1 style="text-align: center;">1 Tomcat 和 IntelliJ的配置与连接</h1>
 <p>这一步之前的Java EE的时候已经做过了，但是没有系统总结过，就重新做一下吧。</p>
 <p>首先Tomcat 9 下载压缩包，然后配置JAVA_HOME和JRE_HOME环境变量，之后是CATALINA_HOME变量，然后到Tomcat的bin目录下启动tomcat，到localhost:8080检测一下就完毕了。</p>
 <p>如果不动Tomcat的高深配置，一般就这么简单。</p>
@@ -23,8 +23,10 @@
     <li>Spring的下载地址从 <a href="https://spring.io">spring.io</a>进去显得不够直观，这里放上直接下载地址：<a
             href="http://repo.spring.io/release/org/springframework/spring/">http://repo.spring.io/release/org/springframework/spring/</a>，进去之后选择下载和教学视频中一样的5.0.2版本，和很多库一样，有包，文档和schema三个zip文件，只需要-dist.zip即可，然而文档也是个好东西。</li>
 </ol>
+<p>下边就来看看Spring容器最基础的两个理论：控制反转和依赖注入。</p>
 
-<h1 style="text-align: center;">IOC初步接触</h1>
+
+<h1 style="text-align: center;">2 控制反转 IOC</h1>
 <p>假设我们的应用MyApp.java需要使用如下的三个类/接口（依赖于这三个类）：</p>
 <ol>
     <li>Coach.java 一个接口，表示了所有的教练需要实现的共通方法</li>
@@ -65,7 +67,7 @@ public class MyApp {
 <p>在Spring中的做法不是修改源代码，而是修改配置，这样就增加了非常高的灵活性，也解耦了具体绑定。</p>
 <p>Spring容器使用Bean的整体流程是：配置Bean--根据配置创建容器--通过容器获得并使用Bean，为此，需要先了解如何配置Bean。</p>
 <p>所谓配置，就是一个配置文件，可以采取各种形式。Spring的具体配置形式有三种，一种是XML配置，一种是注解方式，还有一种是Java源代码模式，Spring in Action 4把注解方式也叫做隐式发现+自动装配机制。根据Spring in Action 4，最优先应当使用隐式发现+自动装配，其次是Java源代码配置方式，只有需要使用XML命名空间而无法用Java配置方式时，才需要用到XML，这三种模式都会学习到。</p>
-<h2 style="text-align: center;">XML配置Bean</h2>
+<h2 style="text-align: center;">2.1 XML配置Bean</h2>
 <p>XML方式下，先要在Spring的XML文件中配置Bean。Spring的XML配置文件一般叫做applicationContext.xml，而在Spring中提到applicationContext，指的就是Spring的核心容器。</p>
 <p>applicationContext.xml文件长这个样子：</p>
 <pre>
@@ -113,7 +115,7 @@ public class MyApp {
         //尝试使用Bean
         System.out.println(theCoach.getDailyWorkout());
         //关闭容器
-
+        context.close();
     }
 }
 </pre>
@@ -127,7 +129,7 @@ public class MyApp {
 信息: Loading XML bean definitions from class path resource [applicationContext.xml]
 I am BaseballCoach
 </pre>
-<p>一开始是Spring框架的启动和加载信息（之后省略），最后发现成功的调用了BaseballCoach的方法，然而这还不算完成了第一个Spring程序，但是不仅于此，如果此时我们需要使用TrackCoach，还需要修改MyApp.java吗？</p>
+<p>一开始是Spring框架的启动和加载信息（之后省略），最后发现成功的调用了BaseballCoach的方法，然而这还不算真正完成了第一个Spring程序。如果此时我们需要使用TrackCoach，还需要修改MyApp.java吗？</p>
 <p>完全不需要，只需在applicationContext.xml中修改一下bean的内容：</p>
 <pre>
 &lt;bean id="myCoach" class="iocdemo1.TrackCoach">&lt;/bean>
@@ -138,20 +140,317 @@ I am TrackCoach
 </pre>
 <p>可见，Spring IOC神奇的无需修改MyApp.java代码，仅通过修改配置，就能够控制MyApp依赖于哪个对象，在这个简短的程序里，无论是接口还是两个实现都可以单独进行测试，而MyApp.java也可以通过不同的配置进行测试，无需修改源代码，这就是控制反转的例子，也是一般学习Spring的第一个程序。初次体验Bean之后，下一个就是依赖注入了。</p>
 
-<h2 style="text-align: center;">XML配置构造器方式依赖注入</h2>
+<h1 style="text-align: center;">3 依赖注入 DI</h1>
+<p>这里要先说说依赖是什么意思，所谓依赖，就是能够帮助当前对象完成工作的对象。而依赖注入可以看原始的MyApp.java：</p>
+<pre>
+public class MyApp {
+    public static void main(String[] args) {
+        //创建依赖的对象
+        BaseballCoach theCoach = new BaseballCoach();
+        //调用对象的方法
+        System.out.println(theCoach.getDailyWorkout());
+    }
+}
+</pre>
+<p>可见MyApp.java执行的时候，必须依靠BaseballCoach才能完成我们想做的工作，则BaseballCoach就是帮助MyApp完成工作的对象，也可以说MyApp依赖于BaseballCoach对象。</p>
+<p>在上边初步感受IOC的过程中，我们想到了另外一个提高灵活性的办法。既然要求不能把对象写死，那我是不是按照结构化编程思维的提取，把对象作为一个变量，当成参数传给MyApp的构造器，只要规定了变量类型是Coach接口，那么我的MyApp.java就可以通过实例化来接受所有实现Coach接口的对象。</p>
+<p>于是我们新建一个MyApp2.java如下：</p>
+<pre>
+public class MyApp2 {
+    Coach myCoach;
 
+    MyApp2(Coach myCoach) {
+        this.myCoach = myCoach;
+    }
 
+    public void doDailyWork() {
+        System.out.println(myCoach.getDailyWorkout());
+    }
+}
+</pre>
+<p>这样在每次实例化的时候确实提高了灵活性，我们把依赖的对象通过构造器注入给了MyApp2。当然，这样还是耦合程度太高，因为写死了接口的类型，也写死了调用的方法，虽然灵活性看起来是提高了，但没有根本性的变化。</p>
+<p>Spring又站出来了，依然通过配置文件而不是实际编写构造器注入代码，就可以完成注入，还可以规定调用什么方法。下边就来看一看Spring的依赖注入。</p>
+<p>Spring的注入有很多，最常用的是两种：构造器注入和Setter注入，先来看构造器注入。</p>
 
+<h2 style="text-align: center;">3.1 构造器注入 Constructor Injection</h2>
+<p>构造器注入的步骤如下：</p>
+<ol>
+    <li>创建依赖的接口和类</li>
+    <li>在Spring文件中配置依赖注入</li>
+    <li>在被注入的类中创建构造器</li>
 
+</ol>
+<p>这里的第二步和第三步其实可以颠倒，或者说是紧密联系在一起，因为一般IDE会根据配置文件去进行自动创建构造器工作。</p>
 
+<h3>第一步，创建需要的接口和类。</h3>
+<p>现在我们的教练需要一个助手来提供DailyFortunes服务，可以说教练依赖助手完成这项工作，于是我们先来定义一个提供FortuneService接口和具体实现类HappyFortuneService。</p>
+<pre>
+public interface FortuneService {
+    String getFortune();
+}
 
+public class HappyFortuneService implements FortuneService {
+    public String getFortune() {
+        return "Today is your lucky day!";
+    }
+}
+</pre>
 
+<h3>第二步，配置依赖注入</h3>
+<p>给BaseballCoach增加了一个域private FortuneService fortuneService; 然后创建一个带参构造器，传入依赖对象。可以想象，如果一个依赖关系有多个层次，修改源代码是一场灾难。现在换成用Spring来配置依赖关系，让BaseballCoach类保持原状不做任何修改p，修改applicationContext.xml：</p>
+<pre>
+&lt;bean id="myCoach" class="iocdemo1.BaseballCoach">
+    &lt;constructor-arg ref="myFortuneService"/>
+&lt;/bean>
+    
+&lt;bean id="myFortuneService" class="iocdemo1.HappyFortuneService">&lt;/bean>
+</pre>
+<p>这里首先要把myFortuneService类也定义为一个Bean，起好id名称，然后在之前配置BaseballCoach的bean标签内部，加上一个constructor-arg自闭合标签，其中的ref属性就是myFortuneService的id名称，这表示把这个Bean当成构造器参数传递给BaseballCoach的构造器。</p>
 
+<h3>第三步，添加构造器</h3>
+<p>在Intellij中，如果在bean标签内部按Alt+Insert，在弹出的自动完成菜单中选择Constructor Dependency，会让你选择一个依赖类，然后会自动配置好XML和在类中生成构造器。</p>
+<p>不使用这种方法的话，则需要手工在BaseballCoach中添加一个构造器方法：public BaseballCoach(FortuneService fortuneService) {}</p>
 
+<p>在这三步完成之后，我们还需要在Coach接口中定义一个新方法，用来使用FortuneService：</p>
+<pre>
+public interface Coach {
+    String getDailyWorkout();
+    //新定义的方法
+    String getDailyFortune();
+}
+</pre>
+<p>然后让BaseballCoach和TrackCoach都实现该方法，同时用接口类型配置好构造器和域：以BaseballCoach为例：</p>
+<pre>
 
+public class BaseballCoach implements Coach {
+    // 定义接受注入对象的变量
+    private FortuneService fortuneService;
+    // 定义接受注入的构造器
+    public BaseballCoach(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
 
+    @Override
+    public String getDailyWorkout() {
+        return "I am BaseballCoach";
+    }
+    // 重写新方法
+    @Override
+    public String getDailyFortune() {
+        return "I am BaseballCoach " + fortuneService.getFortune();
+    }
+}
+</pre>
+<p>然后修改MyApp.java来调用新的方法：</p>
+<pre>
+public class MyApp {
+    public static void main(String[] args) {
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
+        Coach theCoach = context.getBean("myCoach", Coach.class);
+        System.out.println(theCoach.getDailyWorkout());
+        //添加一行代码调用Coach的新方法
+        System.out.println(theCoach.getDailyFortune());
+        context.close();
+    }
+}
+</pre>
+<p>运行之后可以看到新方法调用成功。用同样的方法，把TrackCoach也进行改造：</p>
+<pre>
+public class TrackCoach implements Coach {
 
+    private FortuneService fortuneService;
 
+    public TrackCoach(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am TrackCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am TrackCoach " + fortuneService.getFortune();
+    }
+}
+</pre>
+<p>如果此时把id为myCoach的Bean配置成TrackCoach，可以看到两个方法均通过TrackCoach调用。也就是说，我们可以任意装配两个Bean之间的依赖关系，只要他们符合组装条件。</p>
+<p>Spring的构造器依赖注入，配合Java的接口规范，就可以让Bean自动装配。</p>
+
+<h2 style="text-align: center;">3.2 Setter注入 Setter Injection</h2>
+<p>看过了构造器依赖注入，Setter注入可想而知，就是让Spring调用Setter方法来注入了，Setter注入分两步：</p>
+<ol>
+    <li>在类中创建setter方法接收注入</li>
+    <li>在Spring配置文件中配置依赖注入</li>
+</ol>
+<p>与构造方法不同，换成了使用setter方法，XML文件的配置也需要做一点变更。我们这次再新来一个教练叫做CricketCoach，然后用setter注入的方式给这个教练添加FortuneService。</p>
+<p>第一步：先创建一个CricketCoach类，实现Coach接口，加上依赖变量和对应的setter方法：</p>
+<pre>
+public class CricketCoach implements Coach {
+
+    // 定义好接受依赖对象的变量
+    private FortuneService fortuneService;
+
+    // 添加setter方法
+    public void setFortuneService(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am CricketCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am CricketCoach " + fortuneService.getFortune();
+    }
+}
+</pre>
+<p>第二步自然就是配置注入，先把CricketCoach也做成一个Bean，然后在其中配置属性和对应的对象：</p>
+<pre>
+&lt;bean id="myCricketCoach" class="iocdemo1.CricketCoach">
+    &lt;property name="fortuneService" ref="myFortuneService"/>
+&lt;/bean>
+</pre>
+<p>这里要注意的是使用了property标签，其中的name一定要是和类中定义的变量名称一样（setter方法则必须按照变量名前边加set+驼峰命名），而ref属性中就是bean的名称，与对应的bean的id一样。</p>
+<p>这么配置好之后，实际上Spring就会自动创建一个myFoutuneService的对象，然后通过setter方法将其赋给myCricketCoach中的fortuneService属性。</p>
+<p>我们在MyApp.java里获取myCricketCoach名称的Bean，其他代码不变，可以发现，写了一个新类和配置了setter依赖，原来的应用依然可以执行，而且依赖对象变成了新的CricketCoach对象，这样就完成了装配实现Coach接口和实现FortuneService接口的Bean的组装。</p>
+<p>除了myCricketCoach之外，另外一个Bean也是可以获取对应的对象的，最后我们把MyApp.java的代码修改成如下，分别获取两个Bean并且操作：</p>
+<pre>
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public class MyApp {
+    public static void main(String[] args) {
+        //创建容器
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
+        //获取Coach Bean
+        Coach theCoach = context.getBean("myCricketCoach", Coach.class);
+        //使用Bean
+        System.out.println(theCoach.getDailyWorkout());
+        System.out.println(theCoach.getDailyFortune());
+
+        //获取FortuneService Bean
+        FortuneService fortuneService = context.getBean("myFortuneService", FortuneService.class);
+        System.out.println(fortuneService.getFortune());
+
+        //关闭容器
+        context.close();
+    }
+}
+</pre>
+<p>我们这里更改了getBean方法中的Bean id名称，实际上肯定可以想到，如果把原来的XML中的名为myCoach的Bean注释掉，新的CricketCoach Bean的id也叫myCoach，那么MyApp.java一个字都不用修改，只要修改配置文件就行了。</p>
+<p>是的，这就是Spring通过依赖注入实现的解耦方式，第一篇文章里我提到Web层里需要传入一个Service层对象，Service层里需要传入一个DAO对象，如果需要更换Service和DAO对象，涉及的具体代码量非常大。现在换成Spring依赖注入之后，只需要做好架构，让Service和DAO都实现某个接口，需要切换的时候，只需要关闭和打开配置就行了，完全不需要进行任何修改源代码的工作。</p>
+
+<h2 style="text-align: center;">3.3 Setter注入字面量</h2>
+<p>刚才我们的关注点在于注入依赖对象，而Setter方法还经常用来修改成员变量的值，所以Spring也提供了注入字面量的方法。注入字面量也是两个步骤：在类中创建setter方法和对应的成员变量，然后配置注入关系。</p>
+<p>现在我们给CricketCoach注入电子邮件和team两个字符串常量，很显然，先要修改CricketCoach来增加变量和setter方法：</p>
+<pre>
+public class CricketCoach implements Coach {
+
+    private FortuneService fortuneService;
+    // 定义好接受依赖对象的变量
+    private String emailAddress;
+    private String team;
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am CricketCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am CricketCoach " + fortuneService.getFortune();
+    }
+
+    public void setFortuneService(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
+
+    //新的setter方法
+    public void setEmailAddress(String emailAddress) {
+        this.emailAddress = emailAddress;
+    }
+    //新的setter方法
+    public void setTeam(String team) {
+        this.team = team;
+    }
+
+    //getter方法
+    public String getEmailAddress() {
+        return emailAddress;
+    }
+    //getter方法
+    public String getTeam() {
+        return team;
+    }
+
+}
+</pre>
+<p>然后在myCricketCoach的Bean中，继续添加一系列property标签：</p>
+<pre>
+&lt;bean id="myCricketCoach" class="iocdemo1.CricketCoach">
+    &lt;property name="fortuneService" ref="myFortuneService"/>
+    &lt;property name="emailAddress" value="conyli@vip.sina.com"/>
+    &lt;property name="team" value="Shanghai World Foreign Language Primary School"/>
+&lt;/bean>
+</pre>
+<p>这里要注意的是，name依然是类的属性名，但是配置为字面量的时候，不再是ref属性表示引用，而是用value属性表示值。</p>
+<p>在MyApp.java里加上两行来测试一下：</p>
+<pre>
+public class MyApp {
+    public static void main(String[] args) {
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
+
+        //获取Coach Bean
+        CricketCoach theCoach = context.getBean("myCricketCoach", CricketCoach.class);
+
+        //使用Bean的get方法检测是否设置成功
+        System.out.println(theCoach.getTeam());
+        System.out.println(theCoach.getEmailAddress());
+
+        //关闭容器
+        context.close();
+    }
+}
+</pre>
+<p>可以发现成功的获取到了设置在Spring配置文件中的值，字面量也是重在解耦，将属性与配置的值相分离，尽可能减少在代码中硬编码各种值。除了在配置文件中注入之外，还有一种常用的方法是从Properties文件中注入。</p>
+
+<h3 style="text-align: center;">3.3.1 通过Properties文件注入字面量</h3>
+<p>分为如下步骤：</p>
+<ol>
+    <li>创建Properties文件</li>
+    <li>通过Spring配置文件加载Properties文件</li>
+    <li>从文件中配置属性</li>
+</ol>
+<p>Properties文件是Java开发中经常使用的文件，可以通过Java集合中的Properties集合操作。其本身是一个文本文件，用等号隔开键和值。</p>
+<p>第一步：创建一个Properties 文件叫做sport.properties，将其放在和xml文件一起都直接放在src目录下，：</p>
+<pre>
+foo.email=conyli@vip.sina.com
+foo.team=SFWLPS
+</pre>
+<p>第二步：用Properties类来加载这个文件，而是通过Spring来加载，这里要使用beans标签内部，和bean标签同级的context标签来加载：</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;beans......>
+
+    &lt;context:property-placeholder location="classpath:sport.properties"/>
+    ......
+
+&lt;/beans>
+</pre>
+<p>这个配置表示使用上下文的加载文件配置，location表示以classpath来加载sport.properties，所以前边就将sport.properties和xml文件直接放在src目录之下。</p>
+
+<p>第三步：在文件中通过Spring表达式来配置属性，修改XML配置文件中两行配置字面量为如下：</p>
+<pre>
+&lt;property name="emailAddress" value="${foo.email}"/>
+&lt;property name="team" value="${foo.team}"/>
+</pre>
+<p>这里使用到了Spring表达式，${变量名称}来从上边context获取的Properties文件中按照变量来取值，这个取值表达式需要放在引号中。</p>
+<p>配置好了之后，可以发现，无需修改源代码，需要进行变更，大量的工作都可以在配置文件中进行，无论是修改属性，还是修改依赖，都可以。当然，这里只实现了CricketCoach的属性字面量注入，也可以把其他的一并实现。</p>
+
+<p>第一个采用了IOC和依赖注入的Spring程序就编写完了。</p>
 
 <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
 <script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
