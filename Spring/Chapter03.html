@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring初步</title>
+
+</head>
+<body>
+<p>豆知识当然不是什么用不到的小冷门知识了，而是关于Bean的内容。在初步了解了通过XML配置Bean以及依赖注入之后，我很容易想到，原来的Web层，Service层和Dao层的三个对象，都可以配置到Spring中成为一个Bean，很显然Bean是一个类经过Spring组装之后得到的对象，但是Bean还有什么奥秘，来看看吧。</p>
+<h1 style="text-align: center;">Bean Scopes</h1>
+<p>看到Scope感觉就是作用域了，实际上这里找到了一个解释如下：</p>
+<p>《Spring揭秘》上对scope的解释“scope用来声明容器中的对象所应该处的限定场景或者说该对象的存活时间，即容器在对象进入其相应的scope之前生成并装配这些对象，在该对象不再处于这些scope的限定之后，容器通常会销毁这些对象”</p>
+<p>教学视频里则讲了Bean Scopes包含的几个内容：</p>
+<ol>
+    <li>scope实际上指的是bean的生命周期</li>
+    <li>bean生存多久？</li>
+    <li>bean创建多少实例？</li>
+    <li>bean如何在Spring中共享？</li>
+</ol>
+<p>所以这里就把Bean Scope认为是生命周期就可以了。这里首先就碰到一个问题，就是创建多少实例。</p>
+
+<h1 style="text-align: center;">Singleton 与 Prototype</h1>
+<p>Spring默认对于每个Bean都是采取单例模式Singleton，将这个bean缓存在内存中，所有对一个bean的访问都指向同一个bean（同一个内存地址）。</p>
+<p>通过修改配置文件中bean的scope属性，可以设置其为一些不同的值。默认为singleton，还可以设置成为prototype，此时相当于new对象，每次访问这个bean，都会得到不同的对象。</p>
+<p>现在还有request, session 和 global session，都是应用于Web项目的，到Web阶段再来看。</p>
+<p>为了测试一下这两种配置，我们来修改一下之前使用到的代码。</p>
+<p>由于我们完全不需要变更具体的POJO的代码，所以只需要新创建一个XML配置文件，然后新创建一个用于测试的应用即可。Spring的XML配置文件可以叫任意名字，只要内容符合Spring的要求即可。</p>
+<p>将原来的applicationContext.xml复制一份改个名字放在相同的目录下边，比如叫beanScope.xml，然后设置两个bean分别为scope="singleton"和scope="prototype"：</p>
+<pre>
+&lt;bean id="myCoach" class="iocdemo1.BaseballCoach" scope="singleton">
+        &lt;constructor-arg ref="myFortuneService"/>
+    &lt;/bean>
+&lt;bean id="myFortuneService" class="iocdemo1.HappyFortuneService" scope="prototype">&lt;/bean>
+</pre>
+<p>然后把MyApp.java也复制一份，就叫BeanMyApp.java好了，使用新的XML配置文件，但是代码修改为测试两次取同一个Bean是不是相同的一个：</p>
+<pre>
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public class BeanMyApp {
+    public static void main(String[] args) {
+        //创建容器
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("beanScope.xml");
+
+        //先后获取两个被配置为单例的Bean
+        Coach coach1 = context.getBean("myCoach", Coach.class);
+        Coach coach2 = context.getBean("myCoach", Coach.class);
+
+        //检测是否相同
+        System.out.print("两个Bean是否相同: ");
+        System.out.println(coach1==coach2);
+        System.out.println("第一次获取的Bean是: " + coach1);
+        System.out.println("第二次获取的Bean是: " + coach2);
+
+        //先后获取两个被配置为prototype的Bean
+        FortuneService fortuneService1 = context.getBean("myFortuneService", HappyFortuneService.class);
+        FortuneService fortuneService2 = context.getBean("myFortuneService", HappyFortuneService.class);
+
+        //检测是否相同
+        System.out.print("两个Bean是否相同: ");
+        System.out.println(fortuneService1==fortuneService2);
+        System.out.println("第一次获取的Bean是: " + fortuneService1);
+        System.out.println("第二次获取的Bean是: " + fortuneService2);
+
+        //关闭容器
+        context.close();
+    }
+}
+</pre>
+<p>运行结果如下：</p>
+<pre>
+两个Bean是否相同: true
+第一次获取的Bean是: iocdemo1.BaseballCoach@59e5ddf
+第二次获取的Bean是: iocdemo1.BaseballCoach@59e5ddf
+两个Bean是否相同: false
+第一次获取的Bean是: iocdemo1.HappyFortuneService@536aaa8d
+第二次获取的Bean是: iocdemo1.HappyFortuneService@e320068
+</pre>
+<p>可见默认是单例模式，这也和我一开始自己思考的是一致的。如果将Web，Service和Dao装配，应该不会每次都全部new一个新的，太浪费资源了，而且Web应用一个就足够了，只是每次处理的request和response不同。当然，以后如果是分布式也许就有多个Web应用同时工作了。</p>
+
+<h1 style="text-align: center;">Bean的生命周期</h1>
+<p>首先看整体的过程：</p>
+<ol>
+    <li>Spring容器启动</li>
+    <li>初始化Bean</li>
+    <li>依赖注入</li>
+    <li>Spring内部装配Bean</li>
+    <li>调用Bean源代码的初始化方法--这个指的是init-method，不是构造方法</li>
+    <li>Bean可以使用</li>
+    <li>Spring容器关闭</li>
+    <li>Bean源代码的destroy方法</li>
+</ol>
+<p>其中依赖注入和装配控制通过XML生效，在第二项也就是Bean初始化的过程和最后destroy的过程中，我们可以自行编写一些代码。 </p>
+<p>Spring给运行自行编写的代码提供了一些钩子和接口，比如可以在bean标签内的init-method和destroy-method内指定要执行的方法名称。</p>
+<p>现在再来写个代码测试一下：</p>
+<p>继续沿用上边的例子，这次我们修改一下TrackCoach的代码，创建两个新方法，并在两个新方法和构造方法内都加上输出语句：</p>
+<pre>
+public class TrackCoach implements Coach {
+
+    private FortuneService fortuneService;
+
+    public TrackCoach(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
+
+    //需要一个无参构造器
+    public TrackCoach() {
+    }
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am TrackCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am TrackCoach " + fortuneService.getFortune();
+    }
+
+    public void doMyStartupStuff() {
+        System.out.println("TrackCoach: inside init-method");
+    }
+
+    public void doMyCleanupStuff() {
+        System.out.println("TrackCoach: inside destroy-method");
+    }
+}
+</pre>
+<p>然后在XML文件中配置一下TrackCoach的Bean：</p>
+<pre>
+&lt;bean id="myTrackCoach" class="iocdemo1.TrackCoach" scope="singleton">&lt;/bean>
+</pre>
+<p>什么代码都不用动，重新运行一下BeanMyApp.java，可以发现自动运行了两个方法。</p>
+<p>注意，如果配置scope="prototype"，那就是将Bean的控制权交给了编写代码的人，不会自动执行destroy-method方法。实际上，除了单例之外，Spring不会管理Bean的整个生命周期过程，在Bean可用之后，只要一有引用到Bean，新建一个Bean交给引用之后，Spring就不再控制这个Bean了，引用Bean的代码必须自己负责这个Bean剩下的事情。</p>
+<p>这里如果在构造方法里加上输出，可以看到构造方法还执行在init-method之前，这个估计就要更深入的了解初始化Bean的过程了。</p>
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
