@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring初步</title>
+
+</head>
+<body>
+<p>之前的IOC和依赖注入都是通过XML文件配置的，然而XML配置比较笨重，Spring提供了比较现代的通过注解自动扫描和装配Bean的机制。</p>
+<p>要使用注解模式，有如下步骤：</p>
+<ol>
+    <li>在Spring配置文件中打开自动扫描功能，指定扫描的根目录（包）</li>
+    <li>为POJO配置各种注解，比如@Component是Bean，@Autowire用于注入等</li>
+    <li>通过容器获得组装好的Bean</li>
+</ol>
+<p>下边就按照XML配置一样的顺序，学习注解Bean，依赖注入的过程。</p>
+
+<h1 style="text-align: center;">注解Bean</h1>
+<p>注解Bean使用的注解是@Component，在之前的Java学习中，没有深入的学习注解，注解是给编译器看的，用于存放关于类的元信息，比如一些基础属性和配置等。注解的内容在今后也需要补上。</p>
+<p>要让Spring开启自动扫描，必须在XML文件里配置context:component-scan标签，然后指定base-package属性为扫描的包，Spring会扫描这个包及其内部的所有子包中的注解，并且完成自动装配。</p>
+<p>这里依然沿用原来已经编写好的几个Bean：Coach接口的BaseballCoach、CricketCoach、TrackCoach，FortuneService接口的HappyFortuneService，将它们复制到一个新包里，配置文件新建一个annoContext.xml，里边不用写任何bean标签，而是写这么一句：</p>
+<pre>
+&lt;context:component-scan base-package="annodemo"/>
+</pre>
+<p>然后给BaseballCoach加上注解如下：</p>
+<pre>
+import org.springframework.stereotype.Component;
+
+@Component("myCoach")
+public class BaseballCoach implements Coach {
+
+    private FortuneService fortuneService;
+
+    public BaseballCoach() {
+    }
+
+    public BaseballCoach(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am BaseballCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am BaseballCoach " + fortuneService.getFortune();
+    }
+}
+</pre>
+<p>要注意的有，首先需要导入Component所在的包，其次@Component可以带参数也可以不带参数，如果带了字符串参数，就相当于XML中Bean的id属性，如果不带，则Bean的id会自动被设置为类名的第一个字母小写之后的名字。</p>
+<p>这里因为还没有用到注入，所以我们要写一个空参的构造器，否则因为有了注入构造器，会报错。</p>
+<p>然后新建一个annoApp.java作为应用，再其中创建容器和获取Bean：</p>
+<pre>
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public class annoApp {
+    public static void main(String[] args) {
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("annoContext.xml");
+        BaseballCoach baseballCoach = context.getBean("myCoach", BaseballCoach.class);
+        System.out.println(baseballCoach.getDailyWorkout());
+    }
+}
+</pre>
+<p>运行之后正常调用了方法，如果此时去掉注解中的参数，那么在getBean的时候使用"baseballCoach"作为第一个参数就能够获取到Bean</p>
+
+<h1 style="text-align: center;">依赖注入--构造器注入</h1>
+<p>依赖注入需要两个注解，@Component和@Autowired：</p>
+<p>像上一个例子一样，我们需要把实现了FortuneService接口的HappyFortuneService注入到这几个具体的Coach实现类中，Spring会先扫描所有的@Component做成Bean，然后找到@Autowired进行注入。</p>
+<p>构造器注入的步骤和之前很类似：</p>
+<ol>
+    <li>定义依赖关系，将所有需要的类做成Bean</li>
+    <li>编写能够接受依赖注入的构造器</li>
+    <li>使用@Autowired注解需要注入的方法</li>
+</ol>
+<p>这里就把HappyFortuneService注入到BaseballCoach中，@Component都不带参数：</p>
+<pre>
+//把HappyFortuneService配置成Bean
+import org.springframework.stereotype.Component;
+
+@Component
+public class HappyFortuneService implements FortuneService {
+    public String getFortune() {
+        return "Today is your lucky day!";
+    }
+}
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+@Component
+public class BaseballCoach implements Coach {
+
+    private FortuneService fortuneService;
+
+    public BaseballCoach() {
+    }
+
+    @Autowired
+    public BaseballCoach(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am BaseballCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am BaseballCoach " + fortuneService.getFortune();
+    }
+}
+</pre>
+<p>这里的关键就是@Autowired，Spring会在这个被注解的构造器中，寻找符合实现了FortuneService接口类型要求的Bean来进行装配</p>
+<p>如果有两个FortuneService实现类，那么会报错，提示有超过一个实现了FortuneService接口的Bean。这个问题会在后边通过Qualifier来解决。</p>
+
+
+<h1 style="text-align: center;">依赖注入--Setter注入</h1>
+<p>这一次我们使用已经编写好了接受Setter注入的CricketCoach类来进行Setter注入，其实很简单，只要对setter方法进行注解即可：</p>
+<pre>
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+@Component
+public class CricketCoach implements Coach {
+
+    private FortuneService fortuneService;
+    // 定义好接受依赖对象的变量
+    private String emailAddress;
+    private String team;
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am CricketCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am CricketCoach " + fortuneService.getFortune();
+    }
+
+    @Autowired
+    public void setFortuneService(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
+
+    public void setEmailAddress(String emailAddress) {
+        this.emailAddress = emailAddress;
+    }
+
+    public void setTeam(String team) {
+        this.team = team;
+    }
+
+    public String getEmailAddress() {
+        return emailAddress;
+    }
+
+    public String getTeam() {
+        return team;
+    }
+}
+</pre>
+<p>获取Bean并且调用一下方法看看：</p>
+<pre>
+    CricketCoach cricketCoach = context.getBean("cricketCoach", CricketCoach.class);
+    System.out.println(cricketCoach.getDailyFortune());
+</pre>
+<p>也完成了依赖注入。Spring这里是一样的，也是会去寻找实现了FortuneService接口的Bean然后注入。</p>
+
+<h1 style="text-align: center;">依赖注入--方法注入</h1>
+<p>实际上，@Autowired可以用来将依赖对象注入任何方法，不光是setter方法，我们在CricketCoach中写另外一个任意命名的方法，其中和setter方法一样设置属性，然后注释掉刚才的setter方法：</p>
+<pre>
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+@Component
+public class CricketCoach implements Coach {
+
+    private FortuneService fortuneService;
+    // 定义好接受依赖对象的变量
+    private String emailAddress;
+    private String team;
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am CricketCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am CricketCoach " + fortuneService.getFortune();
+    }
+
+//    @Autowired
+//    public void setFortuneService(FortuneService fortuneService) {
+//        this.fortuneService = fortuneService;
+//        System.out.println(fortuneService);
+//    }
+
+    //新编写的自己命名的方法，该方法符合注入方式
+    @Autowired
+    public void doSomething(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+        System.out.println("A normal method use @Autowired");
+        System.out.println(fortuneService);
+    }
+
+    public void setEmailAddress(String emailAddress) {
+        this.emailAddress = emailAddress;
+    }
+
+    public void setTeam(String team) {
+        this.team = team;
+    }
+
+    public String getEmailAddress() {
+        return emailAddress;
+    }
+
+    public String getTeam() {
+        return team;
+    }
+}
+</pre>
+<p>不需要对应用的代码进行任何修改，直接再执行，可以发现结果是：</p>
+<pre>
+A normal method use @Autowired
+annodemo.HappyFortuneService@4b9e255
+I am CricketCoach Today is your lucky day!
+</pre>
+<p>可见Spring在装配Bean的时候先执行了该方法，然后才是获取Bean并调用Bean的方法。</p>
+
+<h1 style="text-align: center;">依赖注入--Field注入</h1>
+<p>顾名思义，这次是注入域也就是成员变量的值了，这个技术是利用了Java的反射技术，不仅是普通变量，私有变量也可以进行注入。</p>
+<p>与XML配置不同的是，使用@Autowired进行域注入，不需要配置setter方法，直接就能注入，只需要用@Autowired注解需要注入的成员变量声明即可。</p>
+<p>将CricketCoach中的两个注入方法都注释掉，然后直接用@Autowired注解private FortuneService fortuneService;</p>
+<pre>
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+@Component
+public class CricketCoach implements Coach {
+
+    @Autowired
+    private FortuneService fortuneService;
+
+    private String emailAddress;
+    private String team;
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am CricketCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am CricketCoach " + fortuneService.getFortune();
+    }
+
+//    @Autowired
+//    public void setFortuneService(FortuneService fortuneService) {
+//        this.fortuneService = fortuneService;
+//        System.out.println(fortuneService);
+//    }
+
+    //新编写的自己命名的方法，该方法符合注入方式
+//    @Autowired
+//    public void doSomething(FortuneService fortuneService) {
+//        this.fortuneService = fortuneService;
+//        System.out.println("A normal method use @Autowired");
+//        System.out.println(fortuneService);
+//    }
+
+    public void setEmailAddress(String emailAddress) {
+        this.emailAddress = emailAddress;
+    }
+
+    public void setTeam(String team) {
+        this.team = team;
+    }
+
+    public String getEmailAddress() {
+        return emailAddress;
+    }
+
+    public String getTeam() {
+        return team;
+    }
+}
+</pre>
+<p>其他不用做任何修改，直接运行应用，发现一切正常。</p>
+
+<p>三种注入方式，并没有非常显著的区别，一般在代码中保持一种风格会比较好。Spring in Action 4 推荐采用注解的方式。</p>
+
+<h1 style="text-align: center;">从多个类中指定被注入的类</h1>
+<p>如果项目中除了HappyFortuneService，还有JoyFortuneService，RandomFortuneService等等实现类，如果直接去注入，Spring会报错如下（部分错误信息）：</p>
+<pre>
+nested exception is org.springframework.beans.factory.NoUniqueBeanDefinitionException:
+No qualifying bean of type 'annodemo.FortuneService' available: expected single matching bean but found 2: happyFortuneService,joyFortuneService
+</pre>
+<p>可以看到，错误是一个NoUniqueBeanDefinitionException，即没有特定Bean定义错误，之后说找到了2个实现了FortuneService接口的类。看上去我们只要通过某种方式指定一个具体的Bean就可以了。</p>
+<p>指定的方式就是在@Autowired注解之下再增加一个@Qualifier注解，其中的参数指定特定的名称即可。</p>
+<p>我们修改原来的HappyFortuneService的方法，加上打印自己的名称，再新增一个JoyFortuneService，然后为CricketCoach添加@Qualifier：</p>
+<pre>
+//HappyFortuneService.java
+import org.springframework.stereotype.Component;
+
+@Component
+public class JoyFortuneService implements FortuneService {
+    public String getFortune() {
+        return "Today is your lucky day for JoyFortuneService!";
+    }
+}
+
+//JoyFortuneService.java
+import org.springframework.stereotype.Component;
+
+@Component
+public class HappyFortuneService implements FortuneService {
+    public String getFortune() {
+        return "Today is your lucky day for HappyFortuneService!";
+    }
+}
+</pre>
+<p>这个时候运行，会提示BaseballCoach创建失败，回头去看看，原来是因为我们刚才在配置了构造器注入：</p>
+<pre>
+@Autowired
+public BaseballCoach(FortuneService fortuneService) {
+    this.fortuneService = fortuneService;
+}
+</pre>
+<p>这其中没有指定具体的Bean，如果直接写上一行，会提示不能这么写，实际上@Qualifier用于构造器注入，需要写成这样：</p>
+<pre>
+//BaseballCoach.java
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+
+@Component
+public class BaseballCoach implements Coach {
+
+    private FortuneService fortuneService;
+
+    public BaseballCoach() {
+    }
+
+    //@Qualifier用于构造器注入
+    @Autowired
+    public BaseballCoach(@Qualifier("joyFortuneService") FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am BaseballCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am BaseballCoach " + fortuneService.getFortune();
+    }
+}
+</pre>
+<p>之后在应用里执行一下下列代码：</p>
+<pre>
+System.out.println(context.getBean("cricketCoach", CricketCoach.class).getDailyFortune());
+System.out.println(context.getBean("baseballCoach", BaseballCoach.class).getDailyFortune());
+</pre>
+<p>可以发现，CricketCoach使用的是HappyFortuneService，而BaseballCoach使用的是JoyFortuneService，这样就解决了这个问题。</p>
+
+<h1 style="text-align: center;">几个小要点</h1>
+<p>@Autowired不指定Bean名称的时候，会将类名的首字母自动小写来作为Bean的id，然而如果这个类的第一个和第二个字母都大写，则不会自动转换名称，会将类名作为Bean的id。</p>
+<hr>
+<p>@Autowired和@Qualifier用于构造器注入的时候写法比较特别，上边已经讲过了，需要注意。</p>
+<hr>
+<p>与XML配置相比，这里没有讲注入字面量，注入字面量的方式依然需要用到XML配置，不能够直接注入，注入的方法是：</p>
+<ol>
+    <li>XML里依然需要配置&lt;context:property-placeholder location="classpath:sport.properties"/></li>
+    <li>使用@Value配合Spring表达式来注解对应的域，比如：
+    <pre>
+    @Value("${foo.email}")
+    private String email;
+
+    @Value("${foo.team}")
+    private String team;
+</pre></li>
+</ol>
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
