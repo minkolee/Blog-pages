@@ -12,7 +12,7 @@
 <p>要使用注解模式，有如下步骤：</p>
 <ol>
     <li>在Spring配置文件中打开自动扫描功能，指定扫描的根目录（包）</li>
-    <li>为POJO配置各种注解，比如@Component是Bean，@Autowire用于注入等</li>
+    <li>为POJO配置各种注解，比如@Component是Bean，@Autowired用于注入等</li>
     <li>通过容器获得组装好的Bean</li>
 </ol>
 <p>下边就按照XML配置一样的顺序，学习注解Bean，依赖注入的过程。</p>
@@ -295,8 +295,6 @@ public class CricketCoach implements Coach {
 </pre>
 <p>其他不用做任何修改，直接运行应用，发现一切正常。</p>
 
-<p>三种注入方式，并没有非常显著的区别，一般在代码中保持一种风格会比较好。Spring in Action 4 推荐采用注解的方式。</p>
-
 <h1 style="text-align: center;">从多个类中指定被注入的类</h1>
 <p>如果项目中除了HappyFortuneService，还有JoyFortuneService，RandomFortuneService等等实现类，如果直接去注入，Spring会报错如下（部分错误信息）：</p>
 <pre>
@@ -326,8 +324,37 @@ public class HappyFortuneService implements FortuneService {
         return "Today is your lucky day for HappyFortuneService!";
     }
 }
+
+//CricketCoach.java
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+
+@Component
+public class CricketCoach implements Coach {
+
+    @Autowired
+    @Qualifier("happyFortuneService")
+    private FortuneService fortuneService;
+
+    private String emailAddress;
+    private String team;
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am CricketCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am CricketCoach " + fortuneService.getFortune();
+    }
+
+    ......
+}
+
 </pre>
-<p>这个时候运行，会提示BaseballCoach创建失败，回头去看看，原来是因为我们刚才在配置了构造器注入：</p>
+<p>这个时候运行，会提示BaseballCoach创建失败，回头去看看，原来是因为我们刚才在BaseballCoach中配置的构造器注入也没有@Qualifier：</p>
 <pre>
 @Autowired
 public BaseballCoach(FortuneService fortuneService) {
@@ -372,6 +399,102 @@ System.out.println(context.getBean("cricketCoach", CricketCoach.class).getDailyF
 System.out.println(context.getBean("baseballCoach", BaseballCoach.class).getDailyFortune());
 </pre>
 <p>可以发现，CricketCoach使用的是HappyFortuneService，而BaseballCoach使用的是JoyFortuneService，这样就解决了这个问题。</p>
+<p>之后是豆知识里提到的关于Bean的Scope和自定义初始化和销毁方法的注解配置</p>
+
+<h1 style="text-align: center;">@Scope注解</h1>
+<p>Scope属性的注解就在@Component之下使用<code>@Scope("singleton")</code>或者其他参数来配置。</p>
+<p>现在把BaseballCoach配置为单例，CricketCoach配置为prototype，再通过应用试验一下：</p>
+<pre>
+@Component
+@Scope("singleton")
+public class BaseballCoach implements Coach {......}
+
+@Component
+@Scope("prototype")
+public class CricketCoach implements Coach {......}
+
+//应用里的代码：
+ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("annoContext.xml");
+CricketCoach cricketCoach1 = context.getBean("cricketCoach", CricketCoach.class);
+CricketCoach cricketCoach2 = context.getBean("cricketCoach", CricketCoach.class);
+System.out.println(cricketCoach1==cricketCoach2);
+System.out.println(cricketCoach1 + " | " + cricketCoach2);
+
+BaseballCoach baseballCoach1 = context.getBean("baseballCoach", BaseballCoach.class);
+BaseballCoach baseballCoach2 = context.getBean("baseballCoach", BaseballCoach.class);
+System.out.println(baseballCoach1 == baseballCoach2);
+System.out.println(baseballCoach1 + " | " + baseballCoach2);
+</pre>
+<p>运行之后可以看到成功的配置了单例或者prototype。</p>
+
+<h1 style="text-align: center;">自定义初始方法和销毁方法的注解</h1>
+<p>初始方法的注解是@PostConstruct，而销毁前方法的注解是@PreDestroy。</p>
+<p>就给BaseballCoach加上两个自定义方法，在Autowired里加一行显示，然后用这两个注解试验一下：</p>
+<pre>
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+
+@Component
+@Scope("singleton")
+public class BaseballCoach implements Coach {
+
+    private FortuneService fortuneService;
+
+    public BaseballCoach() {
+    }
+
+    @Autowired
+    public BaseballCoach(@Qualifier("joyFortuneService") FortuneService fortuneService) {
+        System.out.println("This is auto-wired constructor.");
+        this.fortuneService = fortuneService;
+    }
+
+    @Override
+    public String getDailyWorkout() {
+        return "I am BaseballCoach";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return "I am BaseballCoach " + fortuneService.getFortune();
+    }
+
+    @PostConstruct
+    public void myInitMethod() {
+        System.out.println("This is my init-method");
+    }
+
+    @PreDestroy
+    public void myDestroyMethod() {
+        System.out.println("This is my destroy-method");
+    }
+}
+</pre>
+<p>然后修改一下应用随便调用一下：</p>
+<pre>
+ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("annoContext.xml");
+System.out.println(context.getBean("baseballCoach", BaseballCoach.class).getDailyFortune());
+context.close();
+</pre>
+<p>可以看到结果是：</p>
+<pre>
+This is auto-wired constructor.
+This is my init-method
+I am BaseballCoach Today is your lucky day for JoyFortuneService!
+This is my destroy-method
+</pre>
+<p>关于用这两个注释有些需要注意的地方：</p>
+<ol>
+    <li>方法的修饰符不受限制，public，private，protect均可</li>
+    <li>返回值一般为void，因为即使有返回值，也无法从这两个方法拿到返回值</li>
+    <li>方法名可以任意起</li>
+    <li>方法不能带有参数，必须是无参的</li>
+</ol>
+<p>如果将scope配置为prototype，则Spring不会管理Bean的全生命周期，在容器关闭的时候也不会调用@PreDestroy方法。</p>
 
 <h1 style="text-align: center;">几个小要点</h1>
 <p>@Autowired不指定Bean名称的时候，会将类名的首字母自动小写来作为Bean的id，然而如果这个类的第一个和第二个字母都大写，则不会自动转换名称，会将类名作为Bean的id。</p>
@@ -382,7 +505,7 @@ System.out.println(context.getBean("baseballCoach", BaseballCoach.class).getDail
 <ol>
     <li>XML里依然需要配置&lt;context:property-placeholder location="classpath:sport.properties"/></li>
     <li>使用@Value配合Spring表达式来注解对应的域，比如：
-    <pre>
+        <pre>
     @Value("${foo.email}")
     private String email;
 

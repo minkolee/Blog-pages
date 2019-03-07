@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring初步</title>
+
+</head>
+<body>
+<p>现在是最后一种配置Spring的方式，就是Java代码的方式，依然还是像原来一样，分为Bean，依赖注入，Bean生命周期管理等方面。</p>
+<p>通过XML和自动扫描的方式，都不能完全脱离开XML文件，但使用Java代码的方式，无需使用XML文件。</p>
+<p>配置的方式是将一个Java类通过<code>@Configuration</code>注解变为Spring的配置类，然后添加组件扫描<code>@ComponentScan</code>，Spring在启动的时候就会读入这个配置类，然后就可以从容器里获得Bean了。</p>
+
+<h1 style="text-align: center;">通过配置类自动扫描配置Bean</h1>
+<p>将上边所有写好了注解的Bean复制到一个新包里，这次不用新建XML文件了，而是在新包里创建一个Java类，名字可以任意，但为了方便，可以叫SpringConfig.java：</p>
+<pre>
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@ComponentScan("javaConfig")
+public class SpringConfig {
+}
+</pre>
+<p>这里的<code>@Configuration</code>就启用了配置类，之后的<code>@ComponentScan("javaConfig")</code>是启用了当前包的自动扫描功能。</p>
+<p>现在先什么都别做，创建一个应用JavaApp.java试着从容器里获取Bean，很显然，这次就不能用加载XML文件的上下文处理器了，而要加载配置类：</p>
+<pre>
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class JavaApp {
+
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(SpringConfig.class);
+        BaseballCoach baseballCoach = context.getBean("baseballCoach", BaseballCoach.class);
+        System.out.println(baseballCoach.getDailyFortune());
+        System.out.println(baseballCoach.getDailyWorkout());
+        context.close();
+    }
+}
+</pre>
+<p>结果完全正常获取了Bean和操作Bean。这是最简单的，通过配置类和开启扫描功能来配置Spring容器。</p>
+<p>不过这只是Java配置类中比较讨巧的做法，其本质还是自动扫描这种方法。下边要学习如何通过Java配置类直接配置Bean。</p>
+
+<h1 style="text-align: center;">通过Java代码配置Bean</h1>
+<p>这里我们通过新创建一个SwimCoach并一步一步最终完成注入来学习如何使用Java代码配置Bean和之后的依赖注入。在开始之前看一下步骤：</p>
+<ol>
+    <li>在配置类中创建一个方法用于描述Bean</li>
+    <li>注入Bean的依赖</li>
+    <li>载入配置类</li>
+    <li>从容器中获取并使用Bean</li>
+</ol>
+<p>先清除掉<code>@ComponentScan("javaConfig")</code>，之后创建最简单的SwimCoach类：</p>
+<pre>
+public class SwimCoach implements Coach {
+    @Override
+    public String getDailyWorkout() {
+        return "This is SwimCoach work";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return null;
+    }
+}
+</pre>
+<p>然后在SpringConfig.java中写如下代码：</p>
+<pre>
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class SpringConfig {
+
+    @Bean
+    public Coach swimCoach() {
+        SwimCoach mySwimCoach = new SwimCoach();
+        return mySwimCoach;
+    }
+}
+</pre>
+<p>这里要解释几点：</p>
+<ol>
+    <li><code>@Bean</code>注解表示这个方法定义了一个Bean</li>
+    <li>方法的返回类型Coach表示返回的Bean实现的接口</li>
+    <li>方法的名称就是Bean id</li>
+    <li>方法体是创建一个Coach的实现对象并且返回这个对象</li>
+</ol>
+<p>此时如果运行应用代码：</p>
+<pre>
+AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(SpringConfig.class);
+SwimCoach swimCoach = context.getBean("swimCoach", SwimCoach.class);
+System.out.println(swimCoach.getDailyWorkout());
+context.close();
+</pre>
+<p>可以发现<code>.getDailyWorkout()</code>已经可以正常工作了。Coach接口的另外一个方法<code>.getDailyFortune()</code>需要依赖注入，因此我们需要定义更多的Bean来达成依赖注入。</p>
+
+<h1 style="text-align: center;">通过Java代码配置Bean的依赖</h1>
+<p>和之前一样，如果要配置依赖，那么被注入的类也要成为一个Bean，因此先给SwimCoach加上一个接受依赖注入的方法，然后修改配置类：</p>
+<pre>
+//SwimCoach.java
+public class SwimCoach implements Coach {
+
+    public FortuneService fortuneService;
+
+    public SwimCoach(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
+
+    @Override
+    public String getDailyWorkout() {
+        return "This is SwimCoach work";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return fortuneService.getFortune();
+    }
+}
+
+//SpringConfig.java
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class SpringConfig {
+
+    @Bean
+    public FortuneService happyFortuneService() {
+        return new HappyFortuneService();
+    }
+
+    @Bean
+    public Coach swimCoach() {
+        SwimCoach mySwimCoach = new SwimCoach(happyFortuneService());
+        return mySwimCoach;
+    }
+}
+</pre>
+<p>现在我们配置了一个新的Bean，是基于HappyFortuneService的Bean。最关键的一点，是在swimCoach这个Bean中，将happyFortuneService()方法传入，这就是依赖注入。</p>
+<p>之后通过应用调用一下方法：</p>
+<pre>
+AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(SpringConfig.class);
+SwimCoach swimCoach = context.getBean("swimCoach", SwimCoach.class);
+System.out.println(swimCoach.getDailyWorkout());
+System.out.println(swimCoach.getDailyFortune());
+context.close();
+</pre>
+<p>发现成功的调用了<code>.getDailyFortune()</code>方法，完成了依赖注入。</p>
+
+<h1 style="text-align: center;">注入字面量</h1>
+<p>由于没有了XML文件，现在注入属性需要增加一个配置类的注解<code>@PropertySource</code>，沿用之前的sport.properties文件，修改配置类：</p>
+<pre>
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+
+@Configuration
+@PropertySource("classpath:sport.properties")
+public class SpringConfig {
+
+    @Bean
+    public FortuneService happyFortuneService() {
+        return new HappyFortuneService();
+    }
+
+    @Bean
+    public Coach swimCoach() {
+        return new SwimCoach(happyFortuneService());
+    }
+}
+</pre>
+<p>这里用<code>@PropertySource</code>配置属性来源为classpath下的sport.properties文件，然后还需要在SwimCoach中设置两个域和进行@Value注解，补上getter方法：</p>
+<pre>
+import org.springframework.beans.factory.annotation.Value;
+
+public class SwimCoach implements Coach {
+
+    public FortuneService fortuneService;
+
+    @Value("${foo.email}")
+    private String email;
+    @Value("${foo.team}")
+    private String team;
+
+
+    public SwimCoach(FortuneService fortuneService) {
+        this.fortuneService = fortuneService;
+    }
+
+    @Override
+    public String getDailyWorkout() {
+        return "This is SwimCoach work";
+    }
+
+    @Override
+    public String getDailyFortune() {
+        return fortuneService.getFortune();
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getTeam() {
+        return team;
+    }
+}
+</pre>
+<p>然后在应用中获取一下值看看：</p>
+<pre>
+System.out.println(swimCoach.getEmail());
+System.out.println(swimCoach.getTeam());
+</pre>
+<p>成功注入了字面量。</p>
+
+<h1 style="text-align: center;">小知识</h1>
+<p>Spring在运行的时候红色的字体是日志记录，在Spring 5.1版之后，日志水平被调整了，默认将不再输出INFO级别的日志。实际上可以单独再创建一个日志的配置类，通过AnnotationConfigApplicationContext加载多个配置类（依次作为参数），具体不详述了。</p>
+<hr>
+<p>视频教学没有提到用Java代码配置生命周期管理的方式，这里补充一下。生命周期管理是通过<code>@Bean</code>参数来完成的，比如：</p>
+<pre>
+@Bean(initMethod = "setup", destroyMethod = "cleanup")
+</pre>
+<p><code>@Scope("prototype")</code>可以直接添加于Java代码的<code>@Bean</code>之后，比如将SwimCoach设置成prototype：</p>
+<pre>
+@Configuration
+@PropertySource("classpath:sport.properties")
+public class SpringConfig {
+
+    @Bean
+    public FortuneService happyFortuneService() {
+        return new HappyFortuneService();
+    }
+
+    @Bean
+    @Scope("prototype")
+    public Coach swimCoach() {
+        return new SwimCoach(happyFortuneService());
+    }
+}
+</pre>
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
