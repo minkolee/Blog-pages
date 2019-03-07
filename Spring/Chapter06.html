@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring初步</title>
+
+</head>
+<body>
+
+<p>从去年12月份写好自己的第一个正式项目，到现在3个月没有碰过Django了，今天终于又回到了Web开发的地方。开始学习Spring MVC。</p>
+<p>Spring MVC是一个Java Web开发的框架，基于Model-View-Contorller设计模式，同时基于Spring框架的IOC，DI等特性上。</p>
+<p>Spring MVC的好处有：</p>
+<ol>
+    <li>采用Spring的方式创建Web应用和UI</li>
+    <li>创建一系列可以反复使用的UI组件</li>
+    <li>创建一系列可以反复使用的UI组件</li>
+    <li>对表单数据进行便捷的操作</li>
+    <li>视图层的灵活配置与第三方模板兼容</li>
+</ol>
+<p>Spring MVC的最新文档在<a href="https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html">https://docs.spring.io/spring/docs/current/spring-framework-reference/web.html</a></p>
+<p>一般一个Spring MVC Web应用包含如下部分：</p>
+<ol>
+    <li>一些Web组件和其他用于展示的内容</li>
+    <li>各种不同功能的Spring Bean</li>
+    <li>Spring的配置</li>
+</ol>
+
+<h1 style="text-align: center;">Spring MVC Web应用的一些基础概念</h1>
+<p>一个Spring MVC的Web应用通常流程是这样的：</p>
+<ol>
+    <li>浏览器发来请求</li>
+    <li>请求被HTTP代理交给Front Controller</li>
+    <li>Front Controller 交给 Controller</li>
+    <li>Controller 处理完毕，交给View Template生成响应</li>
+    <li>响应交给HTTP代理返回给用户</li>
+    <li>中间利用到数据库数据的时候，Controller通过Model来使用数据</li>
+</ol>
+<p>在Spring MVC里，我们把Front Controller称作<strong>DispatcherServlet </strong></p>
+<p>DispatcherServlet是Spring框架的一部分，已经被Spring开发小组编写好，所以不用编写这部分的代码。</p>
+<p>对于我们Web开发，我们需要开发的是Controller，View templates和Model这三部分，也就是MVC设计模式的三部分。</p>
+<p><strong>Controller</strong>是业务逻辑代码，一般用于处理请求，存取和处理数据，与模型进行数据交互，经过Controller处理的数据，会被发送到View Template。</p>
+<p><strong>Model</strong>是数据容器，现在常用ORM来处理数据库，得到一个数据对象，交给Controller进行处理。模型从后台数据系统中获取数据，并被抽象成对象，比如Java中的Bean。</p>
+<p><strong>View Template</strong>顾名思义就是模板，一种将静态模板结合动态数据，最终生成动态响应数据的地方，用处就是展示Controller和Model处理后的结果，一般使用JSP+JSTL技术，Spring MVC也支持很多其他类型的模板比如Thymeleaf, Groovy, Veolocity, Freemarker等等。</p>
+<p>在官方文档中都可以找到针对这些内容的详细说明。</p>
+
+<h1 style="text-align: center;">创建Spring MVC Web应用</h1>
+<p>其实就是创建一个Web应用，然后把Spring的包作为lib添加到Web-INF目录下的lib中，由于后边要用到JSTL，所以把JSTL的两个库文件也一并添加。然后需要进行一系列配置：</p>
+<ol>
+    <li>
+        在WEB-INF/web.xml中配置DispatcherServlet：
+        <pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+&lt;web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+         version="4.0">
+    &lt;servlet>
+        &lt;servlet-name>dispatcher&lt;/servlet-name>
+        &lt;servlet-class>org.springframework.web.servlet.DispatcherServlet&lt;/servlet-class>
+        
+        &lt;init-param>
+            &lt;param-name>contextConfigLocation&lt;/param-name>
+            &lt;param-value>WEB-INF/spring-mvc-demo-servlet.xml&lt;/param-value>
+        &lt;/init-param>
+        
+        &lt;load-on-startup>1&lt;/load-on-startup>
+    &lt;/servlet>
+&lt;/web-app></pre>
+        这里配置了一个Servlet的名字是dispatcher（可以任意起），具体的Servelet类是Spring框架中编写好的DispatcherServlet。
+        然后还配置了一个初始化参数，参数名必须是contextConfigLocation，然后指定了Spring mvc配置文件的路径。
+    </li>
+    <li>
+        设置DispatcherServlet的URL mapping：
+        <pre>
+&lt;servlet-mapping>
+    &lt;servlet-name>dispatcher&lt;/servlet-name>
+    &lt;url-pattern>/&lt;/url-pattern>
+&lt;/servlet-mapping></pre>
+        有Java EE开发经验的都知道，不配置mapping就会报错，这里我们使用反斜杠，让所有的URL请求，都交给DispatcherServlet进行处理。
+        此时启动服务器，会报404错误。
+    </li>
+    <li>
+        配置WEB-INF/spring-mvc-demo-servlet.xml（名字可以任意起，是一个针对Spring MVC的配置文件）。
+        在web.xml的同级目录创建一个符合要求的XML配置文件：
+        <pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xsi:schemaLocation="
+		http://www.springframework.org/schema/beans
+    	http://www.springframework.org/schema/beans/spring-beans.xsd
+    	http://www.springframework.org/schema/context
+    	http://www.springframework.org/schema/context/spring-context.xsd
+    	http://www.springframework.org/schema/mvc
+        http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+&lt;/beans></pre>
+    </li>
+    <li>
+        启用对Spring组件扫描的支持，在beans标签内添加：
+        <pre>
+&lt;context:component-scan base-package="springdemo1" /></pre>
+        这就是XML配置中启用组件扫描的配置，包名可以是自己在src目录下创建任意名称的包，这是为了让Spring获取Bean。
+    </li>
+    <li>
+        启用对于表单数据转换，格式化和有效性的支持，同样在beans标签内添加：
+        <pre>
+&lt;mvc:annotation-driven/></pre>
+        这个现在还不怎么明白，先配置好再说
+    </li>
+    <li>
+        配置Spring MVC View Resolver，还是在beans标签内：
+        <pre>
+&lt;bean
+    class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    &lt;property name="prefix" value="/WEB-INF/view/" />
+    &lt;property name="suffix" value=".jsp" />
+&lt;/bean></pre>
+        这个视图解析器的意思是，使用InternalResourceViewResolver这个类解析模板，然后按照前缀+名称+后缀名的方式去寻找对应的视图文件。如果提供了一个名称是<code>students</code>的视图名称，则实际寻找的名称是<code>/WEB-INF/view/students.jsp</code>
+    </li>
+</ol>
+<p>此时启动服务器，Tomcat能够正常启动，但是日志中会提示org.springframework.web.servlet.DispatcherServlet noHandlerFound，看来还需要进行一些设置和代码编写才能够使用。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
