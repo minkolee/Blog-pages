@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring初步</title>
+
+</head>
+<body>
+<p>只要能够运行一个Web应用，就能运行更加复杂的应用，只需要将更多的组件和业务逻辑组装起来。Web开发在配置好了最基础的项目之后，接下来的传统艺能无非就是增删改查和身份认证，之后就是无限的可能性了。</p>
+<p>增删改查的最基础的一步，就是读取客户端的请求中附带的数据。</p>
+
+<h1 style="text-align: center;">从请求中获取属性和值</h1>
+<p>先来做一个最简单的表单提交一个数据的应用，表单采用GET请求提交数据，意味着我们要通过GET请求取得附带的参数。</p>
+<p>先来设计一下架构，由于有过之前的开发经验，我们想到，用一个url返回表单页面，由于表单是GET请求，所以让表单发送到另外一个url，取得表单数据后简单展示在一个新的页面上。</p>
+<p>于是需要两个url对应的控制方法，一个展示表单的页面和一个结果页面：创建一个新的控制器叫做BasicFormController，其中两个方法用于控制两个url，然后一个first-form.jsp，一个result.jsp。</p>
+<p>先编写控制器：</p>
+<pre>
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import static org.springframework.web.bind.annotation.RequestMethod.GET;
+
+@Controller
+public class BasicFormController {
+
+    @RequestMapping(value = "/form", method = GET)
+    public String showForm() {
+        return "first-form";
+    }
+
+    @RequestMapping(value = "/processForm", method = GET)
+    public String processForm() {
+        return "result";
+    }
+}
+</pre>
+<p>这里对<code>@RequestMapping(value = "/form", method = GET)</code>用法做了一点升级，value表示匹配的url，method表示方法，除了GET之外还可以匹配POST。</p>
+<p>用一个控制器，其中的两个方法分别展示表单页面和处理表单数据并返回结果页面。来编写first-form.jsp：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" %>
+&lt;%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+&lt;html>
+&lt;head>
+    &lt;title>FirstSpringMVC&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;form action="processForm" method="get">
+    Student name: &lt;input type="text" name="studentName" placeholder="What's your name?">
+    &lt;input type="submit">
+&lt;/form>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这个jsp文件很简单，就一个表单，提交请求到/processForm路径，使用GET方法。再来编写result.jsp：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" %>
+&lt;%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+&lt;html>
+&lt;head>
+    &lt;title>FirstSpringMVC&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;p>Dear student:&lt;/p>
+&lt;p>Your name is &lt;span style="color:darkmagenta">${param.studentName}&lt;/span>&lt;/p>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这里唯一一点要注意的是，GET请求进来的参数名称是studentName，这里用Spring表达式<code>${param.studentName}</code>直接从参数上下文中取得了对应的名称显示在结果中。</p>
+<p>还可以尝试增加表单的内容，同样使用Spring表达式来取值。这里如果将表单的请求方式改成POST，将控制器的processForm方法的@RequestMapping注解的参数修改为POST，结果也可以正常显示。</p>
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
