@@ -8,7 +8,6 @@
 
 </head>
 <body>
-
 <p>从去年12月份写好自己的第一个正式项目，到现在3个月没有碰过Django了，今天终于又回到了Web开发的地方。开始学习Spring MVC。</p>
 <p>Spring MVC是一个Java Web开发的框架，基于Model-View-Contorller设计模式，同时基于Spring框架的IOC，DI等特性上。</p>
 <p>Spring MVC的好处有：</p>
@@ -45,7 +44,7 @@
 <p><strong>View Template</strong>顾名思义就是模板，一种将静态模板结合动态数据，最终生成动态响应数据的地方，用处就是展示Controller和Model处理后的结果，一般使用JSP+JSTL技术，Spring MVC也支持很多其他类型的模板比如Thymeleaf, Groovy, Veolocity, Freemarker等等。</p>
 <p>在官方文档中都可以找到针对这些内容的详细说明。</p>
 
-<h1 style="text-align: center;">创建Spring MVC Web应用</h1>
+<h1 style="text-align: center;">创建Spring MVC Web应用结构</h1>
 <p>其实就是创建一个Web应用，然后把Spring的包作为lib添加到Web-INF目录下的lib中，由于后边要用到JSTL，所以把JSTL的两个库文件也一并添加。然后需要进行一系列配置：</p>
 <ol>
     <li>
@@ -102,7 +101,7 @@
     <li>
         启用对Spring组件扫描的支持，在beans标签内添加：
         <pre>
-&lt;context:component-scan base-package="springdemo1" /></pre>
+&lt;context:component-scan base-package="mvcbeans" /></pre>
         这就是XML配置中启用组件扫描的配置，包名可以是自己在src目录下创建任意名称的包，这是为了让Spring获取Bean。
     </li>
     <li>
@@ -122,11 +121,67 @@
         这个视图解析器的意思是，使用InternalResourceViewResolver这个类解析模板，然后按照前缀+名称+后缀名的方式去寻找对应的视图文件。如果提供了一个名称是<code>students</code>的视图名称，则实际寻找的名称是<code>/WEB-INF/view/students.jsp</code>
     </li>
 </ol>
-<p>此时启动服务器，Tomcat能够正常启动，但是日志中会提示org.springframework.web.servlet.DispatcherServlet noHandlerFound，看来还需要进行一些设置和代码编写才能够使用。</p>
+<p>此时启动服务器，Tomcat能够正常启动，但是日志中会提示org.springframework.web.servlet.DispatcherServlet noHandlerFound，这是因为前端控制器找不到具体处理请求的控制器，下边需要编写一个最简单的控制器和视图。</p>
 
+<h1 style="text-align: center;">编写第一个控制器与视图</h1>
+<p>DispatcherServlet的任务是将请求发送给Spring MVC 控制器（controller），控制器是用于处理请求并且返回一个视图名称的Spring组件，由于一般Web应用的控制器有很多，所以DispatcherServlet需要一个处理器映射（Handler Mapping）来寻找对应的控制器，这也就是前边提示noHandlerFound的原因。</p>
+<p>编写控制器的步骤是：</p>
+<ol>
+    <li>创建控制器类</li>
+    <li>创建控制器方法</li>
+    <li>把Controller方法与请求的URL进行匹配</li>
+    <li>返回视图的名称</li>
+</ol>
+<p><strong>第一步</strong>，需要编写一个控制器类，然后用<code>@Controller</code>进行注解，<code>@Controller</code>继承了<code>@Component</code>注解，用来标示一个控制器，同时告诉Spring将其装配成一个Bean。</p>
+<p><strong>第二步和第三步联系比较紧密</strong>，在控制器中编写一个自定义的方法，参数可以随意，然后用<code>@RequestMapping("URL")</code>进行注解，这个注解告诉这个方法用于处理哪个URL发来的请求。</p>
+<p><strong>第四步</strong>，无论方法内部进行了什么操作，需要返回一个字符串值，Spring MVC会将这个字符串值当做视图的名称，经过视图解析器处理成完整视图文件路径，然后去寻找这个视图文件。</p>
+<p>我们来为我们的第一个应用编写一个对应"/"的视图控制器，在src目录下的mvcbeans包里创建一个HomeController.java：</p>
+<pre>
+package mvcbeans;
 
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
 
+@Controller
+public class HomeController {
 
+    @RequestMapping("/")
+    public String showHomePage() {
+        return "home-page";
+    }
+}
+</pre>
+<p>这里首先用@Controller注解了这个类，让其被Spring组装成一个Bean并且作为一个控制器注册，然后使用@RequestMapping("/")，让其中的方法showHomePage()对应"/"路径的操作，最后返回一个字符串"home-page"，这个字符串会被View Resolver解析成/WEB_INF/view/home-page.jsp。</p>
+<p>还要按照视图解析器的路径，在/WEB-INF/view/下边来创建这个jsp文件：</p>
+<pre>
+//home-page.jsp
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+&lt;html>
+&lt;head>
+    &lt;title>FirstSpringMVC&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;h1 style="text-align: center;">第一个Spring MVC Web应用&lt;/h1>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>然后启动项目，访问<code>localhost:8080/</code>，成功的启动了第一个Spring MVC Web应用！</p>
+<p>注意，实际的URL访问路径不一定是<code>localhost:8080/</code>，在Intellij中可以在Run--Edit Configurations--Tomcat Server--Deployment--Application Context中修改Web项目上下文。我这里将Application Context清空了，所以直接就是根路径。</p>
+
+<h1 style="text-align: center;">简单回顾一下第一个Spring MVC Web应用</h1>
+<p>第一个应用我们是采取的以web.xml为入口的配置（当然还会有其他不通过web.xml的配置，但是目前这一种最易于理解）。</p>
+<p>配置并且运行的实际过程是：</p>
+<ol>
+    <li>在web.xml中配置来自Spring MVC的前端控制器负责所有Web应用请求的分发</li>
+    <li>在web.xml的init-param中配置了contextConfigLocation以及对应的配置文件的路径</li>
+    <li><span style="color: red">前端控制器在这里实际上创建了Spring容器，并且按照配置文件里的路径去组装了Bean</span></li>
+    <li>Web请求被前端控制器交给处理"/"路径的控制器</li>
+    <li>控制器完成工作（实际上现在的控制器什么也没做），返回了一个字符串</li>
+    <li>字符串被交给解析器，解析器根据配置文件中的前后缀拼成一个视图路径</li>
+    <li>视图路径中的内容被组装成请求返回给浏览器</li>
+</ol>
+<p>跑起来了第一个Web应用，就可以跑起来无数个更复杂的Web应用，现在只用了视图和控制器，还没有用到模型。Web开发的后续，肯定是先来增删改查啦。</p>
 
 
 
