@@ -68,7 +68,7 @@ public class BasicFormController {
 </pre>
 <p>这里唯一一点要注意的是，GET请求进来的参数名称是studentName，这里用Spring表达式<code>${param.studentName}</code>直接从参数上下文中取得了对应的名称显示在结果中。</p>
 <p>还可以尝试增加表单的内容，同样使用Spring表达式来取值。这里如果将表单的请求方式改成POST，将控制器的processForm方法的@RequestMapping注解的参数修改为POST，结果也可以正常显示。</p>
-
+<p>这里实验了一下获得Checkbox的数据，发现${param}只能获得第一个数据，可见还会有其他的办法获取Checkbox类的一组数据的方法。</p>
 
 
 <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
