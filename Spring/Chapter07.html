@@ -11,7 +11,7 @@
 <p>只要能够运行一个Web应用，就能运行更加复杂的应用，只需要将更多的组件和业务逻辑组装起来。Web开发在配置好了最基础的项目之后，接下来的传统艺能无非就是增删改查和身份认证，之后就是无限的可能性了。</p>
 <p>增删改查的最基础的一步，就是读取客户端的请求中附带的数据。</p>
 
-<h1 style="text-align: center;">从请求中获取属性和值</h1>
+<h1 style="text-align: center;">从请求中获取属性和值-${param}</h1>
 <p>先来做一个最简单的表单提交一个数据的应用，表单采用GET请求提交数据，意味着我们要通过GET请求取得附带的参数。</p>
 <p>先来设计一下架构，由于有过之前的开发经验，我们想到，用一个url返回表单页面，由于表单是GET请求，所以让表单发送到另外一个url，取得表单数据后简单展示在一个新的页面上。</p>
 <p>于是需要两个url对应的控制方法，一个展示表单的页面和一个结果页面：创建一个新的控制器叫做BasicFormController，其中两个方法用于控制两个url，然后一个first-form.jsp，一个result.jsp。</p>
@@ -69,6 +69,34 @@ public class BasicFormController {
 <p>这里唯一一点要注意的是，GET请求进来的参数名称是studentName，这里用Spring表达式<code>${param.studentName}</code>直接从参数上下文中取得了对应的名称显示在结果中。</p>
 <p>还可以尝试增加表单的内容，同样使用Spring表达式来取值。这里如果将表单的请求方式改成POST，将控制器的processForm方法的@RequestMapping注解的参数修改为POST，结果也可以正常显示。</p>
 <p>这里实验了一下获得Checkbox的数据，发现${param}只能获得第一个数据，可见还会有其他的办法获取Checkbox类的一组数据的方法。</p>
+
+<h1 style="text-align: center;">使用Spring Model对象传递数据</h1>
+<p>Spring MVC内部有一个Model对象，是一个Web应用内数据的容器。在控制器中，可以向Model对象内放入任何数据，在处理完请求之后，View页面可以从Model对象中取得控制器放入的数据，这样就实现了控制与视图之间的数据传递。</p>
+<p>Spring MVC的控制器方法中，传入的参数是任意需要的参数，比如需要HTTP请求对象，则可以传入HTTPServletRequest，需要Model对象，则可以传入Model类型的参数。</p>
+<p>这里对上面的例子进行一下修改，使用Model对象传递全部大写的学生名称，在result.jsp中增加一行来展示这个经过Model传递来的数据。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
