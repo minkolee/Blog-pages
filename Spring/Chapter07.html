@@ -73,28 +73,114 @@ public class BasicFormController {
 <h1 style="text-align: center;">使用Spring Model对象传递数据</h1>
 <p>Spring MVC内部有一个Model对象，是一个Web应用内数据的容器。在控制器中，可以向Model对象内放入任何数据，在处理完请求之后，View页面可以从Model对象中取得控制器放入的数据，这样就实现了控制与视图之间的数据传递。</p>
 <p>Spring MVC的控制器方法中，传入的参数是任意需要的参数，比如需要HTTP请求对象，则可以传入HTTPServletRequest，需要Model对象，则可以传入Model类型的参数。</p>
-<p>这里对上面的例子进行一下修改，使用Model对象传递全部大写的学生名称，在result.jsp中增加一行来展示这个经过Model传递来的数据。</p>
+<p>这里对上面的processForm方法进行一下修改，使用Model对象传递全部大写的学生名称，在result.jsp中增加一行来展示这个经过Model传递来的数据。</p>
+<pre>
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import javax.servlet.http.HttpServletRequest;
+import static org.springframework.web.bind.annotation.RequestMethod.GET;
 
+@Controller
+public class BasicFormController {
 
+    @RequestMapping(value = "/form", method = GET)
+    public String showForm() {
+        return "first-form";
+    }
 
+    @RequestMapping(value = "/processForm", method = GET)
+    public String processForm(HttpServletRequest request, Model model) {
+        String studentName = request.getParameter("studentName").toUpperCase();
+        model.addAttribute("message", studentName);
+        return "result";
+    }
+}
+</pre>
+<p>这里如果需要使用HttpServletRequest类，需要导入Tomcat的包，不过会有提示说jar未被载入，但是可以正常使用request对象和编译通过，暂时不知道为什么。可能是Tomcat本身的包有点老，应该还是使用Tomcat本身附带的包比较好一些。</p>
+<p>这个一个主要的变化就是，从request对象中获取到了参数studentName的值，然后将其大写之后，写入到Model对象中，当然Model类也需要从Spring中导入。</p>
+<p>在修改好控制器方法后，在result.jsp中新增一行用于从Model中获取数据。</p>
+<pre>
+&lt;body>
+&lt;p>Dear student:&lt;/p>
+&lt;p>Your name is &lt;span style="color:darkmagenta">${param.studentName}&lt;/span>&lt;/p>
+&lt;p>Your name from model is &lt;span style="color:darkblue">${message}&lt;/span>&lt;/p>
+&lt;p>&lt;a href="/form">返回表单页&lt;/a>&lt;/p>
+&lt;/body>
+</pre>
+<p>可以看到，Model就相当于一个域对象。我看了Spring的一些介绍材料上说，一般在Spring框架中，极少像JavaEE中直接使用Request和Response对象。那么这里的Model对象就起到了在整个Web应用处理响应的过程中传递数据的功能。</p>
+<p>既然是域对象，Model中可以放入任何东西，尝试着放了一些Java的集合和Map对象，都可以正常显示出对象的toString()方法的结果。</p>
 
+<h1 style="text-align: center;">直接绑定request中的参数值，无需使用request对象</h1>
+<p>在上一个例子里提到过，一般Spring框架较少使用Request对象，那么如何在不通过Request对象的情况下获取参数呢。其实既然能用Spring表达式在jsp中获取，说明框架肯定已经帮我们截取到了Request中的参数。</p>
+<p>继续修改控制器如下：</p>
+<pre>
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import static org.springframework.web.bind.annotation.RequestMethod.GET;
 
+@Controller
+public class BasicFormController {
 
+    @RequestMapping(value = "/form", method = GET)
+    public String showForm() {
+        return "first-form";
+    }
 
+    @RequestMapping(value = "/processForm", method = GET)
+    public String processForm(@RequestParam("studentName") String studentName, Model model) {
+        studentName = studentName.toUpperCase();
+        model.addAttribute("message", studentName);
+        return "result";
+    }
+}
+</pre>
+<p>这里有点像之前在学习依赖注入的时候直接用注解来标识参数，也用了<code>@RequestParam</code>带上参数的名称来修饰控制器方法的参数，这样就将字符串类型的studentName变量直接绑定了请求中的属性。</p>
+<p>而且比较两个控制器方法，可以发现这么操作无需再导入<code>import javax.servlet.http.HttpServletRequest;</code>，这是一种非常Spring的做法，推荐使用。从中也可以看到Spring控制器方法灵活使用参数的强大功能。</p>
 
+<h1 style="text-align: center;">控制器层面的@RequestMapping注解</h1>
+<p>目前为止，只把<code>@RequestMapping</code>使用在了控制器方法上，实际上该注解也可以使用在控制器上，也可以同时使用在控制器和控制方法上。</p>
+<p>同时使用的话，控制器的注解先发生作用，控制方法的注解会对控制器的注解进行补充，尤其是在路径方面，相当于控制器注解是一个目录，而控制方法对应的是子目录。</p>
+<p>来修改一下我们的控制器，将路径变得更加清晰一些：</p>
+<pre>
+@Controller
+@RequestMapping(value = "/form")
+public class BasicFormController {
 
+    @RequestMapping(value = "/show", method = GET)
+    public String showForm() {
+        return "first-form";
+    }
 
+    //原来的processForm方法
+//    @RequestMapping(value = "/processForm", method = POST)
+//    public String processForm() {
+//        return "result";
+//    }
 
+    @RequestMapping(value = "/result", method = GET)
+    public String processForm(@RequestParam("studentName") String studentName, Model model) {
+        studentName = studentName.toUpperCase();
+        model.addAttribute("message", studentName);
+        return "result";
+    }
+}
+</pre>
+<p>这样配置完之后的结果是，如果要展示表单，访问的相对路径是/form/show，而表单被提交的路径是/form/result，修改一下两个jsp文件中的路径：</p>
+<pre>
+&lt;%--first-form.jsp--%>
+&lt;form action="/form/result" method="get">
+    Student name: &lt;input type="text" name="studentName" placeholder="What's your name?">
 
+    &lt;input type="submit">
+&lt;/form>
 
-
-
-
-
-
-
-
-
+&lt;%--result.jsp--%>
+&lt;p>&lt;a href="/form/show">返回表单页&lt;/a>&lt;/p>
+</pre>
+<p>重新部署之后，访问表单的地址就变成了<code>http://localhost:8080/form/show</code>，输入之后发现结果页的地址变成了<code>http://localhost:8080/form/result?studentName=testname</code>。</p>
 
 
 
