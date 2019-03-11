@@ -119,7 +119,7 @@ public class Customer {
 &lt;/body>
 &lt;/html>
 </pre>
-<p>这里的关键是<code>form:errors</code>标签，用path对应了Custom的同名属性，cssClass指定了基础的显示样式，从名字就能看出来，这个标签将来是要对应这个lastName字段的错误信息。</p>
+<p>这里的关键是<code>form:errors</code>标签，用path对应了Custom的同名属性，cssClass指定了类名，从名字就能看出来，这个标签将来是要对应这个lastName字段的错误信息。</p>
 <p>然后来编写已经驾轻就熟的控制器：</p>
 <pre>
 import org.springframework.beans.factory.annotation.Value;
@@ -155,7 +155,30 @@ public class ValidationController {
 <p>控制器中展示表单的方法很简单，给Model直接绑定Customer对象，在processForm方法中，则在原来的绑定Customer对象之前，又加了一个新的<code>@Valid</code>注解，还传入了一个新的<code>BindingResult
     bindingResult</code>参数，顾名思义，这是一个表单验证后的结果，如果有错误，依然返回表单对象，此时表单对象的值就是用户已经填写的内容，如果没有问题，则将表单数据返回给customer-confirmation.jsp。</p>
 <p>再来编写customer-confirmation.jsp，简单展示一下经过验证后的表单数据。</p>
+<pre>
+&lt;p>Your firstname is ${customer.firstName}&lt;/p>
+&lt;p>Your lastName is ${customer.lastName}&lt;/p>
+</pre>
 <p>此时运行应用，如果不填写lastName，可以看到旁边出现了错误提示，其元素是<code>&lt;span id="lastName.errors" class="error">is required&lt;/span></code>，有id和class，方便后期做样式。</p>
+
+<h1 style="text-align: center;">必填字段验证的改进--先对表单数据执行处理</h1>
+<p>在上一个例子中，很容易就可以发现不合理的地方，即如果在lastName的地方填入空格，由于空格也是字符，不是空，而且满足长度条件，所以会被传到后端，但显然这不是我们想要的结果。</p>
+<p>对于这种字符输入，可以使用<code>@InitBinder</code>注解，在将值与变量绑定之前，先对值进行一定的处理。</p>
+<p>被<code>@InitBinder</code>注解的方法相当于一个预处理，会在控制器获得数据之前先对数据进行处理，这是Spring的高级内容之一。</p>
+<p>这里我们需要达成的条件是对字符串进行Trim操作，即去掉两端的空白，这样纯空白输入会被当成null。为了达成这个需求，我们在控制器ValidationController中编写一个方法：</p>
+<pre>
+@InitBinder
+public void initBinder(WebDataBinder dataBinder) {
+    StringTrimmerEditor stringTrimmerEditor = new StringTrimmerEditor(true);
+    dataBinder.registerCustomEditor(String.class, stringTrimmerEditor);
+}
+</pre>
+<p>这个方法可以理解成，实际上是使用了一个Web数据绑定对象，然后将所有符合String类型的数据，都在数据绑定对象里注册了一个Trimmer过滤器。</p>
+<p>再启动应用，然后实验用空格加字母，就可以正常去掉空格了，而如果输出纯空格，会因为结果是null而触发@NotNull验证的错误信息。</p>
+
+
+
+
 
 
 
