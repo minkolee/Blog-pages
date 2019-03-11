@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring初步</title>
+
+</head>
+<body>
+<p>在了解了通过请求来绑定参数之外，还有更强大的功能，利用Spring MVC Form tags来直接生成表单和绑定数据对象，为从表单中获取数据提供了更加简便的方式。</p>
+<p>Spring MVC 表单标签是可以直接生成HTML代码的标签，回想一下Django的{{form}}，只能够根据模型字段生成标签，但无法绑定数据，还需要手工从请求中的表单数据内获取具体数据。Spring MVC通过指定标签对应的属性和表单对应的Bean，可以直接将表单数据交给一个Bean。这样就大大简化了从请求中获取值的方式。</p>
+<p>先来看一下整体的步骤：</p>
+<ol>
+    <li>创建一个数据Bean，设置好域变量为要获取的内容，然后设置好getter和setter方法。</li>
+    <li>在JSP页面中，声明Spring MVC的表单标签，并且使用表单标签创建表单，其中表单的一些属性要设置为与Model和Bean的一些属性名相同</li>
+    <li>在展示表单的控制器方法内，使用特殊的注解修饰作为控制方法参数的Bean，让Model中的一个属性与Bean绑定</li>
+    <li>在展示表单的时候，如果设置正确，则表单数据会被Spring通过调用getter方法填充</li>
+    <li>在填写表单的时候，如果设置正确，则表单数据会被Spring通过调用Bean的setter方法设置给Bean，在控制器方法中即可操作Bean</li>
+</ol>
+
+<h1 style="text-align: center;">文本属性的绑定和获取</h1>
+<p>首先来看最简单的绑定和获取数据的方式，就是普通的input标签以及textarea等标签。</p>
+<p>为了和基础的部分区分，创建一个新的控制器类叫做TagFormController：</p>
+<pre>
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+
+@Controller
+@RequestMapping(value = "/tags")
+public class TagFormController {
+
+    @RequestMapping(value = "/showform", method = RequestMethod.GET)
+    public String showForm(Model model) {
+        model.addAttribute("student", new Student());
+
+        return "tag-form";
+    }
+}
+</pre>
+<p>这里要注意的是，我们给model对象设置了一个空白的Student对象，所以还需要创建一个Student作为数据Bean。为了简单，就先给Student类两个字符串属性，就是firstName和lastName：</p>
+<pre>
+public class Student {
+
+    private String firstName;
+    private String lastName;
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+}
+</pre>
+<p>然后最关键的是表单部分，必须使用Spring MVC 表单标签，新建一个tag-form.jsp：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+&lt;html>
+&lt;head>
+    &lt;title>使用标签绑定的表单&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;h1 style="text-align: center">标签绑定的表单&lt;/h1>
+&lt;form:form action="/tags/processForm" modelAttribute="student" method="get">
+    First Name: &lt;form:input path="firstName"/>
+    &lt;br>&lt;br>
+    Last Name: &lt;form:input path="lastName"/>
+    &lt;br>&lt;br>
+    &lt;input type="submit">
+&lt;/form:form>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这个表单是关键：首先使用taglib导入了Spring MVC的表单标签，然后在<code>&lt;form:form></code>中使用了action="/tags/processForm"，这个对应的控制器方法一会再编写。</p>
+<p>然后关键是<code>modelAttribute="student"</code>，这里指定了model的属性为student，也就是将表单与model中的键为student的Student对象进行绑定。</p>
+<p>之后的两个input标签内，关键的地方是<code>path="firstName"</code>，这个属性意味着在显示表单的时候，Spring MVC会通过调用<code>.getFirstName()</code>来获取值，在提交表单的时候，则会调用<code>.setFirstName(String firstName)</code>来设置值。</p>
+<p>然后就是编写处理表单的控制器方法了：</p>
+<pre>
+@RequestMapping(value = "/processForm", method = RequestMethod.GET)
+public String processForm(@ModelAttribute("student") Student student) {
+    System.out.println(student);
+    return "tag-result";
+}
+</pre>
+<p>这里又用到了用注解修饰方法参数的技巧，这个<code>@ModelAttribute("student") Student student</code>表示将从表单中获取的student对象绑定给参数student，这样就可以直接操作了，而无需再从Model中获取，这与上一节不通过request对象，直接绑定参数是一样的做法。</p>
+<p>之后再创建tag-result.jsp作为结果展示页面，其中采用表达式直接获取student对象的属性即可：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" %>
+&lt;html>
+&lt;head>
+    &lt;title>Spring MVC 标签获取表单内容&lt;/title>
+    &lt;style>
+        a {
+            text-decoration: none;
+        }
+    &lt;/style>
+&lt;/head>
+&lt;body>
+&lt;%--result.jsp--%>
+&lt;p>Dear student:&lt;/p>
+&lt;p>Your firstName is &lt;span style="color:darkmagenta">${student.firstName}&lt;/span>&lt;/p>
+&lt;p>Your lastName is &lt;span style="color:darkmagenta">${student.lastName}&lt;/span>&lt;/p>
+&lt;p>&lt;a href="/tags/showform">返回表单页&lt;/a>&lt;/p>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>整个流程是 表单展示URL-->控制器方法将表单对象与Student对象绑定并传回表单-->用户提交表单-->数据被写入model中已经被绑定的Student对象-->处理表单的控制器方法直接获取数据对象并使用-->返回处理结果</p>
+<p>这样我们通过一个控制器的两个方法，在生成表单的时候就绑定了数据对象Student，然后在表单提交的过程中在参数中也直接绑定了Student对象，达到了简单获取表单数据的目的。</p>
+
+<h1 style="text-align: center;">SELECT表单控件生成及数据获取</h1>
+<p>Spring MVC的表单SELECT标签结构是：</p>
+<pre>
+&lt;form:select path="country">
+    &lt;form:option value="China" label="PRChina">&lt;/form:option>
+    &lt;form:option value="France" label="France">&lt;/form:option>
+    &lt;form:option value="america" label="USA">&lt;/form:option>
+&lt;/form:select>
+</pre>
+<p>我们把这一段加入到tag-form.jsp中：由于在控制器方法中绑定的是Student对象，所以无需更改控制器方法，只需要为Student类增加这个country属性和getter及setter方法：</p>
+<pre>
+public class Student {
+
+    private String firstName;
+    private String lastName;
+    private String country;
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    @Override
+    public String toString() {
+        return "Student{" +
+                "firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", country='" + country + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>然后给result.jsp来加上一条展示的HTML代码：</p>
+<pre>
+&lt;p>Your country is &lt;span style="color:darkmagenta">${student.country}&lt;/span>&lt;/p>
+</pre>
+<p>这样配置一下就可以正常显示SELECT标签和获取数据了。</p>
+<p>现在我们要把做法升级一下，也就是自动生成country下拉菜单中的各个选项，表单标签提供了这个功能，用一个Map类型的映射，就可以做到这一点。</p>
+<p>先来修改Student类，这次我们设置一个成员变量是<code>private LinkedHashMap&lt;String, String> countryList;</code>，回想之前所说的，在生成表单的时候Spring会去调用getter方法填充表单，那么我们可以在Student的空参构造方法里来填充这个congtryList变量：</p>
+<pre>
+import java.util.LinkedHashMap;
+
+public class Student {
+
+    private String firstName;
+    private String lastName;
+    private String country;
+    private LinkedHashMap&lt;String, String> countryList = new LinkedHashMap&lt;>();
+
+    public Student() {
+        countryList.put("CN", "PRChina");
+        countryList.put("US", "USA");
+        countryList.put("BR", "Brasil");
+        countryList.put("FC", "France");
+    }
+
+
+    public LinkedHashMap&lt;String, String> getCountryList() {
+        return countryList;
+    }
+
+    public void setCountryList(LinkedHashMap&lt;String, String> countryList) {
+        this.countryList = countryList;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    @Override
+    public String toString() {
+        return "Student{" +
+                "firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", country='" + country + '\'' +
+                ", countryList=" + countryList +
+                '}';
+    }
+}
+</pre>
+<p>下一步就是修改tag-form.jsp，动态生成表单字段，修改一下原来的SELECT标签：</p>
+<pre>
+&lt;form:select path="country">
+    &lt;form:options items="${student.countryList}" >&lt;/form:options>
+&lt;/form:select>
+</pre>
+<p>注意这里和单个的Option标签不同，使用的是<code>&lt;form:options></code>标签，通过<code>items</code>属性对应了空参构造器中设置的Map集合的内容，这样就自动生成了选项。选项展示的部分是每个键值对的值，而传递给后端的值是键名。</p>
+<p>其他的内容无需修改，通过如此配置，将数据与页面进一步分离，避免了写死SELECT标签的选项。</p>
+<p>这里还试验了一下通过Properties来注入属性，发现不太行，不知道为什么，这一块留在以后再来试验一下。</p>
+
+<h1 style="text-align: center;">RADIO表单控件生成及数据获取</h1>
+<p>Radio类型的空间与Select比较相似，都是从多个选项中选择一个。</p>
+<p>这里直接上代码，先给Student增加一个新的成员变量：</p>
+<pre>
+import java.util.LinkedHashMap;
+
+public class Student {
+
+    private String firstName;
+    private String lastName;
+    private String country;
+    private LinkedHashMap&lt;String, String> countryList = new LinkedHashMap&lt;>();
+    private String language;
+
+    public Student() {
+        countryList.put("CN", "PRChina");
+        countryList.put("US", "USA");
+        countryList.put("BR", "Brasil");
+        countryList.put("FC", "France");
+    }
+
+
+    public LinkedHashMap&lt;String, String> getCountryList() {
+        return countryList;
+    }
+
+    public void setCountryList(LinkedHashMap&lt;String, String> countryList) {
+        this.countryList = countryList;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    @Override
+    public String toString() {
+        return "Student{" +
+                "firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", country='" + country + '\'' +
+                ", countryList=" + countryList +
+                ", language='" + language + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>然后给表单添加Radio标签：</p>
+<pre>
+&lt;%--使用Radio标签--%>
+Java&lt;form:radiobutton path="language" value="Java">&lt;/form:radiobutton>
+C#&lt;form:radiobutton path="language" value="C#">&lt;/form:radiobutton>
+PHP&lt;form:radiobutton path="language" value="PHP">&lt;/form:radiobutton>
+Ruby&lt;form:radiobutton path="language" value="Ruby">&lt;/form:radiobutton>
+</pre>
+<p>再在result.jsp中增加一行：</p>
+<pre>
+&lt;p>Your language is &lt;span style="color:darkmagenta">${student.language}&lt;/span>&lt;/p>
+</pre>
+<p>跟其他标签一样，path属性的值应该等于Bean的属性名称，value属性为值。</p>
+<p>Radio也可以使用<code>&lt;form:radiobuttons&gt;</code>来动态生成一组选项，配置好path和items即可。用Map存储键值对，和前边类似，Map中每一个键值对的键是传递给后端的值，而值是显示出来的选项名。</p>
+
+
+
+<h1 style="text-align: center;">CHECKBOX表单控件生成及数据获取</h1>
+<p>CHECKBOX常用于多项选择，看完了前两个，能想到对应的标签就是<code>&lt;form:checkbox&gt;</code>了。</p>
+<p>相比单选，Checkbox最大的问题就是要获取用户的所有输入，所以显然不能只给Student添加一个字符串类型的成员变量，实际上，Checkbox需要绑定一个字符串数组类型的变量。</p>
+<p>我们来给表单添加一个使用Checkboxb标签的控件：</p>
+<pre>
+&lt;%--使用Checkbox标签--%>
+&lt;form:checkbox path="operatingSystem" value="Linux">&lt;/form:checkbox>
+&lt;form:checkbox path="operatingSystem" value="Mac OS">&lt;/form:checkbox>
+&lt;form:checkbox path="operatingSystem" value="Windows">&lt;/form:checkbox>
+</pre>
+<p>既然知道了path属性的值，那么就要给Student添加一个字符串数组类型的属性也叫作operatingSystem：</p>
+<pre>
+import java.util.LinkedHashMap;
+
+public class Student {
+
+    private String firstName;
+    private String lastName;
+    private String country;
+    private LinkedHashMap&lt;String, String> countryList = new LinkedHashMap&lt;>();
+    private String language;
+    private String[] operatingSystem;
+
+
+    public Student() {
+        countryList.put("CN", "PRChina");
+        countryList.put("US", "USA");
+        countryList.put("BR", "Brasil");
+        countryList.put("FC", "France");
+    }
+
+
+    public LinkedHashMap&lt;String, String> getCountryList() {
+        return countryList;
+    }
+
+    public void setCountryList(LinkedHashMap&lt;String, String> countryList) {
+        this.countryList = countryList;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public String[] getOperatingSystem() {
+        return operatingSystem;
+    }
+
+    public void setOperatingSystem(String[] operatingSystem) {
+        this.operatingSystem = operatingSystem;
+    }
+
+    @Override
+    public String toString() {
+        return "Student{" +
+                "firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", country='" + country + '\'' +
+                ", countryList=" + countryList +
+                ", language='" + language + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>在输出的时候，由于需要输出数组的结果，因此这里需要使用JSTL标签，修改result.jsp，添加对JSTL的支持，然后遍历数组输出结果：</p>
+<pre>
+&lt;%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+&lt;ul>Your operating system:
+    &lt;c:forEach var="temp" items="${student.operatingSystem}">
+        &lt;li>${temp}&lt;/li>
+    &lt;/c:forEach>
+&lt;/ul>
+</pre>
+<p>这样就完成了获取Checkbox的功能，这个功能比较常用。</p>
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

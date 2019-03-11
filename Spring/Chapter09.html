@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring初步</title>
+
+</head>
+<body>
+<p>前边学习了如何从请求和表单中拿到数据，在增删改查之前还有一个重要的步骤，就是验证表单，如果数据格式不符合要求，那就谈不上增删改查了。</p>
+<p>常见的针对表单数据的要求有：必须要填写的字段，数字型字段，特殊格式的字段比如邮件地址和邮政编码，当然还可能有自定义的各种字段。</p>
+<p>由于前端的验证可以被绕过，所以后端一定要对数据进行验证，Web开发中表单验证是最基本的功能。</p>
+<p>Java本身有一套验证Bean的标准API，可以在<a href="https://beanvalidation.org/">https://beanvalidation.org/</a>找到。</p>
+<p>Spring 4版本及更高版本支持这套验证Bean的标准API，在创建Spring应用的时候就可以将验证系统加入进来，只需要将验证API所在的JAR文件导入进来即可。</p>
+<p>Bean的验证API可以验证该字段是否必填，有效的长度，数值，使用正则表达式进行验证，也支持自定义验证等等，在验证的时候使用一些注解，常用的如下：</p>
+<table border="1">
+    <caption>表单验证注解</caption>
+    <thead>
+    <tr>
+        <th>注解</th>
+        <th>解释</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>@NotNull</td>
+        <td>不能为空，必须填写</td>
+    </tr>
+    <tr>
+        <td>@Min</td>
+        <td>必须大于等于这个最小值</td>
+    </tr>
+    <tr>
+        <td>@Max</td>
+        <td>必须小于等于这个最大值</td>
+    </tr>
+    <tr>
+        <td>@Size</td>
+        <td>长度</td>
+    </tr>
+    <tr>
+        <td>@Pattern</td>
+        <td>正则表达式验证</td>
+    </tr>
+    <tr>
+        <td>@Future/@Past</td>
+        <td>日期必须是未来/过去的日期</td>
+    </tr>
+    </tbody>
+</table>
+
+<h1 style="text-align: center;">导入Hibernate Validator</h1>
+<p>Java的Bean验证API（Java标准JSR-303/309)就像JDBC一样，有着不同的具体实现，所以项目里边我们需要一个具体实现。这个时候就该用到Hibernate了。</p>
+<p>Hibernate验证器，有着完整的JSR-303/309标准实现，这个验证器不依赖某个具体的ORM或者数据库实现，是一个独立的验证功能，所以用途比较广泛。</p>
+<p>可以在<a href="http://hibernate.org/validator/">http://hibernate.org/validator/</a>里找到该验证器。</p>
+<p>在网站上现在有了6.0版的稳定版，将压缩包下载回来，解压缩后看到dist目录下有三个jar，此外lib目录里还有optional和required两个库，其中required也是要添加到库里的。</p>
+<p>将dist目录下的三个jar文件加入到项目的库中，然后把required目录下的四个jar文件也拷贝到项目的库目录里（无需创建子目录），这样就把Hibernate Validator导入到了项目中。</p>
+
+<h1 style="text-align: center;">必填字段验证</h1>
+<p>在开始验证之前，依然先看一下总的步骤：</p>
+<ol>
+    <li>给Bean添加验证规则</li>
+    <li>展示表单给用户</li>
+    <li>用户填写表单</li>
+    <li>在控制器方法中进行表单验证</li>
+    <li>在原页面显示错误信息或者导向成功页面</li>
+</ol>
+<p>这里我们新建一个包，然后先来创建一个最简单的Bean类叫做Customer：</p>
+<pre>
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+
+public class Customer {
+
+    private String firstName;
+
+    @NotNull(message = "is required")
+    @Size(min = 1, message = "is required")
+    private String lastName;
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+}
+</pre>
+<p>这里的关键是注解修饰lastName变量，第一个@NotNull表示不能为空，message表示错误信息，之后的@Size表示最短为一个字符。这样就对lastName增加了两条验证规则。</p>
+<p>之后来编写需要展示的customer-form.jsp：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" %>
+&lt;%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+
+&lt;html>
+&lt;head>
+    &lt;title>表单验证&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;form:form action="/val/processform" modelAttribute="customer">
+    First name: &lt;form:input path="firstName" />
+    &lt;br>&lt;br>
+    Last name(*): &lt;form:input path="lastName" />
+    &lt;form:errors path="lastName" cssClass="error"/>
+    &lt;br>&lt;br>
+    &lt;input type="submit" value="提交">
+&lt;/form:form>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这里的关键是<code>form:errors</code>标签，用path对应了Custom的同名属性，cssClass指定了基础的显示样式，从名字就能看出来，这个标签将来是要对应这个lastName字段的错误信息。</p>
+<p>然后来编写已经驾轻就熟的控制器：</p>
+<pre>
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+
+import javax.validation.Valid;
+
+@Controller
+@RequestMapping(value = "/val")
+public class ValidationController {
+
+    @RequestMapping(value = "/form", method = RequestMethod.GET)
+    public String show(Model model) {
+        model.addAttribute("customer", new Customer());
+        return "customer-form";
+    }
+
+    @RequestMapping(value = "/processform", method = RequestMethod.GET)
+    public String processForm(@Valid @ModelAttribute("customer") Customer customer, BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            return "customer-form";
+        } else {
+            return "customer-confirmation";
+        }
+    }
+}
+</pre>
+<p>控制器中展示表单的方法很简单，给Model直接绑定Customer对象，在processForm方法中，则在原来的绑定Customer对象之前，又加了一个新的<code>@Valid</code>注解，还传入了一个新的<code>BindingResult
+    bindingResult</code>参数，顾名思义，这是一个表单验证后的结果，如果有错误，依然返回表单对象，此时表单对象的值就是用户已经填写的内容，如果没有问题，则将表单数据返回给customer-confirmation.jsp。</p>
+<p>再来编写customer-confirmation.jsp，简单展示一下经过验证后的表单数据。</p>
+<p>此时运行应用，如果不填写lastName，可以看到旁边出现了错误提示，其元素是<code>&lt;span id="lastName.errors" class="error">is required&lt;/span></code>，有id和class，方便后期做样式。</p>
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
