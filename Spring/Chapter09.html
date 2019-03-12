@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring初步</title>
+    <title>Spring 09 表单验证与数据预处理</title>
 
 </head>
 <body>
@@ -156,6 +156,127 @@ public class ValidationController {
     bindingResult</code>参数，顾名思义，这是一个表单验证后的结果，如果有错误，依然返回表单对象，此时表单对象的值就是用户已经填写的内容，如果没有问题，则将表单数据返回给customer-confirmation.jsp。</p>
 <p>再来编写customer-confirmation.jsp，简单展示一下经过验证后的表单数据。</p>
 <p>此时运行应用，如果不填写lastName，可以看到旁边出现了错误提示，其元素是<code>&lt;span id="lastName.errors" class="error">is required&lt;/span></code>，有id和class，方便后期做样式。</p>
+
+<h1 style="text-align: center;">数字验证及配置自定义错误信息</h1>
+<p>先从最简单的数字验证开始，创建一个字段输入，比如限制从1-10，先给Customer增加一个字段叫做freePasses，配置好getter和setter：</p>
+<pre>
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+
+public class Customer {
+
+    private String firstName;
+
+    @NotNull(message = "is required")
+    @Size(min = 1, message = "is required")
+    private String lastName;
+
+    @Min(value=0,message = "must be greater than or equal to 0")
+    @Max(value=10,message = "must be less than or equal to 10")
+    private int freePasses;
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public int getFreePasses() {
+        return freePasses;
+    }
+
+    public void setFreePasses(int freePasses) {
+        this.freePasses = freePasses;
+    }
+}
+</pre>
+<p>这里我们使用了<code>@Min</code>和<code>@Max</code>两个验证规则，value表示值，message表示错误信息。</p>
+<p>控制器方法是不用做任何修改的，因为我们绑定了Customer对象，而且配置好了对象验证。在表单里增加一个input框，结果里增加一个输出：</p>
+<pre>
+Free passes: &lt;form:input path="freePasses"/>
+&lt;form:errors path="freePasses" cssClass="error">&lt;/form:errors>
+</pre>
+<pre>
+&lt;p>Your free passes is ${customer.freePasses}&lt;/p>
+</pre>
+<p>可以看到，输入数字超过0-10范围的时候很就可以显示错误信息</p>
+<p>但是很快就可以发现，如果输入字符或者不输入，或者输入空白，都会报错：</p>
+<pre>Failed to convert property value of type java.lang.String to required type int for property freePasses;
+nested exception is java.lang.NumberFormatException: For input string: "XXXX"</pre>
+<p>可见仅仅配置@Min和@Max是不行的。很显然，这是试图将字符串转换为int基本类型的时候出错，由于没有这个验证规则对应的错误，默认会显示Java的错误信息。</p>
+<p>其实这个问题的解决方式有很多，由于接受的数据最初都是字符串，所以可以用正则表达式。也可以单独配置不为空，再使用自定义错误信息覆盖默认错误信息。</p>
+<p>由于正则表达式会单独学习，这里来采用单独配置不为空，再使用自定义错误信息的方法。</p>
+<p>首先解决不为空的问题，由于空字符串会被解析成null，而int基本类型无法接收null，因此可以将字段类型改为包装类型Integer，来修改一下Customer类：</p>
+<pre>
+@NotNull(message = "is required")
+@Min(value=0,message = "must be greater than or equal to 0")
+@Max(value=10,message = "must be less than or equal to 10")
+private Integer freePasses;
+</pre>
+<p>这里增添了@NotNull，修改了变量类型，注意getter和setter方法也要相应修改。</p>
+<p>再启动项目，试验一下什么都不填，可以正确的显示is required了。</p>
+<p>但是依然没有解决输入字符显示的错误信息，一般数字解析错误，我们无需向用户展示解析错误，只要说无效的输入就可以了，这里可以配置默认错误信息。</p>
+<p>为了先了解错误信息，可以在控制器方法内，打印一下<code>BindingResult bindingResult</code>对象，在输入字符之后，可以发现：</p>
+<pre>
+BindingResult: org.springframework.validation.BeanPropertyBindingResult: 1 errors
+Field error in object 'customer' on field 'freePasses': rejected value [fas]; codes [typeMismatch.customer.freePasses,typeMismatch.freePasses,typeMismatch.java.lang.Integer,typeMismatch];
+arguments [org.springframework.context.support.DefaultMessageSourceResolvable: codes [customer.freePasses,freePasses]; arguments [];
+default message [freePasses]]; default message [Failed to convert property value of type 'java.lang.String' to required type 'java.lang.Integer' for property 'freePasses'; nested exception is java.lang.NumberFormatException: For input string: "fas"]
+</pre>
+<p>第一行里会告诉你验证不通过的输入内容是"fas"，错误类型是typeMismatch.customer.freePasses，最后一行默认信息就是显示出来的信息。</p>
+<h2 style="text-align: center;">自定义错误信息</h2>
+<p>自定义错误信息的规定比较严格，要按照如下步骤操作：</p>
+<ol>
+    <li>在<code>src/resources/</code>目录下创建一个包含自定义错误信息文件customerror.properties（名字可以任意起，但路径要放对）</li>
+    <li>在Spring配置中载入这个自定义文件</li>
+</ol>
+<p>先来创建这个自定义错误文件customerror.properties：</p>
+<pre>
+typeMismatch.customer.freePasses=Invalid Number
+</pre>
+<p>然后在配置文件中将其载入为一个Bean：</p>
+<pre>
+&lt;bean id="messageSource"
+      class="org.springframework.context.support.ResourceBundleMessageSource"   >
+    &lt;property name="basenames" value="resources/customerror">&lt;/property>
+&lt;/bean>
+</pre>
+<p>这个Bean是特殊的Bean，id必须为"messageSource"，不能为其他名称，否则自定义错误信息无效。另外property标签中的name="basenames"也不能任意指定，value中的customerror省略了.properties后缀名。</p>
+<p>也就是说自定义错误信息除了文件名可以自定义，错误类型可以通过打印BindingResult对象查看，其他的Bean的属性都不能自行修改。</p>
+<p>默认错误信息配置好以后，相当于一个托底的信息，当错误不满足其他验证条件的时候，就会显示默认信息。</p>
+
+<h1 style="text-align: center;">正则表达式验证</h1>
+<p>正则表达式验证使用<code>@Pattern</code>注解，再添加一个字段，想用其输入5位邮政编码，只能是大小写字母和数字：</p>
+<pre>
+@NotNull(message = "is required")
+@Pattern(regexp = "^[a-zA-Z0-9]{5}", message = "Invalid Postal Code")
+private String postCode;
+</pre>
+<p>这里regexp就是正则表达式，注意Java的正则表达式需要转义，这里的规则是匹配5个数字或字母。getter和setter方法以及jsp的模板代码省略。</p>
+<p>这里在自己尝试的时候，还发现正则表达式无法匹配空，所以要加一个@NotNull。</p>
+<p>正则表达式其实非常灵活，一般搭配@NotNull和之前设置的自动进行去空白操作，就可以将数据清洗为所需格式，然后再使用其他验证方式。</p>
+
+
+
+
+
+
+
+
+
+
 
 
 
