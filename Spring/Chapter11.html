@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 11 Hibernate基础</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<p>在前边的部分学完了从请求和表单中获取数据，增删改查的数据源头已经有了，剩下的部分就是对数据库的操作了。</p>
+<p>在没有学Java之前已经知道了ORM，但是对于Hibernate这个单词一直觉得很有意思，现在终于要开始实际使用Hibernate了。</p>
+<p>之前我们操作数据库使用的是JDBC这一套API，这套API实际上基于直接执行SQL语句的。也正是如此，JDBC显得比较低效，尤其是大量的样板代码编写，以及更换数据库的不便。</p>
+<p>Hibernate实际上是Java Persistence 持久化标准的实现者，也是这个标准建立时候的参考库。</p>
+
+<h1 style="text-align: center;">Hibernate环境配置</h1>
+<p>首先是数据库，依然使用之前配置好的MySQL数据库，新建一个具有全部权限的hbstudent用户，密码也是hbstudent。然后以此用户登录MySQL。</p>
+<p>然后新建一个查询，去创建一个基础的数据库和表：</p>
+<pre>
+CREATE DATABASE  IF NOT EXISTS `hb_student_tracker`;
+USE `hb_student_tracker`;
+
+DROP TABLE IF EXISTS `student`;
+
+CREATE TABLE `student` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(45) DEFAULT NULL,
+  `last_name` varchar(45) DEFAULT NULL,
+  `email` varchar(45) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
+</pre>
+<p>这里创建了一个数据库叫<code>hb_student_tracker</code>，然后创建了student表，有四列，默认编码表示latin1。（这里对于英文来说已经足够，但是对于中文最好还是UTF-8）。</p>
+<p>然后要开始导入Hibernate库，MySQL的JDBC驱动，然后将这些都加入到项目的库里。</p>
+<p><a href="https://zh.wikipedia.org/wiki/Hibernate">Hibernate</a>的官网是<a href="http://hibernate.org/">http://hibernate.org/</a>，可以看到Hibernate以及不仅仅是一个ORM，还有很多其他组件，其中比较重要的就是之前使用的Hibernate Validator验证器实现。</p>
+<p>这次我们要下载的是Hibernate ORM，目前的稳定版是5.4版本。下载hibernate-release-5.4.1.Final.zip然后解压，将lib中的required文件夹内的所有jar文件复制到项目lib目录下并且加入到库文件中。</p>
+<p>然后到<a href="https://dev.mysql.com/downloads/connector/">https://dev.mysql.com/downloads/connector/</a>下载其中的connector/j，这是Java的MySQL驱动，最新版本是8.0，先按照视频下载5.1版本，解压之后将mysql-connector-java-5.1.47.jar文件也加入项目库，这样就完成了库文件的导入工作。</p>
+<p>然后测试一下数据库连接，看看能否正常连接，编写一个TestJDBC类来试试：</p>
+<pre>
+import java.sql.Connection;
+import java.sql.DriverManager;
+
+public class TestJDBC {
+    public static void main(String[] args) {
+        String jdbcUrl = "jdbc:mysql://localhost:3306/hb_student_tracker?useSSL=false";
+        String user = "hbstudent";
+        String password = "hbstudent";
+
+        try {
+            System.out.println("Connectint to database: " + jdbcUrl);
+            Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
+            System.out.println(connection);
+            System.out.println("Connection success");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+}
+</pre>
+<p>运行成功就说明连接成功了。这样就初步配置好了数据库环境。</p>
+
+<h1 style="text-align: center;">Hibernate开发过程与配置</h1>
+<p>Hibernate的方式有点类似于Spring，先要设置配置文件，然后注解Java类使之变成一张数据表的映射，最后编写Java业务代码操作数据库。</p>
+
+<h2 style="text-align: center;">Hibernate配置文件</h2>
+<p>由于Hibernate也是对JDBC的封装，所以在配置文件中，肯定要告诉Hibernate那些JDBC同样需要配置的东西。</p>
+<p>这里有一个基础的Hibernate的配置文件hibernate.cfg.xml，需要直接放在src目录之下：</p>
+<pre>
+&lt;!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+
+&lt;hibernate-configuration>
+
+    &lt;session-factory>
+
+        &lt;!-- JDBC Database connection settings -->
+        &lt;property name="connection.driver_class">com.mysql.jdbc.Driver&lt;/property>
+        &lt;property name="connection.url">jdbc:mysql://localhost:3306/hb_student_tracker?useSSL=false&amp;serverTimezone=UTC&lt;/property>
+        &lt;property name="connection.username">hbstudent&lt;/property>
+        &lt;property name="connection.password">hbstudent&lt;/property>
+
+        &lt;!-- JDBC connection pool settings ... using built-in test pool -->
+        &lt;property name="connection.pool_size">1&lt;/property>
+
+        &lt;!-- Select our SQL dialect -->
+        &lt;property name="dialect">org.hibernate.dialect.MySQLDialect&lt;/property>
+
+        &lt;!-- Echo the SQL to stdout -->
+        &lt;property name="show_sql">true&lt;/property>
+
+        &lt;!-- Set the current session context -->
+		&lt;property name="current_session_context_class">thread&lt;/property>
+ 
+    &lt;/session-factory>
+
+&lt;/hibernate-configuration>
+</pre>
+<p>这个配置文件的第一部分是常规的JDBC配置，之后的部分才是关键。第一个是连接池的配置，一般和Hibernate搭配使用的是C3P0连接池，现在用的是简单的内置连接池，未来还会再来配置这里的内容。</p>
+<p>第二部分是关于SQL方言的设置，由于每种数据库支持的SQL语句略有偏差，这里针对MySQL我们使用MySQLDialect。</p>
+<p>第三部分配置的是输出SQL，这里配置成true，表示每次Hibernate执行数据库操作的时候，都会在控制台显示实际使用的SQL语句。</p>
+<p>第四部分是针对session上下文，采用的是线程模型，这一部分还不太懂。以后来看。</p>
+<p>这里的还是Hibernate比较基础的配置，不过已足够基础开发之用。</p>
+
+<h2 style="text-align: center;">注解Java类</h2>
+<p>凡是用过ORM的都知道，ORM的一个基础抽象就是类=表，对象=一行数据。Hibernate也不例外。</p>
+<p>在Hibernate里，将对应一张数据表的类称为<strong>Entity Class</strong>。通过一个注解，就可以让一个POJO变成一个Entity Class，当然，与Spring的理念一样，依然可以将其当做一个POJO来单独看待。</p>
+<p>来看一下前边建立的student数据表，有四个字段，分别是id，first_name，last_name和email，其中id是INT类型，另外三个都是字符串。很显然，对于一张表中的某一行数据来说，列名是不变的，内容是不同的。</p>
+<p>Object-to-Relational Mapping的思想就是，将表映射到一个类，类变量名和类型与列名和列数据的类型一一对应，这样每一个实例就是一行数据。</p>
+<p>完成ORM的方式有两种，一种是比较传统的XML方式，一种是现代化的Java注解方式，也是推荐使用的方式。这里直接使用注解方式。</p>
+<p>使用注解的时候，有两层注解，类的注解用于将类映射到表，成员变量的注解用于将变量对应到列。</p>
+<p>现在就使用注解方式创建一个映射到student表的Student类：</p>
+<pre>
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+@Entity
+@Table(name = "student")
+public class Student {
+
+    @Id
+    @Column(name = "id")
+    private int id;
+
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Column(name = "email")
+    private String email;
+
+    public Student() {
+    }
+
+    public Student(String firstName, String lastName, String email) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+    }
+    ...getters和setters省略
+}
+
+</pre>
+<p>这里使用了Java Persistence标准的API，先来看类的注解，<code>@Entity</code>表示这是一个Entity Class，然后<code>@Table</code>表示与那张表相对应。</p>
+<p><code>@Id</code>表示这是一个主键，<code>@Column</code>表示这一个变量与数据表中的哪一列对应。变量的名称可以自己起，但是注解中的列名必须在数据库中存在。</p>
+<p>然后加上了一个无参构造器和有参构造器，类似这样的类，以后就是我们的ORM表映射类。</p>
+<p>这些都准备好，后边就是Web开发的传统艺能：增删改查了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

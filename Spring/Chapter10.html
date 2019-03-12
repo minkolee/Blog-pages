@@ -5,17 +5,86 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Spring 10 自定义验证规则</title>
-
+    <link rel="stylesheet" href="base.css">
 </head>
 <body>
 <p>使用正则表达式已经可以满足相当程度的验证条件，不过实践中还会有更加复杂的业务逻辑，需要编写自定义验证规则。</p>
+<p>使用自定义验证规则的第二个好处是可以方便的复用各种验证规则，如果使用正则表达式，则每次还会写死内容，不方便修改。</p>
+<p>使用自定义验证规则的方法是编写一个符合验证器要求的自定义的Java注解，像其他注解一样加在成员变量上即可。很显然，这个验证器必须符合Spring内部的一系列要求。</p>
+<p>完整的流程是：</p>
+<ol>
+    <li>编写一个符合要求的自定义注解</li>
+    <li>编写一个符合要求的验证器类</li>
+    <li>重写验证方法</li>
+    <li>将注解添加到需要验证的成员变量上</li>
+</ol>
+<p>下边来编写一个字段必须以指定的内容开头的验证器：</p>
 
 
+<h1 style="text-align: center;">编写自定义验证注解</h1>
+<p>自定义验证器的名称，也就是注解的名称可以是任意的，但是需要用Spring的一些其他注解来修饰。这里欠缺一些注解的知识，需要回头看看。</p>
+<p>自定义的验证器注解是这样的：</p>
+<pre>
+import javax.validation.Constraint;
+import javax.validation.Payload;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
+//定义由哪个验证器类来操作
+@Constraint(validatedBy = MyValidationConstraintValidator.class)
+//定义注解可以加载哪些内容之上
+@Target({ElementType.METHOD, ElementType.FIELD})
+//运行时再加载注解
+@Retention(RetentionPolicy.RUNTIME)
+public @interface MyValidation {
 
+    //创建变量和默认值
+    public String value() default "Cony";
+    //创建错误信息和默认值
+    public String message() default "Must be Start with Cony";
+    //创建分组，可以把相关的验证条件分组
+    public Class&lt;?>[] groups() default {};
+    //这几个东西不太懂，需要补一下注解的知识
+    public Class&lt;? extends Payload>[] payload() default {};
+}
+</pre>
+<p>这个注解的名称可以自定义。注解使用<code>@interface</code>来标记，是一种特殊的Java类。其中的value()和message()就是注解中的属性对应的值。其他一些解释写在了注释里，下边的分组和Payload还不太懂，需要补一下注释的部分。</p>
+<p>这里唯一要注意的就是，第一个<code>@Constraint(validatedBy = MyValidationConstraintValidator.class)</code>中的<code>MyValidationConstraintValidator</code>就是我们要编写的验证器类。验证器类也要符合一系列特定的规则：</p>
+<pre>
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
 
+public class MyValidationConstraintValidator implements ConstraintValidator&lt;MyValidation, String> {
 
+    private String prefix;
 
+    //重写的初始化方法
+    @Override
+    public void initialize(MyValidation constraintAnnotation) {
+        prefix = constraintAnnotation.value();
+    }
+
+    //重写的验证方法
+    @Override
+    public boolean isValid(String s, ConstraintValidatorContext constraintValidatorContext) {
+        return s.startsWith(prefix);
+    }
+}
+</pre>
+<p>这里导入了验证器包的一些类，然后实现一个传入了注解和字符串类型的接口<code>ConstraintValidator&lt;MyValidation, String></code>。泛型中的注解就是我们自己编写的注解，而String就是我们要验证的数据类型。</p>
+<p>重写了这个接口的两个方法，设置了一个成员变量prefix，用于放入在使用注解的时候传入的开头部分的值，如果不传，就是默认的Cony。</p>
+<p>initialize方法是初始化方法，这里去获取了传给注解的参数值。</p>
+<p>isValid方法是验证方法，这个方法如果返回true表示验证通过，返回false表示验证失败，这里就简单的返回了字符串是否以给定的参数开头的判断。注意，这时候的字符串已经经过了预处理器去掉空白。</p>
+<p>这样就创建了一个自定义的验证器，将这个注解加上@NotNull注解使用到Customer类的firstName变量上：</p>
+<pre>
+@NotNull(message = "is required")
+@MyValidation(value = "JE", message = "Must be Start with JE")
+private String firstName;
+</pre>
+<p>如果不传参数，则就是以Cony开头；如果给了指定的参数，就可以用指定的参数判断。这样比写死正则表达式要方便很多，而且在验证器内部，可以进行任意复杂的业务逻辑判断。</p>
+<p>编写自定义验证器主要就是要符合规则，大部分都是样板代码。看来Java的注解部分还需要学习一下</p>
 
 <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
 <script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
