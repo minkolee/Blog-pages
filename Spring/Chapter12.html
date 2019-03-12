@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 11 Hibernate增删改查</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<p>传统艺能增删改查开始了，学完这个，就可以写基础的应用了。</p>
+<h1 style="text-align: center;">两个基础概念</h1>
+<p><strong>SessionFactory</strong>，这是Hibernate通过配置文件创建的一个对象，每个Web应用里只有一个。可以理解为像连接池一样，这个SessionFactory 相当于是一个Session池。</p>
+<p><strong>Session</strong>，与Web开发的Session不同，每个Session对象里边装着一个JDBC连接，是用来增删改查的对象，生存时间很短，需要的时候就从SessionFactory中获取。</p>
+
+<h1 style="text-align: center;">创建对象与保存至数据库</h1>
+<p>通过这个例子也可以一并了解创建SessionFactory和使用session的方法：</p>
+<pre>
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+public class TestSessionFactory {
+    public static void main(String[] args) {
+        SessionFactory factory = new Configuration().configure("hibernate.cfg.xml").addAnnotatedClass(Student.class).buildSessionFactory();
+
+        Session session = factory.getCurrentSession();
+
+        try {
+            //创建一个新的Student对象
+            Student newStudent = new Student("Cony", "Li", "Conyli@gmail.com");
+
+            //开始一个事务
+            session.beginTransaction();
+
+            //将Student对象保存进数据库
+            session.save(newStudent);
+
+            //提交事务
+            session.getTransaction().commit();
+
+        } finally {
+            factory.close();
+        }
+    }
+}
+</pre>
+<p>首先是创建SessionFactory的语句，如果<code>configure()</code>的参数是为空，Hibernate会自动寻找名称叫<code>hibernate.cfg.xml</code>的配置文件，但一般还是显式给出文件名较好。</p>
+<p><code>.addAnnotatedClass(Student.class)</code>这个方法用于添加被注解成Entity Class的类，其实就是将SessionFactory绑定到一个具体的表，之后的操作都是针对这个表。</p>
+<p>创建好SessionFactory对象之后，使用<code>.getCurrentSession()</code>获取Session对象，之后就通过session对象操作数据库。</p>
+<p>在使用完session对象后，要关闭。</p>
+<p>在try语句中，创建一个新的Student对象，然后开始事务，写好执行代码后提交事务即可。这里如果添加上打印语句可以看到，在刚创建newStudent的时候，成员变量id被初始化在0，在写入数据库之后，id就有了值，对应数据库中的主键值。</p>
+
+<h1 style="text-align: center;">Hibernate与主键</h1>
+<p>继续CRUD之前，先来看一下主键</p>
+<p>主键已经都知道了，是用于区分一个表中的不同行，是一个int类型的数据，不能够是null。</p>
+<p>一般主键定义了之后，都由数据库自行控制，每次表内有变化，这个值都会增加。但Hibernate也可以控制这个主键的一些策略，在刚才的Student对象中，可以加上一个注解：</p>
+<pre>
+@Id
+<span style="color: red;">@GeneratedValue(strategy = GenerationType.IDENTITY)</span>
+@Column(name = "id")
+private int id;
+</pre>
+<p>这个注解表示设置id生成的方式为IDENTITY，也就是交给数据库去生成。其他一些自动生成策略如下：</p>
+<table border="1">
+    <caption>ID Generations Strategies</caption>
+    <thead>
+    <tr>
+        <th>名称</th>
+        <th>解释</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>GenerationType.AUTO</td>
+        <td>针对不同的数据自动选取适合的策略</td>
+    </tr>
+    <tr>
+        <td>GenerationType.IDENTITY</td>
+        <td>使用数据库对于主键列的配置</td>
+    </tr>
+    <tr>
+        <td>GenerationType.SEQUENCE</td>
+        <td>根据数据库的sequence进行操作，比如Oracle数据库就有sequence这个概念</td>
+    </tr>
+    <tr>
+        <td>GenerationType.TABLE</td>
+        <td>使用一个数据表中的内容来确保唯一性生成id</td>
+    </tr>
+    </tbody>
+</table>
+<p>还可以创建自己的生成ID的策略，需要继承<code>org.hibernate.id.SequenceGenerator</code>，然后重写<code>generate(...)</code>方法，需要注意的是，需要保证每次都生成一个独特的值。这里不再深入。</p>
+
+<h1 style="text-align: center;">通过主键获取具体对象</h1>
+<p>使用session.get()方法来查询数据，查询的结果是一个Entity Class对象。</p>
+<pre>
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+public class TestRetrieve {
+
+    public static void main(String[] args) {
+        SessionFactory factory = new Configuration().configure("hibernate.cfg.xml").addAnnotatedClass(Student.class).buildSessionFactory();
+
+        Session session = factory.getCurrentSession();
+
+        int primaryKey = 133;
+
+        try {
+            session.beginTransaction();
+            Student student = session.get(Student.class, primaryKey);
+            session.getTransaction().commit();
+            if (student == null) {
+                System.out.println("Not found");
+            } else {
+                System.out.println(student);
+            }
+        } finally {
+            factory.close();
+        }
+    }
+}
+
+</pre>
+<p>这里使用了<code>session>get(Class, 主键)</code>的获取方法，第一个参数是Entity Class的类文件，第二个参数是主键。</p>
+<p>还需要注意的是，<code>.get()</code>方法也必须在一个事务里提交。</p>
+<p>如果找不到数据，则返回一个null。</p>
+
+<h1 style="text-align: center;">查询对象</h1>
+<p>刚才是通过主键获取对象，比较简单直接，但是只能用在知道主键的情况下。而更加一般的查询语句如下：</p>
+<pre>
+List&lt;Student> students =session.createQuery("FROM Student s where s.lastName='Li'").getResultList();
+</pre>
+<p><code>.createQuery()</code>方法中的参数非常类似于SQL的查询，只不过用Java中的类型代替了SQL中的表名，直接用取属性代替了列名。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
