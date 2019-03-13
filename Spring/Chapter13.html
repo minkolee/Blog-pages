@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 13 外键约束关系的使用</title>
+    <title>Spring 13 Hibernate 一对一关系操作</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
@@ -142,9 +142,8 @@ try{
 <p>注意，级联操作必须显式指定，如果不加参数，默认是不进行任何级联操作。也可以同时配置多个参数，用一个数组即可，比如：</p>
 <pre>@OneToOne(cascade = {CascadeType.DETACH,CascadeType.PERSIST})</pre>
 
-<h1 style="text-align: center;">Hibernate的一对一外键关系</h1>
-<p>所谓一对一关系的本质，就是就一张表拆成多个表，一行对应一行，每一行都是独特的。</p>
-<p>在Hibernate中操作一对一表，很显然需要针对两个表都创建一个对应的Entity Class，然后通过特别的注解将外键关系对应好，之后再进行操作。</p>
+<h1 style="text-align: center;">Uni-Directional的一对一操作</h1>
+<p>先来看如果通过外键所在的类，操作本类和外键关联的类。</p>
 <p>在MySQL创建两个表，一个是instructor，一个是instructor_detail：</p>
 <pre>
 DROP SCHEMA IF EXISTS `hb-01-one-to-one-uni`;
@@ -199,6 +198,15 @@ public class InstructorDetail {
 
     @Column(name = "hobby")
     private String hobby;
+
+    public InstructorDetail() {
+
+    }
+
+    public InstructorDetail(String youtubeChannel, String hobby) {
+        this.youtubeChannel = youtubeChannel;
+        this.hobby = hobby;
+    }
 
     public int getId() {
         return id;
@@ -256,10 +264,20 @@ public class Instructor {
     @Column(name = "email")
     private String email;
 
-
     <span style="color: red">@OneToOne</span>
     <span style="color: red">@JoinColumn(name = "instructor_detail_id")</span>
     private InstructorDetail instructorDetail;
+
+    public Instructor() {
+
+    }
+
+    public Instructor(String firstName, String lastName, String email, InstructorDetail instructorDetail) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+        this.instructorDetail = instructorDetail;
+    }
 
     public int getId() {
         return id;
@@ -312,13 +330,182 @@ public class Instructor {
                 '}';
     }
 }
-
-
-
 </pre>
 <p>首先需要注意的是，虽然知道外键是一个int类型的列，但是这里不能够将变量设置为int类型，因为在ORM里，通过外键取到的是一个数据对象，是一个关联的表的一行或者多行数据（这里我们一对一，就是一行，所以用的直接就是InstructorDetail类）。</p>
 <p>然后通过<code>@OneToOne</code>注解，告诉Hibernate这个对应关系，然后通过<code>@JoinColumn(name = "instructor_detail_id")</code>注解告诉Hibernate这不是一个普通的列，而是有关联关系的列。</p>
 <p>(如果在数据库中建立强的一对一关系，那么需要将外键字段设置为unique，这里我们没有这么做，就是让Hibernate去管理这个关系。)这样Hibernate在操作数据的时候就知道这是一个一对一的外键关系。</p>
+<p>由于新创建了两个表和数据库hb-01-one-to-one-uni，因此必须修改一下Hibernate的配置：</p>
+<pre>
+&lt;property name="connection.url">jdbc:mysql://localhost:3306/hb-01-one-to-one-uni?useSSL=false&amp;serverTimezone=UTC&lt;/property>
+</pre>
+<p>修改好之后，来编写向数据库中添加记录的MainApp.java：</p>
+<pre>
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+public class MainApp {
+    public static void main(String[] args) {
+        SessionFactory factory = new Configuration().configure("hibernate.cfg.xml").addAnnotatedClass(Instructor.class).addAnnotatedClass(InstructorDetail.class).buildSessionFactory();
+        Session session = factory.getCurrentSession();
+
+        //创建新的InstructorDetai和Instructor对象，并把外键字段设置好关联
+        InstructorDetail instructorDetail = new InstructorDetail("youtube.com/minkolee", "coding and game");
+        //Entity Class里的外键关联是另外一张表的一个对象，切记，这是ORM的核心映射关系
+        Instructor instructor = new Instructor("Minko", "Lee", "minkolee@gmail.com", instructorDetail);
+
+        try {
+            //写入数据库
+            session.beginTransaction();
+
+            //由于设置过级联类型是ALL，这里会将instructor对象和instructorDetail对象一并设置为persist/save状态
+            session.save(instructor);
+
+            //提交事务，级联的两个对象会被一并写入
+            session.getTransaction().commit();
+        }finally {
+            factory.close();
+        }
+    }
+}
+</pre>
+<p>这样就完成了同时写入关联对象的操作。如果数据库中外键被设置为不能是null，则在保存每个Instructor对象的时候，必须同时保存或者已经存在对应的InstructorDetail对象。</p>
+<p>级联删除的代码只需要获取有外键的对象，然后删除即可，对应的级联对象会一起删除：</p>
+<pre>
+try {
+    session.beginTransaction();
+    Instructor instructor = session.get(Instructor.class, 2);
+    session.delete(instructor);
+    session.getTransaction().commit();
+}finally {
+    factory.close();
+}
+</pre>
+<p>注意，如果删除没有外键的InstructorDetail类，由于数据库的约束限制，是无法删除的。所以要获取有外键的对象来删除。</p>
+<p>至于修改和查询就和单独查询一个对象一样，先获得Instructor对象，然后通过属性就可以获得对应的InstructorDetail对象，然后进行操作。</p>
+
+<h1 style="text-align: center;">Bi-Directional的一对一操作</h1>
+<p>对这个例子来说，Bi-Directional就是指先获取InstructorDetail对象，然后获取对应的Instructor对象。由于InstructorDetail对象中没有直接指向Instructor对象的属性，所以用上一种方式直接设置属性是不行的，必须采取另外一种方式。</p>
+<p>由于Entity类依然是数据表的映射，因此无需更改数据表，而是通过更改Java代码，修改InstructorDetail类来体现关系。</p>
+<p>具体的做法是：</p>
+<ol>
+    <li>给InstructorDetail添加一个新的成员变量，用于引用对应的Instructor类。</li>
+    <li>为这个变量添加getter和setter方法</li>
+    <li>添加@OneToOne注解</li>
+</ol>
+<p>来修改InstructorDetail类，添加新成员变量和getter及setter方法：</p>
+<pre>
+//mappedBy的值instructorDetail指的是Instructor类中的属性instructorDetail
+@OneToOne(mappedBy = "instructorDetail", cascade = CascadeType.ALL)
+private Instructor instructor;
+
+public Instructor getInstructor() {
+    return instructor;
+}
+
+public void setInstructor(Instructor instructor) {
+    this.instructor = instructor;
+}
+</pre>
+<p>这里最关键的是@OneToOne注解的mappedby属性，通过注解加在Instructor类型的变量上，然后指定mappedBy的值为instructorDetail，实际上是告诉Hibernate这里需要通过Instructor类的instructorDetail属性来获取对应的Instructor对象。</p>
+<p>在查询的时候，Hibernate就会先定位到Instructor类的instructorDetail变量，然后看到上边有注解@JoinColumn，就会知道外键关系，进而通过InstructorDetail的id去寻找对应的Instructor对象。</p>
+<p>这里也将级联操作设置为ALL。</p>
+<p>来写一些代码获取对象，这里新建就没有什么意义了，因为要把两个对象互相设为引用对方，一般新建对象都是添加有外键的一方，这里先获取一下：</p>
+<pre>
+public class MainApp2 {
+    public static void main(String[] args) {
+        SessionFactory factory = new Configuration().configure("hibernate.cfg.xml").addAnnotatedClass(Instructor.class).addAnnotatedClass(InstructorDetail.class).buildSessionFactory();
+        Session session = factory.getCurrentSession();
+
+        Random rand = new Random();
+        int pk = rand.nextInt(100) + 1;
+
+        try {
+            session.beginTransaction();
+            //从主键获取一个InstructorDetail对象
+            InstructorDetail instructorDetail = session.get(InstructorDetail.class, pk);
+            //通过刚才自定义的键获取对应的Instructor对象
+            Instructor instructor = instructorDetail.getInstructor();
+            //显示两个对象
+            System.out.println(instructorDetail);
+            System.out.println(instructor);
+
+            session.getTransaction().commit();
+        }finally {
+            factory.close();
+        }
+    }
+}
+</pre>
+<p>再试验一下级联删除对象：</p>
+<pre>
+try {
+    session.beginTransaction();
+
+    InstructorDetail instructorDetail = session.get(InstructorDetail.class, pk);
+    Instructor instructor = instructorDetail.getInstructor();
+
+    System.out.println("要删除的对象是：" + instructor);
+
+    session.delete(instructorDetail);
+
+    session.getTransaction().commit();
+} catch (Exception ex) {
+    ex.printStackTrace();
+
+} finally {
+    session.close();
+    factory.close();
+}
+</pre>
+<p>可见删除InstructorDetail的同时也删除了对应的Instructor对象。这里修改了一下try-catch语句，由于没有关闭session和处理错误，所以会造成泄露，这样调整了一下就好了。</p>
+
+<h1 style="text-align: center;">不级联操作</h1>
+<p>之前的操作都设置了全部级联操作，如果想仅删除InstructorDetail对象，但保留Instructor对象，该怎么做呢？这里需要了解一下不级联操作的设置。</p>
+<p>先来修改一下InstructorDetail类里的instructors属性的级联设置：</p>
+<pre>
+@OneToOne(mappedBy = "instructorDetail", cascade = {CascadeType.DETACH,CascadeType.PERSIST,CascadeType.MERGE,CascadeType.REFRESH})
+private Instructor instructor;
+</pre>
+<p>现在再获取一个InstructorDetail对象并且进行删除，可以看到对应的Instructor对象还在。</p>
+<p>不使用级联删除通常用于只删除一个基础索引表的数据，而把相关数据保留之用，和级联操作一样，非级联操作也使用很广泛。</p>
+<p>发现直接删除InstructorDetail对象报错，由于Instructor对象还指向InstructorDetail对象，所以必须在删除前解除对应关系。完整代码如下：</p>
+<pre>
+Random rand = new Random();
+int pk = rand.nextInt(100) + 1;
+//不进行级联删除
+try {
+    session.beginTransaction();
+
+    InstructorDetail instructorDetail = session.get(InstructorDetail.class, pk);
+    Instructor instructor = instructorDetail.getInstructor();
+
+    System.out.println("要删除的对象是：" + instructor);
+
+    //解除与要删除的InstructorDetail对象关联的Instructor对象指向这个InstructorDetail对象的外键引用。
+    //有点绕，实际上就是将关联的对象的外键设置为空，这样等于只有ID指向I对象的一个变量，而I对象没有外键关联到ID对象了。
+    instructorDetail.getInstructor().setInstructorDetail(null);
+
+    session.delete(instructorDetail);
+
+    session.getTransaction().commit();
+} catch (Exception ex) {
+    ex.printStackTrace();
+
+} finally {
+    session.close();
+    factory.close();
+}
+</pre>
+<p>这里如果不加上解除关系的那一行，就会报错，因为外键还关联着删除的对象，所以不能直接删除，否则外键里边就保留了一个错误的数值。</p>
+<p>在Uni-Directional下删除Instructor对象就不用解除关系，因为删除Instructor对象不会导致InstructorDetail表中的数据产生错误，但反过来想要不级联删除，就必须解除外键关系。</p>
+
+
+
+
+
+
+
 
 
 
