@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 13 外键约束关系的使用</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<h1 style="text-align: center;">一些重要概念</h1>
+<p>ForeignKey的理论这里就不再赘述了，总之就是一对一，一对多和多对一，还有多对多关系三种。还有一个Cascade级联操作的概念，都是数据库的传统艺能了。</p>
+<p>通过外键取数据有两种风格，一是Eager模式，即一次取出全部数据；二是Lazy模式，即需要用的时候再获取。</p>
+<p>还有两种查询关系，之前一般叫正查和反查。A表（外键在A表）查B叫做Uni-Directional，通过B查A叫做Bi-Directional。</p>
+<p>剩下来有两个比较大的概念：Entity Class的生命周期，以及Cascade操作的设置</p>
+
+<h2 style="text-align: center;">Entity Class的生命周期</h2>
+<p>在开始继续操作之前，先来看一下Entity Class的生命周期：</p>
+<table border="1">
+    <caption>Entity生命周期</caption>
+    <thead>
+    <tr>
+        <th>操作</th>
+        <th>说明</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>Detach 分离</td>
+        <td>如果一个Entity分离的话，就不会和Hibernate的session发生关联</td>
+    </tr>
+    <tr>
+        <td>Merge 合并</td>
+        <td>如果一个对象和session分离，merge就是重新将这个entity对象附加到session上</td>
+    </tr>
+    <tr>
+        <td>Persist 持久化</td>
+        <td>将新的实例准备提交，下一次刷新或者提交的时候会保存到数据库里。这个状态也叫managed state。我自己管这个叫预备持久化状态。</td>
+    </tr>
+    <tr>
+        <td>Remove 删除</td>
+        <td>下一次刷新或者提交的时候会将entity对象从数据库中删除，我自己管这个叫预备移除状态</td>
+    </tr>
+    <tr>
+        <td>Refresh 刷新</td>
+        <td>重新载入或者与数据库同步数据，防止内存中数据对象和数据库中数据不一致。</td>
+    </tr>
+    </tbody>
+</table>
+<p>所谓生命周期，其实就是不同状态的Entity。以Student类为例：</p>
+<pre>
+try {
+    session.beginTransaction();
+
+    //新建一个Student对象，此时这个对象的状态叫做New/Transient
+    Student newS = new Student("New3", "Vegas3", "bestha3.com");
+
+    //此时调用.save()方法，并不是真正保存入数据库，调用save方法只是将这个newS对象附加到了session上，此时状态是Persist或者叫managed state
+    session.save(newS);
+
+    //在newS为受控对象的时候，修改newS对象的值，会影响最后写入数据库的值
+    newS.setLastName("After save");
+    newS.setEmail("after_save@gmail.com");
+
+    //执行commit，会将此时newS实际的值写入数据库，然后解除newS与session的绑定
+    session.getTransaction().commit();
+
+    //此时已经解除绑定，再修改Student的值，不影响数据库内的结果
+    System.out.println(newS);
+    newS.setEmail("after commit");
+    System.out.println(newS);
+} finally {
+    factory.close();
+}
+</pre>
+<p>获取时候的生命周期：</p>
+<pre>
+try{
+    session.beginTransaction();
+
+    //从session中获取的对象立刻就会与session绑定，就是Merge状态
+    Student student = session.get(Student.class, 8);
+
+    //delete之后，还没有写入数据库，处于预备移除
+    session.delete(student);
+
+    //修改值也不影响数据库中的值，因为不再写入
+    student.setEmail("after get");
+    student.setFirstName("after get");
+    student.setLastName("after get");
+
+    //commit之后，student与sesssion解除绑定
+    session.getTransaction().commit();
+
+
+    //这是自行编写的把此时的student再写回数据库的方法，这么操作之后，可以发现原来的对象被删除，而数据库里多了一行修改后的数据。
+    tryUpdate(student);
+
+}finally {
+    factory.close();
+}
+</pre>
+
+<h2 style="text-align: center;">Cascade的设置</h2>
+<p>Cascade就是级联操作，即删除外键所在的行，是否也删掉对应关联的数据。在Hibernate中，Cascade级联操作有如下几种设置：</p>
+<table border="1">
+    <thead>
+    <tr>
+        <th>级联操作类型</th>
+        <th>解释</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>PERSIST</td>
+        <td>如果对象被persisted/saved，级联对象也进入persisted/saved状态</td>
+    </tr>
+    <tr>
+        <td>REMOVE</td>
+        <td>如果对象被removed/deleted，级联对象也被解除与session的关联或者被删除</td>
+    </tr>
+    <tr>
+        <td>REFRESH</td>
+        <td>如果对象更新，级联对象也被更新</td>
+    </tr>
+    <tr>
+        <td>DETACH</td>
+        <td>如果对象被解除与session的关联，级联对象也被解除关联</td>
+    </tr>
+    <tr>
+        <td>MERGE</td>
+        <td>如果对象被恢复关联，级联对象也恢复关联</td>
+    </tr>
+    <tr>
+        <td>ALL</td>
+        <td>包含上述所有级联类型</td>
+    </tr>
+    </tbody>
+</table>
+<p>配置级联关系是在<code>@OneToOne</code>的参数里，比如这样：</p>
+<pre>@OneToOne(cascade = CascadeType.ALL)</pre>
+<p>注意，级联操作必须显式指定，如果不加参数，默认是不进行任何级联操作。也可以同时配置多个参数，用一个数组即可，比如：</p>
+<pre>@OneToOne(cascade = {CascadeType.DETACH,CascadeType.PERSIST})</pre>
+
+<h1 style="text-align: center;">Hibernate的一对一外键关系</h1>
+<p>所谓一对一关系的本质，就是就一张表拆成多个表，一行对应一行，每一行都是独特的。</p>
+<p>在Hibernate中操作一对一表，很显然需要针对两个表都创建一个对应的Entity Class，然后通过特别的注解将外键关系对应好，之后再进行操作。</p>
+<p>在MySQL创建两个表，一个是instructor，一个是instructor_detail：</p>
+<pre>
+DROP SCHEMA IF EXISTS `hb-01-one-to-one-uni`;
+
+CREATE SCHEMA `hb-01-one-to-one-uni`;
+
+use `hb-01-one-to-one-uni`;
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS `instructor_detail`;
+
+CREATE TABLE `instructor_detail` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `youtube_channel` varchar(128) DEFAULT NULL,
+  `hobby` varchar(45) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
+
+
+DROP TABLE IF EXISTS `instructor`;
+
+CREATE TABLE `instructor` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(45) DEFAULT NULL,
+  `last_name` varchar(45) DEFAULT NULL,
+  `email` varchar(45) DEFAULT NULL,
+  `instructor_detail_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_DETAIL_idx` (`instructor_detail_id`),
+  CONSTRAINT `FK_DETAIL` FOREIGN KEY (`instructor_detail_id`) REFERENCES `instructor_detail` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
+
+SET FOREIGN_KEY_CHECKS = 1;
+</pre>
+<p>可以看到，instructor表有一个外键字段叫做instructor_detail_id，这个字段关联到instructor_detail表的id字段。所谓关联，就是指这个键的值只能够是instructor_detail表id字段中存在的值。</p>
+<p>之后来创建两个Entity Class，对于instructor_detail表来说，就是一个普通的表：</p>
+<pre>
+import javax.persistence.*;
+
+@Entity
+@Table(name = "instructor_detail")
+public class InstructorDetail {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private int id;
+
+    @Column(name = "youtube_channel")
+    private String youtubeChannel;
+
+    @Column(name = "hobby")
+    private String hobby;
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getYoutubeChannel() {
+        return youtubeChannel;
+    }
+
+    public void setYoutubeChannel(String youtubeChannel) {
+        this.youtubeChannel = youtubeChannel;
+    }
+
+    public String getHobby() {
+        return hobby;
+    }
+
+    public void setHobby(String hobby) {
+        this.hobby = hobby;
+    }
+
+    @Override
+    public String toString() {
+        return "InstructorDetail{" +
+                "id=" + id +
+                ", youtubeChannel='" + youtubeChannel + '\'' +
+                ", hobby='" + hobby + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>但是对于instructor表来说，外键那一列就有需要注意的地方：</p>
+<pre>
+import javax.persistence.*;
+
+@Entity
+@Table(name = "instructor")
+public class Instructor {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private int id;
+
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Column(name = "email")
+    private String email;
+
+
+    <span style="color: red">@OneToOne</span>
+    <span style="color: red">@JoinColumn(name = "instructor_detail_id")</span>
+    private InstructorDetail instructorDetail;
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public InstructorDetail getInstructorDetail() {
+        return instructorDetail;
+    }
+
+    public void setInstructorDetail(InstructorDetail instructorDetail) {
+        this.instructorDetail = instructorDetail;
+    }
+
+    @Override
+    public String toString() {
+        return "Instructor{" +
+                "id=" + id +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", email='" + email + '\'' +
+                ", instructorDetailId='" + instructorDetail + '\'' +
+                '}';
+    }
+}
+
+
+
+</pre>
+<p>首先需要注意的是，虽然知道外键是一个int类型的列，但是这里不能够将变量设置为int类型，因为在ORM里，通过外键取到的是一个数据对象，是一个关联的表的一行或者多行数据（这里我们一对一，就是一行，所以用的直接就是InstructorDetail类）。</p>
+<p>然后通过<code>@OneToOne</code>注解，告诉Hibernate这个对应关系，然后通过<code>@JoinColumn(name = "instructor_detail_id")</code>注解告诉Hibernate这不是一个普通的列，而是有关联关系的列。</p>
+<p>(如果在数据库中建立强的一对一关系，那么需要将外键字段设置为unique，这里我们没有这么做，就是让Hibernate去管理这个关系。)这样Hibernate在操作数据的时候就知道这是一个一对一的外键关系。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
