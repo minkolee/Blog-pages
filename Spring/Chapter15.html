@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 15 Hibernate 多对多关系操作</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<h1 style="text-align: center;">多对多关系</h1>
+<p>多对多关系的判断方式是，站在两张表无论哪一张表的角度上，其中的一条数据都对应另外一张表的多个数据，就是多对多关系。现实中比较典型的关系是学生与课程的关系，一个学生会选多门课程，一门课程会有多个学生上课。</p>
+<p>多对多关系显然无法用两张表互相外键关联来实现，在实践中的多对多关系是通过一张中间表，将两张数据表的id进行互相对应来实现的。这张中间表实际上有两个外键各自关联到两张表的id上（当然，多对多不仅局限于两张表，更多表的多对多关系也可以，但是一般不会采用这么复杂的业务逻辑）</p>
+<p>我们现在就新增一个student表和一个中间表来为课程与学生的多对多关系做准备。</p>
+<pre>
+CREATE TABLE `student` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(45) DEFAULT NULL,
+  `last_name` varchar(45) DEFAULT NULL,
+  `email` varchar(45) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
+
+
+CREATE TABLE `course_student` (
+  `course_id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+
+  PRIMARY KEY (`course_id`,`student_id`),
+
+  KEY `FK_STUDENT_idx` (`student_id`),
+
+  CONSTRAINT `FK_COURSE_05` FOREIGN KEY (`course_id`)
+  REFERENCES `course` (`id`)
+  ON DELETE NO ACTION ON UPDATE NO ACTION,
+
+  CONSTRAINT `FK_STUDENT` FOREIGN KEY (`student_id`)
+  REFERENCES `student` (`id`)
+  ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+</pre>
+<p>可以看到新建了一个简单的学生表，然后创建了一个中间表course_student，其中两个外键分别关联到course表和student表。</p>
+
+<h1 style="text-align: center;">操作多对多关系</h1>
+<p>一对多和一对一关系通过外键在哪一侧和操作哪个对象来区分Bi和Uni方式，而多对多就没有区分这两种关系了，在任何一侧应该都要能查到另一侧的关联数据，先来更新Course类：</p>
+<pre>
+@ManyToMany(cascade = {CascadeType.DETACH, CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH})
+@JoinTable(name = "course_student",
+        joinColumns = @JoinColumn(name = "course_id"),
+        inverseJoinColumns = @JoinColumn(name = "student_id"))
+private List&lt;Student> students;
+
+public void addStudent(Student student) {
+    if (students == null) {
+        students = new ArrayList<>();
+    }
+    students.add(student);
+}
+</pre>
+<p>首先我们知道，肯定是取多个学生对象，所以是一个List泛型。然后就是注解<code>@ManyToMany</code>，以及下边关键的<code>@JoinTable</code>注解。</p>
+<p><code>@JoinTable</code>注解中的表名设置的是中间表的名称，然后<code>joinColumns = @JoinColumn(name = "course_id")</code>表示中间表中链接到自己所在的表的外键列是<code>course_id</code>。</p>
+<p><code>inverseJoinColumns = @JoinColumn(name = "student_id")</code>则表示inverse那一方的外键列是student_id，其对应的类是List泛型中的Student类。</p>
+<p>在数据库中，对于这种多对多关系，我们现在所在的类是Course，就称Student类为inverse，也就是另外一方的意思。</p>
+<p>由于多对多不区分Bi和Uni，很容易想到，Student类里也要如此设置，只不过次序正好相反。来创建Student类：</p>
+<pre>
+import javax.persistence.*;
+import java.util.List;
+
+@Entity
+@Table(name = "student")
+public class Student {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private int id;
+
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Column(name = "email")
+    private String email;
+
+    @ManyToMany(cascade = {CascadeType.DETACH, CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH})
+    @JoinTable(name = "course_student",
+            joinColumns = @JoinColumn(name = "student_id"),
+            inverseJoinColumns = @JoinColumn(name = "course_id"))
+    private List&lt;Course> courses;
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public Student() {
+
+    }
+
+    public Student(String firstName, String lastName, String email) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+    }
+
+    @Override
+    public String toString() {
+        return "Student{" +
+                "id=" + id +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", email='" + email + '\'' +
+                '}';
+    }
+
+    public void addCourse(Course course) {
+        if (courses == null) {
+            courses = new ArrayList<>();
+        }
+        courses.add(course);
+    }
+}
+</pre>
+<p>可见Student类中的外键属性表名不变，把两个外键倒换了一下位置，因为从Student类来说，另外一方的类是Course类。</p>
+<p>还要注意设置多对多的级联关系，很显然，删除一个课程不能把对应的学生对象全部删除掉，而删除学生也不能把课程删除掉，因为都会影响其他数据。</p>
+<p>还有需要注意的，就是<code>Course.addStudent(Student student)</code>和<code>Student.addCourse(Course course)</code>方法，这两个方法只能将对方添加进来，不要去调用对方的方法，否则会无限循环互相添加。</p>
+<p>然后就可以来编写操作代码了，先创建一些学生对象，然后设置好与取得的course对象的关系，之后写入数据库：</p>
+<pre>
+public class MainApp {
+
+    public static void main(String[] args) {
+        SessionFactory factory = new Configuration().configure("hibernate.cfg.xml").addAnnotatedClass(Instructor.class).addAnnotatedClass(InstructorDetail.class).addAnnotatedClass(Course.class).addAnnotatedClass(Review.class).addAnnotatedClass(Student.class).buildSessionFactory();
+        Session session = factory.getCurrentSession();
+        Random rand = new Random();
+        try {
+            session.beginTransaction();
+            //获取随机Course对象，给Course对象添加student
+            Course course = session.get(Course.class, rand.nextInt(41) + 1);
+            for (int k = 0; k < rand.nextInt(10) + 1; k++) {
+                Student student = new Student(getRandomString(), getRandomString(), getRandomString());
+                //这里由于新建对象处于transient，状态，没有与session关联，需要先关联一下
+                session.save(student);
+                //关联之后，再将student添加到course中。
+                course.addStudent(student);
+            }
+
+            session.getTransaction().commit();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        } finally {
+            session.close();
+            factory.close();
+        }
+
+    }
+//
+    public static String getRandomString() {
+        String base = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+        Random rand = new Random();
+        StringBuffer stringBuffer = new StringBuffer();
+        for (int i = 0; i < 6; i++) {
+            stringBuffer.append(base.charAt(rand.nextInt(62)));
+        }
+        return stringBuffer.toString();
+    }
+}
+</pre>
+<p>在新建了Student对象之后，需要进行save一下，否则无法直接与Course进行关联，在保存的时候也会出错。如果Course也是新建对象，也需要先save一下。之后把student对象设置到course中，这样就完成了一个course对应多个Student的操作。</p>
+<p>如果一个学生选了多门课，就反过来写，将course关联给student对象：</p>
+<pre>
+try {
+    session.beginTransaction();
+    //模拟学生选课，随机选一个学生对象，然后随机选三门课
+    Student student = session.get(Student.class, rand.nextInt(58) + 1);
+    for (int j = 0; j < rand.nextInt(5) + 1; j++) {
+        Course course1 = session.get(Course.class, rand.nextInt(41) + 1);
+        student.addCourse(course1);
+    }
+
+    session.getTransaction().commit();
+} catch (Exception ex) {
+    ex.printStackTrace();
+} finally {
+    session.close();
+    factory.close();
+}
+</pre>
+<p>注意，这里采用了随机数选出三个课程然后设置给student对象，如果三个课程里有重复的话，会报Duplicate entry错误。实际开发中肯定需要获得确定的Course id才可以，虽然也可以编写一个产生不同数字的函数，不过懒得写了。</p>
+<p>然后是删除的部分，注意，刚才已经说了，根据现实情况，不能级联删除course和student表里的数据，只是清除对应关系，也就是清除中间表的内容。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<p>查询就很简单了，只要获取了对象之后显示就可以了。</p>
+<pre>
+Course course = session.get(Course.class, 9);
+for (Student s : course.getStudents()) {
+    System.out.println(s);
+}
+//模拟通过学生查课程
+Student student = session.get(Student.class, 53);
+for (Course c : student.getCourses()) {
+    System.out.println(c);
+}
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+<p>至此Hibernate的基本操作结束了，其实Hibernate远不止这些内容，每一个大版本更新也有很多变化，以后再通过<a href="https://www.manning.com/books/java-persistence-with-hibernate-second-edition">《Java Persistence with Hibernate, Second
+    Edition》</a>学习吧。</p>
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
