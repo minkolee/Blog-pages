@@ -216,36 +216,19 @@ try {
 </pre>
 <p>注意，这里采用了随机数选出三个课程然后设置给student对象，如果三个课程里有重复的话，会报Duplicate entry错误。实际开发中肯定需要获得确定的Course id才可以，虽然也可以编写一个产生不同数字的函数，不过懒得写了。</p>
 <p>然后是删除的部分，注意，刚才已经说了，根据现实情况，不能级联删除course和student表里的数据，只是清除对应关系，也就是清除中间表的内容。</p>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<p>现在course_student表里有id为22的course和41的student对象有关联，来删除课程看看：</p>
+<pre>
+//删除课程和关联关系
+Course course = session.get(Course.class, 22);
+session.delete(course);
+</pre>
+<p>很简单，直接删除就可以，Hibernate会同时自动到中间表里删除这个课程的id对应的记录。删除学生的操作也是一样：</p>
+<pre>
+//删除学生和关联关系
+Student student = session.get(Student.class, 49);
+session.delete(student);
+</pre>
+<p>只要不设置级联删除，删除都只影响本来的对象和中间表。</p>
 <p>查询就很简单了，只要获取了对象之后显示就可以了。</p>
 <pre>
 Course course = session.get(Course.class, 9);
@@ -258,20 +241,7 @@ for (Course c : student.getCourses()) {
     System.out.println(c);
 }
 </pre>
-
-
-
-
-
-
-
-
-
-
-
-
-<p>至此Hibernate的基本操作结束了，其实Hibernate远不止这些内容，每一个大版本更新也有很多变化，以后再通过<a href="https://www.manning.com/books/java-persistence-with-hibernate-second-edition">《Java Persistence with Hibernate, Second
-    Edition》</a>学习吧。</p>
+<p>至此Hibernate的基本操作结束了，其实Hibernate远不止这些内容，每一个大版本更新也有很多变化，以后再通过<a href="https://www.manning.com/books/java-persistence-with-hibernate-second-edition">《Java Persistence with Hibernate, Second Edition》</a>学习吧。</p>
 
 
 
