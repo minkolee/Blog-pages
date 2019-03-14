@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 15 Spring MVC+ Hibernate 配置项目</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<h1 style="text-align: center;">CRM系统</h1>
+<p>学完了Hibernate增删改查和Spring的基础url对应控制器处理方法，就可以写一个增删改查的应用了。</p>
+<p>一个基础的CRM也是所有语言进行Web开发的必写项目，所谓零一生增删改查，增删改查生万物也。</p>
+<p>第一个项目还是比较原始的，一个列表，然后一个按钮用于添加数据，之后是展示每一行数据，然后每一行数据有删除和修改两个按钮。像极了我当年Django写出来的第一个原型。</p>
+<p>在开始项目之前进行简单的设计还是很重要的，尤其是数据库表格的设计，决定了之后很多代码方面的具体工作。</p>
+<p>这个项目的关键是将Spring MVC与Hibernate结合起来。</p>
+
+<h1 style="text-align: center;">创建MySQL数据库和使用Hibernate测试连接</h1>
+<p>这次我们创建一个新的用户和新的Customer表来存放数据。</p>
+<pre>
+CREATE USER 'springstudent'@'localhost' IDENTIFIED BY 'springstudent';
+GRANT ALL PRIVILEGES ON * . * TO 'springstudent'@'localhost';
+</pre>
+<p>用户名和密码都叫做"springstudent"，然后创建数据表：</p>
+<p>然后创建一个叫做<code>web_customer_tracker</code>的数据库，并创建一个customer表，填充一些初始数据：</p>
+<pre>
+CREATE DATABASE  IF NOT EXISTS `web_customer_tracker` /*!40100 DEFAULT CHARACTER SET latin1 */;
+USE `web_customer_tracker`;
+
+DROP TABLE IF EXISTS `customer`;
+CREATE TABLE `customer` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(45) DEFAULT NULL,
+  `last_name` varchar(45) DEFAULT NULL,
+  `email` varchar(45) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=latin1;
+
+LOCK TABLES `customer` WRITE;
+
+INSERT INTO `customer` VALUES
+	(1,'David','Adams','david@luv2code.com'),
+	(2,'John','Doe','john@luv2code.com'),
+	(3,'Ajay','Rao','ajay@luv2code.com'),
+	(4,'Mary','Public','mary@luv2code.com'),
+	(5,'Maxwell','Dixon','max@luv2code.com');
+</pre>
+<p>然后修改Hibernate的配置文件，尝试查询一下数据库：</p>
+<pre>
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+import java.util.List;
+
+public class TestCustomer {
+    public static void main(String[] args) {
+        SessionFactory factory = new Configuration().configure("hibernate.cfg.xml").addAnnotatedClass(Customer.class).buildSessionFactory();
+        Session session = factory.getCurrentSession();
+
+        try {
+            session.beginTransaction();
+            List&lt;Customer> customerList = session.createQuery("from Customer customer").getResultList();
+            for (Customer c : customerList) {
+                System.out.println(c);
+            }
+            session.getTransaction().commit();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }finally {
+            session.close();
+            factory.close();
+        }
+    }
+}
+</pre>
+<p>这样就配置好了数据库，之后的重点是配置项目环境。</p>
+
+<h1 style="text-align: center;">配置Spring</h1>
+<p>由于之前是单独使用Hibernate操作数据库，现在需要用一个Web项目，把Spring，Hibernate，JSTL等相关依赖包全部放到WEB-INF/lib/目录中，并将这些包加入到项目库中。</p>
+<p>这一次除了Hibernate的lib/required目录下的jar包之外，我们还需要用到c3pO连接池，所以把optional/c3pO下的三个jar包也加入项目库中。</p>
+<p>还需要将Hibernate的配置文件放到src目录之下，将spring的配置文件放到WEB-INF目录之下。</p>
+<p>由于Spring MVC是Web框架，用于将所有的功能组装在一起成为一个应用，Hibernate只是Web应用的一个功能实现的组件，所以通过Spring来装配所有的组件是最先要做的事情。</p>
+<p>先来配置相关的Bean，还记得默认的Bean是单例模式吗，这里我们就需要靠Spring来组装我们的Web应用所需的各个部件。</p>
+<pre>
+&lt;bean id="myDataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource" destroy-method="close">
+    &lt;!--数据库连接的设置-->
+    &lt;property name="driverClass" value="com.mysql.jdbc.Driver"/>
+    &lt;property name="jdbcUrl" value="jdbc:mysql://localhost:3306/web_customer_tracker?useSSL=false&amp;serverTimezone=UTC"/>
+    &lt;property name="user" value="springstudent"/>
+    &lt;property name="password" value="springstudent"/>
+
+&lt;!--C3PO的设置-->
+    &lt;property name="minPoolSize" value="5"/>
+    &lt;property name="maxPoolSize" value="20"/>
+    &lt;property name="maxIdleTime" value="30000"/>
+&lt;/bean>
+</pre>
+<p>使用过JDBC连接池就会知道，这里将连接池对象制作成了一个Bean，并使用属性注入将各种配置都注入了进去，这样通过获得Bean就可以得到一个连接池的单例，从其中可以获得数据库连接。</p>
+<p>之后来配置Hibernate的sessionFactory：</p>
+<pre>
+&lt;bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+    &lt;!--依赖注入连接池Bean-->
+    &lt;property name="dataSource" ref="myDataSource"/>
+    &lt;!--扫描Entity Class所在的类-->
+    &lt;property name="packagesToScan" value="entity"/>
+    &lt;property name="hibernateProperties">
+        &lt;props>
+            &lt;prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect&lt;/prop>
+            &lt;prop key="hibernate.show_sql">true&lt;/prop>
+        &lt;/props>
+    &lt;/property>
+&lt;/bean>
+</pre>
+<p>这里没有直接装配Hibernate的Bean，而是使用了Spring自己的一个实现，注入了连接池的Bean，设置好扫描Entity Class的包，以及SQL方言和是否显示SQL语句，这个Bean就是之后操作数据库的Bean了。</p>
+<p>笔者在这里真的感动到流泪，之前学IOC和依赖注入的时候，只是大概知道了怎么用，在学Hibernate的时候就一直在想，如何将Hibernate装配起来，Hibernate是如何使用连接池的。看到这里真的感叹Spring框架之精妙：其中使用到的连接池，Hibernate对象，都是各自类的一个实例，而整个装配过程，又像是一张更大的蓝图，将各个部件装配成一台可以工作的机器。这大概是第一次感受到计算机科技的精妙之处，奉劝看到这里的各位，千万不要去学什么财务等商科，不是家里有矿，还是技术挣钱，虽然门槛高，但是不努力又怎么挣更多的钱呢。</p>
+<p>还有很多Hibernate的配置，目前这里足够使用了。</p>
+<p>还记得Hibernate要频繁的开启事务和提交事务吗，Spring也为这个准备了一个Bean：</p>
+<pre>
+&lt;bean id="myTransactionManager"
+      class="org.springframework.orm.hibernate5.HibernateTransactionManager">
+    &lt;property name="sessionFactory" ref="sessionFactory"/>
+&lt;/bean>
+</pre>
+<p>这个管理事务的Bean与上边很相似，都采用了Spring自己的类，然后注入了刚才配置的sessionFactory这个Bean。</p>
+<p>之后需要配置使Spring可以使用<code>@Transactional</code>注解功能：</p>
+<pre>
+&lt;tx:annotation-driven transaction-manager="myTransactionManager" />
+</pre>
+<p>注意，这处配置必须在beans标签内有如下这行：</p>
+<pre>
+xmlns:tx="http://www.springframework.org/schema/tx"
+</pre>
+<p>除此之外，还需要配置在之前最基础的一些项目，比如扫描Bean的目录，视图名称解析器等：</p>
+<pre>
+&lt;context:component-scan base-package="controller"/>
+
+&lt;mvc:annotation-driven/>
+
+&lt;bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    &lt;property name="prefix" value="/WEB-INF/view/"/>
+    &lt;property name="suffix" value=".jsp"/>
+&lt;/bean>
+</pre>
+<p>配置好了以后，我们需要编写简单的控制器和页面，来看看项目是否能够运行：</p>
+<pre>
+package controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+@RequestMapping(value = "/customer")
+public class CustomerController {
+
+    @RequestMapping(value = "/list")
+    public String test(Model model) {
+        return "list-customers";
+    }
+}
+</pre>
+<p>再编写一个简单的页面，放在WEB-INF/view/下：</p>
+<pre>
+&lt;%--list-customers.jsp--%>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;html>
+&lt;head>
+    &lt;title>测试主页&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;p>Spring装配Bean正常，项目初步启动成功&lt;/p>
+&lt;p>明天继续。。。。。&lt;/p>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>之后启动项目到<code>http://localhost:8080/customer/list</code>，正常启动啦，Spring装配Bean的功能实在是妙不可言啊。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
