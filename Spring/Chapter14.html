@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 14 Hibernate 一对多/多对一关系</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<h1 style="text-align: center;">一对多/多对一关系</h1>
+<p>一对多和多对一关系是同一个关系的不同叫法。</p>
+<p>以目前的Instructor和InstructorDetail类来添加一对多关系，如果目前新来一个课程Course类，一个讲师可以上多个课程，每个课程只能由一个老师上，这样的关系从讲师的角度来说就是一对多关系，从课程的角度来说就是多对一关系。</p>
+<p>一般一对多关系中有使用级联删除的情况，比如一个博客系统，如果用户关闭博客并且删除账户，那么可以删除该用户所有的数据。当然也可以不级联删除，只删除用户数据，全看网站后台设置。但针对我们的例子，显然不能使用级联删除，因为删除一门课程不影响该讲师上另外一门课程。</p>
+<p>先来一个新的数据库hb-03-one-to-many，其中的instructor表和instructor_detail表与一对一时候的一样，还需要添加一个course表：</p>
+<pre>
+CREATE TABLE `course` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(128) DEFAULT NULL,
+  `instructor_id` int(11) DEFAULT NULL,
+
+  PRIMARY KEY (`id`),
+
+  UNIQUE KEY `TITLE_UNIQUE` (`title`),
+
+  KEY `FK_INSTRUCTOR_idx` (`instructor_id`),
+
+  CONSTRAINT `FK_INSTRUCTOR`
+  FOREIGN KEY (`instructor_id`)
+  REFERENCES `instructor` (`id`)
+
+  ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=latin1;
+</pre>
+<p>可以看到course表里设置了外键关联到instructor的id列。</p>
+<p>然后更新Hibernate的配置文件，使用新的数据库，准备工作就做好了。</p>
+
+<h1 style="text-align: center;">Bi-Directional方式操作一对多关系</h1>
+<p>第一步，由于是Bi-Directional方式，回想一对一关系，有了新的course表，很显然需要新建一个Course类以及更新Instructor类：</p>
+<p>先来看新的Course类，需要设置外键的注解：</p>
+<pre>
+import javax.persistence.*;
+
+@Entity
+@Table(name = "course")
+public class Course {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private int id;
+
+    @Column(name = "title")
+    private String title;
+
+    @ManyToOne(cascade = {CascadeType.DETACH, CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH})
+    @JoinColumn(name = "instructor_id")
+    private Instructor instructor;
+
+    public Course() {
+
+    }
+
+    public Course(String title, Instructor instructor) {
+        this.title = title;
+        this.instructor = instructor;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public Instructor getInstructor() {
+        return instructor;
+    }
+
+    public void setInstructor(Instructor instructor) {
+        this.instructor = instructor;
+    }
+
+}
+</pre>
+<p>由于一个讲师对应多个课程，因此站在课程这边，这个关系是多个课程对应一个讲师的关系，所以用了<code>@ManyToOne</code>来修饰，不要忘记设置级联不删除。</p>
+<p>然后来更新Instructor类，添加如下内容：</p>
+<pre>
+@OneToMany(mappedBy = "instructor", cascade = {CascadeType.DETACH, CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH})
+private List&lt;Course> courses;
+
+public void setRelationship(Course course) {
+    if (courses == null) {
+        courses = new ArrayList&lt;Course>();
+    }
+    courses.add(course);
+    course.setInstructor(this);
+}
+
+//courses的getter和setter方法以及修改Instructor类的带参构造器和toString()方法省略
+</pre>
+<p>这里首先要注意，从讲师的角度来说，是一对多的关系，即每次Bi-directional去查找，得到的应该是多个课程对象，因此设置成员变量为一个List&lt;Course>类型的变量，用于存储获得的课程列表。</p>
+<p>由于站在讲师角度是一对多关系，因此针对课程变量设置<code>@OneToMany</code>注解，使用mappedBy表示到Course类中寻找instructor属性作为关联字段，然后设置级联关系。</p>
+<p>这里还需要注意的是<code>.setRealationship()</code>方法，在一对一关系的时候，新建的对象的时候是手工指定了关系，所以没有编写对应的方法；在多对一关系中，就不一样了，如果新建一个Course对象，把其instructor属性设置为一个Instructor对象还不够，必须也把Instructor对象的courses属性中添加上对应的课程才行，这样才能将内容保存进数据库。</p>
+<p>其实就是在保存到数据库之前，必须保证关联关系正确，否则就无法满足数据库的约束关系。</p>
+<p>同样其实可以设置删除关联关系的代码，但是一般用不到，因为总是先有外键关联的对象存在，再有外键所在的对象存在，设置好了再一并写入或者删除，级联删除可以交给Hibernate来操作。</p>
+<p>设置好了两个类之后，开始进行操作，首先是为讲师添加一些关联的课程并保存到数据库：</p>
+<pre>
+public class MainApp3 {
+    public static void main(String[] args) {
+        SessionFactory factory = new Configuration().configure("hibernate.cfg.xml").addAnnotatedClass(Instructor.class).addAnnotatedClass(InstructorDetail.class).addAnnotatedClass(Course.class).buildSessionFactory();
+        Session session = factory.getCurrentSession();
+        Random rand = new Random();
+        int primaryKey = rand.nextInt(100) + 1;
+        //获取讲师并添加课程
+
+        try {
+            session.beginTransaction();
+
+            //获取一个随机的讲师
+            Instructor instructor = session.get(Instructor.class, primaryKey);
+            //新建若干课程，对每一个课程设置好关联后进行保存
+            for(int i = 1;i<=(rand.nextInt(5)+3);i++){
+                Course course = new Course("title" + i, instructor);
+                instructor.setRelationship(course);
+                session.save(course);
+            }
+            System.out.println("-----------------------------------------");
+            System.out.println(instructor);
+            System.out.println(instructor.getCourses());
+
+            session.getTransaction().commit();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        } finally {
+            session.close();
+            factory.close();
+        }
+    }
+}
+</pre>
+<p>之前在数据库中已经随机写入了100个讲师，这里随机取出一个，然后随机生成3-7个课程对象，设置好关联关系之后，将课程对象保存进数据库。</p>
+<p>注意这里不能在循环内不保存，而是最后保存instructor对象，Hibernate这样不会进行操作，要保存course对象才可以。</p>
+<p>这里还有一点要注意的是，如果每个对象都设置了IDE自动生成的toString()方法打印全部内容，会造成死循环，因为两个对象互相引用对方，这里为了不死循环，就没有设置Course类的toString()方法。</p>
+<p>然后尝试查询一下：</p>
+<pre>
+//查询讲师对应的课程
+try {
+    session.beginTransaction();
+    Instructor instructor = session.get(Instructor.class, 42);
+
+    for (Course c : instructor.getCourses()) {
+        System.out.println(c);
+    }
+    session.getTransaction().commit();
+
+
+} catch (Exception ex) {
+    ex.printStackTrace();
+}finally {
+    session.close();
+    factory.close();
+}
+</pre>
+<p>只要能够取得数据，那么进行增删改查也就没有问题了：</p>
+<pre>
+try {
+    session.beginTransaction();
+    Instructor instructor = session.get(Instructor.class, 42);
+    Instructor newInstructor = session.get(Instructor.class, primaryKey);
+
+    for (Course c : instructor.getCourses()) {
+        System.out.println(c);
+        c.setTitle("title" + rand.nextInt(100)*rand.nextInt(100));
+        c.setInstructor(newInstructor);
+        newInstructor.setRelationship(c);
+    }
+    session.getTransaction().commit();
+
+
+} catch (Exception ex) {
+    ex.printStackTrace();
+}finally {
+    session.close();
+    factory.close();
+}
+</pre>
+<p>上边这个例子先获取了42号讲师的全部课程，然后修改了课程名称，之后将这些课程全部修改为一个随机挑选出的讲师的课程，再更新数据库。</p>
+
+<h1 style="text-align: center;">FetchType: Eager and Lazy</h1>
+<p>由于现在使用到了一对多和多对一关系，因此必须要学习一下Hibernate加载数据库数据的两种模式：Eeager和Lazy了。</p>
+<p>在Hibernate最开始的时候提到了这两个概念，Eager会一次将全部关联的数据取出，而Lazy用到的时候再去读取。</p>
+<p>一般Lazy的应用场景通常是查询结果，比如一个老师有十几个课程，每个课程有很多学生，在选课的时候，会查询这个老师的课程，这个时候并不需要将所有的学生对象也一并装入到内存中，只需要显示到课程就可以了。</p>
+<p>Eager的应用场景主要是细节页面，没有更深的层次了，比如学生进入一门课的详情页，需要选课，自然需要知道还有其他学生选这门课的情况，这个时候就需要将关联的内容全部加载进内存。</p>
+<p>在开发中，最佳实践一般是仅当使用到数据的时候才读取，所以优先使用Lazy模式。</p>
+<p>加载模式可以通过在外键注解中的fetch设置来指定，如果不指定默认值如下：</p>
+<table border="1">
+    <caption>Fetch默认值</caption>
+    <thead>
+    <tr>
+        <th>映射关系</th>
+        <th>默认加载模式</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>一对一</td>
+        <td>FetchType.EAGER</td>
+    </tr>
+    <tr>
+        <td>一对多</td>
+        <td>FetchType.LAZY</td>
+    </tr>
+    <tr>
+        <td>多对一</td>
+        <td>FetchType.EAGER</td>
+    </tr>
+    <tr>
+        <td>多对多</td>
+        <td>FetchType.LAZY</td>
+    </tr>
+    </tbody>
+</table>
+<p>如果要覆盖默认设置，则必须显式指定FetchType。</p>
+<p>Lazy模式的问题在于必须保持一个session为open状态，不能够close，如果close之后再去获取数据，那么就会报错。</p>
+<p>最开始的时候说了一般获取数据有两种方式，一种是通过对象方式的getter方法，一种是直接执行类似SQL语句的查询。</p>
+<p>来进行几个例子试验一下：</p>
+<h3 style="text-align: center;">EAGER模式与LAZY模式的区别</h3>
+<p>在刚才的查询中，已经知道一对多关系默认是LAZY，现在我们把所有类的toString()方法都去掉，或者仅打印基本属性的成员变量，避免打印的时候要去查询数据库。然后把Instructor类中的courses属性设置为EAGER，覆盖原来的LAZY属性：</p>
+<pre>
+@OneToMany(fetch = FetchType.EAGER, mappedBy = "instructor", cascade = {CascadeType.DETACH, CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH})
+private List&lt;Course> courses;
+</pre>
+<p>然后编写代码来进行查询：</p>
+<pre>
+try {
+    session.beginTransaction();
+    //以下三行语句打上断点
+    <span style="color: red;">Instructor instructor = session.get(Instructor.class, 18);</span>
+
+    <span style="color: red">System.out.println("Instructor: " + instructor);</span>
+
+    <span style="color: red">System.out.println("Courses:" + instructor.getCourses());</span>
+    session.getTransaction().commit();
+} catch (Exception ex) {
+    ex.printStackTrace();
+}finally {
+    session.close();
+    factory.close();
+}
+</pre>
+<p>在Debug模式中执行，在第一行语句执行前，可以看到没有任何输出，也没有执行SQL语句，然后按F8进行下一步，会执行第一条语句，看到Hibernate执行的语句如下：</p>
+<pre>
+Hibernate: select instructor0_.id as id1_1_0_, instructor0_.email as email2_1_0_, instructor0_.first_name as first_na3_1_0_, instructor0_.instructor_detail_id as instruct5_1_0_, instructor0_.last_name as last_nam4_1_0_,
+    courses1_.instructor_id as instruct3_0_1_, courses1_.id as id1_0_1_, courses1_.id as id1_0_2_, courses1_.instructor_id as instruct3_0_2_, courses1_.title as title2_0_2_,
+    instructor2_.id as id1_2_3_, instructor2_.hobby as hobby2_2_3_, instructor2_.youtube_channel as youtube_3_2_3_ from instructor instructor0_
+    left outer join course courses1_ on instructor0_.id=courses1_.instructor_id
+    left outer join instructor_detail instructor2_ on instructor0_.instructor_detail_id=instructor2_.id where instructor0_.id=?
+</pre>
+<p>可以发现这里执行了instructor表与course表的连表操作，也执行了instructor与instructor_detail的连表操作（一对一关系默认是EAGER），说明已经载入了course数据。</p>
+<p>然后继续执行后两条语句，分别打印出了讲师对象和课程对象，没有再执行新的SQL语句。</p>
+<p>现在把加载模式修改为LAZY或者删除，默认就是LAZY，再以DEBUG模式执行：</p>
+<p>第一行没执行之前依然没有任何显示，现在执行第一行：</p>
+<pre>
+Hibernate: select instructor0_.id as id1_1_0_, instructor0_.email as email2_1_0_, instructor0_.first_name as first_na3_1_0_,
+    instructor0_.instructor_detail_id as instruct5_1_0_, instructor0_.last_name as last_nam4_1_0_, instructor1_.id as id1_2_1_,
+    instructor1_.hobby as hobby2_2_1_, instructor1_.youtube_channel as youtube_3_2_1_ from instructor instructor0_
+    left outer join instructor_detail instructor1_ on instructor0_.instructor_detail_id=instructor1_.id where instructor0_.id=?
+</pre>
+<p>相比EAGER模式的语句可以看到，此时并没有连course表进行查询，说明没有加载course表的数据。</p>
+<p>执行第二行，也只是打印出了Instructor的数据（注意，如果这里toString()方法包含了关联的数据，则会去执行查询，因为用到了course数据）</p>
+<p>执行第三行，由于调用了<code>instructor.getCourses()</code>方法，所以导致执行了course的查询：</p>
+<pre>
+Hibernate: select courses0_.instructor_id as instruct3_0_0_, courses0_.id as id1_0_0_, courses0_.id as id1_0_1_,
+    courses0_.instructor_id as instruct3_0_1_, courses0_.title as title2_0_1_ from course courses0_ where courses0_.instructor_id=?
+</pre>
+<p>通过对比两种模式可以发现，差异在于EAGER模式一执行语句，就会去连所有外键关联的表进行查询，也就是载入了全部的数据。</p>
+<p>而LAZY模式，只有用到关联数据的时候，才会先去根据外键ID到关联表里查询相关数据。</p>
+<p>现在把这个查询程序修改一处地方，就是把<code>System.out.println("Courses:" + instructor.getCourses());</code>这条语句移动到提交事务之后：</p>
+<pre>
+try {
+    session.beginTransaction();
+    //以下三行语句打上断点
+    Instructor instructor = session.get(Instructor.class, 18);
+    System.out.println("Instructor: " + instructor);
+
+    session.getTransaction().commit();
+    //先提交事务，然后获取关联的课程对象
+    <span style="color: red">System.out.println("Courses:" + instructor.getCourses());</span>
+} catch (Exception ex) {
+    ex.printStackTrace();
+}finally {
+    session.close();
+    factory.close();
+}
+</pre>
+<p>这么修改之后，如果是EAGER模式，则可以正常执行；如果是LAZY模式，就会报错如下：</p>
+<pre>failed to lazily initialize a collection of role: eagervslazy.Instructor.courses, could not initialize proxy - no Session</pre>
+<p>很显然，就是上边提到的，LAZY模式下由于提交完事务导致session已经使用完毕，此时调用<code>instructor.getCourses()</code>会再去查询数据库，然而已经没有session可用了。如果是EAGER模式，数据已经存放在内存里，就不会报错了。</p>
+<p>想要不报错，就需要将这一行放回到提交事务之前，当然，这么做也就和设置了EAGER模式的操作本质上一样了。</p>
+<p>还有一种方法是使用HQL直接查询，这个套路其实很像Django ORM的操作：</p>
+<pre>
+public class MainAppEager {
+    public static void main(String[] args) {
+        SessionFactory factory = new Configuration().configure("hibernate.cfg.xml").addAnnotatedClass(Instructor.class).addAnnotatedClass(InstructorDetail.class).addAnnotatedClass(Course.class).buildSessionFactory();
+        Session session = factory.getCurrentSession();
+
+        int theId = 18;
+        try {
+            session.beginTransaction();
+
+            Query&lt;Instructor> query = session.createQuery("select i from Instructor i JOIN FETCH i.courses where i.id=:theInstructorId", Instructor.class);
+            query.setParameter("theInstructorId", theId);
+
+            Instructor instructor = query.getSingleResult();
+
+            System.out.println("Instructor: " + instructor);
+
+            session.getTransaction().commit();
+
+            System.out.println("Courses:" + instructor.getCourses());
+            System.out.println("Courses:" + instructor.getInstructorDetail());
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }finally {
+            session.close();
+            factory.close();
+        }
+    }
+}
+</pre>
+<p>使用HQL，其实无所谓LAZY和EAGER了，因为直接可以控制连哪些表查哪些数据，不过这里要注意，自动EAGER获取的还是会连表查询。</p>
+<p>通过和刚才一样打断点可以发现，声明Query和设置theId参数的两条语句都没有实际执行SQL。在获取instructor对象的时候，一次性执行了所有的查询，包括query对象中显式编写的连course表以及自动连instructor_detail表查询。</p>
+<p>之后在提交事务之后再显示course和detail数据，因为都已经取得了，就没问题了。</p>
+
+<p>在实际开发中，需要了解获取数据到什么程度，然后设置每个外键的加载方式，以避免一次性加载太多不必要的内容。</p>
+
+<h1 style="text-align: center;">Uni-Directional方式操作一对多关系</h1>
+<p>在实际开发中，除了像Instructor和Course这种不需要级联删除的一对多关系之外，还可能有需要级联删除的一对多关系，比如每一门课程可能有很多评论（Reviews），如果删除一门课程，则单独留下评论没有什么意义，类似的还有博客用户和文章之间的关系，这些是可以级联删除的。</p>
+<p>创建一个外键关联到course表的review表：</p>
+<pre>
+CREATE TABLE `review` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `comment` varchar(256) DEFAULT NULL,
+  `course_id` int(11) DEFAULT NULL,
+
+  PRIMARY KEY (`id`),
+
+  KEY `FK_COURSE_ID_idx` (`course_id`),
+
+  CONSTRAINT `FK_COURSE`
+  FOREIGN KEY (`course_id`)
+  REFERENCES `course` (`id`)
+
+  ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
+</pre>
+<p>其结构很简单，评论是256字节长的字符串，还有一个course_id被设置成外键关联course表的id。</p>
+<p>由于外键在Review表内，所以无需更改course表。根据之前的学习，肯定先要创建Review类，然后更新Course类：</p>
+<pre>
+import javax.persistence.*;
+
+@Entity
+@Table(name = "review")
+public class Review {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private int id;
+
+    @Column(name = "comment")
+    private String comment;
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getComment() {
+        return comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
+    }
+
+    public Review() {
+    }
+
+    public Review(String comment) {
+        this.comment = comment;
+    }
+}
+</pre>
+<p>注意Uni方式下最显著的变化就是没有在Review类中设置外键：没有把外键@ManyToOne和@JoinColumn设置到Course类的外键字段对应的变量上，只设置了两个取值的变量。再来修改Course类，添加与Review相关的内容：：</p>
+<pre>
+@OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+@JoinColumn(name = "course_id")
+private List&lt;Review> reviewList;
+    
+public void addReview(Review review) {
+    if (reviewList == null) {
+        reviewList = new ArrayList&lt;>();
+    }
+    reviewList.add(review);
+}
+
+//getter,setter，构造器和toString()方法省略
+</pre>
+<p>在这里，我们没有像Bi方式一样添加一个mappedBy属性在@OneToMany注解上，还直接把<code>@JoinColumn(name = "course_id")</code>添加在这个我们自己创立的字段上。</p>
+<p>通过这么设置，其实是告诉Hibernate，从review表中寻找course_id列，然后通过这一列找到对应的course对象，再通过course对象的id去寻找所有对应的评论。也可以理解为，从review表中选出与自己course_id一样的所有数据。</p>
+<p>凡是关联外键，肯定都要为被关联的类添加一个设置关联关系的方法，这里也不例外，添加了<code>addReview(Review review)</code>方法。</p>
+<p>相比Bi方式，Uni方式的设置要简单一下，现在写一些代码来操作一下：</p>
+<pre>
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+import java.util.Random;
+
+public class MainAppReview {
+    public static void main(String[] args) {
+        SessionFactory factory = new Configuration().configure("hibernate.cfg.xml").addAnnotatedClass(Instructor.class).addAnnotatedClass(InstructorDetail.class).addAnnotatedClass(Course.class).addAnnotatedClass(Review.class).buildSessionFactory();
+        Session session = factory.getCurrentSession();
+        Random rand = new Random();
+        int primaryKey = rand.nextInt(18) + 1;
+        //获取课程并添加评论
+        try {
+            session.beginTransaction();
+
+            //获取一个随机的讲师
+            Course course = session.get(Course.class, primaryKey);
+            //新建若干课程，对每一个课程设置好关联后进行保存
+            for (int i = 1; i <= (rand.nextInt(3) * 2 + 3); i++) {
+                Review review = new Review("Review" + rand.nextInt(100) + " " + rand.nextInt(100));
+                course.addReview(review);
+                session.save(course);
+            }
+            System.out.println("-----------------------------------------");
+            System.out.println("课程是： "+ course);
+            System.out.println("添加的评论是：" + course.getReviewList());
+
+            session.getTransaction().commit();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        } finally {
+            session.close();
+            factory.close();
+        }
+    }
+}
+</pre>
+<p>可以发现，由于没有在Review类中设置外键@ManyToOne注解，却在Course类中设置了外键注解，在保存对象的时候，就保存course对象即可，级联的review也会一并保存。</p>
+<p>刚才的讲师-课程使用Bi方式，这里是保存每一个有外键的课程对象。可见如果要保存，肯定是要保存存在外键的对象，</p>
+<p>两种方式并没有本质的不同，Bi方式比Uni方式更加直观一些，而Uni方式的设置比较少。</p>
+<p>最后再来测试一下级联删除，即删除一个Course对象，应该会将其对应的所有Review对象一并从数据库中删除。</p>
+<p>在之前已经设置了级联为ALL，剩下的就是来编写代码：</p>
+<pre>
+try {
+    session.beginTransaction();
+
+    Course course = session.get(Course.class, 2);
+
+    session.delete(course);
+
+    session.getTransaction().commit();
+} catch (Exception ex) {
+    ex.printStackTrace();
+} finally {
+    session.close();
+    factory.close();
+}
+</pre>
+<p>只通过删除course对象，就删除了id为2的course对象及其对应的所有评论。注意这里如果报错的话，可能是Riview类没有空参构造器，在创建Entity Class的时候，一定要将成员变量，getter和setter方法，空参及有参构造器，添加关联关系的方法全部设置好才行。</p>
+
+
+
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
