@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 15 Spring MVC+ Hibernate 项目结构与列表页</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<h1 style="text-align: center;">项目结构</h1>
+<p>Spring目前是配置好了我们所需要的Hibernate及Web项目的一些基础设置，整个项目的结构还需要再看一下：</p>
+<img src="http://img.conyli.cc/spring/basiccrud.png" alt="">
+<p>可见，现在我们的项目中还缺少一个DAO层与数据库进行交互。必须在控制器中调用DAO层，获取数据，才能够将数据返回给视图用于展示。而接受到用户的请求，也必须将请求中的操作转换成对数据库的操作，并将结果再返回给视图。</p>
+<p>DAO是Data Access Object的简称，是一种常见的设计模式，用于将控制器和数据库的访问隔离开。一般我们称DAO为一个Hepler Class或者叫Utility Class。</p>
+<p>在Java设计中比较常用的就是画出类图，将类要完成的工作分配到各个方法里，从而设计好这个类，我们的DAO会有如下几个方法：</p>
+<ol>
+    <li>saveCustomer(...)</li>
+    <li>getCustomer(...)</li>
+    <li>getCustomers(...)</li>
+    <li>updateCustomer(...)</li>
+    <li>deleteCustomer(...)</li>
+</ol>
+<p>可以看到这几个方法分别对应了CRUD。这样整个Web应用的架构就有了，下边就是逐个编写控制器-视图和对应的关系了。</p>
+<p>一般这种增删改查的项目都是从一个列表页开始的，用户可以选择列表页内的项目进行开发，就先来编写列表页。</p>
+
+<h1 style="text-align: center;">列表页的开发</h1>
+<p>参考上边的图，列表页的开发需要如下组件：</p>
+<ol>
+    <li>Customer类，是一个Entity Class，用于操作数据，这个类可以在整个项目内使用</li>
+    <li>CustomerDAO类，这是用于操作数据的DAO，这个类可以在整个项目内使用</li>
+    <li>CustomerController 类，这是控制器类，应当有着合理的url映射，也用于整个项目</li>
+    <li>list-customers.jsp，这个仅对应展示用户列表的功能。</li>
+</ol>
+<p>来一个一个做</p>
+
+<h2 style="text-align: center;">Customer类的创建</h2>
+<p>由于我们使用Hibernate，所以要按照Hibernate的要求来做，在之前配置了扫描Entity的目录为cc.conyli.entity包，所以在cc.conyli.entity包下创建Customer.java：</p>
+<pre>
+package entity;
+
+import javax.persistence.*;
+
+@Entity
+@Table(name = "customer")
+public class Customer {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private int id;
+
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Column(name = "email")
+    private String email;
+
+    public Customer() {
+    }
+
+    public Customer(String firstName, String lastName, String email) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    @Override
+    public String toString() {
+        return "Customer{" +
+                "id=" + id +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", email='" + email + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>检查一下是否注解已经都配置好，对应字段名的属性，空参有有参构造器，setter与getter方法，toString()方法是否都已经编写完毕。</p>
+
+<h2 style="text-align: center;">DAO类的创建</h2>
+<p>回忆一下Hibernate中的操作，我们需要使用sessionFactory，sessionFactory会使用到底层的数据库驱动连接。常见的做法是，使用Spring进行依赖注入，</p>
+<p>回头看一下Spring的配置文件，sessionFactory这个Bean已经注入了myDataSource这个Bean，现在要做的，就是把sessionFactory这个Bean注入到我们的DAO类中。</p>
+<p>在实际开发DAO的时候，最好定义一个接口，让所有实现这个接口的DAO对象，都能够成为我们操控数据库的对象。创建一个cc.conyli.dao包，然后先编写一个接口：</p>
+<pre>
+package cc.conyli.dao;
+
+import cc.conyli.entity.Customer;
+import java.util.List;
+
+public interface CustomerDAO {
+
+    public List&lt;Customer> getCustomers();
+}
+</pre>
+<p>现在由于暂时还用不到其他功能，让这个接口简单一些，暂时只有一个抽象方法，就是返回客户对象的集合。然后来编写一个DAO接口的实现类。由于这是第一次编写DAO类，这个类里有趣的东西就很多了：</p>
+<pre>
+package cc.conyli.dao;
+
+import cc.conyli.entity.Customer;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Repository
+public class CustomerDAOImpl implements CustomerDAO {
+
+    //需要注入sessionFactory这个Bean
+    @Autowired
+    private SessionFactory sessionFactory;
+
+
+    @Override
+    @Transactional
+    public List&lt;Customer> getCustomers() {
+        //获取Customers查询结果
+        Session session = sessionFactory.getCurrentSession();
+        List&lt;Customer> customers = session.createQuery("From Customer customer", Customer.class).getResultList();
+        return customers;
+    }
+}
+</pre>
+<p>这里需要解释的东西如下：</p>
+<ol>
+    <li><code>@Repository</code>，是专门用于DAO类的注解，这个注解与<code>@Controller</code>一样，也继承自<code>@Component</code>注解并且用于特定的Bean。Spring就会将我们的DAO实现类装配成一个DAO的Bean。这个注解还一个重要的作用是，将JDBC里所有的必检错误都变成免检错误，免去了在编写业务逻辑方面的一大堆try-catch语句。</li>
+    <li><code>private SessionFactory sessionFactory;</code>，在之前Spring配置文件里，配置了一个Spring自己的包装了Hibernate的Bean，这里就要把这个Bean注入进来，注意不要导错包，是Hibernate的SessionFactory对象，这样在我们的DAO里，就可以随时通过这个对象操作数据库了。</li>
+    <li><code>@Transactional</code>，在重写的查询方法里加上了这样一个注解，表示自动开闭事务，免去了样板式的代码，只需要直接写业务逻辑即可。</li>
+</ol>
+<p>以后的DAO类，基本都是采用注入，使用更基础的数据库操作的Bean来操作数据库，并且返回需要的结果。</p>
+
+<h2 style="text-align: center;">Controller类的创建</h2>
+<p>由于Controller要使用DAO，所以我们要将DAO注入到Controll里去，在cc.conyli.controller包下编写CustomerController类：</p>
+<pre>
+package cc.conyli.controller;
+
+import cc.conyli.dao.CustomerDAO;
+import cc.conyli.entity.Customer;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import java.util.List;
+
+@Controller
+@RequestMapping(value = "/customer")
+public class CustomerController {
+
+    @Autowired
+    private CustomerDAO customerDAO;
+
+
+    @RequestMapping(value = "/list")
+    public String test(Model model) {
+
+        List&lt;Customer> customers = customerDAO.getCustomers();
+        System.out.println(customers);
+        model.addAttribute("customers", customers);
+
+        return "list-customers";
+    }
+}
+</pre>
+<p>这里需要将刚才的DAO注入到Controller里，所以使用了接口类型，Spring会注入所有的Bean里唯一个实现了这个接口的CustomerDAOImpl做成的Bean。</p>
+<p>然后在控制器方法里调用查询方法，结果附加到model上，准备传递给视图。</p>
+
+<h2 style="text-align: center;">JSP视图创建</h2>
+<p>由于配置了视图解析器，所以我们在/WEB-INF/view/下边创建list-customers.jsp文件：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+&lt;html>
+&lt;head>
+    &lt;title>List Customers&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;div id="wrapper">
+    &lt;div id="header">
+        &lt;h2>CRM - Customer Relationship Manager&lt;/h2>
+    &lt;/div>
+&lt;/div>
+
+&lt;div id="container">
+    &lt;div id="content">
+        &lt;table>
+            &lt;thead>
+            &lt;tr>
+                &lt;th>FirstName&lt;/th>
+                &lt;th>LastName&lt;/th>
+                &lt;th>Email&lt;/th>
+            &lt;/tr>
+            &lt;/thead>
+            &lt;tbody>
+            &lt;c:forEach var="tempCustomer" items="${customers}">
+                &lt;tr>
+                    &lt;td>${tempCustomer.firstName}&lt;/td>
+                    &lt;td>${tempCustomer.lastName}&lt;/td>
+                    &lt;td>${tempCustomer.email}&lt;/td>
+                &lt;/tr>
+            &lt;/c:forEach>
+            &lt;/tbody>
+        &lt;/table>
+    &lt;/div>
+&lt;/div>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这里我们使用JSTL库，所以引入了JSTL标签，之后的内容比较简单，按照前端的套路写了几个Div，然后用c:forEach标签，从model中的customers中取数据并且展示。</p>
+<p>现在运行项目，访问<code>http://localhost:8080/customer/list</code>，可以看到简陋的页面，完成了列表页。</p>
+
+<h2 style="text-align: center;">静态文件的存放</h2>
+<p>很显然，学过前端开发的我们知道静态文件一定是少不了的，那么Spring下静态文件放在哪里呢？</p>
+<p>Spring处理静态文件的方法是：</p>
+<ol>
+    <li>创建resources目录用于存放静态文件</li>
+    <li>配置Spring从resources目录中获取静态文件</li>
+    <li>在JSP中添加静态文件链接</li>
+</ol>
+<p>先来创建resources目录，注意，这个目录是在web目录下，与WEB-INF目录同级。不一定叫resources目录，名字可以任意取，因为会在配置文件中进行配置。</p>
+<p>然后在其中创建css目录，将样式表文件复制进去。</p>
+<p>之后在Spring的配置文件中加一条配置静态文件路径的配置：</p>
+<pre>
+&lt;mvc:resources location="/resources/" mapping="/resources/**" >&lt;/mvc:resources>
+</pre>
+<p>v这个配置里的location属性指的是实际地址，mapping指的是映射到web应用的地址，**表示其后实际的结构地址。注意这里的配置，location属性的那个映射一定是开头结尾都有一个斜杠，否则会找不到静态文件。</p>
+<p>然后在JSP文件的head标签内加入CSS的链接：</p>
+<pre>
+&lt;link rel="stylesheet" href="${pageContext.request.contextPath}/resources/css/style.css">
+</pre>
+<p>之后重新build项目，再重启tomcat，检查out/artifacts/项目名称/resources下的内容是否已经被复制过去，笔者就是在这里卡了好久没有重新build项目，总显示找不到文件。</p>
+<p>再访问首页，就可以发现CSS样式正常显示了。通过Spring完成了第一次前后端交互。</p>
+
+</body>
+</html>
