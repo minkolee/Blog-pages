@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 19 基础增删改查项目-新增Customer</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<p>在开始之前，依然要先想好我们需要完成的目标。</p>
+<p>添加Customer功能的流程是：</p>
+<ol>
+    <li>用户点击新增的添加客户按钮</li>
+    <li>跳转到一个空白表单供用户填写</li>
+    <li>表单验证，如果失败需要提示错误信息，成功则返回列表页面</li>
+    <li>列表页面展示更新后的数据</li>
+</ol>
+<p>因此我们采取如下的开发步骤：</p>
+<ol>
+    <li>修改列表页的JSP，添加一个新增Customer按钮与对应链接</li>
+    <li>编写控制器方法和表单页面，对应新增Customer按钮的链接</li>
+    <li>点击表单的提交按钮后处理表单数据</li>
+    <li>根据处理结果展示错误提示信息或者跳转列表页</li>
+</ol>
+<p>其实会了Django之后再来看这个，就是逐个编写对应功能的MVC了，没有太复杂的业务架构，重在具体代码编写：</p>
+
+<h1 style="text-align: center;">创建添加Customer的按钮</h1>
+<p>在table标签之前放一个input元素或者button元素都可以，也可以用A标签加上按钮样式。这里采用Input标签加一个简单的JS脚本的方式：</p>
+<pre>
+&lt;input type="button" value="Add Customer" 
+       onclick="window.location.href='showFormForAdd';return false;" class="add-button">
+</pre>
+<p>很显然，接下来要先为这个A标签做一个控制器方法展示表单：</p>
+<pre>
+@GetMapping(value = "showFormForAdd")
+public String showFormForAdd(Model model) {
+    return "customer-form";
+}
+</pre>
+<p>简单的方法，接受GET请求，返回customer-form.jsp，接下来就是编写提交表单的页面和对应的表单处理控制器了，而这个控制器就会延伸使用到Service层以及DAO层去新增数据。</p>
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
