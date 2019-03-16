@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 22 AOP详解</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<h1 style="text-align: center;">环境配置</h1>
+<p>很多切点是用注解来标示的，为了使用AOP先来进行环境配置，先看一下要如何做。</p>
+<p>虽然我们的库里已经有了Spring全套框架，但依然需要下载导入AspectJ的包，这是因为Spring AOP使用了一些AspectJ的注解和包。</p>
+<p>然后我们要看@Before advice的使用，操作的步骤是：</p>
+<ol>
+    <li>我们创建一个目标类，也就是业务类，叫做AccountDAO</li>
+    <li>然后创建Spring 的Java配置类</li>
+    <li>创建app</li>
+    <li>使用@Before来创建Aspect</li>
+</ol>
+<p>到<a href="https://mvnrepository.com/artifact/org.aspectj/aspectjweaver">https://mvnrepository.com/artifact/org.aspectj/aspectjweaver</a>选择1.8.14版，然后下载AspectJ的Jar包，加入到项目库中。</p>
+
+<h1 style="text-align: center;">@Before Advice</h1>
+<p>创建AccountDAO类，很简单，就是在控制台输出一句话：</p>
+<pre>
+import org.springframework.stereotype.Component;
+
+@Component
+public class AccountDAO {
+
+    public void addAccount() {
+        System.out.println(getClass() + ": Doing DB work: adding an account.");
+    }
+}
+</pre>
+<p>然后需要创建Spring的配置，采用Java配置类和XML结合的方式。在AccountDAO的同一个包下创建配置类：</p>
+<pre>
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
+
+@Configuration
+@EnableAspectJAutoProxy
+@ComponentScan("aop.learn")
+public class DemoConfig {
+
+}
+</pre>
+<p>这里的第二个注解表示启用Spring 的AOP代理模式。</p>
+<p>之后来创建一个app用于测试：</p>
+<pre>
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class MainDemoApp {
+
+    public static void main(String[] args) {
+
+        //载入Spring的配置
+        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(DemoConfig.class);
+        //获取Bean
+        AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
+        //调用方法
+        accountDAO.addAccount();
+        //关闭上下文
+        context.close();
+    }
+}
+</pre>
+<p>这段代码也很简单，最关键的是下一步。</p>
+<p>现在我们要让AccountDAO类在调用<code>.addAccount()</code>之前通过AOP进行一些操作，该如何做呢。</p>
+<p>在同一个包或者子包内（在Spring扫描范围内）创建一个aspect类：</p>
+<pre>
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+import org.springframework.stereotype.Component;
+
+@Aspect
+@Component
+public class MyDemoLoggingAspect {
+
+    @Before("execution(public void addAccount())")
+    public void beforeAddAccountAdvice() {
+        System.out.println("\n=======>This is aspect before AddAccount advice executed.");
+    }
+}
+</pre>
+<p>这里就是使用Aspect的关键，首先使用<code>@Aspect</code>来注解了这个类，让其成为一个Aspect。</p>
+<p>之后使用了<code>@Before("execution(public void addAccont())")</code>注解了一个方法。括号里的就是切点表达式，表示在执行public void addAccount()方法之前，执行这个被注解的beforeAddAccountAdvice()方法。</p>
+<p>之后运行MainDemoApp，发现控制台里发生了神奇的事情：</p>
+<pre>
+=======>This is aspect before AddAccount advice executed.
+class aop.learn.AccountDAO: Doing DB work: adding an account.
+</pre>
+<p>可以看到，我们没有对AccountDAO进行任何新的注解和进行编码操作，却在其方法运行之前，插入了beforeAddAccountAdvice()的运行。而且不止一次，只要调用.addAccount()方法，切面的方法就一定会先于其调用。</p>
+<p>这就是Before Advice的用法。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
