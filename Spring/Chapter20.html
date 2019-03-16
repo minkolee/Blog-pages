@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 20 基础增删改查项目-修改Customer</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<p>依然是思路最重要，这次是修改一个对象，很显然，必须要知道需要修改哪个对象，然后将对象展示在一个表单里供修改，修改完成后更新数据库，返回列表页。</p>
+<p>经过思考可以发现，将数据保存入数据库，和我们编写的新增代码本质上一样，只是保存的内容不是新的东西，而是从数据库中取出的对象。所以首先要解决的问题就是如果知道修改哪一个。</p>
+<p>通过项目一开始的界面介绍可以知道，为每个数据添加一个链接，在生成列表的时候确定好每个链接附带的id，通过id就可以知道要修改哪个对象了。</p>
+
+<h1 style="text-align: center;">修改列表页添加操作列</h1>
+<p>为每一行数据添加一个操作链接，在其中附带上这行对应的数据库中的id就可以了，修改list-customers.jsp：</p>
+<pre>
+&lt;table>
+    &lt;tr>
+        &lt;th>First Name&lt;/th>
+        &lt;th>Last Name&lt;/th>
+        &lt;th>Email&lt;/th>
+        &lt;th>Action&lt;/th>
+    &lt;/tr>
+
+    &lt;c:forEach var="tempCustomer" items="${customers}">
+        
+        &lt;!--创建一个updateLink变量，使用GET参数customerId=id-->
+        &lt;c:url var="updateLink" value="/customer/showFormForUpdate">
+            &lt;c:param name="customerId" value="${tempCustomer.id}"/>
+        &lt;/c:url>
+
+        &lt;tr>
+            &lt;td> ${tempCustomer.firstName} &lt;/td>
+            &lt;td> ${tempCustomer.lastName} &lt;/td>
+            &lt;td> ${tempCustomer.email} &lt;/td>
+            &lt;td>&lt;a href="${updateLink}">Update&lt;/a> &lt;/td>
+        &lt;/tr>
+    &lt;/c:forEach>
+&lt;/table>
+</pre>
+<p>在table标签内加了Action列，然后我们通过JSTL标签库做了一个GET请求的链接地址，然后将这个链接放到每一行的Action列中。</p>
+<p>在项目运行后，页面中的实际链接是这样：</p>
+<pre>
+http://localhost:8080/customer/showFormForUpdate?customerId=1
+</pre>
+<p>可以看一下这条链接与JSTL标签里属性的对应关系。这样我们编写对应地址的控制器，就可以拿到id数据，从而展示和更新数据。</p>
+
+<h1 style="text-align: center;">编写控制器和视图</h1>
+<p>很显然，要编写一个和GET请求地址对应的控制器，从请求中取得id指，还记得直接绑定request中的参数吗：</p>
+<pre>
+@GetMapping(value = "/customer/showFormForUpdate")
+public String updateCustomer(@RequestParam("customerId") int customerId, Model model) {
+    //获取customerId对应的customer对象
+    Customer customer = customerService.getCustomer(customerId);
+
+    //将customer对象设置到model上去
+    model.addAttribute("customer", customer);
+
+    return "customer-form";
+}
+</pre>
+<p>这里直接将请求中的customerId对应的值绑定给控制器方法的参数，然后先取出对象，再将对象设置到model上，很显然，这里要为Service和DAO层再编写一系列抽象方法及实现了。</p>
+<p>这里省略掉接口抽象方法，DAO和Service层如下：</p>
+<pre>
+//DAO
+@Override
+public Customer getCustomer(int customerId) {
+    Session session = sessionFactory.getCurrentSession();
+    return session.get(Customer.class, customerId);
+}
+
+//Service
+@Override
+@Transactional
+public Customer getCustomer(int customerId) {
+    return customerDAO.getCustomer(customerId);
+}
+</pre>
+<p>更新customer方法和新增customer方法都使用了customer-form.jsp，不同之处是新增customer的时候传递的是一个新的对象，而更新的时候传递的是一个已知的对象。由于在之前我们知道表单标签在生成页面的时候调用getter方法，提交的时候调用setter方法，那么表单应该会显示出要修改的内容，提交后就修改成功。</p>
+<p>启动项目后测试成功，发现可以修改。但是这里还有一点要注意，如果表单是直接通过链接生成的，或者服务中断，很有可能不知道到底是新的数据还是老的数据，所以一般的做法是在页面中放一个隐藏的input标签，用于记录id，如果有id就说明当前页面内的数据是一个老数据，如果没有id，就是一个新数据。</p>
+<p>修改customer-form.jsp，在<code>form:form</code>标签内添加一行：</p>
+<pre>
+&lt;form:hidden path="id"/>
+</pre>
+<p>之后还需要一处至关重要的地方，就是修改DAO层的saveCustomer方法：</p>
+<pre>
+@Override
+public void saveCustomer(Customer customer) {
+    Session session = sessionFactory.getCurrentSession();
+    <span style="color: red">session.saveOrUpdate(customer);</span>
+}
+</pre>
+<p><code>.saveOrUpdate(customer)</code>方法会自动判断这个数据对象的主键，如果存在就更新，不存在就新建。</p>
+<p>这样我们通过一个隐藏字段，就彻底杜绝了可能出现的数据错误。在日常的Web开发中，这种做法是非常普遍的，可以避免页面加载不完全，或者反复提交等问题。</p>
+
+<h1 style="text-align: center;">删除Customer</h1>
+<p>这个项目写到这份上也基本上知道删除该怎么做了，次序分别是在列表页添加删除按钮--编写控制器处理删除请求--到数据库中删除--返回列表页。</p>
+<p>当然，一点就删除这个还是危险了点，有很多库可以实现一个对话框来判断，这里我们简单一些，就用一小段JS代码来确认。</p>
+<h1 style="text-align: center;">创建删除链接</h1>
+<p>删除链接依然使用JSTL来生成：</p>
+<pre>
+&lt;table>
+    &lt;tr>
+        &lt;th>First Name&lt;/th>
+        &lt;th>Last Name&lt;/th>
+        &lt;th>Email&lt;/th>
+        &lt;th>Action&lt;/th>
+    &lt;/tr>
+
+    &lt;c:forEach var="tempCustomer" items="${customers}">
+
+        &lt;c:url var="updateLink" value="/customer/showFormForUpdate">
+            &lt;c:param name="customerId" value="${tempCustomer.id}"/>
+        &lt;/c:url>
+
+        &lt;c:url var="deleteLink" value="/customer/delete">
+            &lt;c:param name="customerId" value="${tempCustomer.id}"/>
+        &lt;/c:url>
+
+        &lt;tr>
+            &lt;td> ${tempCustomer.firstName} &lt;/td>
+            &lt;td> ${tempCustomer.lastName} &lt;/td>
+            &lt;td> ${tempCustomer.email} &lt;/td>
+            &lt;td>&lt;a href="${updateLink}">Update&lt;/a>|&lt;a href="${deleteLink}" onclick="if(!(confirm('确定删除吗？' ))) return false">Delete&lt;/a>&lt;/td>
+        &lt;/tr>
+    &lt;/c:forEach>
+&lt;/table>
+</pre>
+<p>使用id生成了一个删除链接，传递给delete视图控制器。</p>
+
+<h1 style="text-align: center;">编写控制器，Service和DAO层方法</h1>
+<p>先是控制器，套路已经很熟悉了</p>
+<pre>
+    @GetMapping(value = "/delete")
+    public String deleteCustomer(@RequestParam("customerId") int customerId, Model model) {
+
+        customerService.deleteCustomer(customerId);
+
+        return "redirect:/customer/list";
+    }
+</pre>
+<p>之后是Service和DAO层，接口的代码就省略了。</p>
+<pre>
+//Service
+@Override
+@Transactional
+public void deleteCustomer(int customerId) {
+    customerDAO.deleteCustomer(customerId);
+}
+
+//DAO
+@Override
+public void deleteCustomer(int customerId) {
+    Session session = sessionFactory.getCurrentSession();
+    Customer customer = session.get(Customer.class, customerId);
+    session.delete(customer);
+}
+</pre>
+<p>实验一下，搞定啦。第一个增删改查项目顺利完工。</p>
+
+
+
+</body>
+</html>
