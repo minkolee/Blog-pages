@@ -132,13 +132,13 @@ public void saveCustomer(Customer customer) {
 <h1 style="text-align: center;">编写控制器，Service和DAO层方法</h1>
 <p>先是控制器，套路已经很熟悉了</p>
 <pre>
-    @GetMapping(value = "/delete")
-    public String deleteCustomer(@RequestParam("customerId") int customerId, Model model) {
+@GetMapping(value = "/delete")
+public String deleteCustomer(@RequestParam("customerId") int customerId) {
 
-        customerService.deleteCustomer(customerId);
+    customerService.deleteCustomer(customerId);
 
-        return "redirect:/customer/list";
-    }
+    return "redirect:/customer/list";
+}
 </pre>
 <p>之后是Service和DAO层，接口的代码就省略了。</p>
 <pre>
@@ -158,8 +158,12 @@ public void deleteCustomer(int customerId) {
 }
 </pre>
 <p>实验一下，搞定啦。第一个增删改查项目顺利完工。</p>
-
-
-
+<p>这个项目还有几个可以改进的地方：</p>
+<ol>
+    <li>为表单和Entity Class添加验证功能，在控制器类里加上预处理器</li>
+    <li>将域注入都改成依赖注入</li>
+    <li>按照Customer的名字进行模糊查询</li>
+</ol>
+<p>这些改进的功能如何实现，其实都已经有了解决方法。现在继续学习Spring的另外一个重要的内容：AOC。</p>
 </body>
 </html>
