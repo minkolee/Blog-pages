@@ -199,16 +199,35 @@ public void addAccount(int i, int j, int k) {
 <p>读者还可以自行实验其他例子。经过实验可以发现，<code>..</code>通配符就类似正则表达式的0-正无穷，<code>*</code>就是单个任意匹配，搭配上其他具体类型，参数匹配就很灵活了</p>
 <p>掌握了切点表达式，之后再看一下嘴</p>
 
+<h1 style="text-align: center;">切点声明</h1>
+<p>在初步了解了切点表达式之后，我们有一个新的问题，如果要将切点表达式重用在其他地方该怎么办呢？一个一个粘贴过去固然可以解决办法，但面临着硬编码的坏处。</p>
+<p>办法就是创建一个切点声明，然后将这个声明作用给很多advice。</p>
+<p>先来修改一下我们的aspect类，创建一个切点声明并应用一下：</p>
+<pre>
+@Aspect
+@Component
+public class MyDemoLoggingAspect {
 
+    @Before("forDAOPackage()")
+    public void beforeAddAccountAdvice() {
+        System.out.println("\n=======>This is aspect before AddAccount advice executed.");
+    }
 
+    @Pointcut("execution(* aop.learn.AccountDAO.*(..))")
+    private void forDAOPackage() {}
 
-
-
-
-
-
-
-
+}
+</pre>
+<p><code>@Pointcut</code>就是切点声明，可以认为一个切点里边包裹了一个切点表达式，然后被修饰的方法名称可以任意起，之后在<code>@Before("forDAOPackage()")</code>中将这个方法名称作为注解的参数传进去。</p>
+<p>这样就可以实现一个切点的复用了，我们可以轻松的再创建一个方法依然使用该切点表达式：</p>
+<pre>
+@Before("forDAOPackage()")
+public void AnotherBeforeAddAccountAdvice() {
+    System.out.println("\n=======>This is another aspect before AddAccount advice executed.");
+}
+</pre>
+<p>再执行一下Demo，会发现两个方法都执行了。</p>
+<p>如果只是单个复用，未免太简单了。切点还支持逻辑运算。</p>
 
 
 
