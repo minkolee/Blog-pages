@@ -127,8 +127,8 @@ class aop.learn.AccountDAO: Doing DB work: adding an account.
     <dt>和上一个匹配相同，但是modifier可以省略</dt>
     <dd><code>@Before("execution(* process*())")</code></dd>
 </dl>
-<p>上边的这几种方式，只要在代码中稍加测试，就可以掌握具体使用方法，不过目前AccountDAO.addAccount()还是无参方法，下边要说一下关于param-pattern的匹配。</p>
-<p>param-pattern有如下几种形式：</p>
+<p>上边的这几种方式，只要在代码中稍加测试，就可以掌握具体使用方法，不过目前<code>AccountDAO.addAccount()</code>还是无参方法，下边要说一下关于<code>param-pattern</code>的匹配。</p>
+<p><code>param-pattern</code>有如下几种形式：</p>
 <ol>
     <LI><CODE>(具体内容)</CODE>，匹配具体内容的参数</LI>
     <LI><CODE>()</CODE>，匹配无参</LI>
@@ -197,11 +197,11 @@ public void addAccount(int i, int j, int k) {
     </tbody>
 </table>
 <p>读者还可以自行实验其他例子。经过实验可以发现，<code>..</code>通配符就类似正则表达式的0-正无穷，<code>*</code>就是单个任意匹配，搭配上其他具体类型，参数匹配就很灵活了</p>
-<p>掌握了切点表达式，之后再看一下嘴</p>
+<p>掌握了切点表达式，之后再看一下切点的其他语法。</p>
 
 <h1 style="text-align: center;">切点声明</h1>
-<p>在初步了解了切点表达式之后，我们有一个新的问题，如果要将切点表达式重用在其他地方该怎么办呢？一个一个粘贴过去固然可以解决办法，但面临着硬编码的坏处。</p>
-<p>办法就是创建一个切点声明，然后将这个声明作用给很多advice。</p>
+<p>在初步了解了切点表达式之后，我们有一个新的问题，如果要将切点表达式重用在其他地方该怎么办呢？一个一个粘贴过去固然可以解决问题，但面临着硬编码的坏处。</p>
+<p>解决办法就是创建一个切点声明，然后将这个声明作用给很多advice。</p>
 <p>先来修改一下我们的aspect类，创建一个切点声明并应用一下：</p>
 <pre>
 @Aspect
