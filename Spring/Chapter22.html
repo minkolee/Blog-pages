@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 22 AOP详解</title>
+    <title>Spring 22 Before Advice与切点表达式</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
@@ -93,6 +93,183 @@ class aop.learn.AccountDAO: Doing DB work: adding an account.
 </pre>
 <p>可以看到，我们没有对AccountDAO进行任何新的注解和进行编码操作，却在其方法运行之前，插入了beforeAddAccountAdvice()的运行。而且不止一次，只要调用.addAccount()方法，切面的方法就一定会先于其调用。</p>
 <p>这就是Before Advice的用法。</p>
+
+<h1 style="text-align: center;">切点表达式</h1>
+<p>在刚才的<code>@Before</code>注解中，已经使用了切点表达式，现在需要来系统看一下切点表达式，才能够继续学习AOP。</p>
+<p>所谓切点表达式简单的说，就是描述在哪个地方切一刀把切面塞进去执行。Spring AOP使用了AspectJ的切点表达式。</p>
+
+<h2 style="text-align: center;">切点表达式语法</h2>
+<p>切点表达式其实语法比较复杂，先从比较直观的<code>execution</code>表达式来看起：</p>
+<pre>execution(modifiers-pattern? return-type-pattern declaring-type-pattern? method-name-pattern(param-pattern) throws-pattern?)</pre>
+<p>这里的pattern实际上就是字符串，带?的表示这一部分可以不给出，依次来看：</p>
+<ol>
+    <li><code>modifiers-pattern</code>，Spring AOP中只支持public 或者 *，可以省略。</li>
+    <li><code>return-type-pattern</code>，这个不能省略，是返回值的类型，比如void，boolean，。</li>
+    <li><code>declaring-type-pattern?</code>，方法所在的类的名称，可以不写。</li>
+    <li><code>method-name-pattern(param-pattern)</code>。方法名与参数类型和名称，不能省略</li>
+    <li><code>throws-pattern?</code>，抛出异常的字符串。</li>
+</ol>
+<p>这些pattern还都可以使用通配符<code>*</code>，表示匹配所有内容。</p>
+<p>回想一下<code>@Before("execution(public void addAccount())")</code>，这其中的execution切点表达式就依次使用了modifiers，return-type和method-name-pattern(param-pattern)。但由于刚才还没有学习表达式，实际上我们这个切点表达式匹配太过宽泛，如果另外一个类里也有一个同名同返回类型的方法，也会匹配到。</p>
+<p></p>
+<p>下边来看一些具体例子：</p>
+<dl>
+    <dt>仅匹配AccountDAO类里的addAccount()方法，添加方法所在的类的全名</dt>
+    <dd><code>@Before("execution(public void cc.conyli.aop.learn.AccountDAO.addAccout())")</code></dd>
+    <dt>匹配任意类中的addAccount()方法</dt>
+    <dd><code>@Before("execution(public void addAccout())")</code></dd>
+    <dt>匹配任意类中的任意以add开头的无参方法</dt>
+    <dd><code>@Before("execution(public void add*())")</code></dd>
+    <dt>匹配以process开头的任意无参，返回类型是Virtibird的方法</dt>
+    <dd><code>@Before("execution(public Virtibird process*())")</code></dd>
+    <dt>匹配任意修饰符，任意返回类型的以process开头的无参方法</dt>
+    <dd><code>@Before("execution(* * process*())")</code></dd>
+    <dt>和上一个匹配相同，但是modifier可以省略</dt>
+    <dd><code>@Before("execution(* process*())")</code></dd>
+</dl>
+<p>上边的这几种方式，只要在代码中稍加测试，就可以掌握具体使用方法，不过目前AccountDAO.addAccount()还是无参方法，下边要说一下关于param-pattern的匹配。</p>
+<p>param-pattern有如下几种形式：</p>
+<ol>
+    <LI><CODE>(具体内容)</CODE>，匹配具体内容的参数</LI>
+    <LI><CODE>()</CODE>，匹配无参</LI>
+    <LI><CODE>(*)</CODE>，匹配任意类型的单个参数</LI>
+    <LI><CODE>(..)</CODE>，匹配无参或者任意类型的任意多个参数</LI>
+</ol>
+<p><code>*</code>和<code>..</code>还可以与具体类型搭配使用。我们给AccountDAO类加上一些重载的方法，算上原来的方法，一共有4个方法，按如下顺序称作1-4号方法：</p>
+<pre>
+public void addAccount() {
+    System.out.println(getClass() + ": Doing DB work: adding an account.");
+}
+
+public void addAccount(int i) {
+    System.out.println(getClass() + ": This is one INT param.");
+}
+
+public void addAccount(int i, String s) {
+    System.out.println(getClass() + ": This is one INT param and one STRING param");
+}
+
+public void addAccount(int i, int j, int k) {
+    System.out.println(getClass() + ": This is THREE INT params");
+}
+</pre>
+<p>测试一下切点表达式（为了节省篇幅，表格里仅写方法部分的表达式），匹配结果如下：</p>
+<table>
+    <thead>
+    <tr>
+        <th>表达式</th>
+        <th>匹配编号</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>addAccount()</code></td>
+        <td>1</td>
+    </tr>
+    <tr>
+        <td><code>addAccount(int)</code></td>
+        <td>2</td>
+    </tr>
+    <tr>
+        <td><code>addAccount(*)</code></td>
+        <td>2</td>
+    </tr>
+    <tr>
+        <td><code>addAccount(int, String)</code></td>
+        <td>3</td>
+    </tr>
+    <tr>
+        <td><code>addAccount(..)</code></td>
+        <td>1 2 3 4</td>
+    </tr>
+    <tr>
+        <td><code>addAccount(int, ..)</code></td>
+        <td>2 3 4</td>
+    </tr>
+    <tr>
+        <td><code>addAccount(.., String)</code></td>
+        <td>3</td>
+    </tr>
+    <tr>
+        <td><code>addAccount(.., int)</code></td>
+        <td>2 4</td>
+    </tr>
+    </tbody>
+</table>
+<p>读者还可以自行实验其他例子。经过实验可以发现，<code>..</code>通配符就类似正则表达式的0-正无穷，<code>*</code>就是单个任意匹配，搭配上其他具体类型，参数匹配就很灵活了</p>
+<p>掌握了切点表达式，之后再看一下嘴</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
