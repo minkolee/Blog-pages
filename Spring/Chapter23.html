@@ -1,261 +1,40 @@
-y<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 23 AOP - 各种配置</title>
+    <title>Spring 23 AOP - 各种配置方法和实际应用</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
-<h1 style="text-align: center;">环境配置</h1>
-<p>很多切点是用注解来标示的，为了使用AOP先来进行环境配置，先看一下要如何做。</p>
-<p>虽然我们的库里已经有了Spring全套框架，但依然需要下载导入AspectJ的包，这是因为Spring AOP使用了一些AspectJ的注解和包。</p>
-<p>然后我们要看@Before advice的使用，操作的步骤是：</p>
-<ol>
-    <li>我们创建一个目标类，也就是业务类，叫做AccountDAO</li>
-    <li>然后创建Spring 的Java配置类</li>
-    <li>创建app</li>
-    <li>使用@Before来创建Aspect</li>
-</ol>
-<p>到<a href="https://mvnrepository.com/artifact/org.aspectj/aspectjweaver">https://mvnrepository.com/artifact/org.aspectj/aspectjweaver</a>选择1.8.14版，然后下载AspectJ的Jar包，加入到项目库中。</p>
-
-<h1 style="text-align: center;">@Before Advice</h1>
-<p>创建AccountDAO类，很简单，就是在控制台输出一句话：</p>
+<h1 style="text-align: center;">@AfterReturning</h1>
+<p>顾名思义，这是在方法成功执行之后的切面。所谓成功执行，就是方法返回了结果，中间没有出现任何异常。</p>
+<p>这种切面主要用于日志，预处理数据等功能</p>
+<p>这个技术还一个重要的方面就是需要获得返回值，以便进行一些操作，来看一个简单的例子：</p>
+<p>在Aspect类中打开getter方法的切点，然后新创建一个切面方法：</p>
 <pre>
-import org.springframework.stereotype.Component;
-
-@Component
-public class AccountDAO {
-
-    public void addAccount() {
-        System.out.println(getClass() + ": Doing DB work: adding an account.");
-    }
+@AfterReturning(pointcut = "forGetterMethod()", returning = "result")
+public void afterReturning(JoinPoint joinPoint, String result) {
+    System.out.println("After returning: successfully AOP executed.");
+    System.out.println(result);
 }
 </pre>
-<p>然后需要创建Spring的配置，采用Java配置类和XML结合的方式。在AccountDAO的同一个包下创建配置类：</p>
+<p>这里我们使用预先定义好的针对getter方法的切点声明，来定义了一个切面方法，在getter方法成功返回后执行。这里使用了注解的参数<code>pointcut=切点声明</code>和<code>returning="result"</code>，后者就是指定了返回值的变量名称，这个变量名称必须与之后传递给切面方法的变量名称一致。</p>
+<p>只需要用对应的类型来接收返回值，在切面方法里就可以获得返回值了。然后运行一下MainDemoApp：</p>
 <pre>
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.EnableAspectJAutoProxy;
-
-@Configuration
-@EnableAspectJAutoProxy
-@ComponentScan("aop.learn")
-public class DemoConfig {
-
-}
+accountDAO.setName("jenny");
+accountDAO.getName();
 </pre>
-<p>这里的第二个注解表示启用Spring 的AOP代理模式。</p>
-<p>之后来创建一个app用于测试：</p>
+<p>可以看到，我们没有在控制台打印getter方法的返回值，切面方法在控制台打印出了getter方法的返回值。</p>
+<h2 style="text-align: center;">@AfterReturning 预先修改返回值</h2>
+<p>@AfterReturning最牛逼的是，如果返回值是一个引用类型的变量，是可以直接修改方法的返回值。所以在大型项目中如果应用这种切面修改返回值，一定要通知其他人。看一个例子：</p>
+<p>新创建一个Account类，随便起点属性，如下：</p>
 <pre>
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-
-public class MainDemoApp {
-
-    public static void main(String[] args) {
-
-        //载入Spring的配置
-        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(DemoConfig.class);
-        //获取Bean
-        AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
-        //调用方法
-        accountDAO.addAccount();
-        //关闭上下文
-        context.close();
-    }
-}
-</pre>
-<p>这段代码也很简单，最关键的是下一步。</p>
-<p>现在我们要让AccountDAO类在调用<code>.addAccount()</code>之前通过AOP进行一些操作，该如何做呢。</p>
-<p>在同一个包或者子包内（在Spring扫描范围内）创建一个aspect类：</p>
-<pre>
-import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Before;
-import org.springframework.stereotype.Component;
-
-@Aspect
-@Component
-public class MyDemoLoggingAspect {
-
-    @Before("execution(public void addAccount())")
-    public void beforeAddAccountAdvice() {
-        System.out.println("\n=======>This is aspect before AddAccount advice executed.");
-    }
-}
-</pre>
-<p>这里就是使用Aspect的关键，首先使用<code>@Aspect</code>来注解了这个类，让其成为一个Aspect。</p>
-<p>之后使用了<code>@Before("execution(public void addAccont())")</code>注解了一个方法。括号里的就是切点表达式，表示在执行public void addAccount()方法之前，执行这个被注解的beforeAddAccountAdvice()方法。</p>
-<p>之后运行MainDemoApp，发现控制台里发生了神奇的事情：</p>
-<pre>
-=======>This is aspect before AddAccount advice executed.
-class aop.learn.AccountDAO: Doing DB work: adding an account.
-</pre>
-<p>可以看到，我们没有对AccountDAO进行任何新的注解和进行编码操作，却在其方法运行之前，插入了beforeAddAccountAdvice()的运行。而且不止一次，只要调用.addAccount()方法，切面的方法就一定会先于其调用。</p>
-<p>这就是Before Advice的用法。</p>
-
-<h1 style="text-align: center;">切点表达式</h1>
-<p>在刚才的<code>@Before</code>注解中，已经使用了切点表达式，现在需要来系统看一下切点表达式，才能够继续学习AOP。</p>
-<p>所谓切点表达式简单的说，就是描述在哪个地方切一刀把切面塞进去执行。Spring AOP使用了AspectJ的切点表达式。</p>
-
-<h2 style="text-align: center;">切点表达式语法</h2>
-<p>切点表达式其实语法比较复杂，先从比较直观的<code>execution</code>表达式来看起：</p>
-<pre>execution(modifiers-pattern? return-type-pattern declaring-type-pattern? method-name-pattern(param-pattern) throws-pattern?)</pre>
-<p>这里的pattern实际上就是字符串，带?的表示这一部分可以不给出，依次来看：</p>
-<ol>
-    <li><code>modifiers-pattern</code>，Spring AOP中只支持public 或者 *，可以省略。</li>
-    <li><code>return-type-pattern</code>，这个不能省略，是返回值的类型，比如void，boolean，。</li>
-    <li><code>declaring-type-pattern?</code>，方法所在的类的名称，可以不写。</li>
-    <li><code>method-name-pattern(param-pattern)</code>。方法名与参数类型和名称，不能省略</li>
-    <li><code>throws-pattern?</code>，抛出异常的字符串。</li>
-</ol>
-<p>这些pattern还都可以使用通配符<code>*</code>，表示匹配所有内容。</p>
-<p>回想一下<code>@Before("execution(public void addAccount())")</code>，这其中的execution切点表达式就依次使用了modifiers，return-type和method-name-pattern(param-pattern)。但由于刚才还没有学习表达式，实际上我们这个切点表达式匹配太过宽泛，如果另外一个类里也有一个同名同返回类型的方法，也会匹配到。</p>
-<p></p>
-<p>下边来看一些具体例子：</p>
-<dl>
-    <dt>仅匹配AccountDAO类里的addAccount()方法，添加方法所在的类的全名</dt>
-    <dd><code>@Before("execution(public void cc.conyli.aop.learn.AccountDAO.addAccout())")</code></dd>
-    <dt>匹配任意类中的addAccount()方法</dt>
-    <dd><code>@Before("execution(public void addAccout())")</code></dd>
-    <dt>匹配任意类中的任意以add开头的无参方法</dt>
-    <dd><code>@Before("execution(public void add*())")</code></dd>
-    <dt>匹配以process开头的任意无参，返回类型是Virtibird的方法</dt>
-    <dd><code>@Before("execution(public Virtibird process*())")</code></dd>
-    <dt>匹配任意修饰符，任意返回类型的以process开头的无参方法</dt>
-    <dd><code>@Before("execution(* * process*())")</code></dd>
-    <dt>和上一个匹配相同，但是modifier可以省略</dt>
-    <dd><code>@Before("execution(* process*())")</code></dd>
-</dl>
-<p>上边的这几种方式，只要在代码中稍加测试，就可以掌握具体使用方法，不过目前<code>AccountDAO.addAccount()</code>还是无参方法，下边要说一下关于<code>param-pattern</code>的匹配。</p>
-<p><code>param-pattern</code>有如下几种形式：</p>
-<ol>
-    <LI><CODE>(具体内容)</CODE>，匹配具体内容的参数</LI>
-    <LI><CODE>()</CODE>，匹配无参</LI>
-    <LI><CODE>(*)</CODE>，匹配任意类型的单个参数</LI>
-    <LI><CODE>(..)</CODE>，匹配无参或者任意类型的任意多个参数</LI>
-</ol>
-<p><code>*</code>和<code>..</code>还可以与具体类型搭配使用。我们给AccountDAO类加上一些重载的方法，算上原来的方法，一共有4个方法，按如下顺序称作1-4号方法：</p>
-<pre>
-public void addAccount() {
-    System.out.println(getClass() + ": Doing DB work: adding an account.");
-}
-
-public void addAccount(int i) {
-    System.out.println(getClass() + ": This is one INT param.");
-}
-
-public void addAccount(int i, String s) {
-    System.out.println(getClass() + ": This is one INT param and one STRING param");
-}
-
-public void addAccount(int i, int j, int k) {
-    System.out.println(getClass() + ": This is THREE INT params");
-}
-</pre>
-<p>测试一下切点表达式（为了节省篇幅，表格里仅写方法部分的表达式），匹配结果如下：</p>
-<table border="1">
-    <thead>
-    <tr>
-        <th>表达式</th>
-        <th>匹配编号</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-        <td><code>addAccount()</code></td>
-        <td>1</td>
-    </tr>
-    <tr>
-        <td><code>addAccount(int)</code></td>
-        <td>2</td>
-    </tr>
-    <tr>
-        <td><code>addAccount(*)</code></td>
-        <td>2</td>
-    </tr>
-    <tr>
-        <td><code>addAccount(int, String)</code></td>
-        <td>3</td>
-    </tr>
-    <tr>
-        <td><code>addAccount(..)</code></td>
-        <td>1 2 3 4</td>
-    </tr>
-    <tr>
-        <td><code>addAccount(int, ..)</code></td>
-        <td>2 3 4</td>
-    </tr>
-    <tr>
-        <td><code>addAccount(.., String)</code></td>
-        <td>3</td>
-    </tr>
-    <tr>
-        <td><code>addAccount(.., int)</code></td>
-        <td>2 4</td>
-    </tr>
-    </tbody>
-</table>
-<p>读者还可以自行实验其他例子。经过实验可以发现，<code>..</code>通配符就类似正则表达式的0-正无穷，<code>*</code>就是单个任意匹配，搭配上其他具体类型，参数匹配就很灵活了</p>
-<p>掌握了切点表达式，之后再看一下切点的其他语法。</p>
-
-<h1 style="text-align: center;">切点声明</h1>
-<p>在初步了解了切点表达式之后，我们有一个新的问题，如果要将切点表达式重用在其他地方该怎么办呢？一个一个粘贴过去固然可以解决问题，但面临着硬编码的坏处。</p>
-<p>解决办法就是创建一个切点声明，然后将这个声明作用给很多advice。</p>
-<p>先来修改一下我们的aspect类，创建一个切点声明并应用一下：</p>
-<pre>
-@Aspect
-@Component
-public class MyDemoLoggingAspect {
-
-    @Before("forDAOPackage()")
-    public void beforeAddAccountAdvice() {
-        System.out.println("\n=======>This is aspect before AddAccount advice executed.");
-    }
-
-    @Pointcut("execution(* aop.learn.AccountDAO.*(..))")
-    private void forDAOPackage() {}
-
-}
-</pre>
-<p><code>@Pointcut</code>就是切点声明，可以认为一个切点里边包裹了一个切点表达式，然后被修饰的方法名称可以任意起，之后在<code>@Before("forDAOPackage()")</code>中将这个方法名称作为注解的参数传进去。</p>
-<p>这样就可以实现一个切点的复用了，我们可以轻松的再创建一个方法依然使用该切点表达式：</p>
-<pre>
-@Before("forDAOPackage()")
-public void AnotherBeforeAddAccountAdvice() {
-    System.out.println("\n=======>This is another aspect before AddAccount advice executed.");
-}
-</pre>
-<p>再执行一下Demo，会发现两个方法都执行了。</p>
-<p>如果只是单个复用，未免太简单了点，如果想实现一个切面对于一个类里边所有除了getter和setter方法之外的方法都生效，要如何配置呢。对于这种需求，切点声明可以通过逻辑运算来实现。</p>
-<p>切点声明使用了如下逻辑运算符来使用多个声明：</p>
-<ol>
-    <li><code>&&</code>，表示与</li>
-    <li><code>||</code>，表示或</li>
-    <li><code>!</code>，表示NOT，否</li>
-</ol>
-<p>这几个逻辑符和Java的逻辑符号一样，具体的使用方法是：</p>
-<pre>
-@Before("expressionMethodOne() && expressionMethodTwo()")
-@Before("expressionMethodOne() || expressionMethodTwo()")
-@Before("expressionMethodOne() && !expressionMethodTwo()")
-</pre>
-<p>其实看到这里也知道大概用法了，声明两个或者更多的@Pointcut切点，然后通过@Before或者其他注解来使用就可以了，来看一个简单的例子：</p>
-<p>我们给AccountDAO类添加两个字符串域变量name和serviceCode并设置getter和setter方法，然后去除之前为了学习切点表达式而创建的那些新的重载方法，然后把我们之前写的两个应用于AccountDAO类的切面方法只保留一个。然后完成一个需求，就是让这个切面仅对AccountDAO内部不属于getter和setter方法的方法生效：</p>
-<p>目前的AccountDAO类：</p>
-<pre>
-import org.springframework.stereotype.Component;
-
-@Component
-public class AccountDAO {
+public class Account {
 
     private String name;
-    private String serviceCode;
-
-
-    public void addAccount() {
-        System.out.println(getClass() + ": Doing DB work: adding an account.");
-    }
+    private String code;
 
     public String getName() {
         return name;
@@ -265,177 +44,447 @@ public class AccountDAO {
         this.name = name;
     }
 
-    public String getServiceCode() {
-        return serviceCode;
+    public String getCode() {
+        return code;
     }
 
-    public void setServiceCode(String serviceCode) {
-        this.serviceCode = serviceCode;
+    public void setCode(String code) {
+        this.code = code;
     }
 
-    public AccountDAO(String name, String serviceCode) {
+    public Account(String name, String code) {
         this.name = name;
-        this.serviceCode = serviceCode;
+        this.code = code;
     }
 
-    public AccountDAO() {
+    public Account() {
     }
 
     @Override
     public String toString() {
-        return "AccountDAO{" +
+        return "Account{" +
                 "name='" + name + '\'' +
-                ", serviceCode='" + serviceCode + '\'' +
+                ", code='" + code + '\'' +
                 '}';
     }
 }
 </pre>
-<p>很普通的一个类，然后我们来修改我们的Aspect类，创建切点然后进行配置：</p>
+<p>然后我们为AccountDAO类添加一个私有域<code>List&lt;Accont> accountList</code>，添加好getter和setter方法，这些代码都省略了，然后修改上边的切面方法如下：</p>
 <pre>
-import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Before;
-import org.aspectj.lang.annotation.Pointcut;
+@AfterReturning(pointcut = "forGetterMethod()", returning = "result")
+public void afterReturning(JoinPoint joinPoint, List&lt;Account> result) {
+    System.out.println("After returning: successfully AOP executed.");
+    Account newAccount = new Account("Minko", "Minkopig");
+    result.add(newAccount);
+}
+</pre>
+<p>这个切面方法由于返回结果比较特定，其实应该专门应用于<code>getAccountList()</code>方法，不过这里我们少修改一些。这里我们取得result之后，给result添加了一个新的Account对象。</p>
+<p>然后修改MainDemoApp，运行如下代码：</p>
+<pre>
+Account jenny = new Account("Jenny", "BigWife");
+Account cony = new Account("Cony", "Grapefruit");
+
+ArrayList&lt;Account> accounts =new ArrayList&lt;>();
+accounts.add(jenny);
+accounts.add(cony);
+
+accountDAO.setAccountList(accounts);
+
+List&lt;Account> accountList = accountDAO.getAccountList();
+
+System.out.println(accountList);
+</pre>
+<p>这段代码输出的会是什么呢？是两个对象还是三个对象的List呢，答案是三个对象，AOP代理截取了方法的返回值然后做了修改，才传递给接收返回值的变量<code>accountList</code>，可见存进去两个对象，返回三个对象，有点令人疑惑。</p>
+<p>用切面进行数据预处理是一个比较好的技术，但一定不要忘记自己做过这件事情，否则会给测试和协作带来很多麻烦。</p>
+
+<h1 style="text-align: center;">@AfterThrowing</h1>
+<p>同样顾名思义，这个切面是在方法执行的过程中，抛出了异常之后执行的。很显然，这里也能够获取到底发生了什么异常。这里的原理实际上是AOP代理去获取了方法中抛出的异常，然后再返回给切面方法。</p>
+<p>这个切面通常用于日志记录，处理异常，通过邮件或者消息通知开发组等功能。一般想抓住一种特定异常，设置一个切点就可以非常方便的应用于任何容器中的组件。</p>
+<p>我们来给AccountDAO添加一个抛出异常的方法：</p>
+<pre>
+public void getException() {
+    throw new RuntimeException("Intend to throw a runtime-exception");
+}
+</pre>
+<p>然后在MainDemoApp里给执行这个方法加上try-catch：</p>
+<pre>
+try {
+    accountDAO.getException();
+
+} catch (Exception ex) {
+    System.out.println(ex);
+}
+</pre>
+<p>如果此时执行一下，很显然这个异常被try-catch语句获得，控制台结果如下：</p>
+<pre>
+java.lang.RuntimeException: Intend to throw a runtime-exception
+</pre>
+<p>现在我们为Aspect类添加一个新的切面：</p>
+<pre>
+@AfterThrowing(pointcut = "forGetterMethod()", throwing = "exception")
+public void afterThrowing(JoinPoint joinPoint, Throwable exception) {
+    System.out.println("After throwing: successfully AOP executed.");
+    System.out.println("Exception is "+ exception);
+}
+</pre>
+<p>注解的参数<code>throwing = "exception"</code>就是定义异常对应的变量名，与传递给切面方法的参数名需要一致，这里再打印一下异常。</p>
+<p>再执行一下MainDemoApp，看结果：</p>
+<pre>
+After throwing: successfully AOP executed.
+Exception is java.lang.RuntimeException: Intend to throw a runtime-exception
+java.lang.RuntimeException: Intend to throw a runtime-exception
+</pre>
+<p>可以发现异常先被切面方法捕获，之后再传递给try-catch语句。这说明，异常虽然被AOP代理拿到，但依然会继续传播到原始调用处。</p>
+<p>你可能会想到，是不是有方法让异常停止在切面这里不继续传播，<code>@Around</code>注解就可以实现这个功能，将在后边学习。</p>
+
+<h1 style="text-align: center;">@After</h1>
+<p>这个切面是不管方法执行没执行成功，都会执行。</p>
+<p>一般用于那些无论如何都要处理的功能和代码以及日志功能，比如Web应用中返回错误需要关闭资源的时候就会用到。</p>
+<p>需要注意的是<code>@After</code>注解无法获取异常，如果要处理异常，必须使用<code>@AfterThrowing</code>，实际上<code>@After</code>通常是搭配<code>@AfterThrowing</code>以合理的顺序执行的。</p>
+<p>之前编写了一个<code>.getAccountList()</code>方法返回一个Account列表，一个<code>.getException()</code>返回异常，现在来编写一个针对所有get方法的@After切面：</p>
+<pre>
+@After("forGetterMethod()")
+public void afterAll(JoinPoint joinPoint) {
+    String method = joinPoint.getSignature().toString();
+    System.out.println("This is executed after " + method);
+}
+</pre>
+<p>之后在MainDemoApp里运行上边的两个方法，可以看到，无论方法成功返回与否，这个切面都运行了。</p>
+
+<h1 style="text-align: center;">@Around</h1>
+<p>这个切面会在方法执行前和执行后都执行，其实就相当于在AOP代理和实际执行的方法之间又加了一层代理。有点像@Before和@After的结合，但是能实现更好的控制功能。</p>
+<p>这个切面基本上可以做全部功能，也可以预处理参数和返回值，处理异常。还能实现比如：这个方法执行了多长时间？之类的功能。</p>
+<p>这个切面的理论与之前的切面有点区别，在使用这个切面的时候，可以获得一个<code>proceeding join point</code>的引用，这实际上是一个指向目标方法的引用，可以通过这个引用来执行目标方法。</p>
+
+<h2 style="text-align: center;">@Around基础用法</h2>
+
+<p>先通过一个小例子看一下使用方法，我们关闭其他的切面方法，就保留一个getter方法的切点声明，然后编写一个@Around切面方法：</p>
+<pre>
+@Around("forGetterMethod()")
+public Object getRuntime(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
+    long begin = System.currentTimeMillis();
+
+    Object result = proceedingJoinPoint.proceed();
+
+    System.out.println("Result from aspect " + result);
+
+    long end = System.currentTimeMillis();
+
+    long duration = end - begin;
+
+    System.out.println("\n Running duration is " + duration);
+
+    return result;
+}
+</pre>
+<p>这里边有几个点需要解释：</p>
+<ol>
+    <li><code>public Object getRuntime</code>，这里返回类型是一个Object，是为了接收目标方法的返回值，然后将其返回给AOP代理。</li>
+    <li><code>ProceedingJoinPoint proceedingJoinPoint</code>，这个就是前边提到的指向目标方法的引用。</li>
+    <li><code>throws Throwable</code>，这个切面方法还带有异常抛出。</li>
+    <li><code>Object result = proceedingJoinPoint.proceed()</code>，这句话实际上是执行目标函数，然后将返回值放到result里。</li>
+    <li><code>return result;</code>，是向AOP代理返回这个返回值</li>
+</ol>
+<p>可以看到，这个东西就是目标方法外边的一个包装容器。</p>
+<p>执行MainDemoApp，只执行<code>.setAccountList()</code>，先不执行抛出异常的方法，可以发现控制台执行了切面方法，也打印出了方法执行的结果。</p>
+<pre>
+Result from aspect [Account{name='Jenny', code='BigWife'}, Account{name='Cony', code='Grapefruit'}]
+
+Running duration is 0
+[Account{name='Jenny', code='BigWife'}, Account{name='Cony', code='Grapefruit'}]
+</pre>
+<p>这里打印的顺序有点乱，这是因为我们自己的输出是在标准输出流，而Spring的相关输出是在logger output stream。可以将其统一到一个日志流里，这里我们利用util中的Logger工具类来实现，完整的Aspect类如下：</p>
+<pre>
+import aop.learn.Account;
+import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.*;
+import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.logging.Logger;
 
 @Aspect
 @Component
+@Order(1)
 public class MyDemoLoggingAspect {
 
-    @Pointcut("execution(* aop.learn.AccountDAO.*(..))")
-    private void forDAOPackage() {}
+    private static Logger logger = Logger.getLogger(MyDemoLoggingAspect.class.getName());
 
     @Pointcut("execution(* aop.learn.AccountDAO.get*(..))")
-    private void forGetterMethod(){}
+    private void forGetterMethod() {
+    }
 
-    @Pointcut("execution(* aop.learn.AccountDAO.set*(..))")
-    private void forSetterMethod() {}
+    @Around("forGetterMethod()")
+    public Object getRuntime(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
+        long begin = System.currentTimeMillis();
 
-    @Before("forDAOPackage() && !forGetterMethod() && !forSetterMethod()")
-    public void beforeAddAccountAdvice() {
-        System.out.println("\n=======>This is aspect for all method in AccountDAO executed.");
+        logger.info("Call Method");
+        Object result = proceedingJoinPoint.proceed();
+
+        logger.info("Result from aspect " + result);
+
+        long end = System.currentTimeMillis();
+
+        long duration = end - begin;
+
+        logger.info("\nRunning duration is " + duration);
+
+        return result;
     }
 
 }
 </pre>
-<p>这里的三个切点声明，第一个是我们之前创建过的，针对AccountDAO所有的方法。第二个和第三个分别是针对getter和setter方法的。</p>
-<p>但是在配置切面方法的时候，使用了逻辑运算符，造成的结果就是getter和setter方法不会匹配这个切面方法。</p>
-<p>然后修改MainDemoApp实验各种方法：</p>
+<p>MainDemoApp如下：</p>
 <pre>
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Logger;
+
 public class MainDemoApp {
+
+    private static Logger logger = Logger.getLogger(MainDemoApp.class.getName());
 
     public static void main(String[] args) {
 
-        //载入Spring的配置
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(DemoConfig.class);
-        //获取Bean
         AccountDAO accountDAO = context.getBean("accountDAO", AccountDAO.class);
         //调用各种方法
 
-        accountDAO.setName("jenny");
-        accountDAO.setServiceCode("SRWT");
-        System.out.println(accountDAO.getName());
-        System.out.println(accountDAO.getServiceCode());
-        System.out.println(accountDAO);
-        accountDAO.addAccount();
+        Account jenny = new Account("Jenny", "BigWife");
+        Account cony = new Account("Cony", "Grapefruit");
 
-        //关闭上下文
+        ArrayList&lt;Account> accounts =new ArrayList&lt;>();
+        accounts.add(jenny);
+        accounts.add(cony);
+
+        accountDAO.setAccountList(accounts);
+
+        List&lt;Account> accountList = accountDAO.getAccountList();
+
+        logger.info(accountList.toString());
+
         context.close();
     }
 }
 </pre>
-<p>可以发现，调用setter和getter方法均没有切面进来，而打印accountDAO=调用.toString()方法和调用.addAccount()方法均有切面执行。这就是切点声明的组合使用。</p>
-
-
-<h1 style="text-align: center;">切面的顺序</h1>
-<p>在刚才最开始学习切点声明的时候，我们为两个切面方法都应用了同样的一个切点声明，如果还有更多的切面需要在同一个方法上执行，那么顺序究竟是什么呢。</p>
-<p>如果将切面都写在同一个@Aspect类内，实际上并没有定义顺序，如果需要确实的定义执行的顺序，则需要将切面分到不同的类中，然后使用@Order来标示顺序。</p>
-<p>我们现在有一个@Aspect类MyDemoLoggingAspect，假设这个类执行的是日志功能，我们还需要两个类，一个类是安全Security切面，一个类是分析Audit切面。如果我们执行的顺序是安全--分析--日志，那排序的方法如下：</p>
+<p>统一在logger里输出之后，可以看到控制台的顺序：</p>
 <pre>
+信息: Call Method
+信息: Result from aspect [Account{name='Jenny', code='BigWife'}, Account{name='Cony', code='Grapefruit'}]
+信息:
+Running duration is 2
+信息: [Account{name='Jenny', code='BigWife'}, Account{name='Cony', code='Grapefruit'}]
+</pre>
+<p>这是初步的@Around使用的例子。</p>
+<h2 style="text-align: center;">@Around处理异常</h2>
+<p><code>@Around</code>处理异常比<code>@AfterThrowing</code>更灵活一些，可以处理，压制，停止异常，也可以继续抛出异常。</p>
+<p>这次我们来注释掉刚才的切面方法，新建一个切面，准备处理<code>.getException()</code>方法中的异常：</p>
+<pre>
+@Around("forGetterMethod()")
+public Object handleException(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
+    Object result = null;
+
+    try {
+        result = proceedingJoinPoint.proceed();
+    } catch (Exception ex) {
+        logger.info("This is from aspect " + ex.toString());
+        result = "Method has a exception";
+    }
+    return result;
+}
+</pre>
+<p>这个切面里，我们采用老套路，先将结果赋值一个null，再进行错误处理，这里还可以任意设置方法的返回值。</p>
+<p>在MainDemoApp里，按如下代码执行：</p>
+<pre>
+try {
+    accountDAO.getException();
+
+} catch (Exception ex) {
+    logger.info("This is from try-catch: "+ex.toString());
+}
+</pre>
+<p>运行之后可以发现，抛出的异常并没有被MainDemoApp的main方法捕获，而是被切面捕获，这个异常并没有继续扩散到main方法里。即使是在main方法里直接执行<code>accountDAO.getException();</code>，依然只有切面的消息出现，不会报错。</p>
+<p>将错误全部捕获在切面里一定要小心，如果是重要的错误，还是不能全部拦截在切面里。所以这里也可以继续抛出错误：</p>
+<pre>
+@Around("forGetterMethod()")
+public Object handleException(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
+    Object result = null;
+
+    try {
+        result = proceedingJoinPoint.proceed();
+    } catch (Exception ex) {
+        throw ex
+    }
+    return result;
+}
+</pre>
+<p>这样再运行的时候，main方法就可以捕获到错误了。</p>
+
+<h1 style="text-align: center;">AOP实战 - 为增删改查项目添加切面功能</h1>
+<p>看完了AOP的各种理论和配置方法，来看一下在实际项目中如何使用AOP。我们要给我们的增删改查小项目添加上日志，输出每次的具体操作。</p>
+
+<h2 style="text-align: center;">配置AOP</h2>
+<p>首先需要将AspectJ的包导入到库中。</p>
+<p>在学习的时候使用的包有一个配置类，其中有一个注解：<code>@EnableAspectJAutoProxy</code>，就是启用AOP的注解。现在到了增删改查项目中，使用的是XML配置结合注解的方式，需要先进行配置AOP。</p>
+<p>打开Spring配置文件，修改一下头部，引入一些新的XML和命名空间，然后修改配置：</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;beans xmlns="http://www.springframework.org/schema/beans"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:context="http://www.springframework.org/schema/context"
+           xmlns:tx="http://www.springframework.org/schema/tx"
+           xmlns:mvc="http://www.springframework.org/schema/mvc"
+           <span style="color: red;">xmlns:aop="http://www.springframework.org/schema/aop"</span>
+           xsi:schemaLocation="
+		http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context
+		http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/mvc
+		http://www.springframework.org/schema/mvc/spring-mvc.xsd
+		http://www.springframework.org/schema/tx
+		http://www.springframework.org/schema/tx/spring-tx.xsd
+        <span style="color: red;">http://www.springframework.org/schema/aop</span>
+        <span style="color: red;">http://www.springframework.org/schema/aop/spring-aop.xsd</span>">
+
+    &lt;context:component-scan base-package="cc.conyli"/>
+
+    &lt;mvc:annotation-driven/>
+
+    &lt;bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        &lt;property name="prefix" value="/WEB-INF/view/"/>
+        &lt;property name="suffix" value=".jsp"/>
+    &lt;/bean>
+
+    &lt;bean id="myDataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource" destroy-method="close">
+        &lt;property name="driverClass" value="com.mysql.jdbc.Driver"/>
+        &lt;property name="jdbcUrl"
+                  value="jdbc:mysql://localhost:3306/web_customer_tracker?useSSL=false&amp;serverTimezone=UTC"/>
+        &lt;property name="user" value="springstudent"/>
+        &lt;property name="password" value="springstudent"/>
+
+        &lt;property name="minPoolSize" value="5"/>
+        &lt;property name="maxPoolSize" value="20"/>
+        &lt;property name="maxIdleTime" value="30000"/>
+    &lt;/bean>
+
+    &lt;bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+        &lt;property name="dataSource" ref="myDataSource"/>
+        &lt;property name="packagesToScan" value="cc.conyli.entity"/>
+        &lt;property name="hibernateProperties">
+            &lt;props>
+                &lt;prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect&lt;/prop>
+                &lt;prop key="hibernate.show_sql">true&lt;/prop>
+            &lt;/props>
+        &lt;/property>
+    &lt;/bean>
+
+    &lt;bean id="myTransactionManager"
+          class="org.springframework.orm.hibernate5.HibernateTransactionManager">
+        &lt;property name="sessionFactory" ref="sessionFactory"/>
+    &lt;/bean>
+
+
+    &lt;tx:annotation-driven transaction-manager="myTransactionManager"/>
+
+    &lt;mvc:resources location="/resources/" mapping="/resources/**">&lt;/mvc:resources>
+
+    <span style="color: red;">&lt;aop:aspectj-autoproxy /></span>
+
+&lt;/beans>
+</pre>
+<p>这些标红色的部分就是启用Spring对于@Aspect注解的支持，作用相当于Java配置类中的<code>@EnableAspectJAutoProxy</code>。</p>
+
+<h2 style="text-align: center;">编写切面代码</h2>
+<p>这里我们想对Controller，Service和DAO层全部都进行跟踪，可以分别针对这三层中的内容创建切点。先在项目内添加一个aspect包cc.conyli.aspect，在其中编写日志切面类：</p>
+<pre>
+package cc.conyli.aspect;
+
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.annotation.Pointcut;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-//MyDemoSecurityAspect.java
+import java.util.logging.Logger;
+
 @Aspect
 @Component
-@Order(1)
-public class MyDemoSecurityAspect {
+public class CRMLoggingAspect {
+    private Logger logger = Logger.getLogger(CRMLoggingAspect.class.getName());
 
-    @Pointcut("execution(* aop.learn.AccountDAO.*(..))")
-    private void forDAOPackage() {
-    }
+    //创建controller包下边的所有类的所有方法+任意参数的切点
+    @Pointcut("execution(* cc.conyli.controller.*.*(..))")
+    private void forControllerPackage() {}
 
-    @Pointcut("execution(* aop.learn.AccountDAO.get*(..))")
-    private void forGetterMethod() {
-    }
+    //创建dao包下边的所有类的所有方法+任意参数的切点
+    @Pointcut("execution(* cc.conyli.dao.*.*(..))")
+    private void forDaoPackage() {}
 
-    @Pointcut("execution(* aop.learn.AccountDAO.set*(..))")
-    private void forSetterMethod() {
-    }
+    //创建service包下边的所有类的所有方法+任意参数的切点
+    @Pointcut("execution(* cc.conyli.service.*.*(..))")
+    private void forServicePackage() {}
 
-    @Before("forDAOPackage() && !forGetterMethod() && !forSetterMethod()")
-    public void beforeAddAccountAdvice() {
-        System.out.println("\n=======>This is security aspect for all method in AccountDAO executed.");
-    }
-
-}
-
-//MyDemoAuditAspect.java
-@Aspect
-@Component
-@Order(2)
-public class MyDemoAuditAspect {
-
-    @Pointcut("execution(* aop.learn.AccountDAO.*(..))")
-    private void forDAOPackage() {
-    }
-
-    @Pointcut("execution(* aop.learn.AccountDAO.get*(..))")
-    private void forGetterMethod() {
-    }
-
-    @Pointcut("execution(* aop.learn.AccountDAO.set*(..))")
-    private void forSetterMethod() {
-    }
-
-    @Before("forDAOPackage() && !forGetterMethod() && !forSetterMethod()")
-    public void beforeAddAccountAdvice() {
-        System.out.println("\n=======>This is audit aspect for all method in AccountDAO executed.");
-    }
-
-}
-
-//MyDemoLoggingAspect.java
-@Aspect
-@Component
-@Order(3)
-public class MyDemoLoggingAspect {
-
-    @Pointcut("execution(* aop.learn.AccountDAO.*(..))")
-    private void forDAOPackage() {
-    }
-
-    @Pointcut("execution(* aop.learn.AccountDAO.get*(..))")
-    private void forGetterMethod() {
-    }
-
-    @Pointcut("execution(* aop.learn.AccountDAO.set*(..))")
-    private void forSetterMethod() {
-    }
-
-    @Before("forDAOPackage() && !forGetterMethod() && !forSetterMethod()")
-    public void beforeAddAccountAdvice() {
-        System.out.println("\n=======>This is Logging aspect for all method in AccountDAO executed.");
-    }
+    //上边三个切点的合集，即针对整个APP流
+    @Pointcut("forControllerPackage() || forDaoPackage() || forServicePackage()")
+    private void forAppFlow(){}
 
 }
 </pre>
-<p>这里给切面排序的方法就是<code>@Order(?)</code>注解。?可以是负数也可以是正数，按照从小到大的顺序执行，并且可以不连续。比如将Security切面顺序设置为-3，Audit切面设置为7，日志切面设置为15，则依然可以按照顺序运行。</p>
-<p>如果两个切面的顺序是相同的，则这两个切面的先后顺序是未定义的，会任意先执行两个其中的一个，但这两个切面一定都会在比他们顺序靠前的切面后执行，在顺序靠后的切面前执行。例如四个切面的顺序是 1,6,6,12，则肯定先执行完1，然后两个6的顺序不固定，两个6都执行完后，再执行12。</p>
+<p>在切面类里，我们定义了一批切点，分别是针对三个包的切点和三个包以or运算连接起来的整个app的所有业务方法的切点。</p>
+<p>然后我们来编写一个最简单的@Before看一下：</p>
+<pre>
+@Before("forAppFlow()")
+private void beforeAppFlow(JoinPoint joinPoint) {
+    String method = joinPoint.getSignature().toString();
+    logger.info("\n======> This is appflow @Before method: " + method);
+}
+</pre>
+<p>重新启动项目，可以发现，执行任何操作，控制台里都会打印出当前执行的方法的日志，如果调用数据库操作过程，也会打印出依次调用了三层的方法。</p>
+<p>继续编写打印参数的方法：</p>
+<pre>
+@Before("forAppFlow()")
+    private void beforeAppFlow(JoinPoint joinPoint) {
+        String method = joinPoint.getSignature().toString();
+        logger.info("\n======> This is appflow @Before method: " + method);
+        Object[] args = joinPoint.getArgs();
+        for (Object arg : args) {
+            if (arg instanceof Model) {
+                logger.info(((Model) arg).asMap().toString());
+            } else {
+                logger.info("\n======>" + method + " args: " + arg);
+            }
+        }
+    }
+</pre>
+<p>这样在每次调用任意方法的时候，我们都可以获得传递给这个方法的参数的详情。然后编写一个@AfterReturning来看看</p>
+<pre>
+@Override
+public void deleteCustomer(int customerId) {
+    Session session = sessionFactory.getCurrentSession();
+    Customer customer = session.get(Customer.class, customerId);
+    session.delete(customer);
+}
+</pre>
+<p>这样就添加上了切面功能，在项目的每一个业务方法运行前和后都可以知道传入的参数和返回的结果。最关键的是，仅仅通过引入AOP和合理配置就完成了这一切，没有更改任何业务代码。不得不说Spring真是太棒了。</p>
+<img src="http://img.conyli.cc/spring/SpringisGood.jpg" alt="">
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 </body>
