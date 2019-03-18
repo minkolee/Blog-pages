@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+y<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 22 Before Advice、AOP语法</title>
+    <title>Spring 23 AOP - 各种配置</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
@@ -436,47 +436,6 @@ public class MyDemoLoggingAspect {
 </pre>
 <p>这里给切面排序的方法就是<code>@Order(?)</code>注解。?可以是负数也可以是正数，按照从小到大的顺序执行，并且可以不连续。比如将Security切面顺序设置为-3，Audit切面设置为7，日志切面设置为15，则依然可以按照顺序运行。</p>
 <p>如果两个切面的顺序是相同的，则这两个切面的先后顺序是未定义的，会任意先执行两个其中的一个，但这两个切面一定都会在比他们顺序靠前的切面后执行，在顺序靠后的切面前执行。例如四个切面的顺序是 1,6,6,12，则肯定先执行完1，然后两个6的顺序不固定，两个6都执行完后，再执行12。</p>
-
-<h1 style="text-align: center;">使用切点获取方法参数</h1>
-<p>比如日志功能，需要记录每次操作的数据，很显然，如果无法获取方法的参数，那么依然需要在advice的前后各写一些代码，将参数传递给日志模块。Spring AOP提供了直接获取被修饰的方法的参数的功能，这样就非常方便了。</p>
-<p>这个功能的原理是这样：我们定义的切点实际上包含了所有被修饰方法的元数据，通过将切点传入到切面方法里，我们可以获取相关的参数。</p>
-<p>来进行一些实验，之前我们定义了切面规则是不用于setter和getter方法，现在全部打开；还定义了Security和Audit切面，现在把这两个切面关闭，让Aspect类简单一些。然后修改切面方法：</p>
-<pre>
-@Before("forDAOPackage()")
-public void beforeAddAccountAdvice(JoinPoint joinPoint) {
-    System.out.println("\n=======>This is logging aspect for all method in AccountDAO executed.");
-    MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
-    System.out.println("Method: " + methodSignature);
-
-    Object[] args = joinPoint.getArgs();
-
-    for (Object arg : args) {
-        System.out.println(arg);
-    }
-}
-</pre>
-<p>这个方法里值得注意的有如下几处：</p>
-<ol>
-    <li>JoinPoint作为参数被传入切面方法，JoinPoint里包含被修饰方法的元数据</li>
-    <li><code>joinPoint.getSignature()</code>返回方法对象，打印出来可以看到其中的内容</li>
-    <li><code>joinPoint.getArgs()</code>返回方法的参数列表，打印出来也看一下内容</li>
-</ol>
-<p>然后我们执行一个setter方法看看控制栏的输出：</p>
-<pre>
-=======>This is logging aspect for all method in AccountDAO executed.
-Method: void aop.learn.AccountDAO.setName(String)
-jenny
-</pre>
-<p>可见打印出了这个方法的方法签名对象，其中的参数是String类型的一个参数</p>
-<p>还打印出了这个String类型的值。</p>
-<p>OK，看来测试成功，那么我们只需要知道了参数的类型，就可以来获取具体的值了，哪怕参数是一个类，也可以通过类型转换，instanceof等运算符，判断是类型后获取类型的变量值。</p>
-<p>这样在传递model对象的时候，就可以通过日志获取其中的model对象的值，然后进而获取其中的具体对象的值，将值传递到日志中进行日志保存了。</p>
-
-
-
-
-
-
 
 
 </body>
