@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 19 基础增删改查项目-新增Customer</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<p>在开始之前，依然要先想好我们需要完成的目标。</p>
+<p>添加Customer功能的流程是：</p>
+<ol>
+    <li>用户点击新增的添加客户按钮</li>
+    <li>跳转到一个空白表单供用户填写</li>
+    <li>表单验证，如果失败需要提示错误信息，成功则返回列表页面</li>
+    <li>列表页面展示更新后的数据</li>
+</ol>
+<p>因此我们采取如下的开发步骤：</p>
+<ol>
+    <li>修改列表页的JSP，添加一个新增Customer按钮与对应链接</li>
+    <li>编写控制器方法和表单页面，对应新增Customer按钮的链接</li>
+    <li>点击表单的提交按钮后处理表单数据</li>
+    <li>根据处理结果展示错误提示信息或者跳转列表页</li>
+</ol>
+<p>其实会了Django之后再来看这个，就是逐个编写对应功能的MVC了，没有太复杂的业务架构，重在具体代码编写：</p>
+
+<h1 style="text-align: center;">创建添加Customer的按钮</h1>
+<p>在table标签之前放一个input元素或者button元素都可以，也可以用A标签加上按钮样式。这里采用Input标签加一个简单的JS脚本的方式：</p>
+<pre>
+&lt;input type="button" value="Add Customer" 
+       onclick="window.location.href='showFormForAdd';return false;" class="add-button">
+</pre>
+<p>很显然，接下来要先为这个A标签做一个控制器方法展示表单：</p>
+<pre>
+@GetMapping(value = "showFormForAdd")
+public String showFormForAdd(Model model) {
+    model.addAttribute("customer", new Customer());
+    return "customer-form";
+}
+</pre>
+<p>简单的方法，接受GET请求，创建一个空白的Customer对象返回给customer-form.jsp，接下来就是编写提交表单的页面和对应的表单处理控制器了，而这个控制器就会延伸使用到Service层以及DAO层去新增数据。</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+
+&lt;html>
+&lt;head>
+    &lt;title>Add Customer&lt;/title>
+    &lt;link rel="stylesheet" href="${pageContext.request.contextPath}/resources/css/add-customer-style.css">
+&lt;/head>
+&lt;body>
+&lt;div id="wrapper">
+    &lt;div id="header">
+        &lt;h2 style="text-align: center;">Add a new Customer&lt;/h2>
+    &lt;/div>
+&lt;/div>
+
+
+&lt;div id="container">
+    &lt;div id="content">
+        &lt;form:form action="saveCustomer" modelAttribute="customer" method="post">
+            First Name: &lt;form:input path="firstName" required="required"/>
+            &lt;form:errors path="firstName" cssClass="error"/>
+            &lt;br>&lt;br>
+            Last Name: &lt;form:input path="lastName" required="required"/>
+            &lt;form:errors path="lastName" cssClass="error"/>
+            &lt;br>&lt;br>
+            Email: &lt;form:input path="email" type="email" required="required"/>
+            &lt;form:errors path="email" cssClass="error"/>
+            &lt;br>&lt;br>
+            &lt;input type="submit" value="Save">
+        &lt;/form:form>
+        &lt;br>&lt;br>
+        &lt;p>&lt;a href="${pageContext.request.contextPath}/customer/list">Back to List&lt;/a>&lt;/p>
+    &lt;/div>
+&lt;/div>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这个页面使用了表单标签，表单内配置好字段及错误信息，这些在表单验证的地方都做过了。还添加了一个链接用于返回列表页。</p>
+<p>需要注意的是表单的action属性如果不加前边的斜杠，表示当前路径的相对路径，这里也可以写成<code>action="/customer/saveCustomer"</code>。</p>
+<p>还有一点是，<code>&lt;form:input&gt;</code>这个标签会自动生成对应的实际input标签，path这个路径就是这个标签特有的，而不是HTML的规范。至于HTML的规范比如<code>type="email"</code>和<code>required="required"</code>可以自行添加在标签上，这些普通的标签是会直接反映到HTML页面上的。而path标签的作用实际上就是自动产生了这个input标签的name属性。</p>
+<p>然后来编写处理表单POST请求的控制器方法：</p>
+<pre>
+@PostMapping(value = "/saveCustomer")
+public String saveCustomer(@ModelAttribute("customer") Customer customer) {
+    System.out.println(customer);
+    return "redirect:/customer/list";
+}
+</pre>
+<p>为了简化，先搭出架构，这里暂时没有引入校验和保存。按照我们的逻辑，如果操作成功，则应该返回更新数据后的列表页。这里我们使用了之前学到的绑定属性参数的方法，然后打印一下Customer对象看看是不是成功获取数据。</p>
+<p>之后return的字符串有讲究：在路径前加上<code>redirect:</code>，表示重定向到对应路径，视图解析器不会把这个当成视图名称。</p>
+<p>然后测试一下，发现正常获取了Customer对象及数据，也正常返回了列表页，那么后边就通过Service层和DAO层将其存入数据库。</p>
+<p>先修改刚才的控制器方法，去掉控制台打印，改成调用Service对象的方法，当然，这个方法此时还没有编写，后边还需要编写：</p>
+<pre>
+@PostMapping(value = "/saveCustomer")
+public String saveCustomer(@ModelAttribute("customer") Customer customer) {
+
+    return "redirect:/customer/list";
+}
+</pre>
+<p>在CustomerService接口里增加该方法，并且修改实现类：</p>
+<pre>
+//接口
+public interface CustomerService {
+
+    List&lt;Customer> getCustomers();
+
+    void saveCustomer(Customer customer);
+}
+
+//实现类实现抽象方法
+@Override
+@Transactional
+public void saveCustomer(Customer customer) {
+    customerDAO.saveCustomer(customer);
+}
+</pre>
+<p>可见这个套路是一样的，接下来更新DAO的接口和实现类：</p>
+<pre>
+//DAO接口
+public interface CustomerDAO {
+
+    List&lt;Customer> getCustomers();
+
+    void saveCustomer(Customer customer);
+}
+
+//DAO实现类实现抽象方法
+@Override
+public void saveCustomer(Customer customer) {
+    Session session = sessionFactory.getCurrentSession();
+    session.save(customer);
+}
+</pre>
+<p>现在再启动项目试验一下可以正常添加了，由于都是字符串，必填字段和电子邮件格式我们都通过input标签的属性交给浏览器去验证，所以暂时先不用管表单验证。</p>
+
+<p>最后还有两个小豆知识：</p>
+<ol>
+    <li>在Intellij里，经常会提示查询语句或者Entity Class中字符串形式的表名无法解析，其实需要在DateSources让其自动检测一下Hibernate和c3pO的连接，然后配置好数据连接并实际连接一下更新数据表结构，就可以认出来数据表的字符串了，打错的时候也会有提示，很好用。</li>
+    <li>现在我们的搜索都没有按照顺序排序，其实是没有意义的，在DAO层的查询中可以改成<code>"From Customer customer ORDER BY customer.lastName"</code>即可。</li>
+</ol>
+</body>
+</html>

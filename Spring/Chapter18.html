@@ -4,21 +4,137 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 18 基础增删改查项目-重构项目，引入Service层</title>
+    <title>Spring 18 Spring MVC+ Hibernate Service层引入与GET/POST方法注解</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
-<h1 style="text-align: center;">几个小知识</h1>
-<p>虽然访问列表页正常工作了，但是我们项目的根目录访问的时候，还是会报404错误。正常的网站一般根目录都会有首页或者欢迎页面。</p>
-<p>欢迎页面可以在web.xml中进行配置：</p>
+<h1 style="text-align: center;">GET/POST注解</h1>
+<p>在之前编写的实际代码中，通过请求获取值的方法都是GET，我在文字里提了一下使用POST也是可以的。</p>
+<p>在实际开发中，一般提交表单都是POST请求，很多方法也需要区分接受的POST还是GET请求。</p>
+<p>区分GET和POST方法，可以在<code>@RequestMapping</code>的参数中使用method进行设置。如果不在<code>@RequestMapping</code>中显式的设置方法，则这个控制器方法对于GET和POST请求都会进行处理。</p>
+<p>从Spring 4.3开始，还引入了<code>@GetMapping</code>和<code>@PostMapping</code>两个注解，用于直接标示GET和POST方法，不符合要求的请求就会被忽略。</p>
+<p>引入这两个注解主要是因为后边我们要用到的修改数据和新增数据，都要使用POST请求，而显示列表一般使用的是GET请求。</p>
+<p>所以现在我们就把显示customer列表的方法改成@GetMapping，在之后编写控制器方法的时候，都会具体指定请求的种类。</p>
 <pre>
-&lt;welcome-file-list>
-    &lt;welcome-file>index.jsp&lt;/welcome-file>
-    &lt;welcome-file>index.html&lt;/welcome-file>
-&lt;/welcome-file-list>
+@Controller
+@RequestMapping(value = "/customer")
+public class CustomerController {
+
+    @Autowired
+    private CustomerDAO customerDAO;
+
+
+    &lt;span style="color: red">@GetMapping(value = "/list")&lt;/span>
+    public String test(Model model) {
+
+        List&lt;Customer> customers = customerDAO.getCustomers();
+        for (Customer c : customers) {
+            System.out.println(c);
+        }
+        model.addAttribute("customers", customers);
+
+        return "list-customers";
+    }
+}
 </pre>
-<p>这个欢迎页面会按照从上到下的顺序查找页面并显示，不过在设计完备的Web项目中，很少用到欢迎页面。</p>
-<p>由于我们现在使用了Spring的Dispatcher前端转发器，所以是不能够自动找到index.jsp的，我们只要在控制器里匹配一下根目录即可，可以简单编写一个index.jsp和对应的控制器，当做欢迎页面。这里就省略了。</p>
-<p></p>
+
+<h1 style="text-align: center;">Service层</h1>
+<p>看最开始的那副架构图，我们直接把DAO对象注入到了控制器对象中。实际并不是这样，而是要再多一层业务层。</p>
+<p>由于我们现在的应用比较简单，业务逻辑都在控制层内完成，实际上控制层负责的是视图和与请求之间的交互，而数据处理和业务逻辑，都需要单独在业务层内进行。</p>
+<p>通过新增加一层业务层，也将控制层和DAO层彻底分离，方便切换不同的业务和数据组件，还可以通过业务层，同时使用多个DAO层，极大的扩展了Web应用。</p>
+<p>于是现在的结构变成：向Service层注入DAO对象，向控制层注入Service层对象。</p>
+<p>对于Service对象，Spring也提供了一个注解<code>@Service</code>，同样也继承了<span>@Component</span>注解，和另外两个类似。</p>
+<p>现在来创建一个Service类实现的接口，以及一个Service实现类，并注入DAO对象。创建cc.conyli.service包，在其中先编写接口：</p>
+<pre>
+package cc.conyli.service;
+
+import cc.conyli.entity.Customer;
+
+import java.util.List;
+
+public interface CustomerService {
+
+    public List&lt;Customer> getCustomers(); 
+}
+</pre>
+<p>这里的抽象方法也是返回List&lt;Customer>对象，用于继续向控制层返回。</p>
+<p>再来编写实现类：</p>
+<pre>
+package cc.conyli.service;
+
+import cc.conyli.dao.CustomerDAO;
+import cc.conyli.entity.Customer;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+
+@Service
+public class CustomerServiceImpl implements CustomerService {
+
+    @Autowired
+    private CustomerDAO customerDAO;
+
+    @Override
+    @Transactional
+    public List&lt;Customer> getCustomers() {
+        return customerDAO.getCustomers();
+    }
+}
+</pre>
+<p>@Service注解外加注入CustomerDAO对象对我们来说已经司空见惯了，这里的关键是<code>@Transactional</code>注解被移动到了Service层的方法上，这也是一个传统做法，即一次性完成这个功能。这里就从DAO对象去掉相应的注解，代码就省略了。</p>
+<p>然后我们需要修改Controller对象，注入的不再是DAO对象，而是Service对象：</p>
+<pre>
+@Controller
+@RequestMapping(value = "/customer")
+public class CustomerController {
+
+    @Autowired
+    private CustomerService customerService;
+
+
+    @GetMapping(value = "/list")
+    public String test(Model model) {
+
+        List&lt;Customer> customers = customerService.getCustomers();
+        for (Customer c : customers) {
+            System.out.println(c);
+        }
+        model.addAttribute("customers", customers);
+
+        return "list-customers";
+    }
+}
+</pre>
+<p>在控制层修改注入对象，然后更新一下调用的对象名称即可。重新启动项目，可以发现正常工作了。</p>
+<p>这里需要注意Spring的开发组不推荐大家直接使用域注入，还是使用构造器注入比较好，今后编写代码时可以注意一下。</p>
+<p>现在我们就按照标准Web应用的控制层-业务层-DAO层创建好了项目结构，剩下的各个功能，就在此基础上继续添加了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </body>
 </html>

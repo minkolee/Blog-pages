@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 21 AOP</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<h1 style="text-align: center;">AOC的概念</h1>
+<p>刚刚第一个增删改查应用其实还很贫弱，缺少一些常见的内容，比如：</p>
+<ol>
+    <li>缺少安全检查功能，一般不会允许直接进行增删改查，Web应用最基础的需要用户身份验证，至少是登录的用户才能做一些事情。</li>
+    <li>缺少日志功能，这是一般程序都应该有的功能。</li>
+</ol>
+<p>
+    那么就来添加安全检查和日志功能吧。且慢，要在哪里添加呢。就像日志，要记录每一次操作和结果，难道在每一层每一个方法的业务逻辑代码之前和之后都添加吗。如果之后要修改代码，那又要如何修改呢？也许可以把各个业务类都继承同一个类，那么等等，继承关系很复杂，还可能要实现各种没有意义的接口。。。。</p>
+<p>这里我想起了我第一个合同管理项目，用Django写的，导入的logging模块虽然能够正常工作，却不得不在每个视图方法里导入代码和编写日志相关的代码。在做这个工作的时候，我就觉得不太对劲，还好方法不是太多，一个一个硬写过来了。</p>
+<p>既然我们能想到这个问题，Spring的开发者也会想到这个问题，就像之前的装配Bean一样，这种横跨系统多个层级的业务，Spring提供了Aspect-Oriented Progarmming方式来解决这个问题。</p>
+<p>AOP翻成中文叫面向切面编程，可以这么理解，每个Bean就是一个豆子，可以分成很多层，一层一层都是代码，在干活。但是有些功能，是每个豆子都需要的，干脆就在每个豆子上切一刀，把这个功能塞进去当做一层，就是切面编程。</p>
+<p>所谓切面，就是提供这些横跨整个系统服务的类，可以被重用，然后和IOC以及依赖注入类似，我们通过配置来进行操作，有效的分离切面功能和业务逻辑。</p>
+<p>AOP的常见应用有：</p>
+<ol>
+    <li>日志，安全，事务处理</li>
+    <li>系统审计，谁/何时/何地/操作何种内容</li>
+    <li>异常处理，比如通过邮件系统通知开发者</li>
+    <li>系统级API管理和统计，比如用户调用了多少次API，系统访问的高峰是什么时段，平均负载是多少？</li>
+</ol>
+<p>当要实现这些功能的时候，就需要想到是否可以利用AOP思想来解决问题了。</p>
+<p>AOP的优点有：</p>
+<ol>
+    <li>模块可重用</li>
+    <li>解决代码重复次数多的问题，耦合程度高的问题</li>
+    <li>解决代码太分散，不易修改的问题</li>
+    <li>可通过配置进行修改，灵活程度高</li>
+</ol>
+<p>当然，AOP也有自身的缺点：</p>
+<ol>
+    <li>切面过多的话，系统设计复杂，不易跟踪具体操作</li>
+    <li>运行时效率比不使用切面要低（因为切面使用了代理服务）</li>
+</ol>
+<h1 style="text-align: center;">Spring对AOC的支持</h1>
+<p>几个术语先要熟悉一下：</p>
+<ol>
+    <li><code>Aspect</code>，切面，就是指提供切面服务的组件，比如日志组件，安全组件</li>
+    <li><code>Advice</code>，执行到哪一个业务逻辑的时候应该引入切面功能，这个业务逻辑就是advice</li>
+    <li><code>Join Point</code>，在程序执行到何处时需要应用切面</li>
+    <li><code>Pointcut</code>，切点，就是指切面与原来程序相交汇的地方</li>
+    <li><code>Before advice</code>，在业务逻辑执行前引入切面</li>
+    <li><code>After finally advice</code>，在业务逻辑执行后（无论成功与否）引入切面</li>
+    <li><code>After returning advice</code>，在业务逻辑成功执行后引入切面</li>
+    <li><code>After throwing advice</code>，在业务逻辑报异常时引入切面</li>
+    <li><code>Around advice</code>，在业务逻辑执行前后都引入切面</li>
+</ol>
+<p>在AOP理论中还有一个经常看到的词叫<code>weaving</code>，指的是将切面与目标对象关联起来，创建一个应用了切面的对象（an advised object）的过程。</p>
+<p>有各种不同的weaving方式：</p>
+<ol>
+    <li>complie-time，编译时进行</li>
+    <li>load-time，加载时进行</li>
+    <li>run-time，运行时进行</li>
+</ol>
+<p>就效率来说，运行时进行是最慢的。</p>
+<p>对于Java来说，在AOP方面有两大主流框架：Spring AOP 和 AspectJ。我们当然是学习Spring AOP，与AspectJ的区别会说一下。</p>
+<p>Spring
+    AOP也是Spring框架很重要的组成部分，Spring框架内建的安全，事务，缓存都功能已经通过AOP编写好了，之后我们会编写属于我们自己的AOP组件。Spring使用代理的方式实现AOP，weaving是在运行时进行的。</p>
+<p>AspectJ于2001年出现，属于eclipse项目的一部分，对AOP支持的很全面，join point 可以是方法级别，构造器，域级别，而weaving方面支持编译时，预编译和加载时。</p>
+<p>Spring AOP的优缺点是：</p>
+<ol>
+    <li>优点
+        <ol>
+            <li>比AspectJ使用起来简单</li>
+            <li>使用代理模式</li>
+            <li>可通过@Aspect注解移植到AspectJ上</li>
+        </ol>
+    </li>
+    <li>缺点
+        <ol>
+            <li>仅支持方法级别的joint point</li>
+            <li>仅能用于Spring容器里创建的Bean</li>
+            <li>由于是运行时weaving，效率略低</li>
+        </ol>
+    </li>
+</ol>
+<p>AspectJ的优缺点是：</p>
+<ol>
+    <li>优点
+        <ol>
+            <li>支持所有Join Point</li>
+            <li>可以在任何POJO内使用</li>
+            <li>比Spring AOP执行效率高</li>
+            <li>是一个完整的AOP支持</li>
+        </ol>
+    </li>
+    <li>缺点
+        <ol>
+            <li>编译时weaving需要额外的编译步骤</li>
+            <li>切点语法复杂</li>
+        </ol>
+    </li>
+</ol>
+<p>相比之下可以发现，Spring AOP其实是一个轻量级的AOP实现，不过虽然仅支持以方法作为切点，但是已经足够解决大部分的问题，并且语法较为简单，所以现以Spring AOP作为学习AOP的开始，如果项目有了复杂的需求，可以再学习AspectJ</p>
+<p>关于AOP的一些资源：</p>
+<ol>
+    <li><a href="www.spring.io">Spring.io</a>上的文档和示例。</li>
+    <li>Manning出版社的<a href="https://www.manning.com/books/aspectj-in-action-second-edition">AspectJ in Action, Second Edition</a></li>
+    <li><a href="https://www.amazon.com/Aspect-Oriented-Software-Development-Use-Cases/dp/0321268881">Aspect-Oriented Software Development with Use Cases</a></li>
+</ol>
+<p>接下来就对Spring AOP的各种应用方式进行学习，包括：</p>
+<ol>
+    <li>创建Aspects</li>
+    <li>各种方式部署Aspects：
+    <ol>
+        <li>Before advice</li>
+        <li>After returning</li>
+        <li>After throwing</li>
+        <li>After finally</li>
+        <li>Around</li>
+    </ol></li>
+    <li>切点表达式</li>
+    <li>将切点实际应用到 Spring + Hibernate 的项目中</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
