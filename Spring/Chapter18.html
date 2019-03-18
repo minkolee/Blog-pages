@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 18 基础增删改查项目-重构项目，引入Service层</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<h1 style="text-align: center;">几个小知识</h1>
+<p>虽然访问列表页正常工作了，但是我们项目的根目录访问的时候，还是会报404错误。正常的网站一般根目录都会有首页或者欢迎页面。</p>
+<p>欢迎页面可以在web.xml中进行配置：</p>
+<pre>
+&lt;welcome-file-list>
+    &lt;welcome-file>index.jsp&lt;/welcome-file>
+    &lt;welcome-file>index.html&lt;/welcome-file>
+&lt;/welcome-file-list>
+</pre>
+<p>这个欢迎页面会按照从上到下的顺序查找页面并显示，不过在设计完备的Web项目中，很少用到欢迎页面。</p>
+<p>由于我们现在使用了Spring的Dispatcher前端转发器，所以是不能够自动找到index.jsp的，我们只要在控制器里匹配一下根目录即可，可以简单编写一个index.jsp和对应的控制器，当做欢迎页面。这里就省略了。</p>
+<p></p>
+</body>
+</html>
