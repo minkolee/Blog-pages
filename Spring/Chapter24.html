@@ -241,8 +241,8 @@
     &lt;version>1.8.14&lt;/version>
 &lt;/dependency>
 </pre>
-<p>这里有一个问题，就是配置之后静态文件的地址会发生变化。</p>
-
+<p>这里注意要把resources文件放到<code>src/main/webapp/</code>下边，<code>main/resources</code>是一个特殊的目录，是这个项目的一些资源，其中的内容会被放到<code>target/classes</code>目录内。</p>
+<p>任何配置都不用修改，直接启动项目，就可以发现我们的项目变成了Maven项目。</p>
 
 
 
