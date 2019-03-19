@@ -8,6 +8,259 @@
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
+<h1 style="text-align: center;">Maven基础概念</h1>
+<p>如果用过Eclipse和Intellij或者其他的IDE，就会发现由于各个IDE的设置不同，项目的目录结构也不同。如果每个人的可以自行设置项目目录和结构，就让大规模开发变得困难。Maven就是一个标准化的项目构建工具，用不同的IDE新建各自的项目会不同，但所有的IDE都支持创建Maven项目，只要Maven的配置文件一样，创建出来的结构就一样，这就非常方便项目移植和大规模协作开发。</p>
+<p>在之前的项目构建中，我们手动下载了jar包，放到指定目录，再添加，有新的需要，再下jar包，再添加。有了Maven之后，把项目需要的依赖都写到Maven的配置文件中，然后启动项目，让项目结构标准化并且自动下载依赖。</p>
+<p>Maven的工作原理是，先加载配置文件，然后到本地目录寻找依赖，如果没有，就去下载然后存放到本地目录中。而且下载之后，Maven是自动管理这些包，加入到项目的构建目录中。</p>
+<p>Maven项目的标准结构如下：</p>
+<img src="http://img.conyli.cc/spring/mavendirectory.png" alt="">
+<p>这些目录的作用是：</p>
+<table border="1">
+    <caption>Maven目录</caption>
+    <thead>
+    <tr>
+        <th>目录</th>
+        <th>解释</th>
+    </tr></thead>
+    <tbody>
+    <tr>
+        <td>src/main/java</td>
+        <td>相当于src目录，存放源代码</td>
+    </tr>
+    <tr>
+        <td>src/main/resources</td>
+        <td>属性和配置文件</td>
+    </tr>
+    <tr>
+        <td>src/main/webapp</td>
+        <td>这个目录存放Web配置文件，JSP和静态文件。相当于IDEA的Web目录，下边放WEB-INF目录。</td>
+    </tr>
+    <tr>
+        <td>src/test</td>
+        <td>单元测试代码和配置文件</td>
+    </tr>
+    <tr>
+        <td>target</td>
+        <td>编译完成的代码输出目录，好比Intellij的out/artifacts/项目名目录</td>
+    </tr></tbody>
+</table>
+<p>举个例子，如果要把我们的增删改查项目换成maven结构的目录，控制器CustomerController的路径就是/Sprinweb/src/main/java/cc/conyli/controller/CustomerController.java</p>
+<h3 style="text-align: center;">pom.xml配置文件</h3>
+<p>项目的目录下边有一个<code>pom.xml</code>文件，这是Maven的项目配置文件，也是最重要的部分。</p>
+<p>这个配置文件的内容包含三部分：</p>
+<ol>
+    <li>项目元数据，包含项目名称，版本，输出文件类型比如JAR，WAR等</li>
+    <li>项目依赖，项目所需要用到的包</li>
+    <li>插件，一些额外的自定义的内容，比如JUnit等</li>
+</ol>
+<p>先来看一下项目元数据。</p>
+<pre>
+&lt;modelVersion>4.0.0&lt;/modelVersion>
+&lt;groupId>spring-hibernate-for-beginners&lt;/groupId>
+&lt;artifactId>spring-web-customer-tracker&lt;/artifactId>
+&lt;version>1.0.0&lt;/version>
+&lt;packaging>war&lt;/packaging>
+</pre>
+<p>这部分的内容实际上就是对自己开发的软件包的定义，如果将来自己的软件包发布，别人就要通过这里的<code>groupId</code>，<code>artifactId</code>和<code>version</code>来找到软件包，这三个属性简称GAV。后边我们也需要通过GAV去寻找依赖包。</p>
+<p>一般groupId的内容常用网站的名称去掉www之后倒着写，这也是很多软件包的名称方式。</p>
+<p>ArtfactId是这个项目的名称。</p>
+<p>版本是版本号。除了使用1.0这种，经常还习惯使用1.0-SNAPSHOT这种来表示开发中的版本。</p>
+<p>来看一下依赖的部分：</p>
+<pre>
+&lt;dependencies>
+    &lt;!-- Spring -->
+    &lt;dependency>
+        &lt;groupId>org.springframework&lt;/groupId>
+        &lt;artifactId>spring-webmvc&lt;/artifactId>
+        &lt;version>${springframework.version}&lt;/version>
+    &lt;/dependency>
+    &lt;!-- Hibernate -->
+        &lt;dependency>
+            &lt;groupId>org.hibernate&lt;/groupId>
+            &lt;artifactId>hibernate-core&lt;/artifactId>
+            &lt;version>${hibernate.version}&lt;/version>
+        &lt;/dependency>
+&lt;/dependencies>
+</pre>
+<p>这里可以看到，在<code>dependencies</code>标签内部使用<code>dependency</code>标签标注具体的某一个包。</p>
+<p>可以发现，每一个依赖包同样需要GAV三个属性，表示Maven要去找到具体对应的包。这里的版本可以省略，但最好不要省略。</p>
+<p>如何获取一个包的Maven配置属性呢？有两个办法：</p>
+<ol>
+    <li>到包的官网去搜索具体配置</li>
+    <li>到<a href="http://search.maven.org">search.maven.org</a>进行搜索</li>
+</ol>
+<p>第一种方法需要到包的网站去寻找GAV属性，比如到<a href="http://hibernate.org/">http://hibernate.org/</a>，点击Hibernate ORM里边的More，然后选择上边的Latest Stable 5.4，找到Maven Artifact，点击进入，就可以在页面下方看到：</p>
+<pre>
+&lt;dependency>
+  &lt;groupId>org.hibernate&lt;/groupId>
+  &lt;artifactId>hibernate-agroal&lt;/artifactId>
+  &lt;version>5.4.1.Final&lt;/version>
+  &lt;type>pom&lt;/type>
+&lt;/dependency>
+</pre>
+<p>将这段代码复制到pom.xml中即可。</p>
+<p>第二种方法就直接去搜索，根据搜索结果点击想要的版本，就可以看到对应的GAV。</p>
+<p>还有一个网站也是不错的Maven搜索库：<a href="http://www.mvnrepository.com/">http://www.mvnrepository.com/</a>，也经常用于搜索软件包，比如Spring的地址就在<a
+        href="https://mvnrepository.com/artifact/org.springframework/spring-context">https://mvnrepository.com/artifact/org.springframework/spring-context</a>。</p>
+
+<h3 style="text-align: center;">Maven Archetypes</h3>
+<p>Maven原型是用来创建新Maven项目的东西，可以把Maven原型认为是创建一个项目的时候自动生成的初始文件和结构。</p>
+<p>Maven常用的原型如下：</p>
+<table border="1">
+    <caption>常用Archetypes</caption>
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>说明</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>maven-archetype-quickstart</td>
+        <td>用于生成一个简单的普通Maven项目，适合于创建一个单独的包。</td>
+    </tr>
+    <tr>
+        <td>maven-archetype-webapp</td>
+        <td>创建一个Maven Web项目</td>
+    </tr>
+    </tbody>
+</table>
+<p>更多的原型可以到<a href="http://maven.apache.org/archetypes/">http://maven.apache.org/archetypes/</a>查看。</p>
+<p>在Intellij中选择File--New--Project，在右边的列表中选择Maven，可以看到列出了很多可以用的Archetypes，除了Apache的，还有很多第三方的原型。选中Create from archetype，然后在列表中选择<code>org.apache.maven.archetypes:maven-archetype-quickstart</code>，之后选择Next，会让你填入GAV。之后指定Maven的配置文件和本地库目录，之后是项目名称都能内容，最后点击Finish之后，就可以创建一个Maven项目。然后可以发现，Intellij自动开始下载Maven包和相关依赖。下载完成之后，会提示<code>[INFO] Generating project in Batch mode</code>，然后一堆信息后看到<code>[INFO] Maven execution finished</code>，项目就创建完毕了，可以发现，除了IDE的.idea目录之外，自动生成了<code>src/main/java/cc/conyli/App.java</code>和<code>src/test/java/cc/conyli/AppTest.java</code>。同时自动创建了pom.xml文件，其中的GAV就是之前填写的内容，自动添加了JUnit包，还自动添加了很多插件。这样就创建好了一个最简单的Maven项目。</p>
+<p>再来选择maven-archetype-webapp创建一个Web应用，可以发现除了pom.xml之外，还自动创建了<code>src/main/webapp/index.jsp</code>和<code>src/main/webapp/WEB-INF/web.xml</code>。此时添加好Tomcat服务器然后启动服务器，可以发现自动生成了Target目录，然后项目正常启动了。Intellij没有使用原来的out目录。</p>
+<p>Intellij右下角提示Maven配置变动，如果自动检测，则会在pom.xml发生变化的时候去自动下载对应的包。</p>
+
+<h3 style="text-align: center;">Maven Repository 仓库设置</h3>
+<p>Maven仓库在之前设置了一个本地仓库，外边下来的包都会保存到这里。那么Maven是到哪里下载的包呢？Maven实际上是去<code>https://maven.apache.org/</code>的中央仓库进行下载。</p>
+<p>在<a href="https://mvnrepository.com/">https://mvnrepository.com/</a>的右侧可以看到Indexed Repositories，有很多，其中除了Central之外，还有很多库，如何让Maven使用这些库呢。</p>
+<p>比如要为新创建的Web应用引入<code>atlassian-mail</code>库，这个库仅在Atlassian仓库内可用，需要在pom.xml内进行设置：</p>
+<pre>
+&lt;repositories>
+    &lt;repository>
+      &lt;id>atlassian&lt;/id>
+      &lt;name>Atlassian Repository&lt;/name>
+      &lt;url>https://maven.atlassian.com/content/repositories/atlassian-public/&lt;/url>
+    &lt;/repository>
+&lt;/repositories>
+</pre>
+<p>上边是添加一个仓库，这个标签是直接在project标签下的。然后需要在dependencies添加一个新的dependency标签：</p>
+<pre>
+&lt;dependency>
+  &lt;groupId>com.atlassian.mail&lt;/groupId>
+  &lt;artifactId>atlassian-mail&lt;/artifactId>
+  &lt;version>4.0.4&lt;/version>
+&lt;/dependency>
+</pre>
+<p>如果开启了Intellij的自动检测配置文件变化，此时Intellij就会开始下载这个库文件了。在External Libraries就可以发现新下载回来的库文件。</p>
+<p>还有一个知识点就是私有仓库，非开源代码不会直接推送的Maven的中央库去，一般都由一个特定的组织管理。</p>
+<p>常用的创建一个仓库的工具是由Apache提供的<a href="http://archiva.apache.org/index.cgi">Archiva</a>，类似的工具还有<a
+        href="http://www.jfrog.com">JFrog</a>和<a href="https://www.sonatype.com/">Nexus</a>。</p>
+<p>这里只是简单提一下私有仓库供了解，在一个公司内部，公司会有相应的Maven配置指导。</p>
+
+<h1 style="text-align: center;">将增删改查项目迁移到Maven中来</h1>
+<p>首先需要确定项目的所有依赖，看了一下有如下依赖：</p>
+<ol>
+    <li>MySQL-connectorJ-5.1.47</li>
+    <li>JSTL-1.2.1</li>
+    <li>Spring 5.0.2RELEASE</li>
+    <li>Hibernate-core-5.4.1Final</li>
+    <li>Hibernate-validator-6.0.15Final</li>
+    <li>C3PO-0.9.5.2</li>
+    <li>AspectJWeaver-1.8.14</li>
+</ol>
+<p>应该是全了，通过Intellij新建一个Maven项目，就叫basecrud，等候项目创建完毕有了基础的路径之后，先将原来项目中的cc.conyli中的所有包复制到新项目的src/main目录内，将原项目的web/resources目录内的内容复制到新项目的src/main目录下，将原项目的WEB-INF目录中除了lib以外的内容都复制到新项目的WEB-INF目录内，删除原来WEB-INF目录下的index.jsp文件。</p>
+<p>启动项目发现启动不了，很显然因为还没有配置任何库，所以web.xml启动不了Spring的前端转发器。</p>
+<p>然后打开pom.xml一个一个的配置依赖，这里可以将一些配置的版本号抽取出来，然后进行配置：</p>
+<pre>
+&lt;properties>
+    &lt;springframework.version>5.1.5.RELEASE&lt;/springframework.version>
+    &lt;hibernate.version>5.4.1.Final&lt;/hibernate.version>
+    &lt;mysql.connector.version>5.1.47&lt;/mysql.connector.version>
+    &lt;c3po.version>0.9.5.2&lt;/c3po.version>
+
+    &lt;project.build.sourceEncoding>UTF-8&lt;/project.build.sourceEncoding>
+    &lt;maven.compiler.source>1.7&lt;/maven.compiler.source>
+    &lt;maven.compiler.target>1.7&lt;/maven.compiler.target>
+&lt;/properties>
+</pre>
+<p>之后是Spring的配置，由于包之间也有依赖关系，Web开发只需配置Spring webmvc包，core等其他包的依赖会自动导入，然后还有tx和orm用于对接Hibernate持久化：</p>
+<pre>
+<!--Spring Config-->
+
+&lt;dependency>
+    &lt;groupId>org.springframework&lt;/groupId>
+    &lt;artifactId>spring-webmvc&lt;/artifactId>
+    &lt;version>${springframework.version}&lt;/version>
+&lt;/dependency>
+&lt;dependency>
+    &lt;groupId>org.springframework&lt;/groupId>
+    &lt;artifactId>spring-tx&lt;/artifactId>
+    &lt;version>${springframework.version}&lt;/version>
+&lt;/dependency>
+&lt;dependency>
+    &lt;groupId>org.springframework&lt;/groupId>
+    &lt;artifactId>spring-orm&lt;/artifactId>
+    &lt;version>${springframework.version}&lt;/version>
+&lt;/dependency>
+</pre>
+<p>其他包的配置如下：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>mysql&lt;/groupId>
+    &lt;artifactId>mysql-connector-java&lt;/artifactId>
+    &lt;version>${mysql.connector.version}&lt;/version>
+&lt;/dependency>
+
+&lt;dependency>
+    &lt;groupId>javax.servlet&lt;/groupId>
+    &lt;artifactId>jstl&lt;/artifactId>
+    &lt;version>1.2&lt;/version>
+&lt;/dependency>
+
+&lt;dependency>
+    &lt;groupId>org.hibernate&lt;/groupId>
+    &lt;artifactId>hibernate-core&lt;/artifactId>
+    &lt;version>${hibernate.version}&lt;/version>
+&lt;/dependency>
+
+&lt;dependency>
+    &lt;groupId>org.hibernate.validator&lt;/groupId>
+    &lt;artifactId>hibernate-validator&lt;/artifactId>
+    &lt;version>6.0.15.Final&lt;/version>
+&lt;/dependency>
+
+&lt;dependency>
+    &lt;groupId>com.mchange&lt;/groupId>
+    &lt;artifactId>c3p0&lt;/artifactId>
+    &lt;version>${c3po.version}&lt;/version>
+&lt;/dependency>
+
+&lt;dependency>
+    &lt;groupId>org.aspectj&lt;/groupId>
+    &lt;artifactId>aspectjweaver&lt;/artifactId>
+    &lt;version>1.8.14&lt;/version>
+&lt;/dependency>
+</pre>
+<p>这里有一个问题，就是配置之后静态文件的地址会发生变化。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
