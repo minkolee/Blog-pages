@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 26 Spring Security - 基础概念和用户登录</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+
+<body>
+<p>由于Spring Security是另外一个项目，并不像之前我们使用的包都属于Spring Framework，一起用就行了。</p>
+<p>Spring Security开发的过程是：</p>
+<ol>
+    <li>创建Spring Security的初始化器</li>
+    <li>创建Spring Security的配置文件</li>
+    <li>添加用户，密码，角色等内容</li>
+</ol>
+
+<h1 style="text-align: center;">Spring Security Web App 初始化</h1>
+<p>前边说过Spring Security是靠Filter来实现的，由于Spring MVC现在控制着我们的Web项目，所以需要给我们的Web项目启动SS对应的Filter，然后将这个Filter的工作都交给Spring Security去完成。</p>
+<p>我们初始化的过程是：</p>
+<ol>
+    <li>创建初始化类</li>
+    <li>创建Spring Security的配置文件</li>
+    <li>在配置文件中添加各种内容</li>
+</ol>
+<p>初始化类的名字是<code>AbstractSecurityWebApplicationInitializer</code>，我们需要继承这个类就可以得到一个初始化类，无需重写方法。</p>
+<p>在Spring的配置文件同目录下创建SecurityWebAppInitializer：</p>
+<pre>
+package cc.conyli.config;
+
+import org.springframework.security.web.context.AbstractSecurityWebApplicationInitializer;
+
+public class SecurityWebAppInitializer extends AbstractSecurityWebApplicationInitializer {
+}
+</pre>
+<p>这个类现在这样就可以了，接下来在同一位置创建配置文件DemoSecurityConfig，这个类也必须继承一个特殊的类WebSecurityConfigurerAdapter：</p>
+<pre>
+package cc.conyli.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+
+@Configuration
+@EnableWebSecurity
+public class DemoSecurityConfig extends WebSecurityConfigurerAdapter {
+
+}
+</pre>
+<p><code>@EnableWebSecurity</code>表示启用Spring Security，注意这里的<code>@Configuration</code>表明这也是一个Spring配置类。这样就将Spring Security引入了我们的项目，之后是先来简单的在配置类里配置一下用户、密码和角色，需要重写一个方法：</p>
+<pre>
+package cc.conyli.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.userdetails.User;
+
+@Configuration
+@EnableWebSecurity
+public class DemoSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+
+        //使用不加密的密码验证
+        User.UserBuilder users = User.withDefaultPasswordEncoder();
+
+        //添加用户，使用内存验证
+        auth.inMemoryAuthentication()
+                .withUser(users.username("jenny").password("test123").roles("ADMIN"))
+                .withUser(users.username("minko").password("test123").roles("MANAGER"))
+                .withUser(users.username("cony").password("test123").roles("EMPLOYEE"));
+    }
+}
+</pre>
+<p>重写<code>protected void configure(AuthenticationManagerBuilder auth) throws Exception</code>方法，里边虽然还没有学，但是能够看出来，是将用户密码和角色信息保存在内存中，然后使用明文密码验证。</p>
+<p>之后启动项目，神奇的事情又发生了，只要访问项目路径，自动出现了一个登录对话框，试着输入一下刚才配置的用户名和密码，如果输入错误，会得到提示：</p>
+<pre>
+Your login attempt was not successful, try again.
+
+Reason: Bad credentials
+</pre>
+<p>输入正确，则发现可以访问网站了。可见没有修改任何业务代码，这里出现了需要用户登录的机制。下边就从这个用户登录开始说起。</p>
+
+<h1 style="text-align: center;">Spring Security 登录界面</h1>
+<p>如果不进行配置，SS默认会使用内置的登陆界面，有点丑，而且也不利于去了解页面背后的机制。修改为自定义页面的方法如下：</p>
+<ol>
+    <li>修改配置文件</li>
+    <li>创建一个控制器用于显示页面</li>
+    <li>创建自己的登陆页面</li>
+    <li></li>
+</ol>
+<p>先来修改配置，这里要详细讲一下配置类。</p>
+<p>配置类中主要的方法就是<code>.configure</code>方法，然而这个方法是重载方法，针对不同的配置要传入不同的对象：</p>
+<table>
+    <caption>配置类的.configure方法</caption>
+    <thead>
+    <tr>
+        <th>方法</th>
+        <th>说明</th>
+    </tr>
+    </thead>
+    
+    <tbody>
+        <tr>
+            <td>configure(AuthenticationManagerBuilder)</td>
+            <td>配置用户相关的内容</td>
+        </tr>
+        <tr>
+            <td>configure(HttpSecurity)</td>
+            <td>配置路径访问，登录登出等验证功能</td>
+        </tr>
+    </tbody>
+</table>
+<p>于是在配置类里，再重写一个方法：</p>
+<pre>
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests().anyRequest().authenticated()
+            .and()
+            .formLogin().loginPage("/showMyLoginPage").loginProcessingUrl("/authenticateTheUser")
+            .permitAll();
+}
+</pre>
+<p>这是一个很典型的链式调用方法来写配置，其实就是不断给http这个对象设置上不同的属性。来详细看一下：</p>
+<ol>
+    <li><code>.authorizeRequests()</code>表示基于HttpServletRequest的访问都要受到限制，也就是针对HTTP进行配置。</li>
+    <li><code>.anyRequest().authenticated()</code>表示对该应用的任何访问都要进行验证</li>
+    <li><code>.formLogin()</code>这里要开始进行登录表单相关的验证配置</li>
+    <li><code>.loginPage("/showMyLoginPage")</code>表示将登录表单的地址映射到/showMyLoginPage，也就是控制器要展示表单的地址，可以自定义</li>
+    <li><code>.loginProcessingUrl("/authenticateTheUser")</code>这个表示处理表单的地址，也就是接受表单提交的路径，可以自定义</li>
+    <li><code>.permitAll()</code>表示任何用户都可以看待登录页，无需登录（如果需要登录才能看到登录页....)</li>
+</ol>
+<p>这里要特别说明的是：<code>.loginProcessingUrl("/authenticateTheUser")</code>这里的路径可以自定义，只要不和自己编写的路径重复即可，针对这个路径<span style="color: red">不需要编写控制器方法</span>，Spring Security会帮你处理，只需要在JSP中将表单提交的地址和这个地址对应起来即可。</p>
+<p>然后要针对<code>.loginPage("/showMyLoginPage")</code>编写控制器和视图，从编写过程中就能够一窥Spring Security的机制。</p>
+<p>在cc.conyli.controller下创建LoginController控制器类：</p>
+<pre>
+package cc.conyli.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class LoginController {
+
+    @GetMapping("/showMyLoginPage")
+    public String showMyLoginPage() {
+
+        return "plain-login";
+    }
+}
+</pre>
+<p>这个控制器要注意的就是路径一定要与配置类内的展示登录页面的路径相同，这样在验证的时候就会调用我们的控制器，然后来编写JSP页面：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+&lt;html>
+&lt;head>
+    &lt;title>登录&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;h1 style="text-align: center;">请登录&lt;/h1>
+&lt;form:form action="${pageContext.request.contextPath}/authenticateTheUser" method="post">
+    &lt;p>User name: &lt;input type="text" name="username"/>&lt;/p>
+    &lt;p>Password: &lt;input type="password" name="password"/>&lt;/p>
+    &lt;input type="submit" value="Login">
+&lt;/form:form>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>表单提交的地址一定要与配置文件中接受表单数据的路径一样，然后input标签的name属性要是username和password，这是已经定好的。</p>
+<p>来运行一下发现可以看到自定义的登陆界面，提交之后就可以发现正常登陆了，如果输入错误的用户名和密码，会发现虽然登陆不上，但是没有了错误信息显示。这是因为内置的表单页面有错误信息的处理，而我们的没有，需要加上错误信息的处理。</p>
+<p>在验证失败的情况下，Spring Security会返回原来的登录页面，可以看到页面的URL此刻变成了<code>http://localhost:8080/showMyLoginPage?error</code>，带了一个error参数，我们可以通过修改JSP来检查是否请求中附带了error参数，如果有，就显示错误信息。</p>
+<p>不想写JSP的判断代码的话，可以使用JSTL库：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+<span style="color: red">&lt;%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %></span>
+&lt;html>
+&lt;head>
+    &lt;title>登录&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;h1 style="text-align: center;">请登录&lt;/h1>
+&lt;form:form action="${pageContext.request.contextPath}/authenticateTheUser" method="post">
+<span style="color: red">    &lt;c:if test="${param.error !=null}">
+        &lt;p style="color: red">Invalid username or password!&lt;/p>
+    &lt;/c:if></span>
+    &lt;p>User name: &lt;input type="text" name="username"/>&lt;/p>
+    &lt;p>Password: &lt;input type="password" name="password"/>&lt;/p>
+    &lt;input type="submit" value="Login">
+&lt;/form:form>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>再运行一下项目看看，输入错误的话就显示出了错误信息。现在基础的自定义登录功能就做好了，剩下就是用Bootstrap来美化一下页面。</p>
+
+<h1 style="text-align: center;">Bootstrap 美化登录界面</h1>
+<p>Bootstrap和Foundation用我认识的一个前端架构师的话说：“那都是上一个时代的技术了”。确实，现在如果要学前端框架，肯定不是指UI框架，而是在前端使用MVVC模型的Vue，React或者Angular三大框架。</p>
+<p>因为这些新的框架可以实现前后端分离的开发，像现在这样把JSP页面交给后端进行渲染并不是真的前后端分离，耦合程度是比较高。</p>
+<p>对于学过前端的我，这里就简单看了一下自己写了一个：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+&lt;%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+&lt;html lang="zh-cn">
+&lt;head>
+    &lt;title>登录&lt;/title>
+    &lt;meta charset="utf-8">
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    &lt;link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"
+          integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+    &lt;style>
+        header {
+            margin-top: 40px;
+            margin-bottom: 40px;
+        }
+    &lt;/style>
+&lt;/head>
+&lt;body>
+&lt;div class="container">
+    &lt;div class="row">
+        &lt;div class="col-sm-3 col-md-3 col-lg-4">&lt;/div>
+        &lt;div class="col-sm-6 col-md-6 col-lg-4" >
+            &lt;h1 class="text-center header">请登录&lt;/h1>
+            &lt;form:form action="${pageContext.request.contextPath}/authenticateTheUser" method="post">
+                &lt;c:if test="${param.error !=null}">
+                    &lt;p style="color: red">Invalid username or password!&lt;/p>
+                &lt;/c:if>
+                &lt;div class="form-group">
+                    &lt;label for="username">Username&lt;/label>
+                    &lt;input type="text" name="username" id="username" class="form-control"/>
+                &lt;/div>
+                &lt;div class="form-group">
+                    &lt;label for="password">Password&lt;/label>
+                    &lt;input type="password" name="password" id="password" class="form-control"/>
+                &lt;/div>
+                &lt;button type="submit" class="btn btn-primary" value="Login">Submit&lt;/button>
+            &lt;/form:form>
+        &lt;/div>
+        &lt;div class="col-sm-3 col-md-3 col-lg-4">&lt;/div>
+    &lt;/div>
+&lt;/div>
+
+
+&lt;script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous">&lt;/script>
+&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+        integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+        crossorigin="anonymous">&lt;/script>
+&lt;script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"
+        integrity="sha384-smHYKdLADwkXOn1EmN1qk/HfnUcbVRZyYmZ4qpPea6sjB/pTJ0euyQp0Mk8ck+5T"
+        crossorigin="anonymous">&lt;/script>
+&lt;/body>
+&lt;/html>
+</pre>
+
+
+</body>
+</html>

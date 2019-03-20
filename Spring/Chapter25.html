@@ -4,13 +4,233 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 25 Spring Security - 基础</title>
+    <title>Spring 25 Spring Security - 项目配置</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
-<p>Web开发两大传统艺能，增删改查基础操作已经会写了，还剩下就是用户验证了。Spring Security就是做这个的。</p>
-<p>Spring Security是通过JSP的Filter技术来实现的，主要的功能就是用户身份认证（authenticate）和用户权限（authority）。</p>
-<p>老样子，还是通过创建一个项目，来一点一点的看Spring Security的各种功能以及标准的用户身份验证该如何做。</p>
+<p>Web开发两大传统艺能，增删改查基础操作已经会写了，还剩下就是用户验证了。Spring Security就是做这个的。主要的功能就是管理用户身份认证（authenticate）和用户权限（authority）。</p>
+<p>有两种方式可以为一个项目添加安全管理：声明式和编程式。</p>
+<p>Spring Security是通过JSP的Filter技术来实现的，Filter技术本身可以实现对于request和response的预先处理，Spring在这个基础上提供了很多功能。</p>
+<p>关于用于认证，Spring Security提供了默认的登录表单页面，也可以自行设计。还支持很多LDAP等第三方认证集成。</p>
+<p>老样子，还是通过创建一个项目，来一点一点的看Spring Security的各种功能以及标准的用户身份验证该如何做。这个项目要完成如下内容：</p>
+<ol>
+    <li>创建默认和自定义的登录页面</li>
+    <li>创建用户和角色</li>
+    <li>基于角色保护特定的URL</li>
+    <li>使用JSP标签根据角色显示不同的内容</li>
+    <li>将用户，密码和角色保存在数据库中，先是原始数据，然后是加密保存。</li>
+</ol>
+<p>这个项目的创建过程也学一些新东西，采用Maven配置，然后完全采用Java类配置，不采用web.xml。然后也做到像之前一样的尽量将安全代码与业务逻辑代码相分离。</p>
+
+<h1 style="text-align: center;">项目初始配置</h1>
+<p>配置的步骤如下：</p>
+<ol>
+    <li>利用Maven创建项目</li>
+    <li>创建Spring Java配置类</li>
+    <li>通过Spring来初始化前端转发器（而不是web.xml)</li>
+    <li>启动项目，正常运行后准备编写业务代码。</li>
+</ol>
+<p>一步一步来，先通过Maven 的 webapp archetype来创建一个新项目securitydemo，然后配置pom.xml，我们的项目需要使用到Spring和JSTL：</p>
+<pre>
+&lt;properties>
+    &lt;springframework.version>5.0.2.RELEASE&lt;/springframework.version>
+
+    &lt;project.build.sourceEncoding>UTF-8&lt;/project.build.sourceEncoding>
+    &lt;maven.compiler.source>1.7&lt;/maven.compiler.source>
+    &lt;maven.compiler.target>1.7&lt;/maven.compiler.target>
+&lt;/properties>
+
+&lt;dependencies>
+    &lt;dependency>
+        &lt;groupId>junit&lt;/groupId>
+        &lt;artifactId>junit&lt;/artifactId>
+        &lt;version>4.11&lt;/version>
+        &lt;scope>test&lt;/scope>
+    &lt;/dependency>
+
+    &lt;dependency>
+        &lt;groupId>org.springframework&lt;/groupId>
+        &lt;artifactId>spring-webmvc&lt;/artifactId>
+        &lt;version>${springframework.version}&lt;/version>
+    &lt;/dependency>
+
+    &lt;dependency>
+        &lt;groupId>javax.servlet&lt;/groupId>
+        &lt;artifactId>jstl&lt;/artifactId>
+        &lt;version>1.2&lt;/version>
+    &lt;/dependency>
+&lt;/dependencies>
+</pre>
+<p>这里要查看一下pom.xml中的插件配置是否包含maven-war-plugin 3.2版，使用Intellij选择创建3.0的Maven会自动添加，如果没有，需要手工添加如下：</p>
+<pre>
+&lt;pluginManagement>
+    &lt;plugins>
+        &lt;plugin>
+            &lt;!-- Add Maven coordinates (GAV) for: maven-war-plugin -->
+            &lt;groupId>org.apache.maven.plugins&lt;/groupId>
+            &lt;artifactId>maven-war-plugin&lt;/artifactId>
+            &lt;version>3.2.0&lt;/version>
+        &lt;/plugin>
+    &lt;/plugins>
+&lt;/pluginManagement>
+</pre>
+<p>这里注意，如果创建的Maven Webapp没有src/main/java文件夹，需要自己创建一个，然后在File--Project Structure--左侧Modules--右侧选择src/main/java目录将其标示为Sources。</p>
+
+<h1 style="text-align: center;">创建Spring配置类</h1>
+<p>然后需要创建Spring的配置类，在基础的增删改查项目里，我们通过web.xml启动了Spring的前端转发器，然后通过XML来定义了视图解析器，这里要了解一下如何通过Spring的配置直接来启动前端转发器和配置视图解析器，而不需要web.xml。</p>
+<p>在src/main/java/下创建cc.conyli包，之后的代码编写都在这里，然后在包的根目录下创建config/DemoAppConfig.java：</p>
+<pre>
+package cc.conyli.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.ViewResolver;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.view.InternalResourceViewResolver;
+
+@Configuration
+@EnableWebMvc
+@ComponentScan(basePackages = "cc.conyli")
+
+public class DemoAppConfig {
+
+    @Bean
+    public ViewResolver viewResolver() {
+        InternalResourceViewResolver viewResolver = new InternalResourceViewResolver();
+        viewResolver.setPrefix("/WEB-INF/view/");
+        viewResolver.setSuffix(".jsp");
+        return viewResolver;
+    }
+}
+</pre>
+<p><code>@EnableWebMvc</code>这个注解相当于XML文件里的<code>&lt;mvc:annotation-driven /></code>，启动了MVC相关的功能，包括转换，格式，验证和@Controller、@RequestMapping等注解。</p>
+<p>然后是创建了视图解析器对应的Bean，这个Bean对应XML配置文件里的视图解析器的那一段：</p>
+<pre>
+&lt;bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    &lt;property name="prefix" value="/WEB-INF/view/"/>
+    &lt;property name="suffix" value=".jsp"/>
+&lt;/bean>
+</pre>
+<p>用心观察的话，可以发现这个Bean对应的类其实是一样的，两种配置其实就是换了个写法。</p>
+<p>还有一个重要的内容是配置前端转发器对应的Servlet，在之前是直接用web.xml将全部路径映射到了<code>org.springframework.web.servlet.DispatcherServlet</code>这个类，为了完成这个工作，需要如下步骤：</p>
+<ol>
+    <li>继承<code>AbstractAnnotationConfigDispatcherServletInitializer</code>这个类。</li>
+    <li>重写其中的方法</li>
+    <li>指定servlet mapping 和Spring配置文件的具体位置</li>
+</ol>
+<p>我们在和配置文件相同的目录下创建一个继承类MyDispatcherServletInitializer：</p>
+<pre>
+package cc.conyli.config;
+
+import org.springframework.web.servlet.support.AbstractAnnotationConfigDispatcherServletInitializer;
+
+public class MyDispatcherServletInitializer extends AbstractAnnotationConfigDispatcherServletInitializer {
+
+    @Override
+    //没有使用多配置文件，这里不需要修改
+    protected Class<?>[] getRootConfigClasses() {
+        return new Class[0];
+    }
+
+    @Override
+    //这是获取具体Servlet配置的方法，需要将刚才编写的配置类放进去
+    protected Class<?>[] getServletConfigClasses() {
+        return new Class[]{
+                DemoAppConfig.class
+        };
+    }
+
+    @Override
+    //这是上边的servlet的映射，也是一个数组，与上边一对一
+    protected String[] getServletMappings() {
+        return new String[]{
+                "/"
+        };
+    }
+}
+</pre>
+<p>有三个方法需要重写，其中第二个方法会去找Spring的配置文件，然后生成和和第三个方法的路径数组中匹配的前端转发器，合起来就相当于XML配置文件中servlet及对应的servlet-mapping的部分。</p>
+<p>到这里实际上web.xml就可以删除了，尝试编译一下报了源文件包javax.servlet.ServletException找不到的错误，是因为缺少一些包，在pom.xml中添加一些依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>javax.servlet&lt;/groupId>
+    &lt;artifactId>javax.servlet-api&lt;/artifactId>
+    &lt;version>3.0.1&lt;/version>
+    &lt;/dependency>
+
+    &lt;dependency>
+    &lt;groupId>javax.servlet.jsp&lt;/groupId>
+    &lt;artifactId>javax.servlet.jsp-api&lt;/artifactId>
+    &lt;version>2.3.1&lt;/version>
+&lt;/dependency>
+</pre>
+<p>上边的那个依赖javax.servlet-api很奇怪，从maven仓库搜到的3.1.0版认不出来，修改成3.0.1版就可以了。</p>
+<p>删除web.xml和Maven自动生成的index.jsp，然后运行项目，可以看到日志提示：</p>
+<pre>
+org.springframework.web.servlet.DispatcherServlet.noHandlerFound
+No mapping found for HTTP request with URI [/] in DispatcherServlet with name 'dispatcher'
+</pre>
+<p>可以看到这和XML配置一样，还是去找到了<code>org.springframework.web.servlet.DispatcherServlet</code>这个前端转发器类，由于没有任何控制器，所以现在匹配不了路径。但是这说明前端转发器已经就绪，不过还不知道视图解析是否正常，编写一个简单的控制器测试一下即可。</p>
+
+<h1 style="text-align: center;">简单控制器测试项目工作是否正常</h1>
+<p>编写一个简单的首页和对应的JSP文件，创建cc.conyli.controller包，编写一个控制器，在WEB-INF/view/里编写一个home.jsp：</p>
+<pre>
+package cc.conyli.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+public class HomepageController {
+
+    @RequestMapping("/")
+    public String Homepage() {
+        return "home";
+    }
+}
+</pre>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+    &lt;html>
+        &lt;head>
+            &lt;title>Spring Security学习&lt;/title>
+        &lt;/head>
+        &lt;body>
+            &lt;p>新开始了&lt;/p>
+        &lt;/body>
+&lt;/html>
+</pre>
+<p>运行以后成功显示出了自己的jsp，现在就学会了不使用web.xml进行配置Web项目的方法。之后就要进行我们SS级别的学习了。</p>
+
+<h1 style="text-align: center;">导入Spring Security</h1>
+<p>要使用Spring Security，很显然先要引入Spring Security包。</p>
+<p>在<a href="https://spring.io/projects">spring.io/projects</a>里可以看到，Spring Security是独立于Spring Framework的项目。这两个项目的发布周期不同，版本也不同步，因此会有一些兼容性方面的问题。</p>
+<p>在我们的项目中，要同时引入Spring Framework和Spring Security，很显然就需要两个项目互相兼容的版本。</p>
+<p>Spring Security依赖与spring-security-web和spring-security-config，我们将通过在Maven仓库上寻找包，然后查看其兼容的Spring Framework版本的方式来进行配置。</p>
+<p>在<a href="https://mvnrepository.com/artifact/org.springframework.security/spring-security-web/5.0.0.RELEASE">https://mvnrepository.com/artifact/org.springframework.security/spring-security-web/5.0.0.RELEASE</a>找到spring-security-web，查看下面的Compile Dependencies部分，可以发现其依赖的框架是Spring Framework 5.0.2.RELEASE版本。</p>
+<p>于是我们在pom.xml中配置如下：</p>
+<pre>
+&lt;properties>
+    ...
+    &lt;springsecurity.version>5.0.0.RELEASE&lt;/springsecurity.version>
+    ...
+&lt;/properties>
+&lt;dependency>
+    &lt;groupId>org.springframework.security&lt;/groupId>
+    &lt;artifactId>spring-security-web&lt;/artifactId>
+    &lt;version>${springsecurity.version}&lt;/version>
+&lt;/dependency>
+</pre>
+<p>同样再去找到spring-security-config，也配置好：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.security&lt;/groupId>
+    &lt;artifactId>spring-security-config&lt;/artifactId>
+    &lt;version>${springsecurity.version}&lt;/version>
+&lt;/dependency>
+</pre>
+<p>这里版本号就直接采用和上边一样的版本号。这样就配置好了Spring Security。</p>
 
 
 
