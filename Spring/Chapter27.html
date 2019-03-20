@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 27 Spring Security - 用户登出、CSRF、用户信息</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+
+<body>
+<h1 style="text-align: center;">用户登出</h1>
+<p>用户登出的动作是实际上是清除Session中的用户数据，开发的方法如下：</p>
+<ol>
+    <li>配置文件中加上登出的功能和对应的路径</li>
+    <li>在JSP页面中添加一个登出按钮</li>
+    <li>在登录表单页面中加入登出的消息</li>
+</ol>
+<p>先来修改配置文件：</p>
+<pre>
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests().anyRequest().authenticated()
+        .and()
+        .formLogin().loginPage("/showMyLoginPage").loginProcessingUrl("/authenticateTheUser")
+        .permitAll()
+        <span style="color: red">.and().logout().permitAll();</span>
+}
+</pre>
+<p>这里加入了<code>.and()</code>用来开启另外一个配置，然后配置了<code>.logout().permitAll()</code>，这表示添加了默认的<code>/logout</code>路径用于登出。</p>
+<p>和用于提交登录表单的地址一样，这个<code>/logout</code>路径也无需编写控制器。注意这个方法默认只接受POST请求，所以要用一个空表单发一个POST请求到这个地址。</p>
+<p>当有POST请求发到这个地址的时候，Spring Security会让会话失效，然后重定向到登录页面，并且会加上一个参数<code>?logout</code>。</p>
+<p>因为加上了<code>?logout</code>参数，所以可以用JSTL在这里也做一个提示。</p>
+<p>现在在登录后的页面上加入一个logout按钮，需要在一个表单里：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+&lt;html>
+&lt;head>
+    &lt;title>Spring Security学习&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;p>欢迎登录&lt;/p>
+&lt;form:form method="post" action="${pageContext.request.contextPath}/logout">
+    &lt;button type="submit">Logout&lt;/button>
+&lt;/form:form>
+
+&lt;/body>
+&lt;/html>
+</pre>
+<p>最后修改登录页面，如果有logout参数就显示一段信息：</p>
+<pre>
+&lt;c:if test="${param.logout != null}">
+    &lt;p style="color: brown">You have logged out!&lt;/p>
+&lt;/c:if>
+</pre>
+<p>然后启动项目来实验一下，成功了，这就是用户登录和登出的初步。</p>
+
+<h1 style="text-align: center;">CSRF</h1>
+<p>CSRF已经很熟悉了，来看一下Spring里如何在表单中埋CSRF token。</p>
+<p>Spring Security使用Synchronizer Token Pattern，每一个请求都包含一个session和cookie，其中有一个随机生成的token，Spring Security每次都会验证这个token是否有效，这一切都是自动进行的。</p>
+<p>CSRF主要用于Web应用，如果做一个不使用浏览器的服务，则不一定要开启CSRF。</p>
+<p>要使用CSRF，必须使用POST请求，<code>&lt;form:form></code>自动会生成CSRF token字段，在刚才我们的登录表单里，可以看到有一个隐藏的部分：</p>
+<pre>
+&lt;input type="hidden" name="_csrf" value="8f2b80b2-5295-4559-8d7c-be16186a5908">
+</pre>
+<p>这个就是CSRF token。如果不使用表单标签，那么就需要手动来添加CSRF字段。将登录表单的<code>&lt;form:from></code>修改成不使用Spring MVC 表单标签的<code>&lt;form></code>，此时登录，即使输入正确的用户名和密码，也会被服务器报403响应。</p>
+<p>这个时候就需要手工添加CSRF信息如下：</p>
+<pre>
+&lt;form action="" method="post">
+    &lt;input type="hidden" name="${_csrf.parameterName}" value="${_crsf.token}">
+&lt;/form>
+</pre>
+<p>虽然名字有点怪，但是这么写了以后，确实能够生成CSRF TOKEN，也就可以正常登录了。</p>
+
+<h1 style="text-align: center;">显示用户信息</h1>
+<p>在用户登录的功能里，常见的是显示用户的名称，很多网站在登录之后都会显示名称，其实后台就是如何从session中获取用户信息，这里需要学习一下。</p>
+<p>我们想在登录后的页面里显示用户的姓名和角色等信息，Spring Security为JSP提供了特殊的标签库用于显示用户相关信息，这个标签叫做Spring Security JSP Tag Library。</p>
+<p>我们需要在POM中添加这个依赖，然后就可以在JSP页面中使用这个标签库来显示用户信息了。</p>
+<p>需要添加的依赖如下：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.security&lt;/groupId>
+    &lt;artifactId>spring-security-taglibs&lt;/artifactId>
+    &lt;version>${springsecurity.version}&lt;/version>
+&lt;/dependency>
+</pre>
+<p>在JSP页面中导入这个标签库：</p>
+<pre>
+&lt;%@ taglib prefix="security" uri="http://www.springframework.org/security/tags" %>
+</pre>
+<p>之后就可以使用标签了，这两个标签比较长：</p>
+<pre>
+&lt;p>
+    User: &lt;security:authentication property="principal.username"/>
+    &lt;br>&lt;br>
+    Roles: &lt;security:authentication property="principal.authorities"/>
+    &lt;br>&lt;br>
+&lt;/p>
+</pre>
+<p>注意，这里用户名是正确的，角色显示自动将我们设置的角色字符串加上了<code>[ROLE_****]</code>。注意ROLE还可以同时配置多个：</p>
+<pre>
+.withUser(users.username("jenny").password("test123").roles("ADMIN"，"MANAGER"))
+</pre>
+<p>这样配置的话，在页面里显示出来就是：</p>
+<pre>
+Roles: [ROLE_ADMIN, ROLE_MANAGER]
+</pre>
+<p>用户登录登出和展示用户名的内容基本上了解了，然后就是权限，也就是基于角色来控制可以访问哪些URL。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
