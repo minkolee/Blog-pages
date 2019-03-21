@@ -10,6 +10,220 @@
 
 <body>
 <h1 style="text-align: center;">使用数据库存储用户信息和角色</h1>
+<p>观察我们的配置类可以发现，我们目前把所有的用户名，密码和角色信息都硬编码在配置类里。角色名一旦有变动，需要修改全部代码中对应的这个角色名。这显然不够好。更常见的做法是用数据库来存储相关的内容。每次进行验证的时候，到数据库中去存取数据。</p>
+<p>Spring Security支持从数据库中读取用户信息，默认情况下，存放用户的数据表必须符合Spring Security预定义的格式，也可以自定义数据格式。</p>
+<p>先来使用预定义的格式，把目前的权限验证弄到数据库里去。</p>
+
+<h1 style="text-align: center;">使用默认数据表</h1>
+<p>开发步骤如下：</p>
+<ol>
+    <li>使用SQL脚本创建数据库</li>
+    <li>在Maven中配置数据库相关依赖包</li>
+    <li>创建JDBC的配置文件</li>
+    <li>在Spring里配置数据库相关的Bean</li>
+    <li>修改Spring Security的配置，让其使用数据库</li>
+</ol>
+<p>总的来说就是先配置数据库，然后配置Spring Security使用数据库就可以了。来一步一步操作。</p>
+
+<h3 style="text-align: center;">Spring Security 默认用户表</h3>
+<p>Spring Security默认的表有两张，如下：</p>
+<table border="1">
+    <caption>Default SS Database Schema</caption>
+    <thead>
+    <tr>
+        <th>users</th>
+        <th>authorities</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    <tr>
+        <td>username VARCHAR(50) 主键</td>
+        <td>username VARCHAR(50) 外键关联到users表主键</td>
+    </tr>
+    <tr>
+        <td>password VARCHAR(50)</td>
+        <td>authority VARCHAR(50)</td>
+    </tr>
+    <tr>
+        <td>enabled TINYINT(1)</td>
+        <td></td>
+    </tr>
+    </tbody>
+</table>
+<p>在创建数据库表的时候，需要属性和名称都符合上边的要求，authorities实际就是role角色表。创建的脚本如下：</p>
+<pre>
+DROP DATABASE  IF EXISTS `spring_security_demo_plaintext`;
+
+CREATE DATABASE  IF NOT EXISTS `spring_security_demo_plaintext`;
+USE `spring_security_demo_plaintext`;
+
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE `users` (
+  `username` varchar(50) NOT NULL,
+  `password` varchar(50) NOT NULL,
+  `enabled` tinyint(1) NOT NULL,
+  PRIMARY KEY (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+INSERT INTO `users`
+VALUES
+('john','{noop}test123',1),
+('mary','{noop}test123',1),
+('susan','{noop}test123',1);
+
+DROP TABLE IF EXISTS `authorities`;
+CREATE TABLE `authorities` (
+  `username` varchar(50) NOT NULL,
+  `authority` varchar(50) NOT NULL,
+  UNIQUE KEY `authorities_idx_1` (`username`,`authority`),
+  CONSTRAINT `authorities_ibfk_1` FOREIGN KEY (`username`) REFERENCES `users` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+INSERT INTO `authorities`
+VALUES
+('john','ROLE_EMPLOYEE'),
+('mary','ROLE_EMPLOYEE'),
+('mary','ROLE_MANAGER'),
+('susan','ROLE_EMPLOYEE'),
+('susan','ROLE_ADMIN');
+</pre>
+<p>这里实际上还涉及到密码的问题，Spring Security 5 的密码使用特殊的类似<code>{id}encodedPassword</code>的方式存储，其中id表示加密的方式，写成{noop}就表示之后是明文密码。先用明文密码直接插入和进行验证，之后会转换到{bcrypt}加密方式。</p>
+<p>配置好了数据库和表之后，像原来我们需要数据库驱动自己添加包一样，需要在Maven里添加MySQL的驱动和Hibernate以及连接池。</p>
+<pre>
+&lt;dependency>
+&lt;groupId>mysql&lt;/groupId>
+&lt;artifactId>mysql-connector-java&lt;/artifactId>
+&lt;version>5.1.47&lt;/version>
+&lt;/dependency>
+
+&lt;dependency>
+&lt;groupId>com.mchange&lt;/groupId>
+&lt;artifactId>c3p0&lt;/artifactId>
+&lt;version>0.9.5.3&lt;/version>
+&lt;/dependency>
+</pre>
+<p>仅仅是为了使用验证功能的话，无需使用Hibernate。然后在<code>src/main/resources</code>目录下创建连接配置文件<code>persistence-mysql.properties</code>：</p>
+<p>这里还需要注意的是，如果resources目录没有显示出资源目录的图标，需要到Project Structure里手工指定。</p>
+<pre>
+#
+# JDBC connection properties
+#
+jdbc.driver=com.mysql.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/spring_security_demo?useSSL=false
+jdbc.user=springstudent
+jdbc.password=springstudent
+
+#
+# Connection pool properties
+#
+connection.pool.initialPoolSize=5
+connection.pool.minPoolSize=5
+connection.pool.maxPoolSize=20
+connection.pool.maxIdleTime=3000
+</pre>
+<p>Maven项目在编译的时候，resources文件夹下的内容在编译的时候会Maven被放到classes目录下，就是类路径下。</p>
+<p>在配置文件中配置好了MySQL和连接池之后，需要修改Spring的配置类<code>DemoAppConfig.java</code>来导入Properties文件：</p>
+<pre>
+@Configuration
+@EnableWebMvc
+@ComponentScan(basePackages = "cc.conyli")
+@PropertySource("classpath:persistence-mysql.properties")
+public class DemoAppConfig {
+    ......
+}
+</pre>
+<p>在Intellij里如果配置正确的话，按住CTRL点击配置类中的persistence-mysql.properties，可以跳转到这个文件，说明路径正确。</p>
+<p>由于我们没有像增删改查项目一样使用Hibernate的注入类来生成数据库操作对象，所以必须要自定义一个对象，这里把来自C3PO连接池的DataSource对象组装成一个Bean。看一下完整的配置类：</p>
+<pre>
+import com.mchange.v2.c3p0.ComboPooledDataSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.env.Environment;
+import org.springframework.web.servlet.ViewResolver;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.view.InternalResourceViewResolver;
+
+import javax.sql.DataSource;
+import java.beans.PropertyVetoException;
+import java.util.logging.Logger;
+
+@Configuration
+@EnableWebMvc
+@ComponentScan(basePackages = "cc.conyli")
+@PropertySource("classpath:persistence-mysql.properties")
+public class DemoAppConfig {
+
+    @Bean
+    public ViewResolver viewResolver() {
+        InternalResourceViewResolver viewResolver = new InternalResourceViewResolver();
+        viewResolver.setPrefix("/WEB-INF/view/");
+        viewResolver.setSuffix(".jsp");
+        return viewResolver;
+    }
+
+    @Autowired
+    private Environment environment;
+
+    private Logger logger = Logger.getLogger(getClass().getName());
+
+    @Bean
+    public DataSource securityDataSource() {
+        //利用C3PO创建连接池
+        ComboPooledDataSource securityDataSource = new ComboPooledDataSource();
+        //设置连接池对象的数据库属性
+        try {
+            securityDataSource.setDriverClass(environment.getProperty("jdbc.driver"));
+            securityDataSource.setJdbcUrl(environment.getProperty("jdbc.url"));
+            securityDataSource.setUser(environment.getProperty("jdbc.user"));
+            securityDataSource.setPassword(environment.getProperty("jdbc.password"));
+
+            logger.info(">>>> jdbc.url=" + environment.getProperty("jdbc.url"));
+            logger.info(">>>> jdbc.user=" + environment.getProperty("jdbc.user"));
+        } catch (PropertyVetoException ex) {
+            throw new RuntimeException(ex);
+        }
+        //设置连接池的连接属性
+        securityDataSource.setInitialPoolSize(Integer.parseInt(environment.getProperty("connection.pool.initialPoolSize")));
+        securityDataSource.setMinPoolSize(Integer.parseInt(environment.getProperty("connection.pool.minPoolSize")));
+        securityDataSource.setMaxPoolSize(Integer.parseInt(environment.getProperty("connection.pool.maxPoolSize")));
+        securityDataSource.setMaxIdleTime(Integer.parseInt(environment.getProperty("connection.pool.maxIdleTime")));
+
+        return securityDataSource;
+    }
+
+}
+</pre>
+<p>这里有几个地方要解释：</p>
+<ol>
+    <li><code>private Environment environment;</code>这里使用了注入方式，当配置了<code>@PropertySource</code>之后，Spring内部实际上会将这个配置文件载入到环境对象中。使用注入方式取得了环境的引用，进而可以获取配置文件的具体内容。</li>
+    <li><code>public DataSource securityDataSource()</code>这个是组装DataSource的Bean</li>
+    <li><code>environment.getProperty("***")</code>方法就是从配置文件中取出键对应的值</li>
+</ol>
+<p>在完成了Spring的配置之后，项目运行后容器中就有了一个以DataSource组装的Bean，接下来就可以配置Spring Security的配置文件了：</p>
+<pre>
+
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 </body>
