@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 28 Spring Security - 基于用户角色访问特定URL</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+
+<body>
+<h1 style="text-align: center;">用户角色权限</h1>
+<p>对于Web开发来说，包括后边要用到的REST风格，权限就是基于用户的身份，能够访问哪些URL，因为在REST风格下URL意味做一个动作然后获得结果。</p>
+<p>按照教程，目前我们已经在Spring Security的配置类里配置了一些角色如下：</p>
+<table border="1">
+    <thead>
+    <tr>
+        <th>姓名</th>
+        <th>角色</th>
+    </tr></thead>
+    <tbody>
+    <tr>
+        <td>jenny</td>
+        <td>ADMIN, MANAGER</td>
+    </tr>
+    <tr>
+        <td>minko</td>
+        <td>MANAGER</td>
+    </tr>
+    <tr>
+        <td>cony</td>
+        <td>EMPLOYEE</td>
+    </tr>
+    </tbody>
+</table>
+<p>现在要实现一个功能，就是对一些URL，仅限有相应权限的人员才能访问。对应关系如下：</p>
+<table border="1">
+    <thead>
+    <tr>
+        <th>角色</th>
+        <th>可访问路径</th>
+        <th>解释</th>
+    </tr></thead>
+    <tbody>
+    <tr>
+        <td>EMPLOYEE</td>
+        <td>/</td>
+        <td>表示全部页面都需要具有EMPLOYEE身份，即需要登录</td>
+    </tr>
+    <tr>
+        <td>MANAGER</td>
+        <td>/manager/**</td>
+        <td>访问/manager/下的路径需要MANAGER角色</td>
+    </tr>
+    <tr>
+        <td>ADMIN</td>
+        <td>/system/**</td>
+        <td>访问/system/下的路径需要ADMIN角色</td>
+    </tr>
+    </tbody>
+</table>
+<p>很显然，这是一个有层级的权限分工体系，想要实现这个目的，首先必须所有人都是EMPLOYEE角色，然后在此基础上再区分出不同的角色对应不同的URL。</p>
+<p>开发的步骤如下：</p>
+<ol>
+    <li>在配置文件中给各个用户定义好角色</li>
+    <li>在配置文件中定义好各个角色对应的路径</li>
+    <li>编写对应每个路径的控制器和视图</li>
+    <li>登录后访问特定路径进行实验</li>
+</ol>
+<p>先来第一步，要将用户角色重新定义一下，这个很像类，即经理，系统管理员都继承自员工。</p>
+<pre>
+@Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+
+        User.UserBuilder users = User.withDefaultPasswordEncoder();
+
+        auth.inMemoryAuthentication()
+            .withUser(users.username("jenny").password("test123").roles("EMPLOYEE", "MANAGER", "ADMIN"))
+            .withUser(users.username("minko").password("test123").roles("EMPLOYEE", "MANAGER"))
+            .withUser(users.username("cony").password("test123").roles("EMPLOYEE"));
+    }
+</pre>
+<p>定义好之后，所有的员工都是EMPLOYEE角色，然后还有不同的具体角色。</p>
+<p>之后来配置路径与角色的关系，找到另外一个配置方法：</p>
+<pre>
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests()
+            <span style="color: red">.anyRequest().authenticated()</span>
+            .and()
+            .formLogin().loginPage("/showMyLoginPage").loginProcessingUrl("/authenticateTheUser")
+            .permitAll()
+            .and()
+            .logout().permitAll();
+}
+</pre>
+<p>把红色的部分删除，红色部分表示对任何部分都需要验证，但只是通用的验证，通过登录验证就可以访问，现在需要把这一块修改成更加具体的内容：</p>
+<pre>
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests()
+            <span style="color: red">
+            .antMatchers("/").hasRole("EMPLOYEE")
+            .antMatchers("/manager/**").hasRole("MANAGER")
+            .antMatchers("/system/**").hasRole("ADMIN")
+            </span>
+            .and()
+            .formLogin().loginPage("/showMyLoginPage").loginProcessingUrl("/authenticateTheUser")
+            .permitAll()
+            .and()
+            .logout().permitAll();
+}
+</pre>
+<p><code>.antMatchers("/").hasRole("EMPLOYEE")</code>用来配置一个URL与一个角色之间的关系，比如这里就配置了EMPLOYEE角色才能访问"/"路径，之后配置了MANAGER角色访问/manger路径下的所有路径，ADMIN角色则对应/system下的所有路径。</p>
+<p>在配置好之后，就来编写对应的控制器和视图。为了方便测试，再给登录后的首页也添加两个链接，由于这些控制器和页面都比较简单，就直接放代码了：</p>
+<p>控制器：</p>
+<pre>
+package cc.conyli.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+public class HomepageController {
+
+    @RequestMapping("/")
+    public String Homepage() {
+        return "home";
+    }
+
+    @RequestMapping("/manager")
+    public String showManagerpage() {
+        return "manager";
+    }
+
+    @RequestMapping("/system")
+    public String showAdminPage() {
+        return "system";
+    }
+}
+</pre>
+<p>manager.jsp：</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;html>
+    &lt;head>
+        &lt;title>Manager Page&lt;/title>
+    &lt;/head>
+    &lt;body>
+        &lt;h1>This is page only for managers.&lt;/h1>
+
+        &lt;p>&lt;a href="${pageContext.request.contextPath}/">Back to Main&lt;/a>&lt;/p>
+    &lt;/body>
+&lt;/html>
+</pre>
+<p>system.jsp</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;html>
+    &lt;head>
+        &lt;title>System Page&lt;/title>
+    &lt;/head>
+    &lt;body>
+        &lt;h1>This is admin page only for system administrators&lt;/h1>
+        &lt;p>&lt;a href="${pageContext.request.contextPath}/">Back to Main&lt;/a>&lt;/p>
+    &lt;/body>
+&lt;/html>
+</pre>
+<p>首页添加两个链接：</p>
+<pre>
+&lt;p>&lt;a href="${pageContext.request.contextPath}/manager">Managers only&lt;/a>&lt;/p>
+&lt;p>&lt;a href="${pageContext.request.contextPath}/system">System only&lt;/a>&lt;/p>
+</pre>
+<p>然后启动项目来测试一下。这里很神奇的发现，不能使用/manager路径，会触发Tomcat的登录机制。所以就更改一下路径，把/manager路径更改成/leader，相关代码也修改一下，这里就省略了。</p>
+<p>再重新启动项目，可以看到，不登录的话访问任何链接都会要求登录。使用cony登录后，点两个链接都会报403错误，使用minko登录，只能点开manager的链接，system依然会报403，而使用jenny登录，就全部链接都可以访问了。</p>
+
+<h1 style="text-align: center;">自定义错误页面</h1>
+<p>成功的按照角色配置了访问URL的权限，现在还有一个问题就是直接返回403错误对于开发者可以知道，但对于一般用户不是太友好。要看一下如何自定义页面。</p>
+<p>实际上依然是配置类，在之前使用配置类自定义了登录页面，那就会想到是不是也可以定义其他页面呢。实际上是可以的，错误相当于一个异常，只要定义一下异常处理的页面就可以了。（JSP中也有类似技术）</p>
+<p>先来修改配置类：</p>
+<pre>
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests()
+            .antMatchers("/").hasRole("EMPLOYEE")
+            .antMatchers("/leader/**").hasRole("MANAGER")
+            .antMatchers("/system/**").hasRole("ADMIN")
+            .and()
+            .formLogin().loginPage("/showMyLoginPage").loginProcessingUrl("/authenticateTheUser")
+            .permitAll()
+            .and()
+            .logout().permitAll()
+            .and()
+            .exceptionHandling().accessDeniedPage("/access-denied/");
+}
+</pre>
+<p>添加了最后两行内容，就是抛出异常的处理，然后定向到对应的URL，剩下就是编写控制器和页面了，比较简单：</p>
+<pre>
+@RequestMapping("/access-denied/")
+public String accessDenied() {
+    return "denied";
+}
+</pre>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;html>
+    &lt;head>
+        &lt;title>权限不够&lt;/title>
+    &lt;/head>
+    &lt;body>
+        &lt;h1>权限不够，请 &lt;a href="${pageContext.request.contextPath}/">退出&lt;/a>&lt;/h1>
+    &lt;/body>
+&lt;/html>
+</pre>
+<p>再运行项目，访问没有权限的路径的时候，就会看到这个页面的提示，注意此时浏览器中的路径还是目标路径而不是这个/access-denied/路径，这样就解决了这个问题。</p>
+
+<h1 style="text-align: center;">根据角色展示不同内容</h1>
+<p>权限相关的还有一块内容，除了以URL控制，直接限定用户访问的资源以外，在一个页面里，也可以限定不同角色访问的资源。这样就更加灵活了。</p>
+<p>像刚才的项目，我们让所有用户都可以去点manger和admin的两个链接，但在实际项目中，根本不需要对无权限用户展示相应的链接。</p>
+<p>这里依然要使用Spring Security JTL，home.jsp已经引入了SSJTL，只要用如下方式来环绕两个链接即可：</p>
+<pre>
+&lt;security:authorize access="hasRole('MANAGER')">
+    &lt;p>&lt;a href="${pageContext.request.contextPath}/leader">Managers only&lt;/a>&lt;/p>
+&lt;/security:authorize>
+
+&lt;security:authorize access="hasRole('ADMIN')">
+    &lt;p>&lt;a href="${pageContext.request.contextPath}/system">System only&lt;/a>&lt;/p>
+&lt;/security:authorize>
+</pre>
+<p>这里使用的标签是<code>&lt;security:authorize</code>，用<code>access="hasRole(***)"</code>属性来控制。将这个标签围绕在需要对应权限展示的内容就可以完成控制了。</p>
+
+
+</body>
+</html>
