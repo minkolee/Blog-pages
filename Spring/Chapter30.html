@@ -7,24 +7,65 @@
     <title>Spring 30 Spring Security - 密文方式存储密码</title>
     <link rel="stylesheet" href="base.css">
 </head>
-
 <body>
+<p>很显然，实际开发中绝对不能使用明文密码，否则数据泄露的可能性非常大。</p>
+<p>Spring Security针对密码推荐<strong>bcrypt</strong>算法，bcrypt算法可以一次性计算好hash后的值，自动加随机的盐，可以防止暴力破解。是一个使用广泛的算法。</p>
+<p>密码学在计算机科学出现之前就有了，而哈希算法也是一个很大的主体，这里不展开，只学习如何使用。</p>
+<p>当我们有一个明文密码的时候，我们可以通过第三方工具或者一些<a href="https://www.dailycred.com/article/bcrypt-calculator">网站</a>生成bcrypt之后的密码，也可以编写Java代码来加密，这里要学习如何使用代码来进行加密。</p>
+<p>现在我们的需求就是用户输入明文密码，然后我们在数据库中保存加密后的密文，这样即使开发者泄密，也很难知道是原来密码是什么。开发的步骤如下：</p>
+<ol>
+    <li>由于bcrypt之后的密文长度较长，创建一个新的数据库和表，其中密文字段需要有68字符长，因为密文有60个字符，而之前的<code>{bcrypt}</code>是8个字符。</li>
+    <li>修改数据库配置，指向新的表</li>
+</ol>
+<p>先来创建新的表，大部分和上次创建表一样：</p>
+<pre>
+DROP DATABASE  IF EXISTS `spring_security_demo_bcrypt`;
+
+CREATE DATABASE  IF NOT EXISTS `spring_security_demo_bcrypt`;
+USE `spring_security_demo_bcrypt`;
+
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE `users` (
+  `username` varchar(50) NOT NULL,
+  `password` char(68) NOT NULL,
+  `enabled` tinyint(1) NOT NULL,
+  PRIMARY KEY (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 
+INSERT INTO `users`
+VALUES
+('john','{bcrypt}$2a$04$eFytJDGtjbThXa80FyOOBuFdK2IwjyWefYkMpiBEFlpBwDH.5PM0K',1),
+('mary','{bcrypt}$2a$04$eFytJDGtjbThXa80FyOOBuFdK2IwjyWefYkMpiBEFlpBwDH.5PM0K',1),
+('susan','{bcrypt}$2a$04$eFytJDGtjbThXa80FyOOBuFdK2IwjyWefYkMpiBEFlpBwDH.5PM0K',1);
 
 
+DROP TABLE IF EXISTS `authorities`;
+CREATE TABLE `authorities` (
+  `username` varchar(50) NOT NULL,
+  `authority` varchar(50) NOT NULL,
+  UNIQUE KEY `authorities_idx_1` (`username`,`authority`),
+  CONSTRAINT `authorities_ibfk_1` FOREIGN KEY (`username`) REFERENCES `users` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 
-
-
-
-
-
-
-
-
-
-
+INSERT INTO `authorities`
+VALUES
+('john','ROLE_EMPLOYEE'),
+('mary','ROLE_EMPLOYEE'),
+('mary','ROLE_MANAGER'),
+('susan','ROLE_EMPLOYEE'),
+('susan','ROLE_ADMIN');
+</pre>
+<p>这里可以看到，用户密码写进去的数据是由{bcrypt}开头，代表之后是一个bcrypt加密的密文。Spring Security就会使用bcrypt算法来处理密文。</p>
+<p>这里的密文对应的明文密码是<code>fun123</code></p>
+<p>然后修改数据库配置文件指向新的数据表：</p>
+<pre>
+jdbc.url=jdbc:mysql://localhost:3306/spring_security_demo_bcrypt?useSSL=false
+</pre>
+<p>来运行一下项目看看，密码变成了fun123。就完成了数据库的配置。</p>
+<p>不过老外这个视频讲的还是太简单了点，如果用户注册的话应该如何往数据库内写入呢，看来还是要看一些其他的教学了。</p>
+<p>Spring Security的简单学习到此结束，用户身份验证始终是一个很重要的技术，还需要后边的不断探索。</p>
 
 </body>
 </html>
