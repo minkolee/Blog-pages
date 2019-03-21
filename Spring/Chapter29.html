@@ -110,7 +110,7 @@ VALUES
 # JDBC connection properties
 #
 jdbc.driver=com.mysql.jdbc.Driver
-jdbc.url=jdbc:mysql://localhost:3306/spring_security_demo?useSSL=false
+jdbc.url=jdbc:mysql://localhost:3306/spring_security_demo_plaintext?useSSL=false
 jdbc.user=springstudent
 jdbc.password=springstudent
 
@@ -199,16 +199,61 @@ public class DemoAppConfig {
 </pre>
 <p>这里有几个地方要解释：</p>
 <ol>
-    <li><code>private Environment environment;</code>这里使用了注入方式，当配置了<code>@PropertySource</code>之后，Spring内部实际上会将这个配置文件载入到环境对象中。使用注入方式取得了环境的引用，进而可以获取配置文件的具体内容。</li>
+    <li><code>private Environment environment;</code>由于是类配置，这里使用了注入方式装配一个域，实际上是装配了一个Bean（Spring官方不推荐这么做），当配置了<code>@PropertySource</code>之后，Spring内部实际上会将这个配置文件载入到环境对象中。使用注入方式取得了环境的Bean对象，进而可以获取配置文件的具体内容。</li>
     <li><code>public DataSource securityDataSource()</code>这个是组装DataSource的Bean</li>
     <li><code>environment.getProperty("***")</code>方法就是从配置文件中取出键对应的值</li>
 </ol>
-<p>在完成了Spring的配置之后，项目运行后容器中就有了一个以DataSource组装的Bean，接下来就可以配置Spring Security的配置文件了：</p>
+<p>在完成了Spring的配置之后，项目运行后容器中就有了一个以DataSource组装的Bean，接下来就可以配置Spring Security的配置文件了。这里需要做的是注入刚才的Bean给Spring Security容器，然后去掉硬编码的用户等信息，改成让其从数据库中获取。修改后的类如下：</p>
 <pre>
+package cc.conyli.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.userdetails.User;
+
+import javax.sql.DataSource;
+
+@Configuration
+@EnableWebSecurity
+public class DemoSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+
+        //使用不加密的密码验证
+        User.UserBuilder users = User.withDefaultPasswordEncoder();
+
+        //使用数据连接池作为验证来源
+        auth.jdbcAuthentication().dataSource(securityDataSource);
+
+    }
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.authorizeRequests()
+                .antMatchers("/").hasRole("EMPLOYEE")
+                .antMatchers("/leader/**").hasRole("MANAGER")
+                .antMatchers("/system/**").hasRole("ADMIN")
+                .and()
+                .formLogin().loginPage("/showMyLoginPage").loginProcessingUrl("/authenticateTheUser")
+                .permitAll()
+                .and()
+                .logout().permitAll()
+                .and()
+                .exceptionHandling().accessDeniedPage("/access-denied/");
+    }
+
+    //把Spring IOC容器的Bean注入到securityDataSource这个对象中。
+    @Autowired
+    private DataSource securityDataSource;
+}
 </pre>
-
-
+<p>此时再启动项目，发现没有硬编码了，但是项目功能依然正常。这里实际上要注意字符串形式的角色名<code>ADMIN</code>与数据库里字段<code>ROLE_ADMIN</code>的对应关系，以及输入的明文密码<code>test123</code>和<code>{noop}test123</code>的对应关系。</p>
+<p>这里还有自定义数据表的方式没学，应该属于比较高级的应用了，以后慢慢探索吧。</p>
 
 
 
