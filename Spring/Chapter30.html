@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 30 Spring Security - 密文方式存储密码</title>
+    <title>Spring 30 Spring Security - 密文方式存储密码和用户注册</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
+<h1 style="text-align: center;">在数据库中存储密文密码</h1>
 <p>很显然，实际开发中绝对不能使用明文密码，否则数据泄露的可能性非常大。</p>
 <p>Spring Security针对密码推荐<strong>bcrypt</strong>算法，bcrypt算法可以一次性计算好hash后的值，自动加随机的盐，可以防止暴力破解。是一个使用广泛的算法。</p>
 <p>密码学在计算机科学出现之前就有了，而哈希算法也是一个很大的主体，这里不展开，只学习如何使用。</p>
@@ -64,8 +65,1351 @@ VALUES
 jdbc.url=jdbc:mysql://localhost:3306/spring_security_demo_bcrypt?useSSL=false
 </pre>
 <p>来运行一下项目看看，密码变成了fun123。就完成了数据库的配置。</p>
-<p>不过老外这个视频讲的还是太简单了点，如果用户注册的话应该如何往数据库内写入呢，看来还是要看一些其他的教学了。</p>
-<p>Spring Security的简单学习到此结束，用户身份验证始终是一个很重要的技术，还需要后边的不断探索。</p>
+
+<h1 style="text-align: center;">用户注册</h1>
+<p>用户身份验证之后的一个主要问题就是用户注册了，这样就把用户相关的功能做成了一个内容管理系统，让用户自己去完成注册和登录的功能。</p>
+<p>我们来完成一个用户注册功能，用户注册核心功能就是提供一个表单，用户填写该表单后将对应数据写入数据库，用户登录的时候，就在数据库中查询用户信息，这里我们要使用Hibernate来操作数据库。由于步骤比较多，一步一步来操作</p>
+
+<h3 style="text-align: center;">创建用户和角色表</h3>
+<p>由于用户表和原来的用户表不一样，这次创建一个新的数据库和数据表：</p>
+<pre>
+DROP DATABASE  IF EXISTS `spring_security_custom_user_demo`;
+
+CREATE DATABASE  IF NOT EXISTS `spring_security_custom_user_demo`;
+USE `spring_security_custom_user_demo`;
+
+
+DROP TABLE IF EXISTS `user`;
+
+CREATE TABLE `user` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `password` char(80) NOT NULL,
+  `first_name` varchar(50) NOT NULL,
+  `last_name` varchar(50) NOT NULL,
+  `email` varchar(50) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
+
+
+INSERT INTO `user` (username,password,first_name,last_name,email)
+VALUES
+('john','$2a$04$eFytJDGtjbThXa80FyOOBuFdK2IwjyWefYkMpiBEFlpBwDH.5PM0K','John','Doe','john@luv2code.com'),
+('mary','$2a$04$eFytJDGtjbThXa80FyOOBuFdK2IwjyWefYkMpiBEFlpBwDH.5PM0K','Mary','Public','mary@luv2code.com'),
+('susan','$2a$04$eFytJDGtjbThXa80FyOOBuFdK2IwjyWefYkMpiBEFlpBwDH.5PM0K','Susan','Adams','susan@luv2code.com');
+
+
+DROP TABLE IF EXISTS `role`;
+
+CREATE TABLE `role` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
+
+
+INSERT INTO `role` (name)
+VALUES
+('ROLE_EMPLOYEE'),('ROLE_MANAGER'),('ROLE_ADMIN');
+
+
+DROP TABLE IF EXISTS `users_roles`;
+
+CREATE TABLE `users_roles` (
+  `user_id` int(11) NOT NULL,
+  `role_id` int(11) NOT NULL,
+
+  PRIMARY KEY (`user_id`,`role_id`),
+
+  KEY `FK_ROLE_idx` (`role_id`),
+
+  CONSTRAINT `FK_USER_05` FOREIGN KEY (`user_id`)
+  REFERENCES `user` (`id`)
+  ON DELETE NO ACTION ON UPDATE NO ACTION,
+
+  CONSTRAINT `FK_ROLE` FOREIGN KEY (`role_id`)
+  REFERENCES `role` (`id`)
+  ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+INSERT INTO `users_roles` (user_id,role_id)
+VALUES
+(1, 1),
+(2, 1),
+(2, 2),
+(3, 1),
+(3, 3)
+</pre>
+<p>这里我们采用了更贴近实际开发的数据表：用户表是根据实际情况所需要的字段建立的，然后用户表和角色表是多对多的关系，一个用户可以有多个角色，一个角色下边有多个用户。</p>
+
+<h3 style="text-align: center;">配置所有的Maven依赖</h3>
+<p>这次要使用Hibernate和相关的验证器，需要配置一系列依赖：</p>
+<pre>
+&lt;!--Spring TX-->
+&lt;dependency>
+    &lt;groupId>org.springframework&lt;/groupId>
+    &lt;artifactId>spring-tx&lt;/artifactId>
+    &lt;version>${springframework.version}&lt;/version>
+&lt;/dependency>
+
+&lt;!-- Spring ORM -->
+&lt;dependency>
+    &lt;groupId>org.springframework&lt;/groupId>
+    &lt;artifactId>spring-orm&lt;/artifactId>
+    &lt;version>${springframework.version}&lt;/version>
+&lt;/dependency>
+
+&lt;!-- Hibernate Core -->
+&lt;dependency>
+    &lt;groupId>org.hibernate&lt;/groupId>
+    &lt;artifactId>hibernate-core&lt;/artifactId>
+    &lt;version>${hibernate.version}&lt;/version>
+&lt;/dependency>
+
+&lt;!-- Hibernate Validator -->
+&lt;dependency>
+    &lt;groupId>org.hibernate&lt;/groupId>
+    &lt;artifactId>hibernate-validator&lt;/artifactId>
+    &lt;version>6.0.7.Final&lt;/version>
+&lt;/dependency>
+</pre>
+
+<h3 style="text-align: center;">配置密码生成器</h3>
+<p>可以发现在数据库中保存的密文密码不是以<code>{bcrypt}</code>开头的，这是因为现代开发中，一般要通过密码生成器生成密文然后写入数据库。</p>
+<p>所以需要在Spring Security的配置类中创建Bean用于生成密文和解密。</p>
+<pre>
+//初始化一个bcrypt编码Bean
+@Bean
+public BCryptPasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+}
+
+
+//创建认证提供器
+@Bean
+public DaoAuthenticationProvider authenticationProvider() {
+    DaoAuthenticationProvider auth = new DaoAuthenticationProvider();
+    auth.setUserDetailsService(<span style="color: red">userService</span>);
+    auth.setPasswordEncoder(passwordEncoder());
+    return auth;
+}
+</pre>
+<p>第一个是创建了一个Spring Security内置的bcrypt的编码器，然后创建了一个认证器，将编码器和用户服务提供给这个认证器，这个认证器就可以拿着用户数据和密码去进行验证。</p>
+<p>这里<code>userService</code>还没有编写，会在之后进行编写。</p>
+
+<h3 style="text-align: center;">创建表单数据对象和验证器</h3>
+<p>这个是用于表单数据的对象，还不是直接对应数据库中的User和Role的对象，所以不放在entity目录中，创建一个user目录，然后在其中创建CrmUser.java作为用户数据对象：</p>
+<pre>
+package cc.conyli.entity;
+
+
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+
+
+
+public class CrmUser {
+    @NotNull(message = "is required")
+    @Size(min = 1, message = "is required")
+    private String userName;
+
+    @NotNull(message = "is required")
+    @Size(min = 1, message = "is required")
+    private String password;
+
+    @NotNull(message = "is required")
+    @Size(min = 1, message = "is required")
+    private String matchingPassword;
+
+    @NotNull(message = "is required")
+    @Size(min = 1, message = "is required")
+    private String firstName;
+
+    @NotNull(message = "is required")
+    @Size(min = 1, message = "is required")
+    private String lastName;
+
+    @NotNull(message = "is required")
+    @Size(min = 1, message = "is required")
+    private String email;
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getMatchingPassword() {
+        return matchingPassword;
+    }
+
+    public void setMatchingPassword(String matchingPassword) {
+        this.matchingPassword = matchingPassword;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public CrmUser() {
+    }
+
+    public CrmUser(String userName, String password, String matchingPassword, String firstName) {
+        this.userName = userName;
+        this.password = password;
+        this.matchingPassword = matchingPassword;
+        this.firstName = firstName;
+    }
+
+    @Override
+    public String toString() {
+        return "CrmUser{" +
+                "userName='" + userName + '\'' +
+                ", password='" + password + '\'' +
+                ", matchingPassword='" + matchingPassword + '\'' +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", email='" + email + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>此时还不能直接使用，由于<code>@ValidEmail</code>还没有编写，而且我们给这个类添加了一个不属于数据库里的matchingPassword字段，用来验证用户两次密码填写是否一致。所以还需要编写自定义的验证器。</p>
+<p>在conyli.cc下边创建validation包，然后在其中编写验证器注解类和对应的验证器类，一共是两个字段，所以有四个类。</p>
+<pre>
+package cc.conyli.validation;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
+
+public class EmailValidator implements ConstraintValidator&lt;ValidEmail, String> {
+
+	private Pattern pattern;
+	private Matcher matcher;
+	private static final String EMAIL_PATTERN = "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@"
+			+ "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
+
+	@Override
+	public boolean isValid(final String email, final ConstraintValidatorContext context) {
+		pattern = Pattern.compile(EMAIL_PATTERN);
+		if (email == null) {
+			return false;
+		}
+		matcher = pattern.matcher(email);
+		return matcher.matches();
+	}
+
+	@Override
+	public void initialize(ValidEmail validEmail) {
+
+	}
+}
+</pre>
+
+<pre>
+package cc.conyli.validation;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+import javax.validation.Constraint;
+import javax.validation.Payload;
+
+@Constraint(validatedBy = EmailValidator.class)
+@Target({ ElementType.TYPE, ElementType.FIELD, ElementType.ANNOTATION_TYPE })
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface ValidEmail {
+	String message() default "Invalid email";
+
+	Class&lt;?>[] groups() default {};
+
+	Class&lt;? extends Payload>[] payload() default {};
+}
+</pre>
+
+<pre>
+package cc.conyli.validation;
+
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
+
+import org.springframework.beans.BeanWrapperImpl;
+
+public class FieldMatchValidator implements ConstraintValidator&lt;FieldMatch, Object> {
+
+	private String firstFieldName;
+    private String secondFieldName;
+    private String message;
+
+    @Override
+    public void initialize(final FieldMatch constraintAnnotation) {
+	    	firstFieldName = constraintAnnotation.first();
+	    	secondFieldName = constraintAnnotation.second();
+        message = constraintAnnotation.message();
+    }
+
+    @Override
+    public boolean isValid(final Object value, final ConstraintValidatorContext context) {
+        boolean valid = true;
+        try
+        {
+            final Object firstObj = new BeanWrapperImpl(value).getPropertyValue(firstFieldName);
+            final Object secondObj = new BeanWrapperImpl(value).getPropertyValue(secondFieldName);
+
+            valid =  firstObj == null && secondObj == null || firstObj != null && firstObj.equals(secondObj);
+        }
+        catch (final Exception ignore)
+        {
+            // we can ignore
+        }
+
+        if (!valid){
+            context.buildConstraintViolationWithTemplate(message)
+                    .addPropertyNode(firstFieldName)
+                    .addConstraintViolation()
+                    .disableDefaultConstraintViolation();
+        }
+
+        return valid;
+    }
+
+}
+</pre>
+
+<pre>
+package cc.conyli.validation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+import javax.validation.Constraint;
+import javax.validation.Payload;
+
+@Constraint(validatedBy = FieldMatchValidator.class)
+@Target({ ElementType.TYPE, ElementType.ANNOTATION_TYPE })
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface FieldMatch {
+	String message() default "";
+	Class&lt;?>[] groups() default {};
+	Class&lt;? extends Payload>[] payload() default {};
+	
+	String first();
+    String second();
+    
+    @Target({ ElementType.TYPE, ElementType.ANNOTATION_TYPE })
+    @Retention(RetentionPolicy.RUNTIME)
+    @Documented
+    @interface List
+    {
+    	FieldMatch[] value();
+    }
+}
+</pre>
+<p>然后需要将注解添加到CrmUser类上，首先是email字段：</p>
+<pre>
+<span style="color: red">@ValidEmail</span>
+@NotNull(message = "is required")
+@Size(min = 1, message = "is required")
+private String email;
+</pre>
+<p>然后是一个验证两个字段的验证器，需要添加到类上：</p>
+<pre>
+@FieldMatch.List({
+    @FieldMatch(first = "password",second = "matchingPassword", message = "The password fields must match")
+})
+public class CrmUser {
+    ......
+}
+</pre>
+<p>这个是将验证器里的两个属性设置为password属性和matchingPassword属性，然后获取两个属性比较是否相同，如果不同就返回错误信息。</p>
+<p>这里的自定义验证器要比课程里学的硬核一些，不过看一下代码就可以知道做了什么事情，还是属于比较简单的逻辑。</p>
+
+<h3 style="text-align: center;">配置数据库连接属性</h3>
+<p>这一步很简单，修改一下配置为新创建的数据库，还需要把Hibernate的配置也加进去：</p>
+<pre>
+jdbc.driver=com.mysql.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/<span style="color: red">spring_security_custom_user_demo</span>?useSSL=false
+jdbc.user=springstudent
+jdbc.password=springstudent
+
+connection.pool.initialPoolSize=5
+connection.pool.minPoolSize=5
+connection.pool.maxPoolSize=20
+connection.pool.maxIdleTime=3000
+
+hibernate.dialect=org.hibernate.dialect.MySQLDialect
+hibernate.show_sql=true
+hiberante.packagesToScan=cc.conyli.entity
+</pre>
+
+<h3 style="text-align: center;">编写从数据库中取出用户数据的User类和Role类</h3>
+<p>因为后边要用Hibernate操作数据库，之前编写的CrmUser类其实是用来注册表单的时候生成的数据对象，不是直接对应数据库中表的类。所以要再编写一下User和Role类，主要关注多对多关系：</p>
+<pre>
+package cc.conyli.entity;
+
+import javax.persistence.*;
+import java.util.Collection;
+
+@Entity
+@Table(name = "user")
+public class User {
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "id")
+	private Long id;
+
+	@Column(name = "username")
+	private String userName;
+
+	@Column(name = "password")
+	private String password;
+
+	@Column(name = "first_name")
+	private String firstName;
+
+	@Column(name = "last_name")
+	private String lastName;
+
+	@Column(name = "email")
+	private String email;
+
+	@ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+	@JoinTable(name = "users_roles", 
+	joinColumns = @JoinColumn(name = "user_id"), 
+	inverseJoinColumns = @JoinColumn(name = "role_id"))
+	private Collection&lt;Role> roles;
+
+	public User() {
+	}
+
+	public User(String userName, String password, String firstName, String lastName, String email) {
+		this.userName = userName;
+		this.password = password;
+		this.firstName = firstName;
+		this.lastName = lastName;
+		this.email = email;
+	}
+
+	public User(String userName, String password, String firstName, String lastName, String email,
+			Collection&lt;Role> roles) {
+		this.userName = userName;
+		this.password = password;
+		this.firstName = firstName;
+		this.lastName = lastName;
+		this.email = email;
+		this.roles = roles;
+	}
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public String getUserName() {
+		return userName;
+	}
+
+	public void setUserName(String userName) {
+		this.userName = userName;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public String getFirstName() {
+		return firstName;
+	}
+
+	public void setFirstName(String firstName) {
+		this.firstName = firstName;
+	}
+
+	public String getLastName() {
+		return lastName;
+	}
+
+	public void setLastName(String lastName) {
+		this.lastName = lastName;
+	}
+
+	public String getEmail() {
+		return email;
+	}
+
+	public void setEmail(String email) {
+		this.email = email;
+	}
+
+	public Collection&lt;Role> getRoles() {
+		return roles;
+	}
+
+	public void setRoles(Collection&lt;Role> roles) {
+		this.roles = roles;
+	}
+
+	@Override
+	public String toString() {
+		return "User{" + "id=" + id + ", userName='" + userName + '\'' + ", password='" + "*********" + '\''
+				+ ", firstName='" + firstName + '\'' + ", lastName='" + lastName + '\'' + ", email='" + email + '\''
+				+ ", roles=" + roles + '}';
+	}
+}
+</pre>
+<pre>
+package cc.conyli.entity;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+@Entity
+@Table(name = "role")
+public class Role {
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "id")
+	private Long id;
+
+	@Column(name = "name")
+	private String name;
+
+	public Role() {
+	}
+
+	public Role(String name) {
+		this.name = name;
+	}
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	@Override
+	public String toString() {
+		return "Role{" + "id=" + id + ", name='" + name + '\'' + '}';
+	}
+}
+</pre>
+<p>由于数据验证的内容主要交给了对应注册功能的表单，这里就没有配置不必要的验证器了。</p>
+
+<h3 style="text-align: center;">创建表单页面</h3>
+<p>给登录页面添加一个Register按钮如下：</p>
+<pre>
+&lt;div>
+    &lt;a href="${pageContext.request.contextPath}/register/showRegistrationForm" class="btn btn-primary" role="button" aria-pressed="true">Register New User&lt;/a>
+&lt;/div>
+</pre>
+<p>很显然一会要来编写控制器。</p>
+<p>先继续在WEB-INF/view/目录下创建一个用户登录表单页面registration-form.jsp：</p>
+<pre>
+&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+&lt;%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+
+&lt;!doctype html>
+&lt;html lang="zh-cn">
+
+&lt;head>
+
+    &lt;title>Register New User Form&lt;/title>
+
+    &lt;meta charset="utf-8">
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    &lt;!-- Reference Bootstrap files -->
+    &lt;link href="https://cdn.bootcss.com/twitter-bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+
+    &lt;script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js">&lt;/script>
+    &lt;script src="https://cdn.bootcss.com/twitter-bootstrap/3.3.7/js/bootstrap.min.js">&lt;/script>
+    &lt;style>
+        .error {
+            color: red
+        }
+    &lt;/style>
+
+&lt;/head>
+
+&lt;body>
+
+&lt;div>
+
+    &lt;div id="loginbox" style="margin-top: 50px;"
+         class="mainbox col-md-3 col-md-offset-2 col-sm-6 col-sm-offset-2">
+
+        &lt;div class="panel panel-primary">
+
+            &lt;div class="panel-heading">
+                &lt;div class="panel-title">Register New User&lt;/div>
+            &lt;/div>
+
+            &lt;div style="padding-top: 30px" class="panel-body">
+
+                &lt;!-- Registration Form -->
+                &lt;form:form action="${pageContext.request.contextPath}/register/processRegistrationForm"
+                           modelAttribute="crmUser"
+                           class="form-horizontal">
+
+                    &lt;!-- Place for messages: error, alert etc ... -->
+                    &lt;div class="form-group">
+                        &lt;div class="col-xs-15">
+                            &lt;div>
+
+                                &lt;!-- Check for registration error -->
+                                &lt;c:if test="${registrationError != null}">
+
+                                    &lt;div class="alert alert-danger col-xs-offset-1 col-xs-10">
+                                            ${registrationError}
+                                    &lt;/div>
+
+                                &lt;/c:if>
+
+                            &lt;/div>
+                        &lt;/div>
+                    &lt;/div>
+
+                    &lt;!-- User name -->
+                    &lt;div style="margin-bottom: 25px" class="input-group">
+                        &lt;span class="input-group-addon">&lt;i class="glyphicon glyphicon-user">&lt;/i>&lt;/span>
+                        &lt;form:errors path="userName" cssClass="error"/>
+                        &lt;form:input path="userName" placeholder="username (*)" class="form-control"/>
+                    &lt;/div>
+
+                    &lt;!-- Password -->
+                    &lt;div style="margin-bottom: 25px" class="input-group">
+                        &lt;span class="input-group-addon">&lt;i class="glyphicon glyphicon-lock">&lt;/i>&lt;/span>
+                        &lt;form:errors path="password" cssClass="error"/>
+                        &lt;form:password path="password" placeholder="password (*)" class="form-control"/>
+                    &lt;/div>
+
+                    &lt;!-- Confirm Password -->
+                    &lt;div style="margin-bottom: 25px" class="input-group">
+                        &lt;span class="input-group-addon">&lt;i class="glyphicon glyphicon-lock">&lt;/i>&lt;/span>
+                        &lt;form:errors path="matchingPassword" cssClass="error"/>
+                        &lt;form:password path="matchingPassword" placeholder="confirm password (*)" class="form-control"/>
+                    &lt;/div>
+
+
+                    &lt;!-- First name -->
+                    &lt;div style="margin-bottom: 25px" class="input-group">
+                        &lt;span class="input-group-addon">&lt;i class="glyphicon glyphicon-user">&lt;/i>&lt;/span>
+                        &lt;form:errors path="firstName" cssClass="error"/>
+                        &lt;form:input path="firstName" placeholder="first name (*)" class="form-control"/>
+                    &lt;/div>
+
+                    &lt;!-- Last name -->
+                    &lt;div style="margin-bottom: 25px" class="input-group">
+                        &lt;span class="input-group-addon">&lt;i class="glyphicon glyphicon-user">&lt;/i>&lt;/span>
+                        &lt;form:errors path="lastName" cssClass="error"/>
+                        &lt;form:input path="lastName" placeholder="last name (*)" class="form-control"/>
+                    &lt;/div>
+
+                    &lt;!-- Email -->
+                    &lt;div style="margin-bottom: 25px" class="input-group">
+                        &lt;span class="input-group-addon">&lt;i class="glyphicon glyphicon-user">&lt;/i>&lt;/span>
+                        &lt;form:errors path="email" cssClass="error"/>
+                        &lt;form:input path="email" placeholder="email (*)" class="form-control"/>
+                    &lt;/div>
+
+
+                    &lt;!-- Register Button -->
+                    &lt;div style="margin-top: 10px" class="form-group">
+                        &lt;div class="col-sm-6 controls">
+                            &lt;button type="submit" class="btn btn-primary">Register&lt;/button>
+                        &lt;/div>
+                    &lt;/div>
+
+                &lt;/form:form>
+
+            &lt;/div>
+
+        &lt;/div>
+
+    &lt;/div>
+
+&lt;/div>
+
+&lt;/body>
+&lt;/html>
+</pre>
+<p>里边的主要关注点是表单标签绑定的model中的对象名是<code>crmUser</code>，这是我们要通过控制器传递给JSP页面的属性。完成了上边的准备工作，后边要依次创建控制器-service-Dao层了。</p>
+
+<h3 style="text-align: center;">创建控制器</h3>
+<p>表单控制器控制两个链接：</p>
+<ol>
+    <li>/register/showRegistrationForm</li>
+    <li>/register/processRegistrationForm</li>
+</ol>
+<p>很显然一个展示表单，一个处理表单。</p>
+<pre>
+package cc.conyli.controller;
+
+import java.util.logging.Logger;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.propertyeditors.StringTrimmerEditor;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import cc.conyli.user.CrmUser;
+import cc.conyli.entity.User;
+import cc.conyli.service.UserService;
+
+@Controller
+@RequestMapping("/register")
+public class RegistrationController {
+
+
+    //注入业务层的userService对象，使用这个对象通过用户名找到用户数据然后创建user对象
+    @Autowired
+    private UserService userService;
+
+    private Logger logger = Logger.getLogger(getClass().getName());
+
+
+    //这是以前用过的初始化处理，这里使用了去掉两端空白的预先处理
+	@InitBinder
+	public void initBinder(WebDataBinder dataBinder) {
+
+		StringTrimmerEditor stringTrimmerEditor = new StringTrimmerEditor(true);
+
+		dataBinder.registerCustomEditor(String.class, stringTrimmerEditor);
+	}
+
+
+    //展示表单
+	@GetMapping("/showRegistrationForm")
+	public String showMyLoginPage(Model theModel) {
+
+		theModel.addAttribute("crmUser", new CrmUser());
+
+		return "registration-form";
+	}
+
+
+    //处理表单数据，如果验证通过，就保存到数据库中
+	@PostMapping("/processRegistrationForm")
+	public String processRegistrationForm(
+				@Valid @ModelAttribute("crmUser") CrmUser theCrmUser,
+				BindingResult theBindingResult,
+				Model theModel) {
+
+		String userName = theCrmUser.getUserName();
+		logger.info("Processing registration form for: " + userName);
+
+		// 验证表单
+		 if (theBindingResult.hasErrors()){
+			 return "registration-form";
+	        }
+
+		// 检查是否用户已经存在
+        User existing = userService.findByUserName(userName);
+        if (existing != null){
+        	theModel.addAttribute("crmUser", new CrmUser());
+			theModel.addAttribute("registrationError", "User name already exists.");
+
+			logger.warning("User name already exists.");
+        	return "registration-form";
+        }
+     // 如果通过验证，保存入数据库
+        userService.save(theCrmUser);
+
+        logger.info("Successfully created user: " + userName);
+
+        return "registration-confirmation";
+	}
+}
+</pre>
+<p>控制器里边注入的Service层的userService还未编写，还有处理表单后返回的registration-confirmation.jsp也未编写，按照开发逻辑会逐步编写。</p>
+
+<h3 style="text-align: center;">创建Service层</h3>
+<p>这里还是遵循开发原则，先创建接口再创建类。UserService接口主要有两个方法：</p>
+<ol>
+    <li>userService.findByUserName(userName)，用来使用用户名获取用户对象</li>
+    <li>userService.save(theCrmUser)，保存验证后的表单数据到数据库</li>
+</ol>
+<pre>
+package cc.conyli.service;
+
+import cc.conyli.entity.User;
+import cc.conyli.user.CrmUser;
+import org.springframework.security.core.userdetails.UserDetailsService;
+
+public interface UserService extends UserDetailsService {
+
+    User findByUserName(String userName);
+
+    void save(CrmUser crmUser);
+}
+</pre>
+<p>然后来创建实现类：</p>
+<pre>
+package cc.conyli.service;
+
+import cc.conyli.dao.RoleDao;
+import cc.conyli.dao.UserDao;
+import cc.conyli.entity.Role;
+import cc.conyli.entity.User;
+import cc.conyli.user.CrmUser;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.stream.Collectors;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+	// need to inject user dao
+	@Autowired
+	private UserDao userDao;
+
+	@Autowired
+	private RoleDao roleDao;
+	
+	@Autowired
+	private BCryptPasswordEncoder passwordEncoder;
+
+	@Override
+	@Transactional
+	public User findByUserName(String userName) {
+		// check the database if the user already exists
+		return userDao.findByUserName(userName);
+	}
+
+	@Override
+	@Transactional
+	public void save(CrmUser crmUser) {
+		User user = new User();
+		 // assign user details to the user object
+		user.setUserName(crmUser.getUserName());
+		user.setPassword(passwordEncoder.encode(crmUser.getPassword()));
+		user.setFirstName(crmUser.getFirstName());
+		user.setLastName(crmUser.getLastName());
+		user.setEmail(crmUser.getEmail());
+
+		// give user default role of "employee"
+		user.setRoles(Arrays.asList(roleDao.findRoleByName("ROLE_EMPLOYEE")));
+
+		 // save user in the database
+		userDao.save(user);
+	}
+
+	@Override
+	@Transactional
+	public UserDetails loadUserByUsername(String userName) throws UsernameNotFoundException {
+		User user = userDao.findByUserName(userName);
+		if (user == null) {
+			throw new UsernameNotFoundException("Invalid username or password.");
+		}
+		return new org.springframework.security.core.userdetails.User(user.getUserName(), user.getPassword(),
+				mapRolesToAuthorities(user.getRoles()));
+	}
+
+	private Collection&lt;? extends GrantedAuthority> mapRolesToAuthorities(Collection&lt;Role> roles) {
+		return roles.stream().map(role -> new SimpleGrantedAuthority(role.getName())).collect(Collectors.toList());
+	}
+}
+</pre>
+<p>其中用到的Dao对象还未编写。Service层这里的一个方法是根据用户名来查询用户，还一个save方法是将表单数据CrmUser对象的各个属性设置到一个新的User对象上，其中密码字段从明文转换成密文，还会去获取role表中的EMPLOYEE对象，设置与这个用户的关联关系，也就是给用户一个默认的EMPLOYEE身份。</p>
+<p>上述的业务逻辑处理完毕之后，再将用户保存到数据库中。</p>
+
+<h3 style="text-align: center;">创建DAO层</h3>
+<p>一样还是通过接口和实现类的方式来编写，由于有两个数据表，将其分离为两个Dao接口和对应实现类。</p>
+<p>两个接口分别如下：</p>
+<pre>
+package cc.conyli.dao;
+
+import cc.conyli.entity.Role;
+
+public interface RoleDao {
+
+	public Role findRoleByName(String theRoleName);
+
+}
+</pre>
+<pre>
+package cc.conyli.dao;
+
+import cc.conyli.entity.User;
+
+public interface UserDao {
+
+    User findByUserName(String userName);
+
+    void save(User user);
+
+}
+</pre>
+<p>两个实现类如下：</p>
+<pre>
+package cc.conyli.dao;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import cc.conyli.entity.Role;
+
+@Repository
+public class RoleDaoImpl implements RoleDao {
+
+	// need to inject the session factory
+	@Autowired
+	private SessionFactory sessionFactory;
+
+	@Override
+	public Role findRoleByName(String theRoleName) {
+
+		// get the current hibernate session
+		Session currentSession = sessionFactory.getCurrentSession();
+
+		// now retrieve/read from database using name
+		Query&lt;Role> theQuery = currentSession.createQuery("from Role where name=:roleName", Role.class);
+		theQuery.setParameter("roleName", theRoleName);
+		
+		Role theRole = null;
+		
+		try {
+			theRole = theQuery.getSingleResult();
+		} catch (Exception e) {
+			theRole = null;
+		}
+		
+		return theRole;
+	}
+}
+</pre>
+<br>
+<pre>
+package cc.conyli.dao;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import cc.conyli.entity.User;
+
+@Repository
+public class UserDaoImpl implements UserDao {
+
+	// need to inject the session factory
+	@Autowired
+	private SessionFactory sessionFactory;
+
+	@Override
+	public User findByUserName(String theUserName) {
+		// get the current hibernate session
+		Session currentSession = sessionFactory.getCurrentSession();
+
+		// now retrieve/read from database using username
+		Query&lt;User> theQuery = currentSession.createQuery("from User where userName=:uName", User.class);
+		theQuery.setParameter("uName", theUserName);
+		User theUser = null;
+		try {
+			theUser = theQuery.getSingleResult();
+		} catch (Exception e) {
+			theUser = null;
+		}
+
+		return theUser;
+	}
+
+	@Override
+	public void save(User theUser) {
+		// get current hibernate session
+		Session currentSession = sessionFactory.getCurrentSession();
+
+		// create the user ... finally LOL
+		currentSession.saveOrUpdate(theUser);
+	}
+}
+</pre>
+<p>还没有创建sessionFactory的这个Bean，这个会到最后一起在配置文件里创建Bean。</p>
+
+<h3 style="text-align: center;">创建注册成功页面</h3>
+<p>还需要在注册成功的时候创建注册成功页面，做一个很简单的页面：</p>
+<pre>
+&lt;html>
+
+&lt;head>
+	&lt;title>Registration Confirmation&lt;/title>
+&lt;/head>
+
+&lt;body>
+
+	&lt;h2>User registered successfully!&lt;/h2>
+
+	&lt;hr>
+	
+	&lt;a href="${pageContext.request.contextPath}/showMyLoginPage">Login with new user&lt;/a>
+	
+&lt;/body>
+
+&lt;/html>
+</pre>
+
+<h3 style="text-align: center;">配置Spring 与Spring Security</h3>
+<p>这里先需要在config包下创建一个类，用来配置处理成功之后的处理：</p>
+<pre>
+package cc.conyli.config;
+
+import java.io.IOException;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.stereotype.Component;
+
+import cc.conyli.entity.User;
+import cc.conyli.service.UserService;
+
+@Component
+public class CustomAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
+
+    @Autowired
+    private UserService userService;
+
+	@Override
+	public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
+			throws IOException, ServletException {
+
+		System.out.println("\n\nIn customAuthenticationSuccessHandler\n\n");
+
+		String userName = authentication.getName();
+
+		System.out.println("userName=" + userName);
+
+		User theUser = userService.findByUserName(userName);
+
+		//把用户数据放到Session里
+		HttpSession session = request.getSession();
+		session.setAttribute("user", theUser);
+
+		//重定向到根目录
+		response.sendRedirect(request.getContextPath() + "/");
+	}
+}
+</pre>
+<p>这个类的一个关键作用就是把user对象设置到session上，Spring Security内部也是这个机制，将user对象设置到了session上之后，后边的<code>DaoAuthenticationProvider</code>使用<code>userService</code>这一系列验证才能生效。</p>
+<p>然后是Spring Security的配置类，在最开始我们配置了一个<code>BCryptPasswordEncoder</code>和一个<code>DaoAuthenticationProvider</code>两个Bean，现在Service对象有了，继续修改配置，最终的配置文件如下：</p>
+<pre>
+package cc.conyli.config;
+
+import cc.conyli.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+import javax.sql.DataSource;
+
+@Configuration
+@EnableWebSecurity
+public class DemoSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    <span style="color: red">@Autowired
+    private UserService userService;
+
+    @Autowired
+    private CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+
+        auth.authenticationProvider(authenticationProvider());
+    }</span>
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.authorizeRequests()
+                .antMatchers("/").hasRole("EMPLOYEE")
+                .antMatchers("/leader/**").hasRole("MANAGER")
+                .antMatchers("/system/**").hasRole("ADMIN")
+                .and()
+                .formLogin()
+                .loginPage("/showMyLoginPage")
+                .loginProcessingUrl("/authenticateTheUser")
+                <span style="color: red">.successHandler(customAuthenticationSuccessHandler)</span>
+                .permitAll()
+                .and()
+                .logout().permitAll()
+                .and()
+                .exceptionHandling().accessDeniedPage("/access-denied/");
+    }
+
+    //初始化一个bcrypt编码Bean
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    //创建认证提供器
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider auth = new DaoAuthenticationProvider();
+        auth.setUserDetailsService(userService);
+        auth.setPasswordEncoder(passwordEncoder());
+        return auth;
+    }
+}
+</pre>
+<p>这里新的内容主要是新注入的<code>UserService</code>对象和<code>CustomAuthenticationSuccessHandler</code>对象，以及在配置方法里，给auth直接设置了一个验证提供类，而不是使用原来硬编码或者是数据库连接池。这样在验证的时候，Spring Security也是通过Hibernate去数据库读取数据。</p>
+<p>最后是Spring IOC容器里的Hibernate类配置了，这个已经很熟悉了，完整的配置类如下：</p>
+<pre>
+package cc.conyli.config;
+
+import com.mchange.v2.c3p0.ComboPooledDataSource;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.env.Environment;
+import org.springframework.orm.hibernate5.HibernateTransactionManager;
+import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.web.servlet.ViewResolver;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.view.InternalResourceViewResolver;
+
+import javax.sql.DataSource;
+import java.beans.PropertyVetoException;
+import java.util.Properties;
+import java.util.logging.Logger;
+
+@Configuration
+@EnableWebMvc
+<span style="color: red">@EnableTransactionManagement</span>
+@ComponentScan(basePackages = "cc.conyli")
+@PropertySource("classpath:persistence-mysql.properties")
+public class DemoAppConfig {
+
+    @Bean
+    public ViewResolver viewResolver() {
+        InternalResourceViewResolver viewResolver = new InternalResourceViewResolver();
+        viewResolver.setPrefix("/WEB-INF/view/");
+        viewResolver.setSuffix(".jsp");
+        return viewResolver;
+    }
+
+    @Autowired
+    private Environment environment;
+
+    private Logger logger = Logger.getLogger(getClass().getName());
+
+    //连接池的Bean
+    @Bean
+    public DataSource securityDataSource() {
+        //利用C3PO创建连接池
+        ComboPooledDataSource securityDataSource = new ComboPooledDataSource();
+        //设置连接池对象的数据库属性
+        try {
+            securityDataSource.setDriverClass(environment.getProperty("jdbc.driver"));
+            securityDataSource.setJdbcUrl(environment.getProperty("jdbc.url"));
+            securityDataSource.setUser(environment.getProperty("jdbc.user"));
+            securityDataSource.setPassword(environment.getProperty("jdbc.password"));
+
+            logger.info(">>>> jdbc.url=" + environment.getProperty("jdbc.url"));
+            logger.info(">>>> jdbc.user=" + environment.getProperty("jdbc.user"));
+        } catch (PropertyVetoException ex) {
+            throw new RuntimeException(ex);
+        }
+        //设置连接池的连接属性
+        securityDataSource.setInitialPoolSize(Integer.parseInt(environment.getProperty("connection.pool.initialPoolSize")));
+        securityDataSource.setMinPoolSize(Integer.parseInt(environment.getProperty("connection.pool.minPoolSize")));
+        securityDataSource.setMaxPoolSize(Integer.parseInt(environment.getProperty("connection.pool.maxPoolSize")));
+        securityDataSource.setMaxIdleTime(Integer.parseInt(environment.getProperty("connection.pool.maxIdleTime")));
+
+        return securityDataSource;
+    }
+
+    //这个是自己写的类方法，用于获取Hibernate的配置属性
+    private Properties getHibernateProperties() {
+
+        // set hibernate properties
+        Properties props = new Properties();
+
+        props.setProperty("hibernate.dialect", environment.getProperty("hibernate.dialect"));
+        props.setProperty("hibernate.show_sql", environment.getProperty("hibernate.show_sql"));
+
+        return props;
+    }
+
+    //创建SessionFactory的Bean
+    @Bean
+    public LocalSessionFactoryBean sessionFactory(){
+
+        // create session factorys
+        LocalSessionFactoryBean sessionFactory = new LocalSessionFactoryBean();
+
+        // set the properties
+        sessionFactory.setDataSource(securityDataSource());
+        sessionFactory.setPackagesToScan(environment.getProperty("hiberante.packagesToScan"));
+        sessionFactory.setHibernateProperties(getHibernateProperties());
+
+        return sessionFactory;
+    }
+
+
+    //自动事务管理
+    @Bean
+    @Autowired
+    public HibernateTransactionManager transactionManager(SessionFactory sessionFactory) {
+
+        // setup transaction manager based on session factory
+        HibernateTransactionManager txManager = new HibernateTransactionManager();
+        txManager.setSessionFactory(sessionFactory);
+
+        return txManager;
+    }
+}
+</pre>
+<p>由于Hibernate也需要连接池Bean，所以只需要配置Hibernate的Bean即可，这里没有使用Spring的Hibernate配置类，而是使用了Hibernate提供的类，但是内容也是一样的，设置好连接池，从文件里读出Entity扫描位置和其他属性然后设置好就可以了。</p>
+<p>最后一个Bean之前没接触过，应该是指的自动的事务处理。</p>
+
+<h3 style="text-align: center;">运行项目</h3>
+<p>一开始直接运行的时候，报错，<code>error activating bean validation integration</code>，这是因为之前我自己在pom.xml中配置了：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>javax&lt;/groupId>
+    &lt;artifactId>javaee-api&lt;/artifactId>
+    &lt;version>7.0&lt;/version>
+&lt;/dependency>
+</pre>
+<p>这个其实是不需要的，有了这个之后会导入另外一个验证器，造成冲突。一般配置servlet相关的API只需要下边这两个依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>javax.servlet&lt;/groupId>
+    &lt;artifactId>javax.servlet-api&lt;/artifactId>
+    &lt;version>3.0.1&lt;/version>
+    &lt;scope>provided&lt;/scope>
+&lt;/dependency>
+
+&lt;dependency>
+    &lt;groupId>javax.servlet.jsp&lt;/groupId>
+    &lt;artifactId>javax.servlet.jsp-api&lt;/artifactId>
+    &lt;version>2.3.1&lt;/version>
+&lt;/dependency>
+</pre>
+<p>之后可以正常启动了，功能测试也都正常。这里有一点要注意的是，DAO类里操作的数据库底层是Hibernate的SessionFactory对象，而且由于用户名是独特的，我们没有直接通过id取用户名。这里是创建了SQL语句去执行，但是这里的SQL语句实际上是HQL语句，即用Entity Class名称替代表名，属性名替代列名，而<code>:uName</code>是特殊写法，标示一个变量，要在随后使用<code>theQuery.setParameter("uName", theUserName);</code>去设置，这里和标准的SQL语句有点区别，要特别注意。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 </body>
 </html>
