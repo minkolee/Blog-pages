@@ -4,29 +4,79 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 30 Spring REST - 初步</title>
+    <title>Spring 30 Spring REST - REST基础概念</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
 <p>两大传统艺能学习完毕了，其中Spring Security还需要深入一下，呃，其实是整个Spring都还需要再深入学习。</p>
 <p>光有了前边的两大传统艺能，如果还是使用JSP来开发页面，还没有做到前后端分离，还是拿着传统艺能在做传统的事情。</p>
 <p>REST具体是什么就不多说了，在Django时代已经用过一次了。现在来看看Spring Web开发里如何使用REST，并且要把原来的增删改查项目，升级到REST风格的项目。 </p>
+<p>REST的部分将学习如下内容：</p>
+<ol>
+    <li>使用Spring 创建 REST 服务</li>
+    <li>REST的理念，JSON和HTTP messaging</li>
+    <li>使用Postman REST客户端工具</li>
+    <li>使用@RestController开发REST API/Web 服务</li>
+    <li>最后使用上述概念写一个CRUD应用</li>
+</ol>
+<p>Spring的文档地址：<a href="https://docs.spring.io/spring/docs/current/spring-framework-reference/index.html">https://docs.spring.io/spring/docs/current/spring-framework-reference/index.html</a></p>
+
+<h1 style="text-align: center;">REST基础概念</h1>
+<p>REST指的是<span style="color: red">RE</span>presentational <span style="color: red">S</span>tate <span style="color: red">T</span>ransfer，由于都是老Web开发了，具体就不介绍了，可以看其他文章。</p>
+<p>REST的数据可以使用XML或者JSON，现在JSON使用的比较普遍也更加现代。</p>
+<p>其实REST数据主要是给其他程序用的，而页面是给人看的，记住这点就可以了。</p>
+<P>天气网站经常使用REST服务，比如<a href="https://openweathermap.org/">https://openweathermap.org/</a>，可以以<code>api.openweathermap.org/data/2.5/weather?q={city name}</code>的方式访问这个网站，当然，直接访问不行，还得有API KEY，这只是举一个例子。</P>
+<p>通常这个网站会返回一个JSON，里边有所查询的城市的一系列天气的信息，这些信息实际上是给其他程序提供的，如果我们编写一个程序，让用户输入城市名，然后通过JS调用这个API，得到JSON之后展示给用户，此时这个天气网站就变成了我们页面的后端服务。这就是真正的前后端分离，只交换数据，页面不会由后端进行渲染。</p>
+
+<h1 style="text-align: center;">JSON binding with POJO</h1>
+<p>JSON的基础概念对于我们学过前端的，就不细细学习了JSON，一句话，相当于一个键值对的组合。</p>
+<p>这里要学的是如何用Java处理Json，由于Java基于类，所以很显然，需要一个POJO对应一种JSON，以便将Json解析成类对象，或者将类对象转换成JSON字符串。我们称之Java POJO和JSON的绑定，用英文来说，一般称作binding，Mapping映射，Serialization/Deserialization序列化/反序列化，Marshalling/Unmarshalling。看到这些单词，基本都是指同样的意思。</p>
+<p>Spring使用<code>Jackson Project</code>来处理Java POJO和JSON的绑定。这个项目的GIT地址在<a href="https://github.com/FasterXML/jackson-databind">这里</a>。</p>
+<p><code>Jackson Project</code>的包名是com.fasterxml.jackson.databind，Maven配置如下：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>com.fasterxml.jackson.core&lt;/groupId>
+    &lt;artifactId>jackson-databind&lt;/artifactId>
+    &lt;version>2.9.0&lt;/version>
+&lt;/dependency>
+</pre>
+<p>来通过代码学习一下Jackson的使用，其实用过JSON的都知道，JSON处理库基本上就两个大功能，一个是把数据转换成JSON字符串，一个是把JSON字符串解析成对应的数据类型。</p>
+<p>新创建一个Maven quickstart项目，然后把Jackson的依赖添加进去。</p>
+<p>然后再项目根目录下创建data目录，编写两个JSON文件如下：</p>
+<p>不嵌套的sample-lite.json：</p>
+<pre>
+{
+	"id": 14,
+	"firstName": "Mario",
+	"lastName": "Rossi",
+	"active": true
+}
+</pre>
+<p>嵌套的sample-full.json：</p>
+<pre>
+{
+	"id": 14,
+	"firstName": "Mario",
+	"lastName": "Rossi",
+	"active": true,
+	"address": {
+		"street": "100 Main St",
+		"city": "Philadelphia",
+		"state": "Pennsylvania",
+		"zip": "19103",
+		"country": "USA"
+	},
+	"languages" : ["Java", "C#", "Python", "Javascript"]
+}
+</pre>
+<p>之后先来看看</p>
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+<p></p>
+<p>Spring对于Jackson的支持是集成式的，无需向上边一样手动操作，Spring会自动将传递给REST控制器的JSON字符串转换成对应的POJO，将REST控制器返回的对象转换成JSON字符串，要做的就是在配置文件中将其配置好即可。</p>
 
 
 
