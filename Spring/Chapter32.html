@@ -266,8 +266,14 @@ public ResponseEntity&lt;CustomerErrorResponse> handleNormalException(Exception 
 }
 </pre>
 <p>这样就完成了错误处理，如果我们的前端有处理错误JSON字符串的JS程序，就可以将错误信息显示在页面上。</p>
-
-
+<p>后记：这里最好将Jackson的版本升级到2.9.8或者之后，Github提示低于这个版本的Jackson有安全风险，可以使用如下方式配置：</p>
+<pre>
+&lt;dependency>
+  &lt;groupId>com.fasterxml.jackson.core&lt;/groupId>
+  &lt;artifactId>jackson-databind&lt;/artifactId>
+  &lt;version>[2.9.8,)&lt;/version>
+&lt;/dependency>
+</pre>
 
 
 
