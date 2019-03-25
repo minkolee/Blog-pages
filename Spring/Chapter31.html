@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 30 Spring REST - REST基础概念</title>
+    <title>Spring 31 Spring REST - 在Java中使用JSON</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
@@ -28,7 +28,7 @@
 <P>天气网站经常使用REST服务，比如<a href="https://openweathermap.org/">https://openweathermap.org/</a>，可以以<code>api.openweathermap.org/data/2.5/weather?q={city name}</code>的方式访问这个网站，当然，直接访问不行，还得有API KEY，这只是举一个例子。</P>
 <p>通常这个网站会返回一个JSON，里边有所查询的城市的一系列天气的信息，这些信息实际上是给其他程序提供的，如果我们编写一个程序，让用户输入城市名，然后通过JS调用这个API，得到JSON之后展示给用户，此时这个天气网站就变成了我们页面的后端服务。这就是真正的前后端分离，只交换数据，页面不会由后端进行渲染。</p>
 
-<h1 style="text-align: center;">JSON binding with POJO</h1>
+<h1 style="text-align: center;">在Java中使用JSON</h1>
 <p>JSON的基础概念对于我们学过前端的，就不细细学习了JSON，一句话，相当于一个键值对的组合。</p>
 <p>这里要学的是如何用Java处理Json，由于Java基于类，所以很显然，需要一个POJO对应一种JSON，以便将Json解析成类对象，或者将类对象转换成JSON字符串。我们称之Java POJO和JSON的绑定，用英文来说，一般称作binding，Mapping映射，Serialization/Deserialization序列化/反序列化，Marshalling/Unmarshalling。看到这些单词，基本都是指同样的意思。</p>
 <p>Spring使用<code>Jackson Project</code>来处理Java POJO和JSON的绑定。这个项目的GIT地址在<a href="https://github.com/FasterXML/jackson-databind">这里</a>。</p>
@@ -41,8 +41,10 @@
 &lt;/dependency>
 </pre>
 <p>来通过代码学习一下Jackson的使用，其实用过JSON的都知道，JSON处理库基本上就两个大功能，一个是把数据转换成JSON字符串，一个是把JSON字符串解析成对应的数据类型。</p>
-<p>新创建一个Maven quickstart项目，然后把Jackson的依赖添加进去。</p>
-<p>然后再项目根目录下创建data目录，编写两个JSON文件如下：</p>
+<p>新建一个Maven quickstart项目，然后把Jackson的依赖添加进去。</p>
+
+<h3 style="text-align: center;">从JSON中读取数据</h3>
+<p>在src目录下创建data目录，编写两个JSON文件如下：</p>
 <p>不嵌套的sample-lite.json：</p>
 <pre>
 {
@@ -69,16 +71,286 @@
 	"languages" : ["Java", "C#", "Python", "Javascript"]
 }
 </pre>
-<p>之后第一步是先来创建映射的POJO，先从简单一些的JSON开始：</p>
+<p>之后第一步是先来创建映射的POJO，先从不嵌套的JSON开始：</p>
 <pre>
+package cc.conyli.json;
 
+public class Student {
+    private int id;
+    private String firstName;
+    private String lastName;
+    boolean active;
+
+
+    public Student() {
+    }
+
+    public Student(int id, String firstName, String lastName, boolean active) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.active = active;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    @Override
+    public String toString() {
+        return "Student{" +
+                "id=" + id +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", active=" + active +
+                '}';
+    }
+}
 </pre>
+<p>类本身很简单，这里要注意的是，类的域名称必须要和JSON字符串里的键名相匹配，在实际操作中，Jackson不像Spring那样装配类，所以不会直接去访问域，而是调用getter和setter方法来写入和读取数据，所以getter和setter方法也要设置好。</p>
+<p>然后来使用Jackson从JSON中载入数据到Student对象：</p>
+<pre>
+package cc.conyli.json;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.File;
 
+public class JsonTest {
 
-<p></p>
-<p>Spring对于Jackson的支持是集成式的，无需向上边一样手动操作，Spring会自动将传递给REST控制器的JSON字符串转换成对应的POJO，将REST控制器返回的对象转换成JSON字符串，要做的就是在配置文件中将其配置好即可。</p>
+    public static void main(String[] args) {
+
+        try {
+//            创建新的映射对象
+            ObjectMapper mapper = new ObjectMapper();
+
+            //尝试载入JSON文件和对应的POJO类
+            Student student = mapper.readValue(new File("src/data/sample-lite.json"), Student.class);
+
+            //使用Student对象
+            System.out.println("From JSON load a student: ---> " + student);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+}
+</pre>
+<p>这个其实是样板代码，需要创建一个映射对象，通过从一个文件对象中和对应的POJO类，自动加载对应的数据。</p>
+<p>再来看一下那个嵌套的JSON，实际上JSON字符串中复杂结构映射到Java的类上边只有两种，要么还是一个普通对象，要么是一个List&lt;String&gt;对象。所以其中的address对应一个Address对象，而languages对应一个List&lt;String>对象。知道了这些，就可以编写对应的类了：</p>
+<pre>
+package cc.conyli.json;
+
+public class Address {
+
+    private String street;
+    private String city;
+    private String state;
+    private String zip;
+    private String country;
+
+    public String getStreet() {
+        return street;
+    }
+
+    public void setStreet(String street) {
+        this.street = street;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    public String getZip() {
+        return zip;
+    }
+
+    public void setZip(String zip) {
+        this.zip = zip;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    public Address() {
+    }
+
+    public Address(String street, String city, String state, String zip, String country) {
+        this.street = street;
+        this.city = city;
+        this.state = state;
+        this.zip = zip;
+        this.country = country;
+    }
+
+    @Override
+    public String toString() {
+        return "Address{" +
+                "street='" + street + '\'' +
+                ", city='" + city + '\'' +
+                ", state='" + state + '\'' +
+                ", zip='" + zip + '\'' +
+                ", country='" + country + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>这个是纯POJO，没什么好说的，剩下就是要新建一个StudentComplext类来对应整个JSON，设置两个域为Address类型和List&lt;String>类型。</p>
+<pre>
+package cc.conyli.json;
+
+import java.util.List;
+
+public class StudentComplex {
+    ......
+    private Address address;
+    private List&lt;String> languages;
+
+    public Address getAddress() {
+        return address;
+    }
+
+    public void setAddress(Address address) {
+        this.address = address;
+    }
+
+    public List&lt;String> getLanguages() {
+        return languages;
+    }
+
+    public void setLanguages(List&lt;String> languages) {
+        this.languages = languages;
+    }
+
+    ......
+}
+</pre>
+<p>也是很简单的一个POJO，其他域、构造器和toString()都省略了。然后来加载这个新的JSON文件。</p>
+<pre>
+public class App
+{
+    public static void main(String[] args) {
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+
+            //加载复杂的类
+            StudentComplex student = mapper.readValue(new File("src/data/sample-full.json"), StudentComplex.class);
+
+            System.out.println("From lite JSON load a student: ---> " + student);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+}
+</pre>
+<p>这样就完成了将JSON数据加载到对应的POJO类的过程，可见其中的关键是创建合理的POJO类来对应JSON文件。</p>
+
+<h3 style="text-align: center;">仅加载需要的JSON数据</h3>
+<p>在日常开发中经常会遇到，仅需要JSON的部分数据，为此每次都用完整的类读入全部数据，再进行分析有些浪费。</p>
+<p>现在我们不再需要JSON中的lastName数据，如果直接尝试把Student类中的lastName字段和getter/setter方法去掉，会报错<code>Unrecognized field "lastName"</code>。</p>
+<p>正确的做法是给Student类加上一个注解如下：</p>
+<pre>
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class Student {
+    private int id;
+    private String firstName;
+    boolean active;
+    ...
+}
+</pre>
+<p>此时再运行，就发现仅取出了所需要的数据。</p>
+
+<h3 style="text-align: center;">将POJO转换成JSON字符串</h3>
+<p>还记得很久之前学过的知识，想要把一个东西进行序列化，需要实现一个标志性接口叫做Serializable。</p>
+<p>现在我们修改一下Student类，加上这个接口（代码省略）。Jackson序列化的方式依然操作<code>ObjectMapper</code>对象，直接调用write方法，传入一个输出流和数据对象即可。</p>
+<pre>
+public static void main(String[] args) {
+    try {
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        //新建一个学生数据
+        Student student = new Student(1, "cony", "li", true);
+
+        //向指定的流中写入转换后的字符串
+        mapper.writeValue(System.out, student);
+
+    } catch (Exception ex) {
+        ex.printStackTrace();
+    }
+}
+</pre>
+<p>注意.writeValue()方法调用一次之后流就关闭了，无法再写入，写入Map对象的例子如下：</p>
+<pre>
+public class App {
+    public static void main(String[] args) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+
+            //创建Map对象
+            Map&lt;String, String> address = new HashMap&lt;String, String>();
+            address.put("street", "100 Main St");
+            address.put("city", "Philadelphia");
+            address.put("state", "Pennsylvania");
+            address.put("zip", "19103");
+            address.put("country", "USA");
+
+            //写入转换后的JSON字符串到输出流
+            mapper.writeValue(System.out, address);
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+}
+</pre>
+<p>单独这么转换JSON字符串没有什么大用处，我们想要的是将字符流写入Http响应对象中，也就是在Spring中使用Jackson。</p>
+<p>Spring对于Jackson的支持是集成式的，无需向上边一样手动操作，Spring会自动将传递给REST控制器的JSON字符串转换成对应的POJO，将REST控制器返回的对象转换成JSON字符串，所以先要了解Spring基础的<code>@RestController</code>，再来看如何将JSON字符串以HTTP响应的形式返回。</p>
 
 
 

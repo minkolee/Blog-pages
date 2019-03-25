@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 32 Spring REST - RESTController</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<p>想要通过Spring返回JSON字符串作为HTTP的响应体，一个比较简便的方法是使用Spring特殊的REST控制器。</p>
+<p>REST服务在HTTP中的使用常见于如下：</p>
+<table border="1">
+    <thead>
+    <tr>
+        <th>HTTP请求类型</th>
+        <th>CRUD操作对应</th>
+    </tr></thead>
+    <tbody>
+    <tr>
+        <td>POST</td>
+        <td>Create</td>
+    </tr>
+    <tr>
+        <td>GET</td>
+        <td>Retrieve单个或者对象结果集合</td>
+    </tr>
+    <tr>
+        <td>PUT</td>
+        <td>更新一个存在的对象</td>
+    </tr>
+    <tr>
+        <td>DELETE</td>
+        <td>删除一个已经存在的对象</td>
+    </tr></tbody>
+</table>
+<p>在开始学习REST之前，由于从此之后就是前后端分离了，我们不再返回具体的页面（或者很少返回），所以实际上我们还需要编写前端页面，比如使用Vue等前端框架通过AJAX来发起请求。</p>
+<p>不过这里我们只是后端，所以除了浏览器之外，还有一些第三方工具可以用来进行HTTP尤其是REST的测试。</p>
+<p>这里涉及的一些Web基础知识就不再多说了，请求行，请求头，请求体，HTTP状态码，MIME等，这里介绍一个开发调试工具<code>Postman</code></p>
+
+<h1 style="text-align: center;">Postman使用</h1>
+<p>Postman的地址是<a href="https://www.getpostman.com/">https://www.getpostman.com/</a>，下载Windows版本然后安装，用Google账户登录之后就可以进入界面了，使用起来也很方便，输入网址就可以方便的看到HTTP的具体信息。</p>
+<p>可以通过其访问<a href="http://jsonplaceholder.typicode.com/">http://jsonplaceholder.typicode.com/</a>，这是一个用于JSON开发和测试的网站，访问<a
+        href="http://jsonplaceholder.typicode.com/users">http://jsonplaceholder.typicode.com/users</a>可以看到头部信息和返回的JSON字符串。</p>
+<p>现在由于我们没有前端框架用于发送请求，所以就先用Postman当成我们的客户端。</p>
+
+<h1 style="text-align: center;">简单的Rest控制器</h1>
+<p>实际上提供支持的是Spring Web MVC，通过一个注解<code>@RestController</code>来实现，这个注解继承自<code>@Controller</code>，所以也是一个Bean。被注解的控制器类用来处理REST请求和响应，会自动在POJO和JSON之间进行转换，只需要将Jackson包在classpath下或者通过Maven配置了Jackson依赖。</p>
+<p>使用Maven配置的增删改查项目，配置好Jackson依赖，来添加新的控制器</p>
+<pre>
+package cc.conyli.controller;
+
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/test")
+public class DemoRestController {
+
+    @GetMapping("/hello")
+    public String sayHello() {
+        return "第一个Spring REST响应";
+    }
+}
+</pre>
+<p>然后访问链接，可以发现<code>@RestController</code>修饰的类的方法，并没有被视图解析器解析成jsp路径，而是直接返回了字符串。通过Postman查看可以发现编码不是UTF-8，可以在XML文件中如下配置：</p>
+<pre>
+&lt;mvc:annotation-driven>
+    &lt;mvc:message-converters register-defaults="true">
+        &lt;bean class="org.springframework.http.converter.StringHttpMessageConverter">
+            &lt;constructor-arg value="UTF-8" />
+        &lt;/bean>
+    &lt;/mvc:message-converters>
+&lt;/mvc:annotation-driven>
+</pre>
+<p>既然可以使用REST用来直接返回字符串了，剩下就是如何返回JSON字符串了。</p>
+
+<h1 style="text-align: center;">返回JSON字符串</h1>
+<p>这一次我们不再返回简单的字符串，而是要返回一个POJO对象对应的JSON字符串。</p>
+<p>其实没有想象的复杂，只需要创建这个POJO对象，然后让控制器返回这个对象就可以了，之后看看到底是什么样的响应体。由于我们已经有了Customer类，就使用这个类，来返回一个Customer集合。</p>
+<p>创建返回一个Customer集合对象的REST控制器：</p>
+<pre>
+package cc.conyli.controller;
+
+import cc.conyli.entity.Customer;
+import cc.conyli.service.CustomerService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api")
+public class CustomerRestController {
+
+    private CustomerService customerService;
+
+    @Autowired
+    public CustomerRestController(CustomerService customerService) {
+        this.customerService = customerService;
+    }
+
+    @GetMapping("/customers")
+    public List&lt;Customer> getCustomers() {
+        return customerService.getCustomers();
+    }
+}
+
+</pre>
+<p>注入Bean之类的就不再多说了，因为我们有编写好的业务层和DAO层，可以直接使用。在没有引入REST控制器之前，控制器方法返回了一个Student集合对象，不符合要求。但是现在加上了注解之后，在Postman里访问，可以发现返回了一个由列表转换而成的JSON字符串，这就是Rest控制器的威力。</p>
+<p>能返回客户列表了，如何返回单个客户呢，一般采用<code>/api/customer/1</code>的方式作为REST风格的地址，很显然，就是要获得最后一个数字，用于查询对应的客户。</p>
+<p>这里我们使用<code>@PathVariable</code>注解来获取URL中可变的部分（path variable 路径变量）。这个变量也可以用在普通的非RestController上，这样就像Django一样有匹配。</p>
+<p>给REST控制器添加一个新方法：</p>
+<pre>
+@GetMapping("/customer/{customerId}")
+public Customer getCustomer(@PathVariable int customerId) {
+    List&lt;Customer> customers = customerService.getCustomers();
+        return customers.get(customerId - 1);
+}
+</pre>
+<p>这里现在URL中标出会变化的部分并且给一个名称，然后在参数中绑定该变量为int类型，像极了刚学Spring MVC时候的<code>@ModelAttribute</code>绑定。</p>
+<p>这里我们使用了用户列表，然后通过索引-1去获取，这其实不是太好，应该通过已经编写好的业务层和DAO层按照ID或者对象的方式。不过这里是为了之后的异常处理。</p>
+<p>如果直接调用编写好的方法，在id获取不到的时候，返回的就是空页面，观感不好。</p>
+<p>尝试在Postman里访问，发现可以正常获取，但是当id超过列表索引的时候，会看到500错误：</p>
+<pre>
+Request processing failed; nested exception is java.lang.IndexOutOfBoundsException: Index: 4, Size: 4
+</pre>
+<p>很显然这是数组越界，一般如果出现这种运行时错误，应该向用户告知不存在，而不能简单的抛出错误给浏览器。</p>
+
+<h1 style="text-align: center;">异常处理</h1>
+<p>异常处理的逻辑是：</p>
+<ol>
+    <li>编写自定义的错误类和POJO对象</li>
+    <li>添加<code>@ExceptionHandler</code>来编写一个处理错误的方法</li>
+    <li>返回POJO对象转换而成的错误信息</li>
+</ol>
+<p>由于我们依然要返回一个JSON作为错误信息，所以需要先编写一个类用于转换成JSON：</p>
+<pre>
+package cc.conyli.errorhandler;
+
+public class CustomerErrorResponse {
+
+    private int status;
+    private String message;
+    private long timeStamp;
+
+    public CustomerErrorResponse(int status, String message, long timeStamp) {
+        this.status = status;
+        this.message = message;
+        this.timeStamp = timeStamp;
+    }
+
+    public CustomerErrorResponse() {
+    }
+
+    public int getStatus() {
+        return status;
+    }
+
+    public void setStatus(int status) {
+        this.status = status;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public long getTimeStamp() {
+        return timeStamp;
+    }
+
+    public void setTimeStamp(long timeStamp) {
+        this.timeStamp = timeStamp;
+    }
+
+    @Override
+    public String toString() {
+        return "CustomerErrorResponse{" +
+                "status=" + status +
+                ", message='" + message + '\'' +
+                ", timeStamp=" + timeStamp +
+                '}';
+    }
+}
+</pre>
+<p>然后编写一个自定义的错误类，也很简单：</p>
+<pre>
+package cc.conyli.errorhandler;
+
+public class CustomerNotfoundError extends RuntimeException {
+
+    public CustomerNotfoundError(String message) {
+        super(message);
+    }
+}
+</pre>
+<p>之后来编写错误处理方法，先看几个理论要点：</p>
+<ol>
+    <li>错误处理方法用<code>@ExceptionHandler</code>注解</li>
+    <li>错误处理方法要求固定返回<code>ResponseEntity&lt;T&gt;</code>对象，其中的泛型T是我们刚才编写那个转换成JSON的类。ResponseEntity是一个包装了Http响应的类，这个类可以去控制状态码，响应头和体等具体内容，非常方便。</li>
+    <li>错误处理方法的名称可以是任意名称，但是参数必须是要处理的异常类型，也就是尝试catch的异常类型</li>
+</ol>
+<p>来在控制器内编写错误处理方法：</p>
+<pre>
+@ExceptionHandler
+public ResponseEntity&lt;CustomerErrorResponse> handleCustomerNotfoundError(CustomerNotfoundError customerNotfoundError) {
+    CustomerErrorResponse customerErrorResponse = new CustomerErrorResponse();
+
+    customerErrorResponse.setStatus(HttpStatus.NOT_FOUND.value());
+    customerErrorResponse.setMessage(customerNotfoundError.getMessage());
+    customerErrorResponse.setTimeStamp(System.currentTimeMillis());
+
+    return new ResponseEntity&lt;>(customerErrorResponse, HttpStatus.NOT_FOUND);
+}
+</pre>
+<p>这个方法名称可以任意起，传入的参数是我们编写的继承自运行时异常的异常类。而返回的ResponseEntity来自于导入类，其中的泛型是我们编写的转换成JSON的错误信息类。</p>
+<p>在方法内部，设置了这个JSON的各个参数，其中的错误信息来自于异常类的.getMessage()方法，还使用了Spring的工具类的状态码信息和值。</p>
+<p>最后返回ResponseEntity对象，构建参数是我们的异常信息类和状态码对象，这里的异常信息类就是响应体，而后边的状态码对象，就是让响应的状态码变为404。</p>
+<p>然后需要修改刚才的控制器方法，在id不符合要求的时候抛出错误。</p>
+<pre>
+@GetMapping("/customer/{customerId}")
+public Customer getCustomer(@PathVariable int customerId) {
+    Customer customer = customerService.getCustomer(customerId);
+    if (customer == null) {
+        throw new CustomerNotfoundError("Customer with id " + customerId + " NOT FOUND!");
+    }
+    return customer;
+}
+</pre>
+<p>理论上讲此时如果查询超过范围的id，取不到对象，就会返回JSON字符串，其中的内容就是刚才的类转换而成的错误信息。</p>
+<p>试着访问一下：<code>http://localhost:8080/api/customer/10</code>，得到响应：</p>
+<pre>
+{
+    "status": 404,
+    "message": "Customer with id 14 NOT FOUND!",
+    "timeStamp": 1553500503641
+}
+</pre>
+<p>成功的出现了错误对象，这里如果尝试输入一个较长的数字，会发现依然有提示，这是因为错误不再是我们自定义的错误，而是转换INT的时候出现的错误，因此可以再添加一个直接抓任何的Exception的方法：</p>
+<pre>
+@ExceptionHandler
+public ResponseEntity&lt;CustomerErrorResponse> handleNormalException(Exception ex) {
+    CustomerErrorResponse customerErrorResponse = new CustomerErrorResponse();
+
+    customerErrorResponse.setStatus(HttpStatus.BAD_REQUEST.value());
+    customerErrorResponse.setMessage(ex.getMessage());
+    customerErrorResponse.setTimeStamp(System.currentTimeMillis());
+
+    return new ResponseEntity&lt;>(customerErrorResponse, HttpStatus.BAD_REQUEST);
+}
+</pre>
+<p>错误会优先匹配子类，然后是父类，所以如果错误是找不到对象的错误，那就会显示JSON格式的404错误，如果是其他错误，就是JSON格式的400错误，尝试访问<code>http://localhost:8080/api/customer/1000000000000000</code>，会得到如下：</p>
+<pre>
+{
+    "status": 400,
+    "message": "Failed to convert value of type 'java.lang.String' to required type 'int'; nested exception is java.lang.NumberFormatException: For input string: \"1000000000000000\"",
+    "timeStamp": 1553501045234
+}
+</pre>
+<p>这样就完成了错误处理，如果我们的前端有处理错误JSON字符串的JS程序，就可以将错误信息显示在页面上。</p>
+
+
+
+
+
+
+
+
+</body>
+</html>
