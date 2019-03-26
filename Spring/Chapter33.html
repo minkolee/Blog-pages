@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 33 Spring REST - REST增删改查及安全认证</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<p>在之前学习RestController的时候，其实已经将原来的项目的查询功能对外提供了API。这次先来看看API的设计思路，然后继续升级其他部分的API。</p>
+
+<h1 style="text-align: center;">REST API 设计</h1>
+<p>REST API设计是一个很广泛的话题，与业务关联很大，一般有如下步骤：</p>
+<ol>
+    <li>了解API的相关需求
+    以我们的增删改查项目来说，REST API要实现的功能是完整的增删改查功能。而像天气预报网站，可能只有查的功能。</li>
+    <li>了解要提供的资源，这个阶段主要关注名词，即网站服务要对外提供什么信息，然后将这个名词转换成程序的数据对象。以我们的增删改查项目为例，要提供的是Customer这个对象及其集合的信息。</li>
+    <li>设计HTTP请求类型对应的动作，之前有一张表，这里不再赘述，看一下设计好的API与对应动作的关系：
+    <table border="1">
+        <thead>
+        <tr>
+            <th>HTTP请求</th>
+            <th>路径</th>
+            <th>操作</th>
+        </tr></thead>
+        <tbody>
+        <tr>
+            <td>POST</td>
+            <td>/api/customers</td>
+            <td>创建新用户</td>
+        </tr>
+        <tr>
+            <td>GET</td>
+            <td>/api/customers</td>
+            <td>获取所有用户列表</td>
+        </tr>
+        <tr>
+            <td>GET</td>
+            <td>/api/customers/{customerId}</td>
+            <td>获取单个用户</td>
+        </tr>
+        <tr>
+            <td>PUT</td>
+            <td>/api/customers</td>
+            <td>更新已经存在的用户</td>
+        </tr>
+        <tr>
+            <td>DELETE</td>
+            <td>/api/customers/{customerId}</td>
+            <td>删除指定的用户</td>
+        </tr>
+        </tbody>
+    </table>
+    对于POST和PUT请求，需要在请求体内包含JSON字符串。
+    </li>
+</ol>
+<p>这样设计完之后，很清晰，注意不要在路径中包含动作，以下是一些设计不好的API：</p>
+<ol>
+    <li>/api/customersList</li>
+    <li>/api/deleteCustomer</li>
+    <li>/api/addCustomer</li>
+    <li>/api/updateCustomer</li>
+</ol>
+<p>要用HTTP的请求方法来作为动作要素，API内一般只包括名词。</p>
+<p>现实中也有很多例子可供参考，这里有一些知名网站的API设计可供参考：</p>
+<ol>
+    <li><a href="https://developer.paypal.com/docs/api/invoicing/v1/">Paypal的API指南</a></li>
+    <li><a href="https://developer.github.com/v3/repos/#repositories">Github</a></li>
+    <li><a href="https://developer.salesforce.com/docs/atlas.en-us.api_rest_industries.meta/api_rest_industries/overview.htm">Salesforce</a></li>
+</ol>
+
+<h1 style="text-align: center;">升级增删改查项目</h1>
+<p>之前设计好了API，可以发现，在刚才已经完成了对应API的查询方式。而且我们也定义了自己的异常转JSON类，自定义异常类和普通的异常处理方法。</p>
+<p>所以现在可以专注于API的编写，其实异常还可以在增删改查的具体过程中再细化，不过这个都是之后加强的内容了。先来编写添加用户的功能。</p>
+
+<h3 style="text-align: center;">添加用户</h3>
+<p>在添加用户的时候，我们需要发送POST请求附带一个JSON字符串到<code>/api/customers</code>，由于是一个新用户，所以无需附带id。</p>
+<p>一般在添加成功之后，需要返回这个新添加的对象，但是包含id，这样客户端就可以知道添加成功了。</p>
+<p>在之前使用的GET方法，是返回一个对象即可。Jackson可以自动转换从请求体中获取数据，使用<code>@RequestBody</code>注解来绑定一个POJO。由于我们的Service层和DAO层都配好了，因此实际只需编写一个控制器：</p>
+<pre>
+@PostMapping("/customers")
+public Customer addCustomer(@RequestBody Customer customer) {
+
+    customer.setId(0);
+
+    customerService.saveCustomer(customer);
+
+    return customer;
+}
+</pre>
+<p>这个控制器注解为只接受POST方法，然后由于传入的数据无需带有id，就将id设置为了0，这是因为在DAO层使用了Hibernate的<code>.saveOrUpdate(...)</code>方法，所以给个没有的id就行了。在保存了以后，这个对象就和session有了关联，于是就有了id。</p>
+<p>之后我们采用Postman给这个地址发送POST请求。在发送的时候，选择左侧的POST请求，贴上地址，然后在body里输入一串JSON：</p>
+<pre>
+{"firstName":"Saner","lastName":"Penguine","email":"saner@gmail.com"}
+</pre>
+<p>之后要记得点选上边raw，然后选择右侧的JSON格式，这样会在头部信息里附加<code>Content-type: application/json</code>，这个很重要，否则发过去的就是纯文本，没有用处。</p>
+<p>发送之后，可以看到返回的JSON字符串中带有了id信息，再访问获取该用户或者列表的页面，就可以看到该用户已经被添加到数据库。</p>
+
+<h3 style="text-align: center;">修改用户</h3>
+<p>修改用户需要使用PUT请求，此外数据中必须有id，无需将其设置为0，这样Hibernate就可以自动更新了。</p>
+<p>控制器方法也很简单：</p>
+<pre>
+@PutMapping("/customers")
+public Customer updateCustomer(@RequestBody Customer customer) {
+    Customer customer1 = customerService.getCustomer(customer.getId());
+    if (customer1 == null) {
+        throw new CustomerNotfoundError("Customer with id " + customer.getId() + " NOT FOUND!");
+    }
+    customerService.saveCustomer(customer);
+    System.out.println(customer);
+    System.out.println(customer1);
+    return customer;
+}
+</pre>
+<p>这里先通过ID检索对象，如果找不到，就说明没有该对象，抛错误。如果有，就更新。这里先去检索就可以获得更新前和更新后的对象。</p>
+
+<h3 style="text-align: center;">删除用户</h3>
+<p>DELETE请求发送用户即可。其实逻辑和PUT一样，也是先判断该id存在与否，再进行删除。</p>
+<pre>
+@DeleteMapping("/customers/{customerId}")
+public Customer deleteCustomer(@RequestBody Customer customer) {
+    Customer oldCustomer = customerService.getCustomer(customer.getId());
+    if (oldCustomer == null) {
+        throw new CustomerNotfoundError("Customer with id " + customer.getId() + " NOT FOUND!");
+    }
+    customerService.deleteCustomer(customer.getId());
+    return oldCustomer;
+}
+</pre>
+<p>可见Spring容器解耦方面的威力，在不修改任何其他业务逻辑的情况下，就完成了添加增删改查REST API。</p>
+
+<h1 style="text-align: center;">REST的安全问题</h1>
+<p>这里还涉及到安全问题，很显然，目前我们的程序只要知道了我们API的规则，就可以进行操作。在实际生活中是不可能允许如此操作的，尤其是删除操作。</p>
+<p>一般有两种做法，一是网站会需要你注册然后获取一个KEY，这个KEY必须包含在每次的请求中，用于验证身份。二是网站基于角色的权限管理，必须有对应权限才能操作。</p>
+<p>我们这里采用使用Spring Security基于角色的管理来解决安全问题。开发方法也很熟悉了：</p>
+<ol>
+    <li>Maven导入Spring Security</li>
+    <li>配置Security从数据库中读取用户和角色</li>
+    <li>做好登录界面即可</li>
+</ol>
+<p>实际上就是把我们之前编写的登录和新创建用户结合起来即可。</p>
+
+<h3 style="text-align: center;">添加相关依赖</h3>
+<p>添加依赖唯一要注意的是Spring 各个组件之间的兼容情况。因为Spring Security基于Filter技术，还需要配置Servlet相关的内容。</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.security&lt;/groupId>
+    &lt;artifactId>spring-security-web&lt;/artifactId>
+    &lt;version>5.1.4.RELEASE&lt;/version>
+&lt;/dependency>
+
+&lt;dependency>
+    &lt;groupId>org.springframework.security&lt;/groupId>
+    &lt;artifactId>spring-security-config&lt;/artifactId>
+    &lt;version>5.1.4.RELEASE&lt;/version>
+&lt;/dependency>
+
+&lt;dependency>
+    &lt;groupId>javax.servlet&lt;/groupId>
+    &lt;artifactId>javax.servlet-api&lt;/artifactId>
+    &lt;version>3.0.1&lt;/version>
+    &lt;scope>provided&lt;/scope>
+&lt;/dependency>
+
+
+&lt;dependency>
+    &lt;groupId>javax.servlet.jsp&lt;/groupId>
+    &lt;artifactId>javax.servlet.jsp-api&lt;/artifactId>
+    &lt;version>2.3.1&lt;/version>
+&lt;/dependency>
+</pre>
+<p>因为Spring Framework的版本是5.1.5版，这里就使用了5.1.4版本的Spring Security。</p>
+<p>然后来配置Spring Security。首先是创建Spring的初始化器，老样子：</p>
+<pre>
+package cc.conyli.config;
+
+import org.springframework.security.web.context.AbstractSecurityWebApplicationInitializer;
+
+public class SecurityWebAppInitializer extends AbstractSecurityWebApplicationInitializer {
+
+}
+</pre>
+<p>这样就启动了Spring Security，然后需要进行配置。</p>
+
+<h2 style="text-align: center;">配置Spring Security</h2>
+<p>这里为了简单，我们就直接用内存中存储数据的方式，其他配置也尽量简化：</p>
+<pre>
+package cc.conyli.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.User;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+
+        //该方法在5.0版本中还可以用，在5.1.5版本中提示已过期，最好仅用于简单应用。
+        User.UserBuilder users = User.withDefaultPasswordEncoder();
+
+        //直接在内存中保存验证数据
+        auth.inMemoryAuthentication()
+                .withUser(users.username("john").password("test123").roles("EMPLOYEE"))
+                .withUser(users.username("mary").password("test123").roles("EMPLOYEE", "MANAGER"))
+                .withUser(users.username("susan").password("test123").roles("EMPLOYEE", "ADMIN"));
+    }
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+
+        // 把所有REST API路径都设置成需要认证
+        http.authorizeRequests()
+                .antMatchers("/api/customers/**").authenticated()
+                .and()
+                .httpBasic()
+                .and()
+                .csrf().disable()
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+    }
+}
+</pre>
+<p>Spring 5默认开启CSRF验证。这个里边关闭了CSRF验证和session验证，因为一般提供给程序用的不需要CSRF验证。而session中不保存数据，就要求每次API请求都要验证身份，这也是类似于使用API KEY的方法。</p>
+
+<h3 style="text-align: center;">测试项目</h3>
+<p>使用Postman访问，需要在Authorization中选上Basic Auth，然后在右侧输入用户名和密码，就可以正常访问，如果不勾选Auth或者用户名密码填写错误，就会得到401错误响应。</p>
+<p>如果使用现代浏览器访问的话，在访问成功之后无需反复输入密码，这不是因为我们代码错误，而是现代浏览器具有保存认证凭据的功能。但Postman每次就是发无状态的请求，所以每次都必须带上密码。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
