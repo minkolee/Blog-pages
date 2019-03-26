@@ -232,9 +232,16 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 <h3 style="text-align: center;">测试项目</h3>
 <p>使用Postman访问，需要在Authorization中选上Basic Auth，然后在右侧输入用户名和密码，就可以正常访问，如果不勾选Auth或者用户名密码填写错误，就会得到401错误响应。</p>
 <p>如果使用现代浏览器访问的话，在访问成功之后无需反复输入密码，这不是因为我们代码错误，而是现代浏览器具有保存认证凭据的功能。但Postman每次就是发无状态的请求，所以每次都必须带上密码。</p>
-
-
-
+<p>在完成了最基础的认证之后，如果想要进一步按照角色来配置可操作的API，只要按照如下方式配置即可：</p>
+<pre>
+.antMatchers(HttpMethod.GET, "/api/customers").hasRole("EMPLOYEE")
+.antMatchers(HttpMethod.GET, "/api/customers/**").hasRole("EMPLOYEE")
+.antMatchers(HttpMethod.POST, "/api/customers").hasAnyRole("MANAGER", "ADMIN")
+.antMatchers(HttpMethod.POST, "/api/customers/**").hasAnyRole("MANAGER", "ADMIN")
+.antMatchers(HttpMethod.PUT, "/api/customers").hasAnyRole("MANAGER", "ADMIN")
+.antMatchers(HttpMethod.PUT, "/api/customers/**").hasAnyRole("MANAGER", "ADMIN")
+.antMatchers(HttpMethod.DELETE, "/api/customers/**").hasRole("ADMIN")
+</pre>
 
 
 
