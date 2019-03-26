@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 33 Spring BOOT - 快速入门</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<p>Spring Boot相信在接触Spring的过程中听到了很多次，其实就是一个用来简化Spring应用开发的初始搭建和开发过程，在之前我们无论是使用Spring还是Spring MVC或者Spring Security，总要先进行各种各样的配置，而且很多配置也依然是模板化的。</p>
+<p>约定大于配置逐渐成为了开发者的共识，Spring 4就从XML配置转向各种注解，但是相比很多脚本语言和其他后端，Spring的开发方式略显笨重。</p>
+<p>Spring Boot是伴随着Spring 4一同发布的一个产品，也是基于Spring框架的IOC容器。从根本上讲，Spring就是一些库的有机集合，是Spring的一个封装，所有用Spring做的事情，也可以用Spring Boot来做，很好的对应了现在的微服务的开发趋势。</p>
+<p>Spring Boot的官网是<a href="https://spring.io/projects/spring-boot">https://spring.io/projects/spring-boot</a>，可以找到详细的文档。</p>
+<p>有了Spring的基础，学习的目标就是通过Spring Boot来创建一个完整的增删改查应用。</p>
+<p>要创建一个Spring应用，要考虑的事情还真不少，比如：</p>
+<ol>
+    <li>选用哪种Maven原型</li>
+    <li>使用哪些依赖</li>
+    <li>使用哪种形式配置Spring，XML还是Java呢？</li>
+    <li>使用哪种HTTP服务，Tomcat还是JBOSS还是其他？</li>
+</ol>
+<p>即使选择好了，也只是个开始，还要写几百行的配置，依赖，很多还是样板代码，比如前段转发器，视图解析器，数据库连接。如果配置写错了，还不太容易发现问题。</p>
+<p>Spring Boot的出现就为了解决这些问题，可以减小手工配置的工作量，通过props文件或者classpath自动配置，解决依赖冲突，甚至还集成HTTP服务，一启动直接就可以访问。</p>
+<p><a href="https://start.spring.io/">https://start.spring.io/</a>提供了一个初始化工具，用于快速的创建一个Spring Boot项目。</p>
+<p>Spring Boot可以将项目打包成一个jar文件，直接运行就是一个Web服务，还提供了命令行工具，用于直接运行项目，也可以打包成War文件用于传统的部署方式。</p>
+
+
+<h1 style="text-align: center;">Spring Boot 第一个简单项目</h1>
+<p>访问<a href="https://start.spring.io/">https://start.spring.io/</a>，可以看到里边有很多选项：</p>
+<ol>
+    <li><code>Project</code>，是项目构建类型，可以选择是Maven项目还是Grandle项目</li>
+    <li><code>Language</code>，是采用的语言，可以选择Java，Kotlin和Groovy</li>
+    <li><code>Spring Boot</code>，是采用的Spring Boot的版本，目前稳定的大版本是最后的不带SNAPSHOT的版本2.1.3和1.5.19</li>
+    <li><code>Project Metadata</code>，是项目的源信息，就是Maven项目里的那些网站名，项目名称等。</li>
+    <li><code>Packaging</code>，这个配置需要展开More Options，Jar表示独立的Jar包，而War用于传统部署方式。</li>
+    <li><code>Java version</code>，8或者11。</li>
+    <li><code>Dependencies</code>，项目依赖，这个很重要，可以选下边的See all查看所有的依赖类型。有很多不同类型的应用可以开发。</li>
+</ol>
+<p>下边就来创建一个Web项目，选择Maven项目，Java语言，2.1.3版本的Spring Boot，Group里填写cc.conyli.springbootdemo，Artifact中填写mydemo，选择Jar包和Java 8版本。</p>
+<p>之后在项目依赖中选择Web大类下边的第一个Web，包含Tomcat服务器和Spring MVC。</p>
+<p>然后点击最下边的<code>Generate Project - alt + ⏎</code>按钮，会下载一个和Artifact同名的zip文件。这个ZIP文件解压到同名目录中，其实就是一个项目目录。</p>
+<p>进入Intellij，选择File --> New --> Project From Existing Sources，然后选择下边的导入Maven项目，之后会识别出这个项目，如果已经打开Maven自动检测的话，现在Intellij就会开始配置这个项目了。</p>
+<p>项目配置结束之后，可以看到自动写了一个类：</p>
+<pre>
+package cc.conyli.springbootdemo.mydemo;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class MydemoApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(MydemoApplication.class, args);
+	}
+
+}
+</pre>
+<p>虽然还没有开始学，但是看这个代码，大概是知道SpringApplication是一个启动器，来运行我们这个类。其实这个时候能够看到Intellij右上角已经将这个类加入到了可运行中，而不像普通的Web项目需要配置服务器。先运行一下看看。</p>
+<pre>
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::        (v2.1.3.RELEASE)
+
+2019-03-26 16:31:56.300  INFO 101568 --- [           main] c.c.s.mydemo.MydemoApplication           : Starting MydemoApplication on minko with PID 101568 (D:\Coding\Java\mydemo\target\classes started by Minko in D:\Coding\Java\mydemo)
+2019-03-26 16:31:56.302  INFO 101568 --- [           main] c.c.s.mydemo.MydemoApplication           : No active profile set, falling back to default profiles: default
+2019-03-26 16:31:57.451  INFO 101568 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8080 (http)
+2019-03-26 16:31:57.481  INFO 101568 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2019-03-26 16:31:57.481  INFO 101568 --- [           main] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.16]
+2019-03-26 16:31:57.487  INFO 101568 --- [           main] o.a.catalina.core.AprLifecycleListener   : The APR based Apache Tomcat Native library which allows optimal performance in production environments was not found on the java.library.path: [C:\Program Files\Java\jdk1.8.0_191\bin;C:\WINDOWS\Sun\Java\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\Program Files\VanDyke Software\Clients\;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;c:\users\minko\appdata\local\programs\python\python36\Scripts;C:\WINDOWS\System32\OpenSSH\;D:\Software\MySQL\bin\;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;D:\Software\Redis\;D:\Software\Git\cmd;D:\Software\Nodejs\;D:\Software\dev\node\lib\;C:\Program Files (x86)\Brackets\command;C:\Program Files\Java\jdk1.8.0_191\bin;;C:\Program Files\NVIDIA Corporation\NVIDIA NvDLISR;C:\Users\Minko\AppData\Local\Programs\Python\Python36\Scripts\;C:\Users\Minko\AppData\Local\Programs\Python\Python36\;C:\Users\Minko\AppData\Local\Microsoft\WindowsApps;C:\Users\Minko\AppData\Roaming\npm;D:\Software\Microsoft VS Code\bin;C:\Program Files\IntelliJ IDEA 2018.3.2\bin;;.]
+2019-03-26 16:31:57.568  INFO 101568 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2019-03-26 16:31:57.568  INFO 101568 --- [           main] o.s.web.context.ContextLoader            : Root WebApplicationContext: initialization completed in 1213 ms
+2019-03-26 16:31:57.777  INFO 101568 --- [           main] o.s.s.concurrent.ThreadPoolTaskExecutor  : Initializing ExecutorService 'applicationTaskExecutor'
+2019-03-26 16:31:57.966  INFO 101568 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+2019-03-26 16:31:57.969  INFO 101568 --- [           main] c.c.s.mydemo.MydemoApplication           : Started MydemoApplication in 2.172 seconds (JVM running for 3.263)
+</pre>
+<p>Wow，这是什么。仔细查看一下，发现Tomcat initialized with port(s): 8080 (http)，启动了Tomcat。访问<code>localhost:8080</code>，出现了如下页面：</p>
+<pre>
+Whitelabel Error Page
+This application has no explicit mapping for /error, so you are seeing this as a fallback.
+
+Tue Mar 26 16:34:37 CST 2019
+There was an unexpected error (type=Not Found, status=404).
+No message available
+</pre>
+<p>没有配置/对应的路径，虽然是个错误页面，但是知道，这个Spring Boot程序已经成功运行，并且成为一个Web服务了。那后边就可以编写具体应用了。</p>
+
+<h3 style="text-align: center;">Spring Boot Initializer 控制器</h3>
+<p>先来看看Spring Boot里怎么使用控制器，来尝试着写一个简单的REST控制器：</p>
+<pre>
+package cc.conyli.springbootdemo.mydemo.controller;
+
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDateTime;
+
+@RestController
+public class MyRestController {
+
+    @GetMapping("/")
+    public String sayHello() {
+        return "Hello! Time on server is " + LocalDateTime.now();
+    }
+}
+</pre>
+<p>停止掉运行的Spring Boot程序，再重新运行，再访问<code>localhost:8080</code>，结果发现输出已经有所改变。</p>
+<p>刚才做的，实际上是Spring Boot为简化了配置，只需要简单的启动一个Java类，具体配置不用怎么关心，就可以编写业务代码了，而且可以发现，业务代码的编写与Spring MVC中是完全一致。</p>
+<p>当然Spring Boot也有其独特的注解和开发方法，将在后边慢慢学习。</p>
+
+<h1 style="text-align: center;">Spring Boot 项目结构</h1>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
