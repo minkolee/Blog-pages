@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 34 Spring BOOT - 使用Hibernate的增删改查项目</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<h1 style="text-align: center;">项目设计</h1>
+<p>了解了基础知识之后，就是用Spring Boot来写一个增删改查程序了，而且要用到REST API，设计如下：</p>
+<table border="1">
+    <thead>
+    <tr>
+        <th>方法</th>
+        <th>路径</th>
+        <th>操作</th>
+    </tr></thead>
+    <tbody>
+    <tr>
+        <td>POST</td>
+        <td>/api/employees</td>
+        <td>创建新对象</td>
+    </tr>
+    <tr>
+        <td>GET</td>
+        <td>/api/employees</td>
+        <td>获取全部对象</td>
+    </tr>
+    <tr>
+        <td>GET</td>
+        <td>/api/employees/{employeeId}</td>
+        <td>获取某个对象</td>
+    </tr>
+    <tr>
+        <td>PUT</td>
+        <td>/api/employees</td>
+        <td>修改某个对象</td>
+    </tr>
+    <tr>
+        <td>DELETE</td>
+        <td>/api/employees/{employeeId}</td>
+        <td>删除某个对象</td>
+    </tr>
+    </tbody>
+</table>
+<p>我们的开发步骤如下：</p>
+<ol>
+    <li>创建数据库和表</li>
+    <li>使用Spring Boot Initializer来创建项目</li>
+    <li>编写查询功能</li>
+    <li>编写创建功能</li>
+    <li>编写修改功能</li>
+    <li>编写删除功能</li>
+</ol>
+<p>在业务逻辑上，依然分为Controller，Service和DAO三层。所有的配置均采用Java和注解，不采用XML配置方式。</p>
+
+<h1 style="text-align: center;">创建数据库</h1>
+<p>创建数据库的脚本如下：</p>
+<pre>
+CREATE DATABASE  IF NOT EXISTS `employee_directory`;
+USE `employee_directory`;
+
+DROP TABLE IF EXISTS `employee`;
+
+CREATE TABLE `employee` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(45) DEFAULT NULL,
+  `last_name` varchar(45) DEFAULT NULL,
+  `email` varchar(45) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
+
+INSERT INTO `employee` VALUES
+	(1,'Leslie','Andrews','leslie@gmail.com'),
+	(2,'Emma','Baumgarten','emma@sina.com'),
+	(3,'Avani','Gupta','avani@163.com'),
+	(4,'Yuri','Petrov','yuri@aliyun.com'),
+	(5,'Juan','Vega','juan@v2ex.com');
+</pre>
+<p>表很简单。</p>
+
+<h1 style="text-align: center;">创建Spring Boot项目</h1>
+<p>到<a href="https://start.spring.io/">https://start.spring.io/</a>，依次选择Maven项目，Java 8，Spring最新稳定版，输入自己的包名和项目名。然后在依赖里选择如下：</p>
+<ol>
+    <li>Web</li>
+    <li>JPA</li>
+    <li>DevTools</li>
+    <li>MySQL</li>
+</ol>
+<p>就可以下载项目文件了。之后导入到Intellij里等待配置结束。</p>
+<p>在导入项目的时候，如果遇到pom.xml文件中提示failed to read artifact descriptor错误，按照<a href="https://stackoverflow.com/questions/6642146/maven-failed-to-read-artifact-descriptor">这里</a>的方法，将Intellij的Maven中的<code>Always update snapshots</code>打开即可</p>
+<p>注意此时还不能运行项目，如果运行的话，会被提示必须配置一个数据库驱动，这都是Spring Boot在后台进行的工作。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
