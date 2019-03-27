@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 34 Spring BOOT - 快速入门</title>
+    <title>Spring 34 Spring BOOT - 基础知识与快速入门</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
@@ -90,7 +90,7 @@ No message available
 </pre>
 <p>没有配置/对应的路径，虽然是个错误页面，但是知道，这个Spring Boot程序已经成功运行，并且成为一个Web服务了。那后边就可以编写具体应用了。</p>
 
-<h3 style="text-align: center;">Spring Boot Initializer 控制器</h3>
+<h3 style="text-align: center;">Spring Boot REST 控制器</h3>
 <p>先来看看Spring Boot里怎么使用控制器，来尝试着写一个简单的REST控制器：</p>
 <pre>
 package cc.conyli.springbootdemo.mydemo.controller;
@@ -112,32 +112,250 @@ public class MyRestController {
 </pre>
 <p>停止掉运行的Spring Boot程序，再重新运行，再访问<code>localhost:8080</code>，结果发现输出已经有所改变。</p>
 <p>刚才做的，实际上是Spring Boot为简化了配置，只需要简单的启动一个Java类，具体配置不用怎么关心，就可以编写业务代码了，而且可以发现，业务代码的编写与Spring MVC中是完全一致。</p>
-<p>当然Spring Boot也有其独特的注解和开发方法，将在后边慢慢学习。</p>
+<p>成功运行了第一个项目，现在可以来深入看一下Spring Boot了。</p>
+
 
 <h1 style="text-align: center;">Spring Boot 项目结构与注解配置详解</h1>
 
+<h3 style="text-align: center;">项目结构</h3>
+
+<p>来看一下从<a href="https://start.spring.io/">https://start.spring.io/</a>下载到的压缩包内的文件，这就是基础的项目文件：</p>
+<ol>
+    <li><code>src/main/java/自定义包名</code>，存放Java源代码的地方</li>
+    <li><code>src/main/test/java/自定义包名</code>，存放单元测试代码的地方</li>
+    <li><code>src/main/resources</code>，存放应用所需的配置文件，其实就是classpath对应的地方</li>
+    <li><code>mvnw.cmd 和 mvnw</code>，是Maven Wrapper File，让用户没有安装Maven也可以运行这个来下载和安装Maven进而配置项目，.cmd用于windows系统，mnvw用于linux系统。如果是用支持Maven的IDE，这两个文件可以忽略</li>
+    <li><code>pom.xml</code>，Maven配置文件。</li>
+</ol>
 
 
+<h3 style="text-align: center;">项目入口类</h3>
 
+<p>再来看一下压缩包里自动生成的那个类：</p>
+<pre>
+package cc.conyli.springbootdemo.mydemo;
 
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+@SpringBootApplication
+public class MydemoApplication {
 
+	public static void main(String[] args) {
+		SpringApplication.run(MydemoApplication.class, args);
+	}
+}
+</pre>
+<p>这个类之前相当于是启动项目的一个入口。这里要解释的是<code>@SpringBootApplication</code>注解，这个注解相当于同时具有以下三个注解的功能：</p>
+<ol>
+    <li><code>@EnableAutoConfiguration</code>，启用Spring Boot的自动配置</li>
+    <li><code>@ComponentScan</code>，启用默认的扫描Bean的功能</li>
+    <li><code>@Configuration</code>，将当前类当做配置类，并且可以导入其他配置类</li>
+</ol>
+<p>后两个其实就是Spring 原始的注解。这里要注意的是，由于这个入口类使用了<code>@ComponentScan</code>，所以默认扫描的范围就是这个类所在的同级类和包。一定要注意这一点。一般开发中，将这个入口程序放在你的程序包的根目录。</p>
+<p>如果确实需要自己配置扫描路径，就采用如下写法：</p>
+<pre>
+@SpringBootApplication(scanBasePackages = {"cc.conyli","controller"})
+public class MydemoApplication {
 
+	public static void main(String[] args) {
+		SpringApplication.run(MydemoApplication.class, args);
+	}
+}
+</pre>
 
+<h3 style="text-align: center;">resources目录</h3>
+<p>这个目录之下有一个application.properties文件，这个文件是Spring Boot启动时自动创建的，默认为空，在其中可以添加Spring Boot的设置以及自定义的键值对。来添加两个：</p>
+<pre>
+server.port=8000
+daughter.name=cony
+</pre>
+<p>然后在代码中，就可以使用取值表达式来取得其中的内容，修改一下我们的Rest控制器：</p>
+<pre>
+@RestController
+public class MyRestController {
 
+    @Value("${daughter.name}")
+    private String name;
 
+    @GetMapping("/")
+    public String sayHello() {
+        return "Hello " + name + "! Time on server is " + LocalDateTime.now();
+    }
+}
+</pre>
+<p>再启动服务，此时端口变成了8000端口，响应也读出了自定义的属性。</p>
+<p>这里有一点要注意的是，如果要打包成Jar文件，不要使用src/main/webapp目录，否则会被大部分构建工具忽略，只有War文件需要部署到服务器目录下边之后，才需要这个目录。</p>
 
+<p>对于Web开发，这个目录下有static目录，用于存放静态文件。</p>
+<p>还有templates目录，用于存放模板文件，也就是JSP或者其他模板文件。Spring Boot对于一些第三方模板引擎都支持，比如FreeMarker，Thymeleaf，Mustache等。默认情况下Spring Boot就会从这个目录内载入模板文件。</p>
+<p>最后就是单元测试的目录，测试也是很重要的一环，之后还是要好好学习一下测试的。</p>
 
+<h1 style="text-align: center;">Spring Boot Starter</h1>
+<p>看完了项目结构，来实际看一下<code>pom.xml</code>文件：</p>
+<pre>
+&lt;dependencies>
+    &lt;dependency>
+        &lt;groupId>org.springframework.boot&lt;/groupId>
+        &lt;artifactId>spring-boot-starter-web&lt;/artifactId>
+    &lt;/dependency>
 
+    &lt;dependency>
+        &lt;groupId>org.springframework.boot&lt;/groupId>
+        &lt;artifactId>spring-boot-starter-test&lt;/artifactId>
+        &lt;scope>test&lt;/scope>
+    &lt;/dependency>
+&lt;/dependencies>
+</pre>
+<p>这里没有像之前我们要一个一个将所有的依赖写好，直接使用了两个spring-boot的依赖，这个配置就来自于在<a href="https://start.spring.io/">https://start.spring.io/</a>中选择的内容。</p>
+<p>这其中还自动配置了Maven-plugin，可见真的非常方便。</p>
+<p>那么starter-web和starter-test究竟是什么呢，其实就是封装好的一个所有兼容的版本库，省去一个一个配置具体需要的依赖。在<a href="https://start.spring.io/">https://start.spring.io/</a>生成压缩包的时候，选择依赖的地方就有全部的starter依赖可供选择。</p>
+<p>常用的Web开发的依赖有：</p>
+<ol>
+    <li><code>spring-boot-starter-web</code>，包含</li>
+    <li><code>spring-boot-starter-security</code>，包含Spring Security</li>
+    <li><code>spring-boot-starter-data-jpa</code>，包含JPA的支持，比如Hibernate</li>
+</ol>
+<p>在<a href="https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#using-boot-starter">官网文档</a>可以查看所有的starter依赖。</p>
+<p>如果还是想要知道实际的依赖有哪些，Intellij中可以选择View --> Tool Windows --> Maven，然后在右侧的Dependencies中可以详细查看所有实际的依赖内容。经过查看可以看到里边包含有Spring MVC和全套依赖，Hibernate的Validator，集成Tomcat，Jackson等，涵盖了之前使用的大部分包。</p>
+<p>对于这些配置在依赖里的starter，无需提供版本号。</p>
+<p>Spring Boot还提供了一个特殊的<code>Starter Parent</code>，这是提供为Maven项目提供一些初始配置，可以在pom.xml文件中看到这样一段：</p>
+<pre>
+&lt;parent>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-parent&lt;/artifactId>
+    &lt;version>2.1.3.RELEASE&lt;/version>
+    &lt;relativePath/> &lt;!-- lookup parent from repository -->
+&lt;/parent>
+</pre>
+<p>与普通的starter不同的是，这个parent需要配置版本号。</p>
+<p>只要使用网站上的项目生成器，就会自动包含这个parent。parent主要是配置了默认的编译级别（选的是Java 8），然后启用UTF-8支持，还有其他的一些配置。如果要修改parent的配置，需要在与parent标签同级的properties标签中设置具体的键（标签名）和值。</p>
 
+<h1 style="text-align: center;">Spring Boot devtools</h1>
+<p>现在我们每修改一次代码，就要关闭然后重新运行项目入口。通过在pom.xml中加入一个依赖，就可以实现自动更新代码：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-devtools&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>devtools的文档<a href="https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#using-boot-devtools">在此</a>。还有很多功能如果有空可以慢慢研究。</p>
+<p>顺便一提的是这个功能现在很多IDE也可以实现。</p>
 
+<h1 style="text-align: center;">Spring Boot Actuator</h1>
+<p>说到Spring Boot，不能不提的就是Actuator。这个是一个特殊的Spring Boot模块，不像其他模块用于业务开发，这个模块专门通过端点（就是URL路径）来向外界暴露当前应用的信息，很显然，这是一个非常好的开发辅助工具。这个工具就是Actuator。</p>
+<p>要启用很容易，只需要在pom.xml中加入如下依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-actuator&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>在启用之后，项目自动会增加一个路径<code>/actuator</code>，可以通过这个路径获得各种信息，都是REST风格的JSON，常用的有：</p>
+<ol>
+    <li><code>/actuator</code>，简单的查询指南</li>
+    <li><code>/actuator/health</code>，应用运行状态</li>
+    <li><code>/actuator/info</code>，项目信息</li>
+    <li><code>/actuator/beans</code>，查看容器里所有的Bean</li>
+    <li><code>/actuator/mappings</code>，查看所有的URL映射关系</li>
+</ol>
+<p><code>/actuator/health</code>返回的JSON是：</p>
+<pre>
+{
+    "status": "UP"
+}
+</pre>
+<p><code>/actuator/info</code>默认返回空，因为没有配置信息，可以在application.properties文件中配置一些：</p>
+<pre>
+info.app.name=SB Project
+info.app.description=Sekiro is good and easy to play!
+info.app.version=0.0.1
+</pre>
+<p>之后再访问，可以获得如下的JSON：</p>
+<pre>
+{
+    "app": {
+        "name": "SB Project",
+        "description": "Sekiro is good and easy to play!",
+        "version": "0.0.1"
+    }
+}
+</pre>
+<p>在<a href="https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#production-ready-endpoints">这里</a>还能看到更多的暴露的端点，但是这里要注意的是，通过观察Spring Boot的启动日志以及文档，可以发现HTTP方式下默认仅暴露了2个端点health和info。</p>
+<p>可以在application.properties文件中写一句来打开全部端点：</p>
+<pre>management.endpoints.web.exposure.include=*</pre>
 
+<h3 style="text-align: center;">端点信息安全防护</h3>
 
+<p>如果不想将信息暴露给外界，可以添加Spring Security：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-security&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>Spring Security会自动配置Spring Boot Actuator相关的验证，而不像我们之前要创建初始化类和配置文件。观察控制台的输出：</p>
+<pre>Using generated security password: e0d04d71-b283-430e-948a-4e20a48f2422</pre>
+<p>可以得到密码，用户名默认是<code>user</code>，再访问除了/health和/info之外的端点，就会被要求输入用户名和密码。</p>
+<p>如果想自定义用户名和密码，需要在application.properties文件中配置：</p>
+<pre>
+spring.security.user.name=cony
+spring.security.user.password=li
+</pre>
+<p>这样就可以用自定义的用户名和密码来访问Spring Boot Actuator</p>
+<p>如果要更详细的配置，比如通过Spring Security从数据库中读取用户和角色控制，可以具体配置Spring Security，针对<code>/actuator</code>下边的具体路径配置即可。</p>
+<p>默认/health和/info无需认证，还可以在application.properties文件中配置关闭这两个端点：</p>
+<pre>
+management.endpoints.web.exposure.exclude=health,info
+</pre>
+<p>这样就在启用Spring Boot Actuator的同时用Spring Security进行了保护，防止信息泄露。</p>
 
+<h1 style="text-align: center;">通过命令行运行Spring Boot</h1>
+<p>现代开发一般都通过使用IDE进行开发，运行程序也是通过IDE来运行。很多时候如果需要简单启动项目，可能需要在没有IDE的情况下运行。</p>
+<p>在命令行模式下运行Spring Boot有两种方式：</p>
+<ol>
+    <li>在命令行下使用<code>java -jar</code></li>
+    <li>在命令行下使用<code>mvnw spring-boot:run</code></li>
+</ol>
 
+<h3 style="text-align: center;">java -jar方式</h3>
+<p>以下是Windows的操作。关闭IDE，到项目的根目录下，运行：</p>
+<pre>
+mvnw package
+</pre>
+<p>会提示发现maven-wrapper.jar，如果没有安装Maven，就会自动下载，然后会慢慢将项目及所有依赖进行打包。这里要按几下回车才开始打包工作。看到如下内容说明打包成功：</p>
+<pre>
+[INFO] Results:
+[INFO]
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+[INFO]
+[INFO]
+[INFO] --- maven-jar-plugin:3.1.1:jar (default-jar) @ mydemo ---
+[INFO] Building jar: D:\Coding\Java\mydemo\target\mydemo-0.0.1-SNAPSHOT.jar
+[INFO]
+[INFO] --- spring-boot-maven-plugin:2.1.3.RELEASE:repackage (repackage) @ mydemo ---
+[INFO] Replacing main artifact with repackaged archive
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  02:44 min
+[INFO] Finished at: 2019-03-27T15:23:24+08:00
+[INFO] ------------------------------------------------------------------------
+</pre>
+<p>如果已经安装了Maven，直接使用这条命令：</p>
+<pre>mvn package</pre>
+<p>就可以进行打包。</p>
+<p>打包完成后可以看到提示，生成了<code>mydemo\target\mydemo-0.0.1-SNAPSHOT.jar</code>文件。</p>
+<p>然后进入target目录，调用java虚拟机执行这个jar文件：</p>
+<pre>
+java -jar mydemo-0.0.1-SNAPSHOT.jar
+</pre>
+<p>之后可以在控制台看到和在IDE里一样的Spring Boot启动信息，测试一下访问，发现成功启动了。</p>
 
-
-
+<h3 style="text-align: center;">mvnw spring-boot:run方式</h3>
+<p>将另外一个方法生成的jar包删除。在项目根目录输入：</p>
+<pre>mvnw spring-boot:run</pre>
+<p>可以看到编译了类之后直接启动了项目。</p>
 
 
 
