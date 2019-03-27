@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 34 Spring BOOT - 使用Hibernate的增删改查项目</title>
+    <title>Spring 35 Spring BOOT - 基于Hibernate API的增删改查项目</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
+<p>这里我们要用三种DAO实现方法来编写增删改查项目，大部分的内容之前都编写过，这里就是看如何使用Spring Boot来支撑这个项目和配置一些DAO方面的内容。</p>
 <h1 style="text-align: center;">项目设计</h1>
 <p>了解了基础知识之后，就是用Spring Boot来写一个增删改查程序了，而且要用到REST API，设计如下：</p>
 <table border="1">
@@ -79,7 +80,7 @@ INSERT INTO `employee` VALUES
 	(4,'Yuri','Petrov','yuri@aliyun.com'),
 	(5,'Juan','Vega','juan@v2ex.com');
 </pre>
-<p>表很简单。</p>
+<p>这个表很简单。</p>
 
 <h1 style="text-align: center;">创建Spring Boot项目</h1>
 <p>到<a href="https://start.spring.io/">https://start.spring.io/</a>，依次选择Maven项目，Java 8，Spring最新稳定版，输入自己的包名和项目名。然后在依赖里选择如下：</p>
@@ -91,7 +92,410 @@ INSERT INTO `employee` VALUES
 </ol>
 <p>就可以下载项目文件了。之后导入到Intellij里等待配置结束。</p>
 <p>在导入项目的时候，如果遇到pom.xml文件中提示failed to read artifact descriptor错误，按照<a href="https://stackoverflow.com/questions/6642146/maven-failed-to-read-artifact-descriptor">这里</a>的方法，将Intellij的Maven中的<code>Always update snapshots</code>打开即可</p>
-<p>注意此时还不能运行项目，如果运行的话，会被提示必须配置一个数据库驱动，这都是Spring Boot在后台进行的工作。</p>
+<p>注意此时还不能运行项目，如果运行的话，会被提示必须配置一个数据库驱动。</p>
+
+<h1 style="text-align: center;">DAO层的创建</h1>
+<p>在之前的项目中，我们的DAO层使用了Spring提供的类，注入连接池，最终使用了Hibernate的Session Factory对象。在XML里或者Java配置类里写上数据库连接的内容。</p>
+<p>现在无需这么麻烦，Spring Boot会自动从pom.xml中读取JDBC Driver（MySQL）和ORM（JPA依赖），我们只需要在application.properties中配置一下数据库的具体连接信息即可：</p>
+<pre>
+spring.datasource.url=jdbc:mysql://localhost:3306/employee_directory?useSSL=false&serverTimezone=UTC
+spring.datasource.username=springstudent
+spring.datasource.password=springstudent
+</pre>
+<p>除了这些基本信息，还有很多属性可以配置，看<a href="https://docs.spring.io/spring-boot/docs/current/reference/html/common-application-properties.html">文档</a>。</p>
+<p>在这里还有一个需要说明的是，Spring Boot会自动创建<code>DataSource</code>，<code>EntityManager</code>等Bean，可以直接将其注入到自己编写的DAO层中。</p>
+<p>这里的<code>EntityManager</code>是一个Java Persistence API（JPA，Java持久化标准）的类，实际上就是一个包装了Hibernate的SessionFactory的对象。关于JPA也就是Java持久化标准，其实主要就来自于Hibernate，这一块将来还要去读一下<a
+        href="https://www.manning.com/books/java-persistence-with-hibernate">《Java Persistence with Hibernate》</a>这本书了。</p>
+<p>在这里一次性把DAO学透，将采用三种方式来编写DAO：</p>
+<ol>
+    <li>使用EntityManager对象，但使用Hibernate的API</li>
+    <li>直接使用EntityManager对象和标准JPA API</li>
+    <li>使用Spring Data 的JPA实现</li>
+</ol>
+<p>先来创建Employee类用于映射对应的数据表：</p>
+<pre>
+package cc.conyli.sbcrud.entity;
+
+import javax.persistence.*;
+
+@Entity
+@Table(name = "employee")
+public class Employee {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private int id;
+
+
+    @Column(name = "first_name")
+    private String firstName;
+
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Column(name = "email")
+    private String email;
+
+    public Employee(String firstName, String lastName, String email) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+    }
+
+    public Employee() {
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    @Override
+    public String toString() {
+        return "Employee{" +
+                "id=" + id +
+                ", firstName='" + firstName + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", email='" + email + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>Entity类已经很熟悉了，要设置空参构造方法和setter/getter方法。</p>
+<p>然后是DAO的接口：</p>
+<pre>
+package cc.conyli.sbcrud.dao;
+
+import cc.conyli.sbcrud.entity.Employee;
+
+import java.util.List;
+
+public interface EmployeeDAO {
+
+    public List&lt;Employee> findAll();
+}
+</pre>
+<p>接口先只写一个方法。</p>
+
+<h3 style="text-align: center;">使用Hibernate的API来编写DAO层</h3>
+<p>来编写基于Hibernate API的实现类：</p>
+<pre>
+package cc.conyli.sbcrud.dao;
+
+import cc.conyli.sbcrud.entity.Employee;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.hibernate.*;
+import javax.persistence.EntityManager;
+import java.util.List;
+
+@Repository
+public class EmployeeDAOHibernateImpl implements EmployeeDAO {
+
+    //注入EntityManager
+    private EntityManager entityManager;
+
+
+    //EntityManager会被Spring Boot自动创建
+    @Autowired
+    public EmployeeDAOHibernateImpl(EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
+
+
+    @Override
+    public List&lt;Employee> findAll() {
+        //获取Hibernate的SessionFactory
+        Session currentSession = entityManager.unwrap(Session.class);
+
+        Query&lt;Employee> query = currentSession.createQuery("from Employee", Employee.class);
+
+        List&lt;Employee> employees = query.getResultList();
+
+        return employees;
+    }
+}
+</pre>
+<p>这里要注意的是，可以通过EntityManager对象来获取hibernate的Session实现类。Hibernate里的Session和SessionFactory都是接口。</p>
+<p>之后创建Query查询来获取列表结果，不过这里要注意的是，IDE提示Query已经过期。具体Hibernate的API，还要单独看一看。</p>
+<p>之后为了验证是否OK，来编写一个Controller返回JSON。</p>
+<pre>
+package cc.conyli.sbcrud.rest;
+
+import cc.conyli.sbcrud.dao.EmployeeDAO;
+import cc.conyli.sbcrud.entity.Employee;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api")
+public class EmployeeRESTController {
+
+    private EmployeeDAO employeeDAO;
+
+    @Autowired
+    public EmployeeRESTController(EmployeeDAO employeeDAO) {
+        this.employeeDAO = employeeDAO;
+    }
+
+    @GetMapping("/employees")
+    public List&lt;Employee> getEmployees() {
+        return employeeDAO.findAll();
+    }
+}
+</pre>
+<p>启动项目，访问<code>http://localhost:8080/api/employees</code>，可以发现成功的显示除了JSON字符串。</p>
+<p>之后我们把DAO接口的方法补全，编写好完整的HibernateDAO类和控制器方法，这样可以在后边顺利切换不同的DAO实现。</p>
+
+<h3 style="text-align: center;">完整的DAO层</h3>
+
+<p>完整的DAO接口：</p>
+<pre>
+package cc.conyli.sbcrud.dao;
+
+import cc.conyli.sbcrud.entity.Employee;
+
+import java.util.List;
+
+public interface EmployeeDAO {
+
+    public List&lt;Employee> findAll();
+
+    public Employee findById(int id);
+
+    public void save(Employee employee);
+
+    public void deleteById(int id);
+}
+</pre>
+<p>完整的HibernateDAO实现类：</p>
+<pre>
+package cc.conyli.sbcrud.dao;
+
+import cc.conyli.sbcrud.entity.Employee;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.hibernate.*;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.util.List;
+
+@Repository
+public class EmployeeDAOHibernateImpl implements EmployeeDAO {
+
+    //注入EntityManager
+    private EntityManager entityManager;
+
+
+    //EntityManager会被Spring Boot自动创建
+    @Autowired
+    public EmployeeDAOHibernateImpl(EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
+
+
+    @Override
+    @Transactional
+    public List&lt;Employee> findAll() {
+        //获取Hibernate的SessionFactory
+        Session currentSession = entityManager.unwrap(Session.class);
+
+        Query&lt;Employee> query = currentSession.createQuery("from Employee", Employee.class);
+
+        return query.getResultList();
+    }
+
+    @Override
+    @Transactional
+    public Employee findById(int id) {
+        Session currentSession = entityManager.unwrap(Session.class);
+
+        return currentSession.get(Employee.class, id);
+    }
+
+    @Override
+    @Transactional
+    public void save(Employee employee) {
+        Session currentSession = entityManager.unwrap(Session.class);
+
+        currentSession.saveOrUpdate(employee);
+    }
+
+    @Override
+    @Transactional
+    public void deleteById(int id) {
+        Session currentSession = entityManager.unwrap(Session.class);
+        Employee employee = currentSession.get(Employee.class, id);
+        currentSession.delete(employee);
+    }
+}
+
+</pre>
+
+<h3 style="text-align: center;">完整的Service层</h3>
+
+<p>既然要三层，就创建Service类，也都是套路代码了，接口+实现类：</p>
+<pre>
+package cc.conyli.sbcrud.service;
+
+import cc.conyli.sbcrud.entity.Employee;
+
+import java.util.List;
+
+public interface EmployeeService {
+
+    public List&lt;Employee> findAll();
+
+    public Employee findById(int id);
+
+    public void save(Employee employee);
+
+    public void deleteById(int id);
+}
+</pre>
+<pre>
+package cc.conyli.sbcrud.service;
+
+import cc.conyli.sbcrud.dao.EmployeeDAO;
+import cc.conyli.sbcrud.entity.Employee;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class EmployeeServiceImpl implements EmployeeService {
+
+    private EmployeeDAO employeeDAO;
+
+    @Autowired
+    public EmployeeServiceImpl(EmployeeDAO employeeDAO) {
+        this.employeeDAO = employeeDAO;
+    }
+
+    @Override
+    public List&lt;Employee> findAll() {
+        return employeeDAO.findAll();
+    }
+
+    @Override
+    public Employee findById(int id) {
+        return employeeDAO.findById(id);
+    }
+
+    @Override
+    public void save(Employee employee) {
+        employeeDAO.save(employee);
+    }
+
+    @Override
+    public void deleteById(int id) {
+        employeeDAO.deleteById(id);
+    }
+}
+
+</pre>
+<h3 style="text-align: center;">完整的Controller层</h3>
+
+<p>然后需要修改控制器，注入Service层的对象，完整的控制器如下，也都是套路代码：</p>
+<pre>
+package cc.conyli.sbcrud.rest;
+
+import cc.conyli.sbcrud.entity.Employee;
+import cc.conyli.sbcrud.service.EmployeeService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api")
+public class EmployeeRESTController {
+
+    private EmployeeService employeeService;
+
+    @Autowired
+    public EmployeeRESTController(EmployeeService employeeService) {
+        this.employeeService = employeeService;
+    }
+
+    @GetMapping("/employees")
+    public List&lt;Employee> getEmployees() {
+        return employeeService.findAll();
+    }
+
+    @GetMapping("/employees/{employeeId}")
+    public Employee getEmployee(@PathVariable int employeeId) {
+        Employee employee = employeeService.findById(employeeId);
+        if (employee == null) {
+            throw new RuntimeException("Employee id {{" + employeeId + "}} NOT FOUND");
+        }
+        return employee;
+    }
+
+    @PostMapping("/employees")
+    public Employee addEmployee(@RequestBody Employee employee) {
+        employee.setId(0);
+        employeeService.save(employee);
+        return employee;
+    }
+
+    @PutMapping("/employees")
+    public Employee updateEmployee(@RequestBody Employee employee) {
+        //无需先判断是否存在，否则会造成重复引用同一个数据，会报错。
+        employeeService.save(employee);
+        return employee;
+    }
+
+    @DeleteMapping("/employees/{employeeId}")
+    public Employee deleteEmployee(@PathVariable int employeeId) {
+        Employee targetEmployee = employeeService.findById(employeeId);
+        if (targetEmployee == null) {
+            throw new RuntimeException("Employee id {{" + employeeId + "}} NOT FOUND");
+        }
+        employeeService.deleteById(employeeId);
+        return targetEmployee;
+    }
+}
+</pre>
+<p>之后用Postman测试，发现可以正常工作，我们就写好了基于Hibernate API DAO的增删改查项目。</p>
+<p>之后我们要用另外两种方式来实现DAO，并且将项目切换到这两个DAO上。</p>
+
+
+
 
 
 
