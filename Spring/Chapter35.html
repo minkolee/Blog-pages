@@ -308,7 +308,6 @@ import cc.conyli.sbcrud.entity.Employee;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.hibernate.*;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import java.util.List;
@@ -328,7 +327,6 @@ public class EmployeeDAOHibernateImpl implements EmployeeDAO {
 
 
     @Override
-    @Transactional
     public List&lt;Employee> findAll() {
         //获取Hibernate的SessionFactory
         Session currentSession = entityManager.unwrap(Session.class);
@@ -339,7 +337,6 @@ public class EmployeeDAOHibernateImpl implements EmployeeDAO {
     }
 
     @Override
-    @Transactional
     public Employee findById(int id) {
         Session currentSession = entityManager.unwrap(Session.class);
 
@@ -347,7 +344,6 @@ public class EmployeeDAOHibernateImpl implements EmployeeDAO {
     }
 
     @Override
-    @Transactional
     public void save(Employee employee) {
         Session currentSession = entityManager.unwrap(Session.class);
 
@@ -355,7 +351,6 @@ public class EmployeeDAOHibernateImpl implements EmployeeDAO {
     }
 
     @Override
-    @Transactional
     public void deleteById(int id) {
         Session currentSession = entityManager.unwrap(Session.class);
         Employee employee = currentSession.get(Employee.class, id);
@@ -393,6 +388,7 @@ import cc.conyli.sbcrud.dao.EmployeeDAO;
 import cc.conyli.sbcrud.entity.Employee;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -407,21 +403,25 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     @Override
+    @Transactional
     public List&lt;Employee> findAll() {
         return employeeDAO.findAll();
     }
 
     @Override
+    @Transactional
     public Employee findById(int id) {
         return employeeDAO.findById(id);
     }
 
     @Override
+    @Transactional
     public void save(Employee employee) {
         employeeDAO.save(employee);
     }
 
     @Override
+    @Transactional
     public void deleteById(int id) {
         employeeDAO.deleteById(id);
     }

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 36 Spring BOOT - 另外两种方式实现DAO层</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<h1 style="text-align: center;">JAP DAO实现</h1>
+<p>使用JPA标准的DAO层有很大好处就是不依赖于具体供应商的实现，可以很方便的切换到其他也支持JPA的软件上去。</p>
+<p><a href="https://zh.wikipedia.org/wiki/Java%E6%8C%81%E4%B9%85%E5%8C%96API#Hibernate">JPA</a> API有点像原生的Hibernate API，也支持一种叫做JPQL的查询语言。为何两者很像，是因为Hibernate是实际上的JPA规范推动者。</p>
+<p>这里简单的看一下两者增删改查方法的对比：</p>
+<table border="1">
+    <thead>
+    <tr>
+        <th>操作</th>
+        <th>Hibernate原生方法</th>
+        <th>JPA 方法</th>
+    </tr></thead>
+    <tbody>
+    <tr>
+        <td>创建和保存新对象</td>
+        <td>sesson.save(...)</td>
+        <td>entityManager.persist(...)</td>
+    </tr>
+    <tr>
+        <td>通过id获取对象</td>
+        <td>session.get(...)/load(...)</td>
+        <td>entityManager.find(...)</td>
+    </tr>
+    <tr>
+        <td>获取对象列表</td>
+        <td>session.createQuery(...)</td>
+        <td>entityManager.createQuery(...)</td>
+    </tr>
+    <tr>
+        <td>保存或者更新对象</td>
+        <td>session.saveOrUpdate(...)</td>
+        <td>entityManager.merge(...)</td>
+    </tr>
+    <tr>
+        <td>删除对象</td>
+        <td>session.delete(...)</td>
+        <td>entityManager.remove(...)</td>
+    </tr>
+    </tbody>
+</table>
+<p>由于接口已经确定好了，直接来编写实现类：</p>
+<pre>
+package cc.conyli.sbcrud.dao;
+
+import cc.conyli.sbcrud.entity.Employee;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.util.List;
+
+@Repository
+public class EmployeeDAOJPAImpl implements EmployeeDAO {
+
+    private EntityManager entityManager;
+
+    //构造器注入
+    public EmployeeDAOJPAImpl(EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
+
+    @Override
+    @Transactional
+    public List&lt;Employee> findAll() {
+        System.out.println("JPA API working...");
+        return entityManager.createQuery("from Employee", Employee.class).getResultList();
+    }
+
+    @Override
+    @Transactional
+    public Employee findById(int id) {
+        System.out.println("JPA API working...");
+
+        return entityManager.find(Employee.class, id);
+    }
+
+    @Override
+    @Transactional
+    public void save(Employee employee) {
+        System.out.println("JPA API working...");
+        Employee targetEmployee = entityManager.merge(employee);
+        //这一步不像Hibernate会自动将对象关联到session然后更新，所以要手动给传入的参数设置上id
+        employee.setId(targetEmployee.getId());
+    }
+
+    @Override
+    @Transactional
+    public void deleteById(int id) {
+        System.out.println("JPA API working...");
+        Employee employee = entityManager.find(Employee.class, id);
+        entityManager.remove(employee);
+    }
+}
+</pre>
+<p>这里要注意.save()方法，由于JPA没有Hibernate那种关联技术，在执行了merge操作之后，内存中的参数对象employee不会自动更新id，必须先取出刚才新创建或者更新后的对象，然后给参数对象设置id才行。这样REST API在返回内存中的对象时候才有正确的id</p>
+<p>然后需要在Service层里切换一下DAO实现：</p>
+<pre>
+@Service
+public class EmployeeServiceImpl implements EmployeeService {
+
+    @Autowired
+    public EmployeeServiceImpl(<span style="color: red;">EmployeeDAOJPAImpl</span> employeeDAO) {
+        this.employeeDAO = employeeDAO;
+    }
+    ......
+}
+</pre>
+<p>这里也可以不使用构造器，使用<code>@Qualifier</code>进行域注入。但这是不推荐的做法。</p>
+<p>之后再启动项目，就可以发现每次操作都是使用JPA的API了。</p>
+
+<h1 style="text-align: center;">Spring Data DAO实现</h1>
+<p>Spring Data DAO的理念与前两者有所不同，注意观察Hibernate和JPA的两个实现，很多代码其实很相似。如果我现在需要查询另外一个表映射的类比如Manager，可能需要重新创建一个DAO，将里边的Employee字样全部替换成Manager，这也是重复做样板代码。</p>
+<p>Spring Data的理念是提供一个DAO实现，然后只需要将Entity类的类型和主键插入进来，利用这个实现提供的增删改查方法就可以进行操作了。只需要更换一下插入的Entity类的类型，就可以得到其他表的查询结果。</p>
+<p>所以使用Spring Data JPA并不需要去编写增删改查代码，而是注重与插入Entity类和主键，根据文档说法，能节省70%的代码量。</p>
+<p>当然，由于无需自己写方法，肯定要使用Spring Data JPA提供好的一些类或者接口，我们必须先编写一个接口继承<code>JpaRepository</code>接口，指定对应的Entity类型和id的类型，相关的文档可以看<a href="https://docs.spring.io/spring-data/jpa/docs/current/api/org/springframework/data/jpa/repository/JpaRepository.html">这里</a>。</p>
+<p>先来看接口：</p>
+<pre>
+package cc.conyli.sbcrud.dao;
+
+import cc.conyli.sbcrud.entity.Employee;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface EmployeeSpringJPA extends JpaRepository&lt;Employee, Integer> {
+
+}
+</pre>
+<p>内部代码无需编写，这个接口主要是明确Entity类和id的类型。而且神奇的是实现类也无需编写。</p>
+<p>然后直接可以修改Service层来使用符合这个接口的对象：</p>
+<pre>
+package cc.conyli.sbcrud.service;
+
+import cc.conyli.sbcrud.dao.EmployeeSpringJPA;
+import cc.conyli.sbcrud.entity.Employee;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class EmployeeServiceImpl implements EmployeeService {
+
+    private EmployeeSpringJPA employeeSpringJPA;
+
+    @Autowired
+    public EmployeeServiceImpl(EmployeeSpringJPA employeeSpringJPA) {
+        this.employeeSpringJPA = employeeSpringJPA;
+    }
+
+    @Override
+    public List&lt;Employee> findAll() {
+        return employeeSpringJPA.findAll();
+    }
+
+    @Override
+    public Employee findById(int id) {
+        Optional&lt;Employee> result = employeeSpringJPA.findById(id);
+        Employee employee;
+        if (result.isPresent()) {
+            employee = result.get();
+        } else {
+            throw new RuntimeException("NOT FOUND {{" + id + "}} NOT FOUND");
+        }
+        return employee;
+    }
+
+    @Override
+    public void save(Employee employee) {
+        employeeSpringJPA.save(employee);
+    }
+
+    @Override
+    public void deleteById(int id) {
+        employeeSpringJPA.deleteById(id);
+    }
+}
+</pre>
+<p>实际上在最开始的时候，我们就刻意采用了符合Spring Data JPA接口的方法名称，正常情况下还是应该查看文档来看具体方法的使用。</p>
+<p>这里有这么几个点：</p>
+<ol>
+    <li>直接注入自定义接口类即可，Spring会自动创建接口的实现类，而无需手动创建</li>
+    <li>可以去掉所有的<code>@Transactional</code>注解，DAO对象自带该功能</li>
+    <li><code>.findById()</code>略有不同，返回的是一个包装了具体类型的类，可以判断取到的结果是否是空，如果不为空，就可以通过<code>.get()</code>方法获取给接口传入的泛型类。</li>
+</ol>
+<p>之后重现启动项目，发现可以正常运行，Spring减少了编写实现类的方法，只需要看接口就可以了。如果项目里的数据表很多，那用起来也很方便，只需要再继承几个泛型的接口即可。</p>
+
+
+
+
+
+
+
+
+
+</body>
+</html>
