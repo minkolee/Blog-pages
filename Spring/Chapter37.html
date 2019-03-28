@@ -4,18 +4,340 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring 36 Spring BOOT - Spring Data REST实现</title>
+    <title>Spring 37 Spring BOOT - Spring Data REST</title>
     <link rel="stylesheet" href="base.css">
 </head>
 <body>
-<p>前边的使用DAO层以及Spring Data的神奇之处，都是基于我们在项目开始的时候选择了JAP，在pom.xml里生成的如下依赖：</p>
+<p>前边使用DAO层以及Spring Data的神奇之处，都是基于我们在项目开始的时候选择了Spring Data，也就是pom.xml里的如下依赖：</p>
 <pre>
 &lt;dependency>
     &lt;groupId>org.springframework.boot&lt;/groupId>
     &lt;artifactId>spring-boot-starter-data-jpa&lt;/artifactId>
 &lt;/dependency>
 </pre>
-<p>这个依赖中包含的<code>org.springframework.data</code>就是Spring的JPA。来继续看一下Spring JPA的其他应用。</p>
+<p>这个依赖中包含的<code>org.springframework.data</code>就是Spring Data JPA。来继续看一下Spring Data的其他应用。</p>
+
+<h1 style="text-align: center;">Spring Data REST</h1>
+<p>和之前相同的问题，如果我现在要为其他一个数据提供REST API，也要一个一个再复制一次所有的API代码吗？</p>
+<p>Spring Data又站出来了，既然数据库操作封装好了，那么对应的REST API也可以按照这个思路来提供。</p>
+<p>要使用Spring Data REST功能，需要添加一个依赖如下：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-data-rest&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>添加了这个东西之后，Spring Data REST会自动去扫描JPARepository的继承接口，Spring Data REST实际上需要下列的东西就可以正常工作：</p>
+<ol>
+    <li>作为Entity的<code>Employee</code>类</li>
+    <li>JPARepository的继承接口<code>EmployeeSpringJPA</code></li>
+    <li>Maven POM依赖中的<code>spring-boot-starter-data-rest</code></li>
+</ol>
+<p>配置好了这些之后，Spring Data REST会在后台自动生成对应的API地址。其逻辑如下：</p>
+<table border="1">
+    <thead>
+    <tr>
+        <th>方法</th>
+        <th>路径</th>
+        <th>操作</th>
+    </tr></thead>
+    <tbody>
+    <tr>
+        <td>POST</td>
+        <td>/employees</td>
+        <td>创建新对象</td>
+    </tr>
+    <tr>
+        <td>GET</td>
+        <td>/employees</td>
+        <td>获取全部对象</td>
+    </tr>
+    <tr>
+        <td>GET</td>
+        <td>/employees/{employeeId}</td>
+        <td>获取某个对象</td>
+    </tr>
+    <tr>
+        <td>PUT</td>
+        <td>/employees/{employeeId}</td>
+        <td>修改某个对象</td>
+    </tr>
+    <tr>
+        <td>DELETE</td>
+        <td>/employees/{employeeId}</td>
+        <td>删除某个对象</td>
+    </tr>
+    </tbody>
+</table>
+<p>这些地址是符合HATEOAS标准的，所谓<a href="https://en.wikipedia.org/wiki/HATEOAS">HATEOAS</a>是REST服务构建的一种标准，Spring的<a href="https://spring.io/understanding/HATEOAS">文档</a>中也对其进行了说明。HATEOAS使用HAL数据格式，具体可以再了解。</p>
+<p>配置好了Maven依赖之后，无需进行任何改动，直接重启项目，然后访问<code>localhost:8080</code>。</p>
+<p>注意神奇的事情发生了，本来是没有配置任何根目录的对应文件，现在有了一个REST服务的返回结果：</p>
+<pre>
+{
+    "_links": {
+        "employees": {
+            "href": "http://localhost:8080/employees{?page,size,sort}",
+            "templated": true
+        },
+        "profile": {
+            "href": "http://localhost:8080/profile"
+        }
+    }
+}
+</pre>
+<p>这就是符合HATEOAS的RESF结果，展示了所有可用的链接。</p>
+<p>来试验一下<code>http://localhost:8080/employees</code>：</p>
+<pre>
+{
+    "_embedded": {
+        "employees": [
+            {
+                "firstName": "666666",
+                "lastName": "Li",
+                "email": "conyli@conyli.cc",
+                "_links": {
+                    "self": {
+                        "href": "http://localhost:8080/employees/8"
+                    },
+                    "employee": {
+                        "href": "http://localhost:8080/employees/8"
+                    }
+                }
+            },
+            {
+                "firstName": "Jenny",
+                "lastName": "Huang",
+                "email": "jennyhuang@8roads.com",
+                "_links": {
+                    "self": {
+                        "href": "http://localhost:8080/employees/12"
+                    },
+                    "employee": {
+                        "href": "http://localhost:8080/employees/12"
+                    }
+                }
+            },
+            {
+                "firstName": "Jenny",
+                "lastName": "Huang",
+                "email": "jennyhuang@8roads.com",
+                "_links": {
+                    "self": {
+                        "href": "http://localhost:8080/employees/13"
+                    },
+                    "employee": {
+                        "href": "http://localhost:8080/employees/13"
+                    }
+                }
+            },
+            {
+                "firstName": "666666",
+                "lastName": "Li",
+                "email": "conyli@conyli.cc",
+                "_links": {
+                    "self": {
+                        "href": "http://localhost:8080/employees/14"
+                    },
+                    "employee": {
+                        "href": "http://localhost:8080/employees/14"
+                    }
+                }
+            },
+            {
+                "firstName": "Jenny",
+                "lastName": "Huang",
+                "email": "jennyhuang@8roads.com",
+                "_links": {
+                    "self": {
+                        "href": "http://localhost:8080/employees/15"
+                    },
+                    "employee": {
+                        "href": "http://localhost:8080/employees/15"
+                    }
+                }
+            }
+        ]
+    },
+    "_links": {
+        "self": {
+            "href": "http://localhost:8080/employees{?page,size,sort}",
+            "templated": true
+        },
+        "profile": {
+            "href": "http://localhost:8080/profile/employees"
+        }
+    },
+    "page": {
+        "size": 20,
+        "totalElements": 5,
+        "totalPages": 1,
+        "number": 0
+    }
+}
+</pre>
+<p>可以看到比我们之前的干巴巴的JSON要更复杂，但是更全面，带上了每个数据对象的访问地址。最下边还有符合HATEOAS的元数据，包括每页个数，总数据个数，和页数等元数据。</p>
+<p>之前我们的路径是/api/***，现在Spring Data REST直接使用根目录，如果也想带一个前缀，可以在application.properties中添加一行：</p>
+<pre>
+spring.data.rest.base-path=/rest
+</pre>
+<p>这样所有的路径前边就带上了<code>/rest</code>。</p>
+<p>在Postman里试验一下增删改：</p>
+<p>添加输入，通过Postman向/rest/employees发送一个POST请求，请求体就是一个普通的JSON：</p>
+<pre>
+{
+    "firstName": "Jenny",
+    "lastName": "Huang",
+    "email": "jennyhuang@8roads.com"
+}
+</pre>
+<p>可以看到返回了刚添加的数据以及对应的链接。</p>
+<p>再试验PUT请求去修改，也是直接发送一个对应Employee类的JSON字符串，经过试验，传入的JSON数据中的id不重要，重要的是访问哪个链接，会修改实际访问的链接的对应的数据对象，而不是传出的JSON对象中的ID。</p>
+<p>删除也是一样，只需要用DELETE请求访问对应地址即可。不过与我们自行编写的返回被删除对象的JSON值不同，这里删除不会返回任何东西，仅有一个Cookie和响应头，没有响应体。</p>
+
+<h1 style="text-align: center;">Spring Data REST的其他配置</h1>
+<p>看完了Spring Data REST的简单运用，来看一下具体设置。</p>
+<h3 style="text-align: center;">自定义路径</h3>
+<p>在之前我们自定义了REST服务的根路径。现在来看看链接中<code>/employees</code>这一段。默认情况下，Spring Data REST自动用Entity类名的小写加上s来作为这一段路径。</p>
+<p>这带来一个问题就是并非所有的对象复数都是加s，所以也提供了自定义这一段路径的方法。</p>
+<p>方法就是在定义DAO层接口的时候加上参数：</p>
+<pre>
+package cc.conyli.sbcrud.dao;
+
+import cc.conyli.sbcrud.entity.Employee;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.rest.core.annotation.RepositoryRestResource;
+
+<span style="color: red">@RepositoryRestResource(path = "members")</span>
+public interface EmployeeSpringJPA extends JpaRepository&lt;Employee, Integer> {
+
+}
+</pre>
+<p>这样配置之后，所有的访问路径就变成了<code>/rest/members</code>。</p>
+
+<h3 style="text-align: center;">分页</h3>
+<p>可以通过元数据看到，默认只返回20个元素，意味着默认的Page Size是20。如果想访问其后的页面怎么办。如果我们也是用程序去获取JSON的话，可以从元数据中取得page中的totalpages的值，然后以如下形式访问：</p>
+<pre>
+http://localhost:8080/rest/members?page=0
+http://localhost:8080/rest/members?page=1
+......
+</pre>
+<p>如果想要更改这些设置，也是在application.properties中：</p>
+<pre>
+spring.data.rest.default-page-size=15
+spring.data.rest.max-page-size=30
+</pre>
+<p>从字面意思就可以看出配置的意义。其他的配置可以参考<a href="http://luv2code.com/spring-boot-props">文档</a>。</p>
+
+<h3 style="text-align: center;">排序</h3>
+<p>在之前的查询中很少提到过排序，然而在实际开发中，从数据库中取出的数据没有经过排序，是没有意义的。</p>
+<p>Spring Data REST提供了方便的控制排序的方法，而不用去编写具体SQL语句，只需要添加一些请求参数即可：</p>
+<pre>
+http://localhost:8080/rest/members?sort=lastName
+http://localhost:8080/rest/members?sort=email,desc
+http://localhost:8080/rest/members?sort=firstName,lastName,desc
+</pre>
+<p>上边这些内容在浏览器中一试验就可以知道用法。将Page Size改成一个较小的数字之后，查询的时候还会自动返回额外的上下页链接：</p>
+<pre>
+{
+  "_embedded" : {
+    "employees" : [ {
+      "firstName" : "666666",
+      "lastName" : "Li",
+      "email" : "conyli@conyli.cc",
+      "_links" : {
+        "self" : {
+          "href" : "http://localhost:8080/rest/members/8"
+        },
+        "employee" : {
+          "href" : "http://localhost:8080/rest/members/8"
+        }
+      }
+    }, {
+      "firstName" : "Jenny",
+      "lastName" : "Huang",
+      "email" : "jennyhuang@8roads.com",
+      "_links" : {
+        "self" : {
+          "href" : "http://localhost:8080/rest/members/12"
+        },
+        "employee" : {
+          "href" : "http://localhost:8080/rest/members/12"
+        }
+      }
+    }, {
+      "firstName" : "Jenny",
+      "lastName" : "Huang",
+      "email" : "jennyhuang@8roads.com",
+      "_links" : {
+        "self" : {
+          "href" : "http://localhost:8080/rest/members/13"
+        },
+        "employee" : {
+          "href" : "http://localhost:8080/rest/members/13"
+        }
+      }
+    } ]
+  },
+  "_links" : {
+    "first" : {
+      "href" : "http://localhost:8080/rest/members?page=0&size=3"
+    },
+    "self" : {
+      "href" : "http://localhost:8080/rest/members{?page,size,sort}",
+      "templated" : true
+    },
+    "next" : {
+      "href" : "http://localhost:8080/rest/members?page=1&size=3"
+    },
+    "last" : {
+      "href" : "http://localhost:8080/rest/members?page=1&size=3"
+    },
+    "profile" : {
+      "href" : "http://localhost:8080/rest/profile/members"
+    }
+  },
+  "page" : {
+    "size" : 3,
+    "totalElements" : 5,
+    "totalPages" : 2,
+    "number" : 0
+  }
+}
+</pre>
+<p>所以只需要针对符合HATEOAS的JSON做好解析工作，用程序去访问REST API就非常方便了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
