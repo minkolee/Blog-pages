@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring 38 Spring BOOT - Thymeleaf增删改查项目</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<p>Thymeleaf是一个模板引擎，也有着很多标签可以使用。与JSP不同的是，Thymeleaf还可以用于Web以外的地方。</p>
+<p>Thymeleaf是一个单独的包，并不是Spring的一部分，然而也是主流的模板引擎，所以Spring对其提供了支持。</p>
+<p>使用Thymeleaf与JSP很类似，只不过要添加Thymeleaf的依赖，然后还是老套路，编写控制器和使用模板。</p>
+
+<h1 style="text-align: center;">Thymeleaf 配置和入门</h1>
+
+<p>给我们的增删改查项目来简单的使用一下Thymeleaf。</p>
+<p>在pom.xml中加入依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-thymeleaf&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>然后编写一个简单的控制器：</p>
+<pre>
+package cc.conyli.sbcrud.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class Homepage {
+
+    @GetMapping("/")
+    public String showHomepage(Model model) {
+        model.addAttribute("date", new java.util.Date());
+        return "homepage";
+    }
+}
+</pre>
+<p>这里要注意的是返回的字符串homepage，没有配置过视图解析器，然后又引入了Thymeleaf，因此Spring Boot会自动去寻找<code>/src/main/resources/templates/homepage.html</code>。</p>
+<p>如果此时运行项目，就会提示尚未找到模板，可见这提示也比单独使用Spring要清晰很多。</p>
+<p>对于Web项目，Thymeleaf模板的后缀名就是.html，和普通的HTML文件一样。在<code>templates</code>目录下创建一个简单的<code>homepage.html</code>：</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html xmlns:th="http://www.thymeleaf.org">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>Thymeleaf Template&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;p th:text="'Time on the server is ' + ${date}"/>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这里首先要注意的是，需要在HTML标签内引入thymeleaf的标签命名空间，然后使用Thymeleaf风格的标签。这里使用了一个特殊的单独闭合的p标签，使用了取值表达式，最后在浏览器端看到的页面源代码就是：</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html>
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>Thymeleaf Template&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;p>Time on the server is Thu Mar 28 13:47:14 CST 2019&lt;/p>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>可以看到html上的xml命名空间标签被处理掉了，然后生成了一个P标签，内容是th:text属性里的内容。这就是最简单的Thymeleaf标签，其实标签的作用都很类似，不外乎取值、判断和进行循环。</p>
+
+<h1 style="text-align: center;">静态文件</h1>
+<p>Spring Boot会到src/main/resources/static目录下边寻找静态文件。所以关键是我们在模板内如何确定静态文件的路径。</p>
+<p>先在static目录下创建css目录，然后创建base.css文件（目录和文件名都可以自定，只要确保在static目录下），内容如下：</p>
+<pre>
+body {
+    background-color: #DDDDDD;
+    font-size: 1.5em;
+}
+
+p {
+    color: darkblue;
+    text-decoration: underline;
+}
+
+h1 {
+</pre>
+<p>之后在模板中的head标签内添加一行：</p>
+<pre>
+&lt;link rel="stylesheet" th:href="@{/css/base.css}"/>
+</pre>
+<p>这其中使用了<code>th:href</code>属性，然后使用了<code>@{/css/base.css}</code>表示引用指定位置的文件，查看页面源代码：</p>
+<pre>
+&lt;link rel="stylesheet" href="/css/base.css"/>
+</pre>
+<p>可以发现被解析成了对应的路径，实际上这里的<code>@{}</code>就相当于我们之前反复写的<code>${pageContext.request.contextPath}</code>。可以看到，相比使用Spring MVC需要在WEB-INF下创建目录，再进行配置和映射地址，之后再在JSP里写，要方便太多了。</p>
+<p>Spring Boot对于静态文件，除了到/src/main/resources下搜寻静态文件之外，还会按照如下<span style="color: red">顺序进行搜索</span>：</p>
+<ol>
+    <li>/META-INF/resources</li>
+    <li>/resources</li>
+    <li>/static</li>
+    <li>/public</li>
+</ol>
+<p>注意，是从上到下按顺序搜索的，一旦搜索到某个文件，就不再继续搜索了。</p>
+<p>对于引入外部的静态文件，则不需要使用<code>th:href</code>标签，就使用普通方式即可。</p>
+<p>然后就可以来看看Thymeleaf中的各种标签了。</p>
+
+<h1 style="text-align: center;">Employee列表页</h1>
+<p>来创建一个控制器来展示列表页：</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html xmlns:th="http://www.thymeleaf.org">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>Employee 列表&lt;/title>
+    &lt;link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"
+          integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+&lt;/head>
+&lt;body>
+&lt;h1 class="text-center">Employee 列表&lt;/h1>
+&lt;div class="container">
+    &lt;table class="table">
+        &lt;thead>
+        &lt;tr>
+            &lt;th>First Name&lt;/th>
+            &lt;th>Last Name&lt;/th>
+            &lt;th>Email&lt;/th>
+        &lt;/tr>
+        &lt;/thead>
+        &lt;tbody>
+
+        &lt;tr th:each="employee:${employees}">
+            &lt;td th:text="${employee.firstName}"/>
+            &lt;td th:text="${employee.lastName}"/>
+            &lt;td th:text="${employee.email}"/>
+        &lt;/tr>
+        &lt;/tbody>
+
+    &lt;/table>
+&lt;/div>
+&lt;script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous">&lt;/script>
+&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+        integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+        crossorigin="anonymous">&lt;/script>
+&lt;script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"
+        integrity="sha384-smHYKdLADwkXOn1EmN1qk/HfnUcbVRZyYmZ4qpPea6sjB/pTJ0euyQp0Mk8ck+5T"
+        crossorigin="anonymous">&lt;/script>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>页面引入了Bootstrap4来简单美化。核心是表格那里的tr和td标签的运用，万变不离其宗，这其实和JSTL也很像，一样是循环加上设置一个中转变量，然后从中取数字，和原来的增删改查项目相比，可以说只是标签的改变，没有本质的变化。</p>
+
+<h1 style="text-align: center;">添加Employee</h1>
+<p>这套路和原来基本也没区别，就是把模板换成了Thymeleaf，而不是像原来一样使用Spring 表单标签。</p>
+<p>由于Service和DAO层都已经编写好了，所以剩下的工作还是如下的套路：</p>
+<p>添加新增Employee的按钮 ---> 编写控制器展示表单 ---> 表单页面 ---> 处理表单的控制器。</p>
+<p>在列表页中添加按钮如下：</p>
+<pre>
+&lt;p>&lt;a th:href="@{/form}" class="btn btn-primary">Add Employee&lt;/a>&lt;/p>
+</pre>
+<p>之后是控制器，老样子，记得要给model绑定一个空白的Employee属性，用于生成表单。</p>
+<pre>
+@GetMapping("/form")
+public String showAddForm(Model model) {
+    model.addAttribute("employee", new Employee());
+    return "form";
+}
+</pre>
+<p>然后是编写表单页面form.html，注意Thymeleaf绑定表单的语句与Spring MVC表单不同：</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html xmlns:th="http://www.thymeleaf.org">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>添加Employee&lt;/title>
+    &lt;link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"
+          integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+&lt;/head>
+&lt;body>
+&lt;div class="container">
+    &lt;h1 class="hay">添加Employee&lt;/h1>
+    &lt;form action="#" th:action="@{/save}" th:object="${employee}" method="post">
+        &lt;input class="form-control mb-4 col-4" type="text" th:field="*{firstName}" placeholder="First name">
+        &lt;input class="form-control mb-4 col-4" type="text" th:field="*{lastName}" placeholder="Last name">
+        &lt;input class="form-control mb-4 col-4" type="text" th:field="*{email}" placeholder="Email">
+        &lt;button type="submit" class="btn btn-info col-2">Save&lt;/button>
+    &lt;/form>
+&lt;/div>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这里首先要注意的是，表单的原生HTML属性<code>action="#"</code>就保留这样，Thymeleaf会自动根据后边的<code>th:action="@{/save}"</code>进行处理，表单绑定的Model中的属性则由<code>th:object="${employee}"</code>控制。</p>
+<p>在input元素中，使用<code>th:field="*{firstName}"</code>表示将输入空间绑定给具体的属性，其中的<code>*{}</code>表示之前的<code>${employee}</code>对象，直接写属性名称就可以取到值。在生成表单的时候调用的是getter方法，提交表单的是调用的是setter方法，可见标签都是大同小异，殊途同归。</p>
+<p>然后是编写<code>/save</code>路径对应的控制器：</p>
+<pre>
+@PostMapping("/save")
+public String saveEmployee(@ModelAttribute("employee") Employee employee) {
+    employeeService.save(employee);
+    return "redirect:/list";
+}
+</pre>
+<p>依然还是熟悉的注解绑定，保存成功后重定向到列表页。</p>
+<p>但是这里要注意，使用Thymeleaf生成的表单和Spring MVC一样，在没有引入Spring Security的时候，是没有CSRF字段的。</p>
+
+<h1 style="text-align: center;">修改Employee</h1>
+<p>到这里说实在已经就是样板代码了，依然是添加按钮--展示表单--更新表单</p>
+<p>给列表页添加第四列叫Action（代码省略），然后添加一个链接：</p>
+<pre>
+&lt;td>
+    &lt;a th:href="@{/update(employeeId=${employee.id})}"
+       class="btn btn-info btn-sm">
+        Update
+    &lt;/a>
+&lt;/td>
+</pre>
+<p>这里学习了添加URL参数的方法，就是在路径后跟上括号，然后设置键=取值就可以了。如果要传递多个参数，就用逗号隔开，比如这样：</p>
+<pre>&lt;a th:href="@{/update(employeeId=${employee.id},id=11)}" class="btn btn-info btn-sm"></pre>
+<p>然后是控制器：</p>
+<pre>
+@GetMapping("/update")
+public String showUpdateForm(@RequestParam("employeeId") int id, Model model) {
+    Employee employee = employeeService.findById(id);
+    model.addAttribute("employee", employee);
+    return "updateform";
+}
+</pre>
+<p>这也是老套路了，绑定请求参数传入控制方法，取得对象后绑定给Model再传入表单，来编写update的表单页面，其实和form.html唯一的不同就是埋一个隐藏的id字段在里边。</p>
+<pre>
+&lt;input type="hidden" th:field="*{id}">
+</pre>
+<p>而表单依然可以POST到刚才的/save路径。这样就编写好了添加的代码。</p>
+
+<h1 style="text-align: center;">删除Employee</h1>
+<p>再添加一个按钮和对应的控制器就搞定了。按钮如下：</p>
+<pre>
+&lt;a th:href="@{/delete(employeeId=${employee.id})}" class="btn btn-danger btn-sm">Delete&lt;/a>
+</pre>
+<p>控制器如下：</p>
+<pre>
+@GetMapping("/delete")
+public String deleteEmployee(@RequestParam("employeeId") int id, Model model) {
+    employeeService.deleteById(id);
+    return "redirect:/list";
+}
+</pre>
+<p>这样就完成了Spring Boot + Thymeleaf的增删改查项目了。</p>
+<p>至此Spring 的纵览学习就结束了，从一开始的Spring IOC容器，升级到用Spring + Hibernate来编写增删改查，之后引入切面，再之后是Spring Security，一点一点的搭建出Web应用的核心功能。</p>
+<p>之后进一步升级到Spring Boot + Spring Data REST来迅速搭建Rest服务，最后将Spring MVC表单标签和JSTL标签升级到了Thymeleaf标签。</p>
+<p>2019年春天的第一个月用博客学习法初步走进了Spring的世界，4月5月就继续深入看那几本经典的书吧。</p>
+
+
+
+
+</body>
+</html>
