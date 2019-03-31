@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring in Action 5 Chapter 3</title>
+
+</head>
+<body>
+<h1>Spring 数据库</h1>
+<p>Spring 数据库可以用两种，一种是JDBCTemplate：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-jdbc&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>还可以引入H2 集成数据库</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>com.h2database&lt;/groupId>
+    &lt;artifactId>h2&lt;/artifactId>
+    &lt;scope>runtime&lt;/scope>
+&lt;/dependency>
+</pre>
+<p>书里实际是在编写DAO层的内容，所以创建了一个接口IngredientRepository，里边写了查询全部，通过id查和保存三个方法。然后编写实现类。</p>
+<p>在实现类中，使用构造器注入，注入JdbeTemplate 对象。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
