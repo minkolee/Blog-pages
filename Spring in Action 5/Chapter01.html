@@ -4,34 +4,48 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Spring in Action 5 Chapter 1</title>
+    <title>Spring in Action 5 Chapter 01 学习记录</title>
 
 </head>
 <body>
-<h1>Spring简介和术语</h1>
-<p>Spring核心提供了一个container，被称为Spring application context，用于创建和管理所有的组件。组件被称为beans。装配beans采用的模式叫做dependency injecttion，依赖注入。</p>
-<p>历史上多用XML配置，在最近的版本中多使用Java配置。但目前，显式的XML和Java配置只有在Spring无法自动配置和发现组件的时候才使用。Spring自动发现组件的功能叫做autowiring和component scanning。</p>
-<p>Spring Boot对于Spring的增强是autoconfiguration，节约了大量开发时间。</p>
-<h1>初始化 Spring 应用</h1>
-<p>Spring in Action 5把Spring 和Spring Boot一起说了，只有在特殊需要区分的时候才区分，可见Spring Boot现在已经是主流了。</p>
-<p>初始化Spring应用的方法是Spring Initializr，这是一个Web应用，也是一个API。有很多种方法可以启动：</p>
+<p>开始自学SIA5这本书了，直接就上英文版了。</p>
+<p>SIA 5 1-3章讲了最基础的数据库应用，作者毕竟是高手，代码还是很不错的，使用了Java 8的一些特性。</p>
+<p>但是由于直到第三章引入数据库，才让人有了设计的全貌，这里记录一下总的心得。</p>
+
+<h1 STYLE="text-align: center;">@SessionAttribute属性的使用</h1>
+<p>@SessionAttribute必须配合@ModelAttribute一起使用。</p>
+<p>在之前Udemy视频里没有使用过这个，这个<code>@SessionAttribute</code>，这个实际上在对model进行存取的时候，如果放进model中的键与<code>@SessionAttribute</code>的value相同，这个东西实际上会被放进session里。
+</p>
+<p>在取出来的时候，如果session里有，实际上取得是session里的数据，只要浏览器不关闭，还是一个页面，即使redirect也不会消失。</p>
+
+<h1 STYLE="text-align: center;">常用工具</h1>
+<p>列出一下作者用到的所有第三方包：</p>
 <ol>
-    <li><a href="http://start.spring.io">http://start.spring.io</a></li>
-    <li>curl</li>
-    <li>Spring Boot command-line interface</li>
-    <li>Spring Tool Suite</li>
-    <li>IntelliJ IDEA</li>
-    <li>NetBeans</li>
+    <li><a href="https://projectlombok.org/" target="_blank">Lombok</a>
+        <ol>
+            <li>@Data</li>
+            <li>@RequiredArgsConstructor</li>
+            <li>IDE 插件 https://projectlombok.org/setup/intellij</li>
+            <li>@Slf4j 自带log对象，导入就可以用</li>
+        </ol>
+    </li>
+    <li>Thymeleaf， 这是必用的库</li>
+    <li>H2 数据库，默认是使用内存库，需要url=jdbc:h2:mem:testdb，第一进去密码就是默认的。SB集成的时候自动会用。</li>
 </ol>
-<p>Spring Tool Suite是一个工具，用于一些IDEA来增强Spring开发，作者说还有一些其他IDE没有的内容。反正我还是使用IntelliJ。新建项目的时候选择Spring Intializr，然后会到网站读取配置信息，之后输入即可，一些内容已经都知道了，starter里选上Devtools，Web和Thymeleaf。</p>
-
-
-
-
-
-
-
-
+<h3 style="text-align: center;">Spring Data不同持久化的东西</h3>
+<ol>
+    <li>Spring Data JPA 持久化关系型数据库</li>
+    <li>Spring Data MongoDB MongoDB</li>
+    <li>Spring Data Neo4j 图片持久化库</li>
+    <li>Spring Data Redis Redis库</li>
+    <li>Spring Data Cassandra 持久化到Cassandra数据库</li>
+    <p>对于这些数据库，Spring Data都可以通过接口自动生成库。</p>
+</ol>
+<p>自己再开发必须使用UTF-8的库才行了，现在就详细配置好了各种库。</p>
+<p>由于Spring in Action 5 到了第3章才引入数据库的设计，其实应该先把数据结构放出来会好很多。</p>
+<p>这里就先自己实现一下页面，再自己实现一下使用JPA的方式。JdbcTemplate的方式留到以后看好了。</p>
+<p>作者想要做的是，进入页面，选择配料，选好之后形成一个Taco，然后下订单，很显然一个订单可以有多个Taco种类，一个Taco种类可能被多个订单使用。Taco和配料之间的关系同样也是多对多。</p>
+<p>就跟随作者的思路，每一章用自己的思路和方法先来实现一下。把遇到的东西都先自己再归纳学习一下。</p>
 
 
 

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LOMBOK库</title>
+
+</head>
+<body>
+<p>所谓开卷有益，就是一读就能发现好东西。SIA5一开始就介绍了LOMBOK这个库，这个库也能在start.spring.io的starter中找到，确实是一个不错的库，简化了大量的冗长样板代码。</p>
+<p>库的官方地址是：<a href="https://projectlombok.org" target="_blank">https://projectlombok.org</a>。其中的feature有个快速入门，简单学习了一下：</p>
+
+<h1><code>val</code></h1>
+<p>这个是一种数据类型，导入之后使用，可以用在方法内的本地变量中，实际上就是一个万能的类型符号，外加带有final功能。</p>
+
+<h1><code>var</code></h1>
+<p>作为和val类似，但是没有final功能。val和var都是为了让简单的方法写起来更简单明了。</p>
+
+<h1><code>@NonNull</code></h1>
+<p>可以用在方法参数，构造器，让lombok帮你检查是不是为空。如果为空，会抛一个空指针错误告诉你哪里为空。对于构造器，会在super()或者this()方法之后立刻调用这个检查。如果类顶部已经有该检查，不会重复生成检查。</p>
+<p>支持application文件中如下配置,意思一看便知：</p>
+<ol>
+    <li><code>lombok.nonNull.exceptionType = [NullPointerException | IllegalArgumentException] (default: NullPointerException)</code>，设置抛出的错误是空指针还是参数错误。</li>
+    <li><code>lombok.nonNull.flagUsage = [warning | error] (default: not set)</code>，配置每一次检测失败是warning还是error。</li>
+</ol>
+
+<h1><code>@Cleanup</code></h1>
+<p>在当前作用域结束的时候，自动调用被@Cleanup修饰的对象的.close()方法。</p>
+<ol>
+    <li><code>lombok.cleanup.flagUsage = [warning | error] (default: not set)</code>，执行失败的时候异常还是error</li>
+</ol>
+
+<h1><code>@Getter and @Setter</code></h1>
+<p>详细控制每一个域的getter和setter方法有没有。加上注解就会自动生成对应的方法。如果用在类上，除了静态成员之外都会有对应的方法。</p>
+<p>生成的方法默认是public，可以设置AccessLevel来修改，可以看例子：</p>
+<pre>
+
+ import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
+
+public class GetterSetterExample {
+
+  @Getter @Setter private int age = 10;
+
+  @Setter(AccessLevel.PROTECTED) private String name;
+
+  @Override public String toString() {
+    return String.format("%s (age: %d)", name, age);
+  }
+}
+</pre>
+
+<h1><code>@ToString</code></h1>
+<p>修饰类，自动生成该方法。</p>
+<p>可以使用@ToString.Exclude或者Include来包含和去掉某些域，也可以把无参的实例方法的结果包含在其中。</p>
+<p>includeFieldNames设置为true，表示把字段名包含在结果里，会让打印出的结果长一些。</p>
+<pre>
+
+ import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
+
+public class GetterSetterExample {
+
+  @Getter @Setter private int age = 10;
+
+  @Setter(AccessLevel.PROTECTED) private String name;
+
+  @Override public String toString() {
+    return String.format("%s (age: %d)", name, age);
+  }
+}
+</pre>
+<ol>
+    <li><code>lombok.toString.includeFieldNames= [ true| false]</code>，是否包含字段名</li>
+</ol>
+
+<h1><code>@EqualsAndHashCode</code></h1>
+<p>顾名思义，生成对应方法。默认会使用所有非静态和非瞬态字段，可以自行设置。由于不好用于继承的类，所以一般用于数据类。</p>
+
+<h1><code>@NoArgsConstructor, @RequiredArgsConstructor, @AllArgsConstructor</code></h1>
+<p>生成构造器。第一个是无参构造器，第二个是有参构造器，第三个是两个构造器都生成。如果因为final变量无法进行无参构造，可以加上<code>@NoArgsConstructor(force = true)</code>，这样final变量会被初始化成0/false/null。</p>
+<p>有参构造对每一个普通类变量和没有初始化的final变量生成构造器。</p>
+<p>还可以设置<code>@RequiredArgsConstructor(staticName = "of")</code>来使用Person.of("jenny", 18)这样的方法来构造。</p>
+<pre>
+
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.NonNull;
+
+@RequiredArgsConstructor(staticName = "of")
+@AllArgsConstructor(access = AccessLevel.PROTECTED)
+public class ConstructorExample&lt;T> {
+  private int x, y;
+  @NonNull private T description;
+  
+  @NoArgsConstructor
+  public static class NoArgsExample {
+    @NonNull private String field;
+  }
+}
+</pre>
+
+<h1><code>@Data</code></h1>
+<p>等于@ToString, @EqualsAndHashCode, 所有变量的@Getter,非final变量的@Setter和@RequiredArgsConstructor。所以记得对于Entity，很多时候需要补一个无参构造器。</p>
+
+<h1><code>@Builder</code></h1>
+<p>允许链式调用的方式设置属性，在类，构造器和方法上都能用。</p>
+<p>这个比较复杂，用到的时候再看。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

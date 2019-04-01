@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring in Action 5 Chapter 02 学习记录</title>
+
+</head>
+<body>
+<h1 style="text-align: center;">构建过程</h1>
+<p>第二章其实并没有涉及到数据库，而是写了几个类，然后硬是new出来一些数据，写到页面中供选择。</p>
+<p>主要的内容其实是Spring MVC的内容。</p>
+<p>SIA5并没有区分Spring Framework和组件，而是直接就盯住Spring Boot讲起，从字面上不区分Spring 和Spring Boot，这是第四版相比第五版的一大改变。</p>
+
+
+<h1 style="text-align: center;">构建数据库</h1>
+
+<p>表结构和简单的数据如下：</p>
+<img src="http://img.conyli.cc/spring/sia5schema.png" alt="SIA5数据结构图">
+<p>创建数据结构，然后录入一些基础的原料及类别如下：</p>
+<pre>
+SET FOREIGN_KEY_CHECKS=0;
+
+-- ----------------------------
+-- Table structure for ingredient
+-- ----------------------------
+DROP TABLE IF EXISTS `ingredient`;
+CREATE TABLE `ingredient` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) DEFAULT NULL,
+  `type` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of ingredient
+-- ----------------------------
+INSERT INTO `ingredient` VALUES ('1', 'Flour Tortilla', 'WRAP');
+INSERT INTO `ingredient` VALUES ('2', 'Corn Tortilla', 'WRAP');
+INSERT INTO `ingredient` VALUES ('3', 'Ground Beef', 'PROTEIN');
+INSERT INTO `ingredient` VALUES ('4', 'Carnitas', 'PROTEIN');
+INSERT INTO `ingredient` VALUES ('5', 'Diced Tomatoes', 'VEGGIES');
+INSERT INTO `ingredient` VALUES ('6', 'Lettuce', 'VEGGIES');
+INSERT INTO `ingredient` VALUES ('7', 'Cheddar', 'CHEESE');
+INSERT INTO `ingredient` VALUES ('8', 'Monterrey Jack', 'CHEESE');
+INSERT INTO `ingredient` VALUES ('9', 'Salsa', 'SAUCE');
+INSERT INTO `ingredient` VALUES ('10', 'Sour Cream', 'SAUCE');
+
+-- ----------------------------
+-- Table structure for order
+-- ----------------------------
+DROP TABLE IF EXISTS `order`;
+CREATE TABLE `order` (
+  `id` int(11) NOT NULL,
+  `deliveryName` varchar(50) NOT NULL,
+  `deliveryStreet` varchar(50) NOT NULL,
+  `deliveryCity` varchar(50) NOT NULL,
+  `deliveryState` varchar(2) NOT NULL,
+  `deliveryZip` varchar(10) NOT NULL,
+  `ccNumber` varchar(16) NOT NULL,
+  `ccExpiration` varchar(5) NOT NULL,
+  `ccCVV` varchar(3) NOT NULL,
+  `placedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of order
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for taco
+-- ----------------------------
+DROP TABLE IF EXISTS `taco`;
+CREATE TABLE `taco` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL,
+  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of taco
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for taco_ingredients
+-- ----------------------------
+DROP TABLE IF EXISTS `taco_ingredients`;
+CREATE TABLE `taco_ingredients` (
+  `taco_id` int(11) NOT NULL,
+  `ingredient_id` int(11) NOT NULL,
+  KEY `taco_id_fk` (`taco_id`),
+  KEY `ingre_id_fk` (`ingredient_id`),
+  CONSTRAINT `ingre_id_fk` FOREIGN KEY (`ingredient_id`) REFERENCES `ingredient` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `taco_id_fk` FOREIGN KEY (`taco_id`) REFERENCES `taco` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of taco_ingredients
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for taco_order
+-- ----------------------------
+DROP TABLE IF EXISTS `taco_order`;
+CREATE TABLE `taco_order` (
+  `order_id` int(11) NOT NULL,
+  `taco_id` int(11) NOT NULL,
+  KEY `taco_order_fk` (`taco_id`),
+  KEY `taco_order_order_fk` (`order_id`),
+  CONSTRAINT `taco_order_fk` FOREIGN KEY (`taco_id`) REFERENCES `taco` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `taco_order_order_fk` FOREIGN KEY (`order_id`) REFERENCES `order` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of taco_order
+-- ----------------------------
+</pre>
+<p>这里没有像原书一样使用四个英文字母当做ID，还是使用了标准的ID。</p>
+
+<p>现在还是第二章的进度，先不用数据库，直接去创建Ingredient类，用于在页面里展示。详细代码不会贴出来，这里要做的事情，就是创建欢迎页面，然后进入选择原料的页面。</p>
+
+<h1 style="text-align: center;">创建Ingredient类</h1>
+<p>数据类都使用了lombok库，非常方便的库。<a href="https://projectlombok.org/features/all" target="_blank">这里</a>是一个简略的说明。</p>
+<p>之后写Entity，基本上加上@Data和@NoArgsConstructor就可以了，然后可以将变量设置为final，只设置一次值就OK了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
