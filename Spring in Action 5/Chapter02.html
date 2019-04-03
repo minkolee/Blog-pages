@@ -8,7 +8,7 @@
 
 </head>
 <body>
-<h1 style="text-align: center;">构建过程</h1>
+<h1 style="text-align: center;">实现过程</h1>
 <p>第二章其实并没有涉及到数据库，而是写了几个类，然后硬是new出来一些数据，写到页面中供选择。</p>
 <p>主要的内容其实是Spring MVC的内容。</p>
 <p>SIA5并没有区分Spring Framework和组件，而是直接就盯住Spring Boot讲起，从字面上不区分Spring 和Spring Boot，这是第四版相比第五版的一大改变。</p>
@@ -53,15 +53,15 @@ INSERT INTO `ingredient` VALUES ('10', 'Sour Cream', 'SAUCE');
 DROP TABLE IF EXISTS `order`;
 CREATE TABLE `order` (
   `id` int(11) NOT NULL,
-  `deliveryName` varchar(50) NOT NULL,
-  `deliveryStreet` varchar(50) NOT NULL,
-  `deliveryCity` varchar(50) NOT NULL,
-  `deliveryState` varchar(2) NOT NULL,
-  `deliveryZip` varchar(10) NOT NULL,
-  `ccNumber` varchar(16) NOT NULL,
-  `ccExpiration` varchar(5) NOT NULL,
-  `ccCVV` varchar(3) NOT NULL,
-  `placedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `delivery_name` varchar(50) NOT NULL,
+  `delivery_street` varchar(50) NOT NULL,
+  `delivery_city` varchar(50) NOT NULL,
+  `delivery_state` varchar(2) NOT NULL,
+  `delivery_zip` varchar(10) NOT NULL,
+  `cc_number` varchar(16) NOT NULL,
+  `cc_expiration` varchar(5) NOT NULL,
+  `cc_cvv` varchar(3) NOT NULL,
+  `placed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -76,7 +76,7 @@ DROP TABLE IF EXISTS `taco`;
 CREATE TABLE `taco` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
-  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -85,10 +85,10 @@ CREATE TABLE `taco` (
 -- ----------------------------
 
 -- ----------------------------
--- Table structure for taco_ingredients
+-- Table structure for taco_ingredient
 -- ----------------------------
-DROP TABLE IF EXISTS `taco_ingredients`;
-CREATE TABLE `taco_ingredients` (
+DROP TABLE IF EXISTS `taco_ingredient`;
+CREATE TABLE `taco_ingredient` (
   `taco_id` int(11) NOT NULL,
   `ingredient_id` int(11) NOT NULL,
   KEY `taco_id_fk` (`taco_id`),
@@ -120,11 +120,201 @@ CREATE TABLE `taco_order` (
 </pre>
 <p>这里没有像原书一样使用四个英文字母当做ID，还是使用了标准的ID。</p>
 
-<p>现在还是第二章的进度，先不用数据库，直接去创建Ingredient类，用于在页面里展示。详细代码不会贴出来，这里要做的事情，就是创建欢迎页面，然后进入选择原料的页面。</p>
-
-<h1 style="text-align: center;">创建Ingredient类</h1>
+<h1 style="text-align: center;">创建Ingredient类和对应的展示页面</h1>
 <p>数据类都使用了lombok库，非常方便的库。<a href="https://projectlombok.org/features/all" target="_blank">这里</a>是一个简略的说明。</p>
 <p>之后写Entity，基本上加上@Data和@NoArgsConstructor就可以了，然后可以将变量设置为final，只设置一次值就OK了。</p>
+<p>现在的第一个问题是，Ingredient类如果里边设置了ENUM类，能成功映射吗。经过试验，不能能直接映射String类型的Type到Enum类。</p>
+<p>这里DAO直接通过JPARepository接口来实现，除了默认的findAll()方法之外，自行添加了一个返回List&lt;String>的方法，用于返回所有Ingredient的类型。</p>
+<p>Entity如下：</p>
+<pre>
+package cc.conyli.sia5.entity;
+
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
+
+import javax.persistence.*;
+
+@Data
+@RequiredArgsConstructor
+@NoArgsConstructor(force = true, access = AccessLevel.PRIVATE)
+@Entity
+@Table(name = "ingredient")
+public class Ingredient {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private final int id;
+    @Column(name = "name")
+    private final String name;
+    @Column(name = "type")
+    private final String type;
+}
+</pre>
+<p>虽然使用了final，但是不影响取值，今后的Entity基本都这么写。</p>
+<p>然后需要来编写模板文件。</p>
+<p>这里需要注意的就是Thymeleaf中的<code>@{/css/style.css}</code>中的第一个<code>/</code>不能不写，否则会找不到地址。这个错误经常犯。</p>
+<p>Thymeleaf模板的逻辑应该是先列出来所有的类型，再在所有的类型下边列出对应的内容。</p>
+<p>为了达成这个目标，使用神奇的Spring Data 接口，编写了一个方法：</p>
+<pre>List&lt;Ingredient> getIngredientsByType(String type);</pre>
+<p>这中间IDE会自动提示，然后就可以使用了，会自动解析，超级神奇。</p>
+<p>有了这个东西，外加取得的<code>List&lt;String></code>类型的列表，就可以给Model传入对应的内容了。</p>
+
+<p>在编写页面的时候，原书就直接写死了几种类型，这里利用Service层对数据进行了处理，封装成一个Map对象，传给页面，就实现了动态的生成原料页面。</p>
+<p>Service的方法如下：</p>
+<pre>
+@Override
+    public Map&lt;String, List&lt;Ingredient>> getIngredientsAndTypeMap() {
+        Map&lt;String, List&lt;Ingredient>> ingredientsByTypeMap = new HashMap&lt;>();
+
+        List&lt;String> types = getTypes();
+
+        for (String type : types) {
+            ingredientsByTypeMap.put(type, getIngredientsByType(type));
+        }
+
+        return ingredientsByTypeMap;
+    }
+</pre>
+<p>页面里使用嵌套循环，传给页面的变量名字叫mapper：</p>
+<pre>
+&lt;div class="container">
+    &lt;h2 class="text-center">选择食材&lt;/h2>
+    &lt;form th:action="@{/thyme/process}" action="#" method="post">
+        &lt;div th:each="list: ${mapper}">
+            &lt;h3 class="text-left" th:text="${list.key}">&lt;/h3>
+            &lt;div class="form-check" th:each="ingredient: ${list.value}">
+                &lt;input class="form-check-input" type="checkbox" th:value="${ingredient.id}" name="ingredients"
+                       th:id="${ingredient.type}+${ingredient.id}">
+                &lt;label class="form-check-label" th:text="${ingredient.name}"
+                       th:for="${ingredient.type}+${ingredient.id}">&lt;/label>
+            &lt;/div>
+            &lt;hr>
+        &lt;/div>
+        &lt;input type="text" placeholder="mytaco">
+        &lt;button type="submit">提交&lt;/button>
+    &lt;/form>
+&lt;/div>
+</pre>
+
+<h1 style="text-align: center;">创建Taco类和处理表单</h1>
+<p>原书这一块的业务逻辑是，表单POST到一个地址，生成一个Taco对象，里边包含着所有的原料，ingredient属性里是一个id的列表，用一个List取出来。</p>
+<p>为此需要创建Taco对象，要对应数据库，同时和Ingredient是多对多关系。这里就直接使用JPA和Hibernate相关的技术了。</p>
+<p>一般我们从有多对多字段的地方查询比较好，由于原料是比较基础的，仅作为提供数据只用，所以把多对多字段放在Taco类里。</p>
+<p style="color: red">这里自己发现了一个坑。一开始将taco表的创建时间列名设置为 createdAt，在taco类里也写了@Column(name = "createdAt")，结果Hibernate自动去找叫做created_at的列，找不到。</p>
+<p>深入一下研究，发现这是Spring JPA解析列名的设置，配置文件里可以设置解析方式，有两种：</p>
+<pre>
+spring.jpa.hibernate.naming.physical-strategy=org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+spring.jpa.hibernate.naming.physical-strategy=org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy
+</pre>
+<p>上边一种是不对列名进行任何处理，而下边就是Spring的，会自动将@Column中的大写部分拆开成两个单词以下划线拼接。</p>
+<p>如果不进行任何修改，配置成上边这样，就OK了，然而以后还是得注意mysql的命名规范。</p>
+<p>创建好的Taco类如下：</p>
+<pre>
+package cc.conyli.sia5.entity;
+
+import lombok.Data;
+
+import javax.persistence.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+
+@Data
+@Entity
+@Table(name = "taco")
+public class Taco {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+    @Column(name = "name")
+    private String name;
+    @Column(name = "created_at")
+    private Date createdAt;
+
+    @ManyToMany(cascade = {CascadeType.DETACH, CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH})
+    @JoinTable(name = "taco_ingredient", joinColumns = @JoinColumn(name = "taco_id"), inverseJoinColumns = @JoinColumn(name = "ingredient_id"))
+    private List&lt;Ingredient> ingredients;
+
+    @PrePersist
+    void createdAt() {
+        this.createdAt = new Date();
+    }
+    //添加一个方法用于给自己的外键添加关联对象，这个实际上用不到
+    //在控制器绑定了表单的时候，Taco对象的外键属性里会直接由Spring Data JPA装上查询好以后的对象，可以直接保存。
+    public void addIngredient(Ingredient ingredient) {
+        if (ingredients == null) {
+            ingredients = new ArrayList<>();
+        }
+        ingredients.add(ingredient);
+    }
+}
+</pre>
+<p>之后是要创建控制器，service和dao，这里的DAO依然直接继承神奇接口，service现在只需要编写一个save方法，控制器现在只需要编写一个处理表单然后保存的方法。service层和DAO层的代码就省略了。</p>
+<p>看一下Taco控制器，就一个方法，处理表单然后保存。</p>
+<pre>
+package cc.conyli.sia5.controller;
+
+import cc.conyli.sia5.entity.Taco;
+import cc.conyli.sia5.service.TacoService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+@RequestMapping("/taco")
+public class TacoController {
+
+    private TacoService tacoService;
+
+    @Autowired
+    public TacoController(TacoService tacoService) {
+        this.tacoService = tacoService;
+    }
+
+    @PostMapping("/process")
+    public String saveTaco(@ModelAttribute("taco") Taco taco) {
+        System.out.println(taco);
+        tacoService.save(taco);
+        System.out.println(taco);
+        return "redirect:/";
+    }
+}
+</pre>
+<p>之后还需要做一步，就是给表单绑定对象，由于之前展示表单的时候还没有绑定Taco对象，这里需要绑定，还要一并修改下边的name对应的input：</p>
+<pre>
+&lt;form th:action="@{/taco/process}" action="#" method="post" <span style="color: red">th:object="${taco}"</span>>
+&lt;input type="text" <span style="color: red;">th:field="*{name}"</span> placeholder="mytaco">
+</pre>
+<p>这样我们就完成了选择食材--提交表单--保存Taco与食材的对应关系的功能。</p>
+<p>然后可以接下来实现下一步功能了，就是生成一个订单，里边装着这个Taco，提交订单之后保存到数据库，在订单页面可以选择再添加一个Taco，最后把订单对应的taco全部保存到其中去。</p>
+<p>原书的实现方法，是在生成原料列表的控制器里使用了一个<code>@SessionAttributes("order")</code>，然后有一个方法：</p>
+<pre>
+@ModelAttribute(name = "order")
+public Order order() {
+return new Order();
+}
+</pre>
+<p>这个方法似乎是设置了一个新的Order对象。然后在处理表单的时候，如果Taco对象成功获取，就将Taco设置到Order的外键对象上。</p>
+<p>在接受order的请求方法中，多了一个参数SessionStatus，在成功保存了session之后，调用了<code>SessionStatus.setComplete()</code>方法，猜测是这样：</p>
+<p>设置了一个order属性的时候，即使再设置新的order，也不会覆盖原来的，只会再得到原来的对象。</p>
+<p>只有调用了<code>SessionStatus.setComplete()</code>之后，才会清理session。</p>
+<p>也就是说即使去添加<code>model.addAttribute("order", new Order())</code>也不会覆盖原来的order了。</p>
+<p>这里有点困惑，经过实际试验，设置不同的session对象会互相影响。</p>
+
+
+
+
+
+
+
+
+
+
+
 
 
 
