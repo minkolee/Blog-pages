@@ -50,9 +50,9 @@ INSERT INTO `ingredient` VALUES ('10', 'Sour Cream', 'SAUCE');
 -- ----------------------------
 -- Table structure for order
 -- ----------------------------
-DROP TABLE IF EXISTS `order`;
-CREATE TABLE `order` (
-  `id` int(11) NOT NULL,
+DROP TABLE IF EXISTS `orders`;
+CREATE TABLE `orders` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `delivery_name` varchar(50) NOT NULL,
   `delivery_street` varchar(50) NOT NULL,
   `delivery_city` varchar(50) NOT NULL,
@@ -89,7 +89,7 @@ CREATE TABLE `taco` (
 -- ----------------------------
 DROP TABLE IF EXISTS `taco_ingredient`;
 CREATE TABLE `taco_ingredient` (
-  `taco_id` int(11) NOT NULL,
+  `taco_id` int(11) NOT NULL ,
   `ingredient_id` int(11) NOT NULL,
   KEY `taco_id_fk` (`taco_id`),
   KEY `ingre_id_fk` (`ingredient_id`),
@@ -111,7 +111,7 @@ CREATE TABLE `taco_order` (
   KEY `taco_order_fk` (`taco_id`),
   KEY `taco_order_order_fk` (`order_id`),
   CONSTRAINT `taco_order_fk` FOREIGN KEY (`taco_id`) REFERENCES `taco` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-  CONSTRAINT `taco_order_order_fk` FOREIGN KEY (`order_id`) REFERENCES `order` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+  CONSTRAINT `taco_order_order_fk` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ----------------------------
@@ -304,16 +304,168 @@ return new Order();
 <p>只有调用了<code>SessionStatus.setComplete()</code>之后，才会清理session。</p>
 <p>也就是说即使去添加<code>model.addAttribute("order", new Order())</code>也不会覆盖原来的order了。</p>
 <p>这里有点困惑，经过实际试验，设置不同的session对象会互相影响。</p>
+<p>不管如何，先把Order类，还有提交食材的时候自动跳转填写Order类的工作准备好。</p>
+<p>Order类如下，这里一开始犯了一个错误，就是把表名起成了MySQL的保留字order，导致一直出错，后来改成了orders就可以了：</p>
+<pre>
+package cc.conyli.sia5.entity;
+
+import lombok.Data;
+
+import javax.persistence.*;
+import java.util.Date;
+import java.util.List;
+
+@Data
+@Entity
+@Table(name = "orders")
+public class Order {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    @Column(name = "delivery_name")
+    private String delivery_name;
+
+    @Column(name = "delivery_street")
+    private String delivery_street;
+
+    @Column(name = "delivery_city")
+    private String delivery_city;
+
+    @Column(name = "delivery_state")
+    private String delivery_state;
+
+    @Column(name = "delivery_zip")
+    private String delivery_zip;
+
+    @Column(name = "cc_number")
+    private String cc_number;
+
+    @Column(name = "cc_expiration")
+    private String cc_expiration;
+
+    @Column(name = "cc_cvv")
+    private String cc_cvv;
+
+    @Column(name = "placed_at")
+    private Date placed_at;
+
+    @ManyToMany(cascade = {CascadeType.DETACH, CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH})
+    @JoinTable(name = "taco_order", joinColumns = @JoinColumn(name = "order_id"), inverseJoinColumns = @JoinColumn(name = "taco_id"))
+    private List&lt;Taco> tacos;
+
+    @PrePersist
+    private void placedAt() {
+        this.placed_at = new Date();
+    }
+}
+</pre>
+<p>然后是表单页面，写得比较死，绑定由model传进来的order空白order对象：</p>
+<pre>
+&lt;div class="container">
+    &lt;form action="#" th:action="@{/order/process}" th:object="${order}" method="post">
+        &lt;h3 class="text-center">提交订单&lt;/h3>
+        &lt;div class="form-group">
+            &lt;label>delivery_name
+                &lt;input class="form-control" type="text" th:field="*{delivery_name}" placeholder="...">
+            &lt;/label>
+        &lt;/div>
+
+        &lt;div class="form-group">
+            &lt;label>delivery_street
+                &lt;input class="form-control" type="text" th:field="*{delivery_street}" placeholder="...">
+            &lt;/label>
+        &lt;/div>
+
+        &lt;div class="form-group">
+            &lt;label>delivery_city
+                &lt;input class="form-control" type="text" th:field="*{delivery_city}" placeholder="...">
+            &lt;/label>
+        &lt;/div>
+
+        &lt;div class="form-group">
+            &lt;label>delivery_state
+                &lt;input class="form-control" type="text" th:field="*{delivery_state}" placeholder="...">
+            &lt;/label>
+        &lt;/div>
+
+        &lt;div class="form-group">
+            &lt;label>delivery_zip
+                &lt;input class="form-control" type="text" th:field="*{delivery_zip}" placeholder="...">
+            &lt;/label>
+        &lt;/div>
+
+        &lt;div class="form-group">
+            &lt;label>卡号
+                &lt;input class="form-control" type="text" th:field="*{cc_number}" placeholder="...">
+            &lt;/label>
+        &lt;/div>
+
+        &lt;div class="form-group">
+            &lt;label>过期日
+                &lt;input class="form-control" type="text" th:field="*{cc_expiration}" placeholder="...">
+            &lt;/label>
+        &lt;/div>
+
+        &lt;div class="form-group">
+            &lt;label>CVV2码
+                &lt;input class="form-control" type="text" th:field="*{cc_cvv}" placeholder="...">
+            &lt;/label>
+        &lt;/div>
+        &lt;a th:href="@{/ingredients}" class="btn btn-primary">给订单添加新Taco&lt;/a>
+        &lt;button type="submit" class="btn btn-primary">提交&lt;/button>
+
+    &lt;/form>
+&lt;/div>
+</pre>
+<p>最后是简单的控制器：</p>
+<pre>
+package cc.conyli.sia5.controller;
+
+import cc.conyli.sia5.dao.OrderRepository;
+import cc.conyli.sia5.entity.Order;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Slf4j
+@Controller
+@RequestMapping("/order")
+public class OrderController {
+
+    private OrderRepository orderRepository;
+
+    @Autowired
+    OrderController(OrderRepository orderRepository) {
+        this.orderRepository = orderRepository;
+    }
 
 
+    @GetMapping("/form")
+    public String showOrderForm(Model model) {
+        model.addAttribute("order", new Order());
+        return "order";
+    }
+
+    @PostMapping("/process")
+    public String processOrder(@ModelAttribute("order") Order order) {
+        orderRepository.save(order);
+        log.info("保存的order是：" + order);
+        return "redirect:/";
+    }
 
 
-
-
-
-
-
-
+}
+</pre>
+jdbc:h2:mem:testdb
+<p>先来按照SIA5做一遍看看，发现不行，每次新的session会覆盖掉原来的session内的order键值。</p>
+<p>这里还需要注意的是，如果Order多对多列表里的内容已经被先存储，而不是取出一个已经存在的数据，或者是尚未存储的数据，需要去掉多对多字段的：<code>CascadeType.PERSIST</code>。</p>
+<p>这里有点晕菜，@SessionAttributes和@ModelAtrribute到底是什么样的关系，是不是默认直接取Order order又是什么。</p>
 
 
 
