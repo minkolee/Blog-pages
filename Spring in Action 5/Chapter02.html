@@ -290,6 +290,9 @@ public class TacoController {
 &lt;input type="text" <span style="color: red;">th:field="*{name}"</span> placeholder="mytaco">
 </pre>
 <p>这样我们就完成了选择食材--提交表单--保存Taco与食材的对应关系的功能。</p>
+
+<h1 style="text-align: center;">Order相关处理</h1>
+
 <p>然后可以接下来实现下一步功能了，就是生成一个订单，里边装着这个Taco，提交订单之后保存到数据库，在订单页面可以选择再添加一个Taco，最后把订单对应的taco全部保存到其中去。</p>
 <p>原书的实现方法，是在生成原料列表的控制器里使用了一个<code>@SessionAttributes("order")</code>，然后有一个方法：</p>
 <pre>
@@ -298,12 +301,7 @@ public Order order() {
 return new Order();
 }
 </pre>
-<p>这个方法似乎是设置了一个新的Order对象。然后在处理表单的时候，如果Taco对象成功获取，就将Taco设置到Order的外键对象上。</p>
-<p>在接受order的请求方法中，多了一个参数SessionStatus，在成功保存了session之后，调用了<code>SessionStatus.setComplete()</code>方法，猜测是这样：</p>
-<p>设置了一个order属性的时候，即使再设置新的order，也不会覆盖原来的，只会再得到原来的对象。</p>
-<p>只有调用了<code>SessionStatus.setComplete()</code>之后，才会清理session。</p>
-<p>也就是说即使去添加<code>model.addAttribute("order", new Order())</code>也不会覆盖原来的order了。</p>
-<p>这里有点困惑，经过实际试验，设置不同的session对象会互相影响。</p>
+
 <p>不管如何，先把Order类，还有提交食材的时候自动跳转填写Order类的工作准备好。</p>
 <p>Order类如下，这里一开始犯了一个错误，就是把表名起成了MySQL的保留字order，导致一直出错，后来改成了orders就可以了：</p>
 <pre>
@@ -462,10 +460,59 @@ public class OrderController {
 
 }
 </pre>
-jdbc:h2:mem:testdb
-<p>先来按照SIA5做一遍看看，发现不行，每次新的session会覆盖掉原来的session内的order键值。</p>
+<p>现在我们的order和taco没有任何关联，需要实现SIA5里边让taco和order关联起来，由于已经跨越了一个request，显然不能使用model来传递数据，就需要使用@SessionAttributes注解了</p>
+<p>如果要查看H2数据的内存数据库，使用<code>jdbc:h2:mem:testdb</code></p>
 <p>这里还需要注意的是，如果Order多对多列表里的内容已经被先存储，而不是取出一个已经存在的数据，或者是尚未存储的数据，需要去掉多对多字段的：<code>CascadeType.PERSIST</code>。</p>
-<p>这里有点晕菜，@SessionAttributes和@ModelAtrribute到底是什么样的关系，是不是默认直接取Order order又是什么。</p>
+
+<h1 style="text-align: center;">@SessionAttributes 与 @ModelAttributes</h1>
+<p>经过一晚上的实验和查找资料，加上找到了<a href="https://www.cnblogs.com/morethink/p/8028664.html">这篇文章</a>讲的Spring MVC的几个注解（是不是Spring in action 4也要看看），还有<a
+        href="https://blog.csdn.net/xiangwanpeng/article/details/53069533">这里</a>，终于搞清楚了SIA5的机制，然后自己也可以实现了。</p>
+<p>SIA5的核心在于类上的注解：</p>
+<pre>@SessionAttributes("order")</pre>
+<p>和这个方法：</p>
+<pre>
+@ModelAttribute("order")
+public Order newOrder() {
+    return new Order();
+}
+</pre>
+<p>如果<code>@ModelAttribute</code>标注在方法上，如果没有返回值，这个方法会在这个控制器所有的RequestMapping系列方法前被调用，可以用这个方法来做一些事情。</p>
+<p>如果这个方法有返回值，实际上就是将这个方法的返回值设置到model里。如果没有给出属性的名字，那么会自动使用类名的小写来做名字。<span style="color: red">最关键的是，这个方法如果发现在@SessionAttributes中已经有了相同的属性名，则不会再重复覆盖。这与在控制器方法中手动放一个new Order()完全不同。</span></p>
+<p>此时@SessionAttributes("order")的作用就是，如果model里有叫"order"的属性，会自动将其装载到session中。</p>
+<p>所以只后就算跳转回来，也没有问题。</p>
+
+<p style="color: red">在这里更牛逼的是，可以完全不设置这个方法，只保留这行：</p>
+<pre>@SessionAttributes("order")</pre>
+<p>然后在这个方法里加上参数：</p>
+<pre>
+@GetMapping
+public String getIngredientList(Model model, <span>Order order</span>) {
+
+    model.addAttribute("mapper", ingredientService.getIngredientsAndTypeMap());
+    return "ingredients";
+}
+</pre>
+<p>这样也行，似乎是利用了默认创建然后绑定到参数名称。如果显示指定参数<span>@ModelAttribute("order") Order order</span>，就会报错找不到值，这是因为<a href="https://blog.csdn.net/xiangwanpeng/article/details/53069533">这篇文章</a>里提到的顺序：</p>
+<p>在 implicitModel（即map） 中查找 key 对应的对象：<br>
+1：若 @ModelAttribute 标记的方法在 Map 中保存过这样一个键值对, 其 key 和 2.1 确定的 key 一致, 则会获取到key对应的键值对的value值；<br>
+2：若 implicitModel 中不存在 key 对应的对象，则检查当前的控制器类是否被@SessionAttributes注解修饰，如果使用了@SessionAttributes注解修饰，且@SessionAttributes注解的value值中包含了key，则尝试从HttpSession中获取key所对应的value值，如果value值存在则获取到，如果value值不存在则抛出异常。<br>
+3：如果没有使用@SessionAttributes注解修饰该控制器类，或者使用了，但是@SessionAttributes注解中的value值不包含key，则SpringMVC会通过反射来创建一个POJO类型的对象。<br>
+</p>
+<p>所以看来SIA5中就是标准的做法，即用@ModelAttribute来修饰需要添加进@SessionAttributes的方法，指定好属性名，这样可以保证只添加一次，不重复添加。</p>
+<p>在其他控制器中也加入@SessionAttributes，然后直接显式使用@ModelAttribute取值，待完成所有操作之后，使用SessionStatus.setComplete()清空数据。</p>
+<p>剩下就是给Entity类加上验证和显示错误信息。代码就省略了。</p>
+<p>总结一下SIA1-3章自己实现的几个坑：</p>
+<ol>
+    <li>Hibernate的解析列名大小写的配置</li>
+    <li>MySQL数据库表名不要使用关键字</li>
+    <li>@SessionAttributes与@ModelAttribute的机制</li>
+</ol>
+<p>待深入看的内容：Thymeleaf的使用方法。</p>
+<p>最后还要补充一下，每一个控制器方法，只要涉及@Valid验证，一定要在这个参数后边紧跟Errors或者BindingResults参数，就是这个吃了大亏一直报错，而之前视频又没有明确的说。</p>
+<p>不过因为要搞清楚这个，所以又重新写了一遍SIA5 1-3章的实现，放在：<a href="https://github.com/minkolee/sia5">https://github.com/minkolee/sia5</a>上。</p>
+<p>后边还想再加一个取消订单的方法，从当前Order里拿出来对应的Taco对象，然后删除掉，再清理session。看能不能做出来。</p>
+
+
 
 
 
