@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring in Action 5 Self-learning notes 3</title>
+
+</head>
+<body>
+<h1 style="text-align: center;">Spring Security 添加进项目</h1>
+<p>现在可以为我们这个简单的应用来添加Spring Security了，同样只需要添加start依赖即可。</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-security&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>添加以后无需像原来一样设置Spring Security的启动类，直接重启项目就可以发现所有的路径都被保护，需要输入用户名和密码。</p>
+<p>用户名是<code>user</code>，而用户密码是在控制台里生成的一段随机密码。</p>
+<p>在之前我们知道，必须来设置Spring Security才行，这里也少不了各种设置，我们为Spring Security在config下边创建一个设置类：</p>
+<pre>
+package cc.conyli.sia5.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+}
+</pre>
+<p>现在使用的2.1.4.RELEASE版本，和SIA5成书的时候不同，即使不写配置类，也是一个页面进行登录，还是使用了Bootstrap4的样例的登录。</p>
+<p>Spring Security支持从不同的来源获取登录信息，包括：</p>
+<ol>
+    <li>内存中存储认证信息</li>
+    <li>JDBC存取数据</li>
+    <li>LDAP身份认证</li>
+    <li>自定义userdetailservice--JPA实现</li>
+</ol>
+<p>内存中存储和JDBC存取数据在之前已经学习过。这里不是重点。</p>
+<p>重点是自定义的JPA实现以及更加详细的配置，这个是学习的重点。</p>
+
+<h1 style="text-align: center;">配置Spring Security</h1>
+<p>首先是重写的configure方法，其中的参数是AuthenticationManagerBuilder的是方法是配置如何验证。参数是HTTPSecurity的则是控制传递数据的过程和URL访问。</p>
+<p>所以很显然配置用户都要使用Auth...参数的方法。</p>
+<p>配置是链式调用方法，关键在于auth.的第一个方法，内存里存储就是<code>.inMemoryAuthentication()</code>：</p>
+<pre>
+@Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        auth
+            .inMemoryAuthentication()
+                .withUser("jenny")
+                    .password("***")
+                    .authorities("ROLE_USER")
+
+                .and()
+
+                .withUser("lee0709")
+                    .password("***")
+                    .authorities("ROLE_USER");
+}
+</pre>
+<p>这么配置之后，控制台里就没有随机生成的密码了，user用户也失效，变成了自定义的用户名和密码。当然光这么配置还不行，因为没有配置密码验证器，之前学Udemy课程也是如此，需要加一行：</p>
+<pre>
+User.UserBuilder users = User.<span style="text-decoration: line-through">withDefaultPasswordEncoder()</span>;
+</pre>
+<p>这个方法实际上已经过期，日志里会提示不安全，除了开发时候不要使用，我们现在就用这个简单的，直接明文验证。</p>
+<p>结果发现即使配置了这一行，会报错显示：</p>
+<pre>java.lang.IllegalArgumentException: There is no PasswordEncoder mapped for the id "null"</pre>
+<p>在<a href="https://www.mkyong.com">Mkyong.com</a>上找到了<a href="https://www.mkyong.com/spring-boot/spring-security-there-is-no-passwordencoder-mapped-for-the-id-null/">答案</a>：</p>
+<p>Spring Security 5.0之前，默认的PasswordEncoder是<code>NoOpPasswordEncoder</code>，也就是明文验证。从Spring Security 5开始，默认的变成了<code>DelegatingPasswordEncoder</code>，需要特殊的密码存储格式。</p>
+<p>要让上边的密码变成明文验证，有两个方法（现在只有第一个方法有效了）：</p>
+<ol>
+    <li>一是写成<code>password("{noop}password")</code></li>
+    <li>二是使用<code>User.withDefaultPasswordEncoder()</code>和相关的UserDetailService一起使用。</li>
+</ol>
+<p>如果是第一种，就无须User.UserBuilder这句话，直接在密码前边加{noop}即可，这也是推荐的做法。</p>
+<p>这个答案的第二种方法已经被提示过期，实际使用了一下发现也无效，因此就用第一种方法即可。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
