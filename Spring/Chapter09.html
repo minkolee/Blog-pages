@@ -268,11 +268,18 @@ private String postCode;
 <p>这里在自己尝试的时候，还发现正则表达式无法匹配空，所以要加一个@NotNull。</p>
 <p>正则表达式其实非常灵活，一般搭配@NotNull和之前设置的自动进行去空白操作，就可以将数据清洗为所需格式，然后再使用其他验证方式。</p>
 
-
-
-
-
-
+<h1 style="text-align: center;">预先处理数据</h1>
+<p>用户在text及类似类型的表单控件中如果不输入任何字符，返回给后端的是一个空字符串。空字符串不会被当成null来进行验证。</p>
+<p>但是空字符串如果被Trim过，就会变成null。所以可以添加一个绑定数据之前的预先处理的控制器方法，这个方法用<code>@InitBinder</code>来注解，有很多特殊的预处理器：</p>
+<pre>
+@InitBinder
+public void initBinder(WebDataBinder dataBinder) {
+    StringTrimmerEditor stringTrimmerEditor = new StringTrimmerEditor(true);
+    dataBinder.registerCustomEditor(String.class, stringTrimmerEditor);
+}
+</pre>
+<p>这个就是特殊的预处理方法，使用的都是特殊的对象，这里相当于一个一个过滤开关，设置了trim过滤为true，然后将这个过滤器注册给所有的String对象。</p>
+<p>在需要使用这个方法的控制器类中添加上这样一个方法之后，所有的这个控制器里的数据绑定都会预先经过这个处理。当然也可以用正则表达式，就不用预处理了。</p>
 
 
 

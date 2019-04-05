@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="base.css">
     <title>Spring in Action 5 Self-learning notes 3</title>
 
 </head>
@@ -40,13 +41,13 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     <li>LDAP身份认证</li>
     <li>自定义userdetailservice--JPA实现</li>
 </ol>
-<p>内存中存储和JDBC存取数据在之前已经学习过。这里不是重点。</p>
-<p>重点是自定义的JPA实现以及更加详细的配置，这个是学习的重点。</p>
+<p>内存中存储和JDBC存取数据在之前已经学习过。这里不是重点，LDAP方式现在也用不到。重点是自定义的UserDetailService的JPA实现以及关于权限和路径更加详细的配置，这个是学习的重点。</p>
 
 <h1 style="text-align: center;">配置Spring Security</h1>
-<p>首先是重写的configure方法，其中的参数是AuthenticationManagerBuilder的是方法是配置如何验证。参数是HTTPSecurity的则是控制传递数据的过程和URL访问。</p>
+<p>首先是重写的configure方法，其中的参数是AuthenticationManagerBuilder的是方法是配置用户数据和如何验证。参数是HTTPSecurity的则是控制传递数据的过程和URL访问。</p>
 <p>所以很显然配置用户都要使用Auth...参数的方法。</p>
 <p>配置是链式调用方法，关键在于auth.的第一个方法，内存里存储就是<code>.inMemoryAuthentication()</code>：</p>
+<h3 style="text-align: center;">内存中存储用户数据</h3>
 <pre>
 @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
@@ -79,6 +80,756 @@ User.UserBuilder users = User.<span style="text-decoration: line-through">withDe
 </ol>
 <p>如果是第一种，就无须User.UserBuilder这句话，直接在密码前边加{noop}即可，这也是推荐的做法。</p>
 <p>这个答案的第二种方法已经被提示过期，实际使用了一下发现也无效，因此就用第一种方法即可。</p>
+
+<h3 style="text-align: center;">JDBC存储和获取用户信息</h3>
+<p>JDBC的方法在<a href="http://www.conyli.cc/archives/2321" target="_blank">之前</a>学习过，需要符合Spring规定的Schema去创建数据表。</p>
+<p>其核心就是一句，<code>auth.jdbcAuthentication().dataSource(securityDataSource)</code>，然后还可以覆盖默认的查询。这些知道就好，关键是后边通过JPA去查询。</p>
+
+<h3 style="text-align: center;">实现自己的验证-JPA实现</h3>
+<p>由于用户验证的本质是两个工作，一个是去哪里获得用户名和密码的信息，一个是提供验证服务，自定义的话，需要实现Spring里提供的若干个接口或者继承角色类：</p>
+<ol>
+    <li>自定义的<code>User Entity</code>类&nbsp;实现-->&nbsp;<code>UserDetails</code>接口</li>
+    <li>自定义的<code>UserDetailsService</code>类&nbsp;实现-->&nbsp;<code>UserDetailService</code>接口</li>
+    <li>自定义<code>Authority</code>类&nbsp;继承-->&nbsp;<code>GrantedAuthority</code>类</li>
+</ol>
+<p>先来做一个User的表，简单一些：</p>
+<pre>
+SET FOREIGN_KEY_CHECKS=0;
+
+-- ----------------------------
+-- Table structure for user
+-- ----------------------------
+DROP TABLE IF EXISTS `user`;
+CREATE TABLE `user` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `fullname` varchar(255) NOT NULL,
+  `street` varchar(255) NOT NULL,
+  `city` varchar(255) NOT NULL,
+  `state` varchar(255) NOT NULL,
+  `zip` varchar(255) NOT NULL,
+  `phonenumber` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+</pre>
+<p>然后编写对应的Entity类：</p>
+<pre>
+package cc.conyli.sia5.entity;
+
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import javax.persistence.*;
+import javax.validation.constraints.NotNull;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
+
+@Entity
+@Data
+@NoArgsConstructor(access = AccessLevel.PRIVATE, force = true)
+@RequiredArgsConstructor
+@Table(name = "user")
+public class User implements UserDetails, Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    @NotNull
+    @Column(name = "username")
+    private String username;
+
+    @NotNull
+    @Column(name = "password")
+    private String password;
+
+    @NotNull
+    private String fullname;
+
+    @NotNull
+    private String street;
+
+    @NotNull
+    private String city;
+
+    @NotNull
+    private String state;
+
+    @NotNull
+    private String zip;
+
+    @NotNull
+    private String phonenumber;
+
+    @Override
+    public Collection&lt;? extends GrantedAuthority> getAuthorities() {
+        return Arrays.asList(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+}
+</pre>
+<p>这其中的返回权限的方法，需要返回一个继承了GrantedAuthority类的权限实例的集合，这里就简单实例化了<code>SimpleGrantedAuthority("ROLE_USER")</code>，剩下是特殊的判断是不是激活，过期等。实际上可以根据User表中的数据进行判断得出，这里就不想先做太复杂。</p>
+<p>然后需要实现UserDetailService类来提供验证的方法，这个Service类里还需要读取数据库，所以再创建一个神奇接口就可以了。</p>
+<p>先是神奇接口：</p>
+<pre>
+package cc.conyli.sia5.dao;
+
+import cc.conyli.sia5.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface UserRepo extends JpaRepository&lt;User, Integer> {
+
+    User getUserByUsername(String username);
+    
+}
+</pre>
+<p>方法会由Spring Data自动解析。</p>
+<p>之后基于这个UserRepo类创建自定义的Service，只需要重写一个方法：</p>
+<pre>
+package cc.conyli.sia5.service;
+
+import cc.conyli.sia5.dao.UserRepo;
+import cc.conyli.sia5.entity.User;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+@Service
+public class MyUserDetailService implements UserDetailsService {
+
+
+    private UserRepo userRepo;
+
+    @Autowired
+    public MyUserDetailService(UserRepo userRepo) {
+        this.userRepo = userRepo;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        User user = userRepo.getUserByUsername(username);
+        if (user == null) {
+            throw new UsernameNotFoundException("|***| USERNAME: " + username + " IS NOT FOUND |***|");
+        }
+        return user;
+    }
+}
+
+</pre>
+<p>这个接口要求返回一个UserDetails类型的对象，所以返回我们自己继承了UserDetails接口的User类即可，这个类是通过JPA从数据库里查询到的。如果查不到，就抛出一个异常即可。</p>
+<p>最后一步是回到Spring Security的配置类里，修改如下：</p>
+<pre>
+package cc.conyli.sia5.config;
+
+import cc.conyli.sia5.service.MyUserDetailService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    <span style="color: red">@Autowired
+    private MyUserDetailService userDetailService;</span>
+
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+
+        //使用自定义的用户数据服务进行验证
+        <span style="color: red">auth
+            .userDetailsService(userDetailService);</span>
+
+    }
+
+}
+</pre>
+<p>此时在数据库里写上一些用户和密码，密码的部分依然采用{noop}的形式，就可以进行明文密码验证了。</p>
+<p>如果需要自定义的密码验证器，有两种方式：</p>
+<ol>
+    <li>如果确定了密码方式，可以直接在数据库中以类似{bcrypt}方式开头来写入密文</li>
+    <li>在控制类里配置一个密码Encoder对象，然后在配置方法里设置加密方式。</li>
+</ol>
+<p>第一种方法很简单，但是需要知道加密后的密文，如果后边需要用户注册，就不能使用这种方法，因为不知道如何写进去。而配置了密码Encoder对象之后，就可以利用其加密解密了。新的配置类如下：</p>
+<pre>
+package cc.conyli.sia5.config;
+
+import cc.conyli.sia5.service.MyUserDetailService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Autowired
+    private MyUserDetailService userDetailService;
+
+    <span style="color: red;">@Bean
+    public PasswordEncoder encoder() {
+        return new BCryptPasswordEncoder(4);
+    }</span>
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+
+        //使用自定义的用户数据服务进行验证
+        auth
+                .userDetailsService(userDetailService)
+                <span style="color: red">.passwordEncoder(encoder())</span>;
+    }
+}
+</pre>
+<p>这里可以定义不同的密码Encoder对象，不同的Encoder对象的构造参数不同，像Bcrypt就是强度，其他的可能是盐字符串等。有了这个Encoder的Bean之后，就可以给userDetailsServiceu设置上这个Encoder对象，这样就会采用指定的加密解密方式。</p>
+<p style="color: red;">配置了Encoder对象之后，注意，数据库里就无需再写{bcrypt}字样了，直接保存密文即可。</p>
+<p>PasswordEncoder对象有两个方法，一个是<span>.encode(String)</span>，参数是字符串，用于将字符串转换成明文。还一个是.matches(明文String，密文String），用于判断是否匹配。在编写用户注册功能的时候这个很常用。</p>
+
+<h1 style="text-align: center;">用户注册功能</h1>
+<p>在之前实际上已经写过用户注册的功能，使用的是JDBC，采用JPA之后，其实更加简化了一些。</p>
+<p>由于我们已经有了DAO层p和Service层，所以可以复用自定义的MyUserDetailService对象，添加一个save方法即可，在业务层把明文密码转换成密文然后存储。</p>
+<p>这里还需要注意的是，一般注册会让用户重复输入两次密码，如果密码不一致，就会提示信息。我自己采用的做法是另外创建一个新的带有两个密码字段的用户类，然后使用这个用户类生成表单，如果验证通过，就新的用户类的数据设置到原来的实现了UserDetails接口的User类上，再继续交给Service层和DAO层进行操作。这里还涉及到一个验证两个密码的验证器，在之前也编写过，这里就从简了。发现SIA5也是采用这个做法，看来这个另外创建一个用户类的做法是通用的做法。</p>
+<p>新的用户类：</p>
+<pre>
+package cc.conyli.sia5.entity;
+
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import javax.persistence.*;
+import javax.validation.constraints.NotNull;
+import java.io.Serializable;
+
+@Entity
+@Data
+@NoArgsConstructor(access = AccessLevel.PUBLIC, force = true)
+public class UserForConfirmPassword implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    @NotNull(message = "必须填写姓名")
+    private String username;
+
+    @NotNull(message = "必须填写密码")
+    private String password;
+
+    @NotNull(message = "必须填写密码")
+    private String confirm_password;
+
+    @NotNull(message = "必须填写全名")
+    private String fullname;
+
+    @NotNull(message = "必须填写街道")
+    private String street;
+
+    @NotNull(message = "必须填写城市")
+    private String city;
+
+    @NotNull(message = "必须填写省份")
+    private String state;
+
+    @NotNull(message = "必须填写邮编")
+    private String zip;
+
+    @NotNull(message = "必须填写手机号码")
+    private String phonenumber;
+
+}
+</pre>
+<p>然后是控制器，主要是从一个对象把数据倒腾到另外一个对象，很简单：</p>
+<pre>
+package cc.conyli.sia5.controller;
+
+import cc.conyli.sia5.entity.User;
+import cc.conyli.sia5.entity.UserForConfirmPassword;
+import cc.conyli.sia5.service.MyUserDetailService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.propertyeditors.StringTrimmerEditor;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.Errors;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.*;
+
+import javax.validation.Valid;
+
+@Slf4j
+@Controller
+@RequestMapping("/register")
+public class RegisterController {
+
+    private MyUserDetailService myUserDetailService;
+
+    @Autowired
+    public RegisterController(MyUserDetailService myUserDetailService) {
+        this.myUserDetailService = myUserDetailService;
+    }
+
+    //给页面传用于验证密码的新的用户类
+    @GetMapping
+    public String showForm(Model model) {
+        model.addAttribute("user", new UserForConfirmPassword());
+        return "registration";
+    }
+
+    //取到新的用户类后验证密码是否相同，相同就将数据设置到User类上然后交给业务层
+    @PostMapping
+    public String processForm(@ModelAttribute("user") @Valid UserForConfirmPassword user, Errors errors) {
+        if (errors.hasErrors() || !user.getPassword().equals(user.getConfirm_password())) {
+            log.info(errors.toString());
+            return "registration";
+        }
+        User newUser = new User();
+        newUser.setUsername(user.getUsername());
+        newUser.setPassword(user.getPassword());
+        newUser.setFullname(user.getFullname());
+        newUser.setCity(user.getCity());
+        newUser.setState(user.getState());
+        newUser.setStreet(user.getStreet());
+        newUser.setZip(user.getZip());
+        newUser.setPhonenumber(user.getPhonenumber());
+
+        myUserDetailService.save(newUser);
+        return "redirect:/login";
+    }
+
+    //初始化去掉两边的Trim
+    @InitBinder
+    public void initBinder(WebDataBinder dataBinder) {
+        StringTrimmerEditor stringTrimmerEditor = new StringTrimmerEditor(true);
+        dataBinder.registerCustomEditor(String.class, stringTrimmerEditor);
+    }
+}
+</pre>
+<p>表单就不放了，都是重复代码。</p>
+<p>现在写好了注册功能，但是发现所有的路径都被Spring Security保护着，造成了你想注册就得先登录这样一个死锁。这个时候就需要来学习一下配置类中的另外一个配置方法，用于配置权限和URL访问之间的关系了。</p>
+
+<h1 style="text-align: center;">访问管理</h1>
+<p>配置类里有两个configuration方法，有Auth的那个管理如何验证，参数是HttpSecurity的则管理如何访问。我们需要把根目录和用户注册页面给所有用户都开放，其他则需要登录。</p>
+<p>在配置类内重写另外一个configure方法：</p>
+<pre>
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http
+        .authorizeRequests()
+            .antMatchers("/ingredient/**", "/taco/**", "/order/**", "/cancel")
+                .hasRole("USER")
+            .antMatchers("/", "/**").permitAll();
+}
+</pre>
+<p>这里的意思是所有"/ingredients/**", "/taco/**", "/order/**", "/cancel"的路径都无法在不登录的情况下访问。只有首页，注册和登录路径可以访问。</p>
+<p>这个antMatchers的顺序很重要，是从粒度小的逐步到粒度大的，如果将上边两个顺序反过来，则所有路径都能无角色访问，具体配置（原来的上边的antMatchers）会失效。</p>
+<p>除了链式调用之外，还可以使用Spring的风格.access语法，写法略有不同，但是可以进行逻辑运算。详细情况和用法看SIA5的105-106页。</p>
+<p>在这么配置之后，Spring默认的全部路径都要访问，然后自动跳转到/login路径就会失效。访问具体路径会报403错误，说明权限配置确实正确。</p>
+<p style="color:red">这里还要注意的是<code>.hasRole("USER")</code>，如果使用了<code>ROLE_USER</code>会报错，说是自动生成<code>ROLE_</code>前缀，所以无需添加。</p>
+
+<h1 style="text-align: center;">自定义登录表单</h1>
+<p>只是403错误还不行，必须让用户进行登录。</p>
+<p>继续链式添加：</p>
+<pre>
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http
+            .authorizeRequests()
+            .antMatchers("/ingredient/**", "/taco/**", "/order/**", "/cancel")
+            .hasRole("USER")
+            .antMatchers("/", "/**").permitAll()
+        <span style="color: red">.and()
+            .formLogin().loginPage("/login");</span>
+}
+</pre>
+<p>这里的.and()表示已经结束了URL访问权限的配置，开始配置其他内容，之后不能再有.antMatchers。</p>
+<p><code>.loginPage("/login")</code>表示到/login地址去找登录表单。这个地址可以自定义，需要编写对应的控制器，不过对于这种纯粹访问的控制器，可以采取简单的方法，就像根目录一样加一条：</p>
+<pre>
+package cc.conyli.sia5.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+
+  //直接配置一个路径和返回的模板名的对应关系
+  @Override
+  public void addViewControllers(ViewControllerRegistry registry) {
+    registry.addViewController("/").setViewName("home");
+    <span style="color: red">registry.addViewController("/login").setViewName("login");</span>
+  }
+}
+</pre>
+<p>然后就做一个叫login.html的简单模板，只要字段名称是username和password即可。</p>
+<pre>
+&lt;div class="container">
+    &lt;h1 class="text-center">登录&lt;/h1>
+    &lt;form th:action="@{/login}" method="post">
+        &lt;label>User name: &lt;input type="text" name="username"/>&lt;/label>
+        &lt;label>Password: &lt;input type="password" name="password"/>&lt;/label>
+        &lt;input type="submit" value="Login">
+    &lt;/form>
+&lt;/div>
+</pre>
+<p>之后验证不成功出现403的错误就没了，会引导你到登录页面。登录成功才能继续访问。</p>
+
+<h3 style="text-align: center;">进一步配置自定义登录表单</h3>
+<p>配置类中现在我们写到<code>.formLogin().loginPage("/login")</code>，仅仅写这种配置的时候，代表Spring默认会在/login等待认证的POST请求，而且默认的键名是username和password，这也是我们模板里现在设置的POST地址和INPUT字段名。</p>
+<p>实际上这个配置可以进一步修改，可以修改POST到哪里，以及自己设置字段名：</p>
+<pre>
+.and()
+.formLogin().loginPage("/login")
+.loginProcessingUrl("/auth")
+.usernameParameter("user")
+.passwordParameter("pswd");
+</pre>
+<p>设置成这样之后，表单模板就必须修改成对应的内容才行，这里就省略了。</p>
+<p>下一个配置是登录成功之后的跳转页。默认情况下，用户访问一个需要登录的界面，Spring Security会记录用户想访问的地址，在登录成功之后自动引导用户跳转。</p>
+<p>如果用户直接访问登录页，则会默认跳转到首页。</p>
+<p>默认跳转的行为也可以控制，通过<code>.defaultSuccessUrl(URL,boolean)</code>来实现：</p>
+<pre>
+.defaultSuccessUrl("/taco/form") //用户直接访问登录页的时候跳转的地址
+.defaultSuccessUrl("/taco/form", true) //不管用户最初访问什么页面，登录成功后都跳到指定地址
+</pre>
+<p>之后是登出，如果用户需要登出，一样指定登出的地址和跳转页面。再继续添加配置，由于是登出，也需要用.and()分割开：</p>
+<pre>
+.and()
+.logout()
+    .logoutSuccessUrl("/auth");
+</pre>
+<p>这样配置之后，Spring Security就会在<code>/logout</code>路径等待POST请求，只要有POST请求，就清除session从而取消登录，之后会跳转到指定的URL。</p>
+<p>所以在想登出的地方，只要添加一个按钮，就可以登出：</p>
+<pre>
+&lt;form th:action="@{/logout}" method="post">
+    &lt;button type="submit" class="btn btn-primary">登出&lt;/button>
+&lt;/form>
+</pre>
+
+<h1 style="text-align: center;">CSRF</h1>
+<p>Spring Security默认开启CSRF，如果使用Spring MVC 标签或者配置过的Thymeleaf+Spring Security，一般会自动生成CSRF token字段。只需要记住在Thymeleaf中如何添加CSRF字段即可，如果表单没有CSRF，就添加上：</p>
+<pre>
+&lt;input type="hidden" name="_csrf" th:value="${_csrf.token}"/>
+</pre>
+<p>如果要关闭，就在配置后边写上：</p>
+<pre>
+.and()
+    .csrf().disable();
+</pre>
+
+<h1 style="text-align: center;">将订单和用户结合起来</h1>
+<p>现在我们需要知道是哪个用户下了订单，由于访问订单页面的时候一定是需要登录的，所以可以获取用户，然后把用户添加到Order的多对一外键中。</p>
+<p>所以首先要修改orders表，添加一栏user_id，然后外键关联到user表的主键上，然后需要修改Order类添加字段：</p>
+<pre>
+@ManyToOne(cascade = {CascadeType.DETACH, CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH})
+@JoinColumn(name = "user_id")
+private User user;
+
+//还需要添加一个方法用于将当前用户设置成这个外键。
+public void addUser(User user) {
+    this.user = user;
+}
+</pre>
+<p>这个是多对一外键，已经很熟悉了。</p>
+<h3 style="color: red">如何取得用户对象</h3>
+<p>这是这个操作的核心，要如何取得认证用户的身份。有如下几种方式：</p>
+<ol>
+    <li>给控制器方法传入一个Principal对象参数</li>
+    <li>给控制器方法传入一个Authentication对象参数</li>
+    <li>使用@AuthenticationPrincipal注解参数</li>
+    <li>使用SecurityContextHolder获取security容器上下文</li>
+</ol>
+<p>这个Principal对象实际上就是一个用户对象，是实现了UserDetail接口的对象。</p>
+<p>先来看第一种方法，先贴上完整的控制器类，这里还需要注入UserRepo才可以：</p>
+<pre>
+package cc.conyli.sia5.controller;
+
+import cc.conyli.sia5.dao.OrderRepo;
+import cc.conyli.sia5.dao.UserRepo;
+import cc.conyli.sia5.entity.Order;
+import cc.conyli.sia5.entity.User;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.propertyeditors.StringTrimmerEditor;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.Errors;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.support.SessionStatus;
+
+import javax.validation.Valid;
+import java.security.Principal;
+
+@Controller
+@Slf4j
+@RequestMapping("/order")
+@SessionAttributes("order")
+public class OrderController {
+
+    private OrderRepo orderRepo;
+    private UserRepo userRepo;
+
+    @Autowired
+    public OrderController(OrderRepo orderRepo, UserRepo userRepo) {
+        this.userRepo = userRepo;
+        this.orderRepo = orderRepo;
+    }
+
+
+    @GetMapping("/form")
+    public String showForm() {
+        return "order";
+    }
+
+    @PostMapping("/process")
+    public String processForm(@ModelAttribute("order") @Valid Order order, Errors errors, SessionStatus sessionStatus, <span style="color: red">Principal principal</span>) {
+        if (errors.hasErrors()) {
+            return "order";
+        }
+
+        <span style="color: red">User user = userRepo.getUserByUsername(principal.getName());</span>
+        order.addUser(user);
+        orderRepo.save(order);
+        sessionStatus.setComplete();
+        log.info("保存至数据库的Order是：" + order);
+        return "redirect:/";
+    }
+
+    @InitBinder
+    public void initBinder(WebDataBinder dataBinder) {
+        StringTrimmerEditor stringTrimmerEditor = new StringTrimmerEditor(true);
+        dataBinder.registerCustomEditor(String.class, stringTrimmerEditor);
+    }
+}
+</pre>
+<p>第二种方法，参数使用Authentication对象：</p>
+<pre>
+@PostMapping("/process")
+    public String processForm(@ModelAttribute("order") @Valid Order order, Errors errors, SessionStatus sessionStatus, <span style="color: red">Authentication authentication</span>) {
+        if (errors.hasErrors()) {
+            return "order";
+        }
+
+        <span style="color: red">User user = (User) authentication.getPrincipal();</span>
+        order.addUser(user);
+        orderRepo.save(order);
+        sessionStatus.setComplete();
+        log.info("保存至数据库的Order是：" + order);
+        return "redirect:/";
+    }
+</pre>
+<p>这么写的话，要注意使用Hibernate会提示detach，需要去掉CascadeType.PERSIST，因为对象已经存在于数据库中。</p>
+
+<p>第三种方法是最清爽的，非常类似于@ModelAttribute注解：</p>
+<pre>
+@PostMapping("/process")
+    public String processForm(@ModelAttribute("order") @Valid Order order, Errors errors,
+                              SessionStatus sessionStatus,
+                              <span style="color: red">@AuthenticationPrincipal User user</span>) {
+        if (errors.hasErrors()) {
+            return "order";
+        }
+
+        order.addUser(user);
+        orderRepo.save(order);
+        sessionStatus.setComplete();
+        log.info("保存至数据库的Order是：" + order);
+        return "redirect:/";
+    }
+</pre>
+<p>至于最后一种方法无需在参数上做文章，而是非常Spring Security Specify的写法，从容器里获取Authentication对象，再获取认证对象，如下：</p>
+<pre>
+@PostMapping("/process")
+    public String processForm(@ModelAttribute("order") @Valid Order order, Errors errors,SessionStatus sessionStatus) {
+        if (errors.hasErrors()) {
+            return "order";
+        }
+
+        <span style="color: red">Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) authentication.getPrincipal();</span>
+        order.addUser(user);
+        orderRepo.save(order);
+        sessionStatus.setComplete();
+        log.info("保存至数据库的Order是：" + order);
+        return "redirect:/";
+    }
+</pre>
+<p>其实，知道了如何获取用户对象，也就可以改造一下应用，让应用在用户登录之后显示用户的名称了。</p>
+<p>想到这里，还需要看一下Thymeleaf的判断功能，估计这两天要下载一下示例Demo来学习一下。</p>
+
+<p>最后把目前的数据库结构放一下：</p>
+<pre>
+SET FOREIGN_KEY_CHECKS=0;
+
+-- ----------------------------
+-- Table structure for ingredient
+-- ----------------------------
+DROP TABLE IF EXISTS `ingredient`;
+CREATE TABLE `ingredient` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL,
+  `type` varchar(50) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of ingredient
+-- ----------------------------
+INSERT INTO `ingredient` VALUES ('1', 'Flour Tortilla', 'WRAP');
+INSERT INTO `ingredient` VALUES ('2', 'Corn Tortilla', 'WRAP');
+INSERT INTO `ingredient` VALUES ('3', 'Ground Beef', 'PROTEIN');
+INSERT INTO `ingredient` VALUES ('4', 'Carnitas', 'PROTEIN');
+INSERT INTO `ingredient` VALUES ('5', 'Diced Tomatoes', 'VEGGIES');
+INSERT INTO `ingredient` VALUES ('6', 'Lettuce', 'VEGGIES');
+INSERT INTO `ingredient` VALUES ('7', 'Cheddar', 'CHEESE');
+INSERT INTO `ingredient` VALUES ('8', 'Monterrey Jack', 'CHEESE');
+INSERT INTO `ingredient` VALUES ('9', 'Salsa', 'SAUCE');
+INSERT INTO `ingredient` VALUES ('10', 'Sour Cream', 'SAUCE');
+
+-- ----------------------------
+-- Table structure for orders
+-- ----------------------------
+DROP TABLE IF EXISTS `orders`;
+CREATE TABLE `orders` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `delivery_name` varchar(50) NOT NULL,
+  `delivery_street` varchar(50) NOT NULL,
+  `delivery_city` varchar(50) NOT NULL,
+  `delivery_state` varchar(2) NOT NULL,
+  `delivery_zip` varchar(10) NOT NULL,
+  `cc_number` varchar(16) NOT NULL,
+  `cc_expiration` varchar(5) NOT NULL,
+  `cc_cvv` varchar(3) NOT NULL,
+  `placed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `user_id` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_fk` (`user_id`),
+  CONSTRAINT `user_fk` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of orders
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for taco
+-- ----------------------------
+DROP TABLE IF EXISTS `taco`;
+CREATE TABLE `taco` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of taco
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for taco_ingredient
+-- ----------------------------
+DROP TABLE IF EXISTS `taco_ingredient`;
+CREATE TABLE `taco_ingredient` (
+  `taco_id` int(11) NOT NULL,
+  `ingredient_id` int(11) NOT NULL,
+  KEY `taco_id_fk` (`taco_id`),
+  KEY `ingre_id_fk` (`ingredient_id`),
+  CONSTRAINT `ingre_id_fk` FOREIGN KEY (`ingredient_id`) REFERENCES `ingredient` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `taco_id_fk` FOREIGN KEY (`taco_id`) REFERENCES `taco` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of taco_ingredient
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for taco_order
+-- ----------------------------
+DROP TABLE IF EXISTS `taco_order`;
+CREATE TABLE `taco_order` (
+  `order_id` int(11) NOT NULL,
+  `taco_id` int(11) NOT NULL,
+  KEY `taco_order_fk` (`taco_id`),
+  KEY `taco_order_order_fk` (`order_id`),
+  CONSTRAINT `taco_order_fk` FOREIGN KEY (`taco_id`) REFERENCES `taco` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `taco_order_order_fk` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of taco_order
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for user
+-- ----------------------------
+DROP TABLE IF EXISTS `user`;
+CREATE TABLE `user` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `fullname` varchar(255) NOT NULL,
+  `street` varchar(255) NOT NULL,
+  `city` varchar(255) NOT NULL,
+  `state` varchar(255) NOT NULL,
+  `zip` varchar(255) NOT NULL,
+  `phonenumber` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Records of user
+-- ----------------------------
+INSERT INTO `user` VALUES ('1', 'lee0709', '$2a$04$nKsX35b2jRlRyxZXwJq4XuhDBKj7HLlEulF51QK3xSIYT9aNVMhnO', 'minko', 'zhr', 'shanghai', 'sh', '200436', '18916168335');
+INSERT INTO `user` VALUES ('2', 'jenny', '$2a$04$CEdbGv8WzAExYVsjoDwwfO.ACsxu87kH9spcAFWCdgm/yixLJMrby', 'jenny', 'zhraga', 'SH', 'jingan', '200002', '13816844075');
+INSERT INTO `user` VALUES ('3', 'cony', '$2a$04$/nCJbesUMPknESLuWgQ5Ru1jOmd9U8utvIZav/87j5cj.oaIijUV6', 'conyli', 'street', 'fighter', 'pinao', 'computer', 'both');
+INSERT INTO `user` VALUES ('4', 'minkolee', '$2a$04$MJ7wARjC1Vx7zRezaqoc8uiyDe27L0nRWRexyulQcZNr6FQI6ih.S', 'lym', '1', '2', '3', '4', '65');
+</pre>
 
 
 
