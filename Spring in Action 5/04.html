@@ -5,10 +5,137 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="base.css">
-    <title>Spring in Action 5 Self-learning notes 4</title>
-
+    <title>Spring in Action 5 Self-learning notes 4 - Spring Boot的配置</title>
 </head>
 <body>
+<h1 style="text-align: center;">Spring Boot的配置来源</h1>
+<p>在之前配置Spring的时候，显式配置一般主要有两种：Bean Wiring即装配Bean，和Property Injection，即属性注入。</p>
+<p>无论配置Bean还是注入，其实都是把一些字符串=属性配置在XML文件里。到了Spring Boot里，自动配置看上去很神奇，其实就是Spring Boot自动从各种渠道中获得了这些属性，然后收集到Spring环境中，再配置给Bean和依赖注入而已。</p>
+<p>Spring Boot从如下渠道获取属性：</p>
+<ol>
+    <li>JVM系统属性</li>
+    <li>操作系统的环境变量</li>
+    <li>命令行参数</li>
+    <li>Application properties配置文件</li>
+</ol>
+<p>这里主要学的就是应用的属性配置文件，也就是src/main/resources/application.properties文件。</p>
+<p>这个文件也可以用YAML格式来写，而且SIA5推荐这个格式。这个格式就是将点和等于号换成冒号，好处是同级的设置无需完整的写两遍。文件名相应变成application.yml。</p>
+<p>举个例子，对于端口设置，几种设置分别是：</p>
+<ol>
+    <li>操作系统环境变量：<code>$ export SERVER_PORT=9999</code>，注意操作系统环境变量的写法不是点也不是冒号，是用下划线连接的，但是Spring是可以识别的。</li>
+    <li>命令行参数：<code>$ java -jar tacocloud.jar --server.port=9999</code></li>
+    <li>YAML方式：
+        <pre>server:
+    port: 9999</pre>注意，必须有换行</li>
+    <li>properties方式：<code>server.port=9999</code></li>
+</ol>
+
+<h1 style="text-align: center;">Spring Boot 常用配置</h1>
+
+<h3 style="text-align: center;">数据源</h3>
+<p>最常用的就是数据源了，一般都需要配置。常见的是设置连接数据库的地址和用户名密码：</p>
+<pre>
+spring.datasource.url=jdbc:mysql://localhost:3306/sia5?useSSL=false&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
+spring.datasource.username=springstudent
+spring.datasource.password=springstudent
+</pre>
+<p>一般Spring Boot会根据所选择的starter自动配置，但如果想要手工指定，可以加一个指定驱动的配置：</p>
+<pre>
+spring.datasource.driver-class-name=com.mysql.jdbc.Driver
+</pre>
+<p>还可以指定放在<code>src/main/resources/</code>下的schema.sql和data.sql的具体名称（这里我使用Hibernate是没用的，只有H2才有用）。反正一般不会用到H2，就先忽略了。</p>
+
+<h3 style="text-align: center;">启用HTTPS</h3>
+<p>之前看过了指定端口的配置<code>server.port=9999</code></p>
+<p>还有个办法是为内置服务器启动HTTPS。这里需要使用JRE提供的Keytool工具生成RSA密钥，然后在文件里配置。</p>
+<p>在windows系统的CMD或者Linux的终端里：</p>
+<pre>
+C:\Users\Minko>keytool -keystore mykeys.jks -genkey -alias tomcat -keyalg RSA
+输入密钥库口令:
+再次输入新口令:
+您的名字与姓氏是什么?
+  [Unknown]:  LiYiMing
+您的组织单位名称是什么?
+  [Unknown]:  XinHu
+您的组织名称是什么?
+  [Unknown]:  XinHu
+您所在的城市或区域名称是什么?
+  [Unknown]:  Shanghai
+您所在的省/市/自治区名称是什么?
+  [Unknown]:  Shanghai
+该单位的双字母国家/地区代码是什么?
+  [Unknown]:  CN
+CN=LiYiMing, OU=XinHu, O=XinHu, L=Shanghai, ST=Shanghai, C=CN是否正确?
+  [否]:  y
+
+输入 &lt;tomcat> 的密钥口令
+        (如果和密钥库口令相同, 按回车):
+
+Warning:
+JKS 密钥库使用专用格式。建议使用 "keytool -importkeystore -srckeystore mykeys.jks -destkeystore mykeys.jks -deststoretype pkcs12" 迁移到行业标 准格式 PKCS12。
+</pre>
+<p>在当前目录下生成了一个mykeys.jks的密钥。将这个文件复制到classpath（src/main/resources/目录下），然后配置：</p>
+<pre>
+server.port=8443
+server.ssl.key-store=D:\\Coding\\Java\\sia5c1\\src\\main\\resources\\mykeys.jks
+server.ssl.key-store-password=***
+server.ssl.key-password=***
+</pre>
+<p>注意mykeys.jks必须是绝对路径，不是classpath路径，密钥库密码和密钥口令分别对应之前生成key的时候设置的密码。</p>
+<p>重新启动应用之后，直接以HTTP访问是8443端口是不行的，会被拒绝，以HTTPS访问，虽然有些浏览器会提示证书错误，但至少是启用了HTTPS。</p>
+
+<h3 style="text-align: center;">日志配置</h3>
+<p>如果注意观察，可以发现Spring Boot启动的过程中，都是以INFO级别的日志显示在控制台里，实际上Spring Boot的日志模块是Logback，由<a href="http://logback.qos.ch">http://logback.qos.ch</a>提供，实现了SLF4J API，所以我们常用的@Slf4j就是使用这个日志模块。</p>
+<p>这个日志模块有两种配置方法：</p>
+<ol>
+    <li>详细设置，创建XML配置文件</li>
+    <li>简单设置，直接在application.properties中设置</li>
+</ol>
+<p>先来看详细设置，需在classpath（src/main/resources/目录下）创建<code>logback.xml</code>文件，可以参考<a href="https://logback.qos.ch/manual/configuration.html" target="_blank">官方文档</a>：</p>
+<pre>
+&lt;configuration>
+
+    &lt;appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        &lt;!-- encoders are assigned the type
+             ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
+        &lt;encoder>
+            &lt;pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n&lt;/pattern>
+        &lt;/encoder>
+    &lt;/appender>
+
+    &lt;root level="debug">
+        &lt;appender-ref ref="STDOUT" />
+    &lt;/root>
+&lt;/configuration>
+</pre>
+<p>关于配置logback不是重点，这里示例一下如何简单配置logback的输出和默认级别。这里将级别设置成DEBUG之后，重新启动项目，可以看到比INFO级别更多的信息。如果设置成ERROR，基本上一条都看不到了。如果设置成ALL，信息还要多。</p>
+<p>如果仅仅是更改日志级别或者输出日志到某个文件，则无需配置XML，直接通过Spring配置就可以：</p>
+<pre>
+logging.level.root=WARN
+logging.level.org.springframework.security=DEBUG
+logging.path=D:\\Coding\\Java\\sia5c1\\src\\main\\resources\\
+logging.file=tacocloud.log
+</pre>
+<p>这个配置的意思是基础级别设置为WARN，但是针对Spring Security的日志级别是DEBUG，文件写到D盘下，指定文件名。</p>
+<p>上边配置的路径是classpath对应的实体路径，实际上tacocloud.log会出现在包的根目录下，即<code>D:\Coding\Java\sia5c1\</code>下</p>
+
+<h3 style="text-align: center;">从其他属性中取值</h3>
+<p>使用Spring 的EL表达式 ${}可以进行取值，在配置文件中也可以，看个例子：</p>
+<pre>
+my.server.port=9999
+
+server.port=${my.server.port}
+</pre>
+<p>这样启动之后，项目的端口是9999。而且取值还可以和其他字符串连用，比如：</p>
+<pre>
+welcome.greeting=You are using $(myservice.name}
+</pre>
+
+<h3 style="text-align: center;">配置自定义的属性并且在程序中使用</h3>
+<p>本质上，Spring Boot内置的设置（IDE有提示的设置）和自己的设置，都是一样的键值对，因为毕竟是一个.properties文件。</p>
+<p>既然键值对能被其他的内置程序读取，我们自己设置的键值对，也一样可以从程序中取得。</p>
+<p>在之前Udemy的课程里学习过XML文件配置.properties文件的位置，之后Spring就会将这个文件装载为一个Bean，然后通过@Value()来注入值。</p>
+<p>到了Spring Boot中，由于不用再去写XML配置，Spring Boot提供了一个<code>@ConfigurationProperties</code>注解用于获得值。</p>
 
 
 
