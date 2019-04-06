@@ -136,9 +136,179 @@ welcome.greeting=You are using $(myservice.name}
 <p>既然键值对能被其他的内置程序读取，我们自己设置的键值对，也一样可以从程序中取得。</p>
 <p>在之前Udemy的课程里学习过XML文件配置.properties文件的位置，之后Spring就会将这个文件装载为一个Bean，然后通过@Value()来注入值。</p>
 <p>到了Spring Boot中，由于不用再去写XML配置，Spring Boot提供了一个<code>@ConfigurationProperties</code>注解用于获得值。</p>
+<p>SIA5的例子是增加一个按照指定的每页显示的个数来列出当前用户的最近下的订单：</p>
+<p>经过实验，这里又发现一个坑：</p>
+<p style="color: red;">SIA5里的神奇接口的神奇方法名称是：<code>findByUserOrderByPlacedAtDesc</code>。我自己的Order类中的时间属性名是placed_at，结果在初始化OrderRepo的时候无法解析我自己起的<code>findByUserOrderByPlaced_atDesc</code>。后来也把Order里的时间属性名改成placedAt发现就可以了，加上之前的大小写自动去找表名的时候，发现Hibernate还是有一些特殊性的。</p>
+<p>新的OrderRepo类如下</p>
+<pre>
+package cc.conyli.sia5.dao;
+
+import cc.conyli.sia5.entity.Order;
+import cc.conyli.sia5.entity.User;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
 
 
+public interface OrderRepo extends JpaRepository&lt;Order, Integer> {
 
+    List&lt;Order> findByUserOrderByPlacedAtDesc(User user, Pageable pageable);
+
+}
+</pre>
+<p>这里只要方法名能够被正确解析，后边还可以传入一个<code>org.springframework.data.domain.Pageable</code>对象，用于设置每页显示多少条记录，以及显示第几页。为这个新功能在OrderController里新增一个控制方法：</p>
+<pre>
+@GetMapping("/list")
+public String orderList(@AuthenticationPrincipal User user, Model model) {
+    Pageable pageable = PageRequest.of(0, 20);
+    model.addAttribute("orders", orderRepo.findByUserOrderByPlacedAtDesc(user, pageable));
+    model.addAttribute("user", user);
+    return "orderlist";
+}
+</pre>
+<p>这个对应/order/list路径的方法先用页数和每页数量实例化一个Pageable对象，然后作为参数传给神奇方法。这里有个问题就是我们的每页显示数量是写死的，如果要修改很不方便。</p>
+<p>很显然，我们可以想到给控制器添加一个<code>private int pageSize</code>，然后设置setter方法，然而这没有本质上解决这个问题，还是要修改代码。</p>
+<p>更好的方法就是开头说的使用<code>@ConfigurationProperties</code>来从文件里读入这个属性（注意，必须添加依赖才可以使用这个注解，看<a href="https://docs.spring.io/spring-boot/docs/2.1.4.RELEASE/reference/html/configuration-metadata.html#configuration-metadata-annotation-processor">这里</a>）：</p>
+<pre>
+@ConfigurationProperties(prefix ="taco.order")
+public class OrderController {
+
+    private int pageSize = 20;
+
+    public void setPageSize(int pageSize) {
+        this.pageSize = pageSize;
+    }
+
+    @GetMapping("/list")
+    public String orderList(@AuthenticationPrincipal User user, Model model) {
+        Pageable pageable = PageRequest.of(0, pageSize);
+        model.addAttribute("orders", orderRepo.findByUserOrderByPlacedAtDesc(user, pageable));
+        model.addAttribute("user", user);
+        return "orderlist";
+    }
+}
+</pre>
+<p>这个类的其他地方省略。这个意思表示，如果能在配置文件里找到taco.order.xxx，其中xxx与域变量名一致的名称，就会使用配置文件中的值，如果找不到，就是默认值。</p>
+<p>针对我们的例子，如果我们配置了<code>taco.order.pageSize=10</code>，那么即使有这一句：<code>private int pageSize = 20;</code>，其实际值也会是10。如果配置文件里没有配置，则默认值就是20。</p>
+<p>现在在application.properties中写上<code>taco.order.pageSize=3</code>，重新运行一下程序，显示一下列表就可以看到变化。</p>
+<p>使用注解虽然可以注入属性值，但是如果属性值很多，将这个注解分散在各个类中，不是一个好事情，也不利于集中管理。</p>
+<p>更好的做法是单独将自己的配置注入到一个类中，成为一个配置属性类，其他需要使用自定义属性的类注入这个类的Bean，就可以获得对应的属性了。</p>
+<p>来创建一个针对所有的<code>taco.order.xxx</code>的配置类OrderProps：</p>
+<pre>
+package cc.conyli.sia5.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Component
+@ConfigurationProperties(prefix = "taco.order")
+@Data
+public class OrderProps {
+
+    private int pageSize = 20;
+
+    private int page = 0;
+}
+</pre>
+<p>然后在application.properties中写入：</p>
+<pre>
+taco.order.pageSize=3
+taco.order.page=1
+</pre>
+<p>最后我们修改OrderController，把这个OrderProps类注入进来，使用getter方法获取其中的属性值即可：</p>
+<pre>
+public class OrderController {
+
+    //注入属性配置类
+    <span style="color:red">private OrderProps orderProps;</span>
+
+    private OrderRepo orderRepo;
+
+    @Autowired
+    public OrderController(OrderRepo orderRepo, <span style="color:red">OrderProps orderProps</span>) {
+        <span style="color:red">this.orderProps = orderProps;</span>
+        this.orderRepo = orderRepo;
+    }
+
+    @GetMapping("/list")
+    public String orderList(@AuthenticationPrincipal User user, Model model) {
+        Pageable pageable = PageRequest.of(<span style="color:red">orderProps.getPage(), orderProps.getPageSize()</span>);
+        model.addAttribute("orders", orderRepo.findByUserOrderByPlacedAtDesc(user, pageable));
+        model.addAttribute("user", user);
+        return "orderlist";
+    }
+</pre>
+<p>这样做除了解耦之外，还一个好处是，可以针对属性值进行验证，保证配置文件的属性值即使有问题，也能发现，比如如果限制每页显示数量在1-3之间，可以如下修改：</p>
+<pre>
+package cc.conyli.sia5.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+
+@Component
+@ConfigurationProperties(prefix = "taco.order")
+@Data
+public class OrderProps {
+
+    <span style="color: red">@Max(value = 3, message = "must between 5 and 10")
+    @Min(value = 1, message = "must between 5 and 10")</span>
+    private int pageSize = 3;
+
+    private int page = 0;
+}
+</pre>
+<p>不过这里我实验了一下，在属性文件里强行设置10，还是可以不管验证效果的，不知道为什么，可能是需要在使用这个值的时候加上@Valid，但是没找到怎么加。所以属性还是别配置错了吧。</p>
+<p>在解耦了之后，虽然我们的配置生效了，但是在Intellij里，会在application.properties文件中提示找不到对应的设置（不过我的Intellij在我创建配置类后竟然没有提示了）。这是因为缺少对于这个属性的元数据解释，虽然缺少元数据解释并不影响属性生效，但最好还是配置一下。</p>
+<p>要配置自定义属性的元数据，需要在<code>classpath(src/main/resources/)</code>下创建<code>META-INF</code>目录，然后在其中创建<code>additional-spring-configuration-metadata.json</code>，这个文件名不能变，然后我们在里边随便写一个没有使用过的属性：</p>
+<pre>
+{
+  "properties": [
+    {
+      "name": "taco.ingredients.list",
+      "type": "java.lang.Integer",
+      "description": "Sets the maximum ingredient length."
+    }
+  ]
+}
+</pre>
+<p>这里我们自己写了一个叫做<code>taco.ingredients.list</code>的属性，规定是int类型。在这么写好之后，（Intellij还需要重新Build一下项目以便生效），在application.properties里输入这个属性的时候，自动完成会开启，说明已经识别到了这个属性的元信息。</p>
+
+<h3 style="text-align: center;">基于profile来配置自定义属性</h3>
+<p>其实这个就是基于不同的配置情况下使用不同的配置文件。</p>
+<p>还记得Django by Example 2中的多配置文件，有一个通用的Base配置文件；一个是基于Base配置上，只写了生产环境配置的配置文件；还有用于开发的配置文件等等。</p>
+<p>Spring也支持这种做法，每一个配置文件，需要起一个形如<code>application-{profile name}.properties(application-{profile name).yml)</code>的名字的配置文件。</p>
+<p>如果是yml文件，还支持以三个减号<code>---</code>在同一个文件内分割开不同的profile名称。</p>
+<p>比如我们把之前的SSL配置和日志配置抽取成两个配置文件：</p>
+<pre>
+#application-debug.properties
+logging.level.root=DEBUG
+</pre>
+<pre>
+application-ssl.properties
+#SSL配置
+server.port=8443
+server.ssl.key-store=D:\\Coding\\Java\\sia5c1\\src\\main\\resources\\mykeys.jks
+server.ssl.key-store-password=fflym0709
+server.ssl.key-password=fflym0709
+</pre>
+<p>要激活哪一个配置文件，只要在主配置文件里设置<code>spring.profiles.active={profile name}</code>即可，比如要激活debug profile：</p>
+<pre>spring.profiles.active=debug</pre>
+<p>重启项目，就发现日志变成了DEBUG级别。</p>
+<p>更加有趣的时，由于有了不同的配置，很可能不同的Bean需要不同的配置属性，比如很可能在debug的时候需要一个测试的Bean，而生产环境就不需要，可以使用注解<code>@Profile</code>来控制：</p>
+<pre>
+@Bean
+@Profile("debug")
+public BeanForTest......
+</pre>
+<p><code>@Profile</code>还支持传入一个profile列表，表示这几个名称的profile中任意一个（or）激活都会创建Bean，比如<code>@Profile({"debug","test"})</code>。</p>
+<p><code>@Profile</code>还支持逻辑取反，比如一个Bean只有在debug profile不激活的情况下才生效，则可以这么写<code>@Profile("!debug")</code>，而<code>@Profile({"!debug","!test"})</code>表示在<span style="color: red">debug和test都不生效</span>的情况下才创建Bean。</p>
+<p><code>@Profile</code>还可以直接修饰@Configuration配置类，控制整个配置类生效与否，这在有多个配置类的时候非常方便。</p>
 
 
 
