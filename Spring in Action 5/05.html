@@ -13,6 +13,223 @@
 <p>相比Udemy的课程，除了简单的REST API之外，剩下都是全新的内容了。开发的代码可能也需要转移到Linux虚拟机上了。开搞吧。</p>
 
 <h1 style="text-align: center;">创建REST服务</h1>
+<p>在之前学习过了Spring REST 服务，但是当时还没有和Spring Boot结合起来，只是用了<code>@RestController</code>，看看这次SIA5是如何讲的。</p>
+<p>我们需要创建一个REST服务，用于前端页面展示最近的所有Taco，以及根据ID来展示Taco。SIA5的前端页面使用了Angular，这里没办法，只能下来SIA5的代码来跑了。但是控制器可以写在自己的程序里。</p>
+<h3 style="text-align: center;">REST 增删改查</h3>
+<p>新的REST控制器：</p>
+<pre>
+package cc.conyli.sia5.controller;
+
+import cc.conyli.sia5.dao.TacoRepo;
+import cc.conyli.sia5.entity.Taco;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping(path = "/taco", produces = "application/json")
+@CrossOrigin("*")
+public class TacoRestController {
+
+    private TacoRepo tacoRepo;
+
+    @Autowired
+    public TacoRestController(TacoRepo tacoRepo) {
+        this.tacoRepo = tacoRepo;
+    }
+
+    @GetMapping("/recent")
+    public List&lt;Taco> recentTacos() {
+        return tacoRepo.findAll();
+    }
+}
+</pre>
+<p><code>@RestController</code>注解已经知道了，这个是将返回的内容转换成字符串后直接写到请求体中，不通过视图解析器去找视图。这个注解其实可以拆解成<code>@Controller</code>和<code>@ResponseBody</code>两个注解，但还是用一个语义更加明确。</p>
+<p><code>@RequestMapping</code>也更进了一步，带上了路径参数和后边的produces参数，如此设置就让这个控制器仅接受请求头里Accept包含application/json的请求，针对这个新建了一个项目，试验成功。</p>
+<p>然后是一个允许跨域的<code>@CrossOrigin("*")</code></p>
+<p>这里注意，没有返回字符串，直接返回List，这就是借助了Jackson自动转换成Json。</p>
+<p>再来看一个路径匹配，<code>@PathVariable("id")</code>配合<code>@GetMapping("/{id}")</code>，有点像Django 2.0里的/&lt;year:int>/这种风格，直接把API的路径当做参数，来进行具体查询。</p>
+<pre>
+@GetMapping("/{id}")
+public Taco tacoById(@PathVariable("id") Long id) {
+Optional&lt;Taco> optTaco = tacoRepo.findById(id);
+    if (optTaco.isPresent()) {
+    return optTaco.get();
+    }
+    return null;
+    }
+</pre>
+<p>这个套路之前也使用过，不过目前比较麻烦的是SIA5的页面使用了还不会用的Angular，看来要用自己以前写过的Spring Rest的CRUD来做实验了。</p>
+<p>这里还有一个要点是，如果返回Null，响应的代码还是200，表示正常，但因为实际上没找到，其实应该返回一个400错误。这个时候就可以用到ResponseEntity对象，去给响应设置具体的响应代码，代码可以修改成这样：</p>
+<pre>
+@GetMapping("/{id}")
+public ResponseEntity&lt;Taco> tacoById(@PathVariable("id") Long id) {
+    Optional&lt;Taco> optTaco = tacoRepo.findById(id);
+    if (optTaco.isPresent()) {
+    return new ResponseEntity&lt;>(optTaco.get(), HttpStatus.OK);
+}
+    return new ResponseEntity&lt;>(null, HttpStatus.NOT_FOUND);
+}
+</pre>
+<p>这样就可以返回一个响应体为空，但是400错误的响应，其对应的Java类是ResponseEntity&lt;Taco>。</p>
+<p>这里还有一种办法，就是设置一个特殊的JSON，在其中放入表示响应结果的数据，前端页面根据具体数据来判断成功还是失败。</p>
+
+<p>接受数据就像之前学过的那样，一般是POST请求，虽然是Angular发的，但看源码也能基本看懂，就是发送了Post请求，其中请求体内是一个JSON。</p>
+<p>这个时候需要添加一个控制器，用于接收POST请求：</p>
+<pre>
+@PostMapping(consumes="application/json")
+@ResponseStatus(HttpStatus.CREATED)
+public Taco postTaco(@RequestBody Taco taco) {
+    return tacoRepo.save(taco);
+}
+</pre>
+<p>这里的关键是<code>@RequestBody</code>绑定Taco对象，现在学过好多玩意了，比如<code>@RequestParam</code>绑定URL参数，<code>@PathVariable</code>绑定路径变量，<code>@ModelAttribute</code>绑定各种数据对象。</p>
+<p><code>consumes="application/json"</code>是针对数据input来说的，只能接受<code>Content-type=application/json</code>的数据，和produce略有区别。</p>
+<p><code>@ResponseStatus(HttpStatus.CREATED)</code>用于具体控制响应代码，如果不特殊设置，只要没有异常，都会返回200，但对于这个功能，CREATED=201更加精确，浏览器端也可以知道，不仅访问成功，对象也成功建立了。</p>
+
+<p>关于改的部分，SIA5讲的更详细，使用了<code>@PutMapping and @PatchMapping</code>。PUT一般用于整个替换成新的，而PATCH一般用于部分更新。举个例子：</p>
+<pre>
+@PutMapping("/{orderId}")
+public Order putOrder(@RequestBody Order order) {
+    return repo.save(order);
+}
+</pre>
+<p>这个更新的方法没有什么执行上的代码错误，但是如果仅仅更新地址，这个方法要求每次必须将所有的内容都PUT进来，而实际上只需要更新地址，所以采用PATCH单独的数据可能更好：</p>
+<pre>
+@PatchMapping(path="/{orderId}", consumes="application/json")
+public Order patchOrder(@PathVariable("orderId") Long orderId,
+                        @RequestBody Order patch) {
+    Order order = repo.findById(orderId).get();
+    if (patch.getDeliveryName() != null) {
+        order.setDeliveryName(patch.getDeliveryName());
+    }
+    if (patch.getDeliveryStreet() != null) {
+        order.setDeliveryStreet(patch.getDeliveryStreet());
+    }
+    if (patch.getDeliveryCity() != null) {
+        order.setDeliveryCity(patch.getDeliveryCity());
+    }
+    if (patch.getDeliveryState() != null) {
+        order.setDeliveryState(patch.getDeliveryState());
+    }
+    if (patch.getDeliveryZip() != null) {
+        order.setDeliveryZip(patch.getDeliveryState());
+    }
+    if (patch.getCcNumber() != null) {
+        order.setCcNumber(patch.getCcNumber());
+    }
+    if (patch.getCcExpiration() != null) {
+        order.setCcExpiration(patch.getCcExpiration());
+    }
+    if (patch.getCcCVV() != null) {
+        order.setCcCVV(patch.getCcCVV());
+    }
+    return repo.save(order);
+}
+</pre>
+<p>当然，就算是使用了Patch注解，你也可以全部更新，因为Spring MVC的注解不影响内容，只是标记应该处理那些类型的请求，至于如何处理和返回何种响应，都是代码编写者的事情。</p>
+<p>这里如果只传入部分字段，则没有的字段就是null，所以只要更新部分字段即可，就减少了提交到服务器的数据量。</p>
+<p>删除的请求还是<code>@DeleteMapping</code>，删除要注意的就是找不到删除的对象，要捕捉异常。然后返回一个错误或者特定的JSON。通常写法如下，如果愿意的话，也可以返回一个<code>ResponseEntity&lt;Taco></code>，包裹着404和其他信息。</p>
+<pre>
+@DeleteMapping("/{orderId}")
+@ResponseStatus(code=HttpStatus.NO_CONTENT)
+public void deleteOrder(@PathVariable("orderId") Long orderId) {
+    try {
+        repo.deleteById(orderId);
+    } catch (EmptyResultDataAccessException e) {}
+}
+</pre>
+<p><code>@ResponseStatus(code=HttpStatus.NO_CONTENT)</code>这个代码是204，表示没有这个数据了，一般无需将删除或者其他数据返回给浏览器，只需要返回204代码即可，哪怕找不到，也可以返回204，说明要操作的资源不存在。</p>
+
+<h1 style="text-align: center;">HATEOAS</h1>
+<p>刚才写了一批API，然而这些API之间没有关联，一个外部应用程序必须适合我们自己的硬编码。为了解决这个问题，Hypermedia as the Engine of Application State出现了。</p>
+<p>在之前已经了解过，这个就是一个REST规范，可以通过这个标准化REST，前端就可以知道到哪里去找数据，如何进行访问。</p>
+<p>这一部分在<a href="http://www.conyli.cc/archives/2367">之前的课程</a>里学习过，现在看看SIA5的讲解。</p>
+<p>要安装的依赖是：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-hateoas&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>Spring HATEOAS对两种东西提供对应的转换，一种叫做Resource，指的是单个资源；一种是Resources，指的是多个资源组成的集合。要想返回正确的内容，就必须使用Resource或者Resources对象来组装。</p>
+<p>在之前Udemy的视频中，应该是继承的接口不同，继承的是JpaRepository而不是CrudRepository，所以导致不用Resource包裹也能够返回HATEOAS对象。</p>
+<pre>
+@GetMapping("/recent")
+public Resources&lt;Resource&lt;Taco>> recentTacos() {
+    PageRequest page = PageRequest.of(
+        0, 12, Sort.by("createdAt").descending());
+    List&lt;Taco> tacos = tacoRepo.findAll(page).getContent();
+    Resources&lt;Resource&lt;Taco>> recentResources = Resources.wrap(tacos);
+    recentResources.add(
+        new Link("http://localhost:8080/design/recent", "recents"));
+return recentResources;
+}
+</pre>
+<p>这里包装好之后，在返回之前，要加上自己对应的链接<code>new Link("http://localhost:8080/design/recent", "recents"));</code>，实际显示出来就是：</p>
+<pre>
+"_links": {
+    "recents": {
+        "href": "http://localhost:8080/design/recent"
+    }
+}
+</pre>
+<p>但是这里硬编码了URL，如果想要灵活的使用，可以自定义HATEOAS的生成URL的方式，比如改成这样：</p>
+<pre>
+Resources&lt;Resource&lt;Taco>> recentResources = Resources.wrap(tacos);
+recentResources.add(
+    ControllerLinkBuilder.linkTo(DesignTacoController.class)
+    .slash("recent")
+    .withRel("recents"));
+</pre>
+<p>linkTo(DesignTacoController.class)中的类对应的RequestMapping是"/design"，就会拼接design，之后的.slash很明显就是拼接"/recent"，最后给这个值起键名叫做recents。</p>
+<p>其实.slash也是硬编码，还可以使用.linkTo()，参数是DesignTacoController.class其中的一个方法，使用反射拿到方法传进去后，就会根据方法匹配的URL进行拼接。</p>
+<pre>
+Resources&lt;Resource&lt;Taco>> recentResources = Resources.wrap(tacos);
+recentResources.add(
+    linkTo(methodOn(DesignTacoController.class).recentTacos())
+    .withRel("recents"));
+</pre>
+<p>这里使用反射传入方法，最后拼接出来的字符串还是/recent。</p>
+
+<p>再后边是利用这个东西来组装列表形式的字符串，这里可以先略过。</p>
+
+<p>之后是Spring Data REST，也就是能自动组装出HATEOAS字符串的玩意，也是之前学过的东西：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-data-rest&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>由于会自动生成复数名称的地址，所以可以在类上使用<code>@RestResource(rel="tacos", path="tacos")</code>，前边的rel表示JSON字符串最前边的键名，后边的path表示实际的路径。</p>
+<pre>
+"tacos" : {
+"href" : "http://localhost:8080/api/tacos{?page,size,sort}",
+"templated" : true
+},
+</pre>
+<p>在之前也学过，这个端点后边的<code>{?page,size,sort}</code>是暴露出来的可以根据URL参数进行分页查询的结果，可以使用如下：</p>
+<pre>curl "localhost:8080/api/tacos?sort=createdAt,desc&page=0&size=12"</pre>
+<p>这些在之前都了解过。</p>
+
+<h1 style="text-align: center;">添加自定义的端点</h1>
+<p>自己编写的一些API Controller的地址很可能不是统一的，可以添加<code>@RepositoryRestController</code>注解，这样会自动在URL最前边<code>spring.data.rest.base-path</code>的路径。</p>
+<p>这里要注意的是<code>@RepositoryRestController</code>不会强制要求返回的字符串直接写入响应体中，所以必须给方法加上<code>@ResponseBody</code>注解或者返回ResponseEntity对象。</p>
+
+
+
+
+
+
+
+
+
+
+
 
 
 
