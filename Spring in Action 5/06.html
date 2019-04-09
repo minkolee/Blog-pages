@@ -305,8 +305,95 @@ public ResponseEntity&lt;Student> removeStudent(@PathVariable("id") int id) {
     }
 }
 </pre>
+<h1 style="text-align: center;">HATEOAS</h1>
+<p>这个之前已经了解过，就是自解释的一套REST API的返回结果。要手工控制，需要添加如下依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-hateoas&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>在开始之前要了解HATEOAS的两个概念，有两个对象：Resource表示单个对象，Resources表对多个对象。可以将其理解为两个包装类，将查询结果包装到其中之后，就成了符合HATEOAS要求的JSON字符串。</p>
+<p>在之前我们的RestController里的这个方法：</p>
+<pre>
+@GetMapping("/students")
+    public Iterable&lt;Student> showStudentList() {
+        return studentRepo.findAll();
+    }
+</pre>
+<p>现在对其改造，让其返回HATEOAS标准的JSON。</p>
+<pre>
+@GetMapping("/students")
+public Resources&lt;Resource&lt;Student>> showStudentList() {
+    PageRequest page = PageRequest.of(0, 12, Sort.by("id").descending());
 
+    List&lt;Student> students = (List&lt;Student>)studentRepo.findAll();
 
+    Resources&lt;Resource&lt;Student>> studentsHATEOAS = Resources.wrap(students);
+
+    studentsHATEOAS.add(new Link("localhost:8080/students","students"));
+
+    return studentsHATEOAS;
+}
+</pre>
+<p>仔细看这个方法，Resource就相当于一个包裹具体对象的类，Resources就相当于一个Resource集合类，很像泛型。要使用Resources类的.wrap()方法，传入一个Iterable对象，就可以包装了。</p>
+<p>在包装之后，可以给这个对象设置使用.add()设置其在JSON字符串中的链接和键名。</p>
+<p>如此设置之后，再访问students地址，就得到：</p>
+<pre>
+{
+    "_embedded": {
+        "studentList": [
+            {
+                "id": 1,
+                "firstName": "Angelo",
+                "lastName": "Gladstone",
+                "courseId": 1
+            },
+            {
+                "id": 2,
+                "firstName": "Ronald",
+                "lastName": "Constance",
+                "courseId": 1
+            },
+            {
+                "id": 3,
+                "firstName": "Sabina",
+                "lastName": "Wood",
+                "courseId": 2
+            },
+            ......
+        ]
+    },
+    "_links": {
+        "students": {
+            "href": "localhost:8080/students"
+        }
+    }
+}
+</pre>
+<p>相比原来的一个数组形式的JSON，现在的JSON被分为两部分，一部分是_embedded -- studentList，其中的内容就是原来的数组形式的JSON，还一部分是_links -- students，表示上一部分的数据的来源。</p>
+<p>其中第二部分的键名就是Link()对象的第二个参数，而链接就是第一个参数。</p>
+<p>这里还需要再进行一些改进，由于Link()构造器中的URL是写死的，实际上我们希望这个链接能够从其控制器匹配的路径中自动获取。</p>
+<p>这里就需要引入一个自动组装URL的类叫做<code>ControllerLinkBuilder</code>，用这个类来替代Link中写死的字符串。控制器方法可以修改成：</p>
+<pre>
+studentsHATEOAS.add(ControllerLinkBuilder.linkTo(RestController.class).slash("students").withRel("students"));
+</pre>
+<p>这里就使用了这个类动态构建字符串，后边的slash函数显然是加上一个<code>/students</code>路径，withRel是键名。当然，.slash()也是写死的。</p>
+<p>最好的方法是再传入方法名称，这样就彻底写活了，无论方法上URL如何变化，都会自动生成URL。</p>
+<pre>
+    @GetMapping("/students")
+    public Resources&lt;Resource&lt;Student>> showStudentList() {
+        PageRequest page = PageRequest.of(0, 12, Sort.by("id").descending());
+
+        List&lt;Student> students = (List&lt;Student>)studentRepo.findAll();
+
+        Resources&lt;Resource&lt;Student>> studentsHATEOAS = Resources.wrap(students);
+
+        studentsHATEOAS.add(ControllerLinkBuilder.linkTo(ControllerLinkBuilder.methodOn(RestController.class).showStudentList()).withRel("students"));
+            
+        return studentsHATEOAS;
+</pre>
+<p>这样就彻底写活了。</p>
 
 
 
