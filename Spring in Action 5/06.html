@@ -383,8 +383,6 @@ studentsHATEOAS.add(ControllerLinkBuilder.linkTo(RestController.class).slash("st
 <pre>
     @GetMapping("/students")
     public Resources&lt;Resource&lt;Student>> showStudentList() {
-        PageRequest page = PageRequest.of(0, 12, Sort.by("id").descending());
-
         List&lt;Student> students = (List&lt;Student>)studentRepo.findAll();
 
         Resources&lt;Resource&lt;Student>> studentsHATEOAS = Resources.wrap(students);
@@ -394,6 +392,405 @@ studentsHATEOAS.add(ControllerLinkBuilder.linkTo(RestController.class).slash("st
         return studentsHATEOAS;
 </pre>
 <p>这样就彻底写活了。</p>
+
+<h3 style="text-align: center;">给每个对象添加链接</h3>
+<p>我们给列表添加了链接，现在返回的JSON中，已经有了整个列表对应的链接，但是每个对象还没有链接。</p>
+<p>固然可以迭代每个Resource对象来添加链接，但这样的做法并不好。在之前是直接使用<code>Resources.wrap(list)</code>来生成了一个JSON，现在我们需要使用一个新的组装类，来将每一个Student对象包装成一个Resource&lt;Student>。</p>
+<p>这种方法需要两个类，一个是从一个Student对象中的数据生成一个ResourceSupport的子类，相当于一个数据对象；然后还需要一个组装类，把一个个ResourceSupport对象组装成一个Resources对象。</p>
+<p>先来看数据对象类，这个类需要继承<code>org.springframework.hateoas</code>包中的<code>ResourceSupport</code>类，将Student对象的属性搬到上边去：</p>
+<pre>
+package cc.conyli.restlearn.api;
+
+import cc.conyli.restlearn.entity.Student;
+import lombok.Getter;
+import org.springframework.hateoas.ResourceSupport;
+
+public class StudentResource extends ResourceSupport {
+
+    @Getter
+    private String firstName;
+
+    @Getter
+    private String lastName;
+
+    @Getter
+    private Integer courseId;
+
+    public StudentResource(Student student) {
+        this.firstName = student.getFirstName();
+        this.lastName = student.getLastName();
+        this.courseId = student.getCourseId();
+    }
+}
+
+</pre>
+<p>这个类很像一个数据类（domain类，之前也叫做entity类），但是没有必要给出id了，因为在访问的URL中已经提供了id。如果不对外提供服务的话也可以暴露id给前端页面。</p>
+<p>在日常开发中，可能有的开发者会直接把Entity直接继承ResourceSupport类，差不多，</p>
+<p>然后是组装类，这个类需要继承<code>org.springframework.hateoas.mvc.ResourceAssemblerSupport</code>：</p>
+<pre>
+package cc.conyli.restlearn.api;
+
+import cc.conyli.restlearn.controller.RestController;
+import cc.conyli.restlearn.entity.Student;
+import org.springframework.hateoas.mvc.ResourceAssemblerSupport;
+
+
+public class StudentResourceAssembler extends ResourceAssemblerSupport&lt;Student, StudentResource> {
+
+    public StudentResourceAssembler() {
+        super(RestController.class, StudentResource.class);
+    }
+
+    @Override
+    protected StudentResource instantiateResource(Student entity) {
+        return new StudentResource(entity);
+    }
+
+    @Override
+    public StudentResource toResource(Student student) {
+        return createResourceWithId(student.getId(), student);
+    }
+}
+</pre>
+<p><code>ResourceAssemblerSupport</code>的泛型是原始的数据类和包装后的类。这个类还有一个父类，默认的无参构造器传入控制器类和包装后的类，用于确定JSON里链接的属性。</p>
+<p><code>instantiateResource(Student entity)</code>方法是将一个Student转换成StudentResource类的方法，如果StudentResource有默认构造器，这个方法可以不用写。由于我们的StudentResource类构造器是需要传入一个Student对象的，因此这里还需要手工重写这个方法。</p>
+<p><code>toResource()</code>是ResourceAssemblerSupport类唯一一个强行要求重写的方法，这个方法是从student对象创建对应的Resource的时候，自动将其的id作为作为链接加上去。</p>
+<p>最后修改控制器，来使用新类组装JSON，不使用Resources.wrap：</p>
+<pre>
+@GetMapping("/students")
+public <span style="color: red">Resources&lt;StudentResource></span> showStudentList() {
+    List&lt;Student> students = (List&lt;Student>)studentRepo.findAll();
+
+    <span style="color: red">List&lt;StudentResource> studentResources = new StudentResourceAssembler().toResources(students);</span>
+    <span style="color: red">Resources&lt;StudentResource> studentsHATEOAS = new Resources&lt;>(studentResources);</span>
+
+    studentsHATEOAS.add(ControllerLinkBuilder.linkTo(ControllerLinkBuilder.methodOn(RestController.class).showStudentList()).withRel("students"));
+
+    return studentsHATEOAS;
+}
+</pre>
+<p>可以看到，其实就是用自己写的StudentResource代替了原来的Resource&lt;Student>；把<code>List&lt;Student></code>变成<code>List&lt;StudentResource></code>，然后直接用Resources&lt;>(studentResources)构造器方法创建一个新的Resources对象。</p>
+<p>再把方法返回的泛型修改一下就行了。</p>
+<p>在实际测试的时候，发现只返回了<code>http://127.0.0.1:8080/api/1</code>这样的链接，这是因为传入的类的匹配只有/api，需要重构一下控制器类，分成两个Rest控制器。另一个CourseRestController的代码就不放了。</p>
+<p>这里是完整的StudentRestController：</p>
+<pre>
+package cc.conyli.restlearn.controller;
+
+import cc.conyli.restlearn.api.StudentResource;
+import cc.conyli.restlearn.api.StudentResourceAssembler;
+import cc.conyli.restlearn.entity.Student;
+import cc.conyli.restlearn.repository.StudentRepo;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.hateoas.Resources;
+import org.springframework.hateoas.mvc.ControllerLinkBuilder;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@Slf4j
+@org.springframework.web.bind.annotation.RestController
+@RequestMapping(path = "/api/students", produces = "application/json")
+@CrossOrigin("*")
+public class StudentRestController {
+
+    private StudentRepo studentRepo;
+
+    @Autowired
+    public StudentRestController(StudentRepo studentRepo) {
+        this.studentRepo = studentRepo;
+    }
+
+    @GetMapping
+    public Resources&lt;StudentResource> showStudentList() {
+        List&lt;Student> students = (List&lt;Student>)studentRepo.findAll();
+
+        List&lt;StudentResource> studentResources = new StudentResourceAssembler().toResources(students);
+        Resources&lt;StudentResource> studentsHATEOAS = new Resources&lt;>(studentResources);
+
+        studentsHATEOAS.add(ControllerLinkBuilder.linkTo(ControllerLinkBuilder.methodOn(<span style="color: red;">StudentRestController.class</span>).showStudentList()).withRel("students"));
+
+        return studentsHATEOAS;
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity&lt;Student> getStudent(@PathVariable("id") int id) {
+        Optional&lt;Student> student = studentRepo.findById(id);
+        if (student.isPresent()) {
+            return new ResponseEntity&lt;>(student.get(), HttpStatus.OK);
+        } else {
+            return new ResponseEntity&lt;>(null, HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @PostMapping(consumes = "application/json")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Student addStudent(@RequestBody Student student) {
+        log.info(student.toString());
+        return studentRepo.save(student);
+    }
+
+    @PutMapping(path = "/{id}", consumes = "application/json")
+    public ResponseEntity&lt;Student> replaceStudent(@PathVariable("id") int id, @RequestBody Student student) {
+        Optional&lt;Student> targetStudent = studentRepo.findById(id);
+        if (targetStudent.isPresent()) {
+            Student theStudent = targetStudent.get();
+            theStudent.setFirstName(student.getFirstName());
+            theStudent.setLastName(student.getLastName());
+            theStudent.setCourseId(student.getCourseId());
+            return new ResponseEntity&lt;>(studentRepo.save(theStudent), HttpStatus.CREATED);
+        } else {
+            return new ResponseEntity&lt;>(null, HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @PatchMapping(path = "/{id}", consumes = "application/json")
+    public ResponseEntity&lt;Student> patchStudent(@PathVariable("id") int id, @RequestBody Student student) {
+        Optional&lt;Student> targetStudent = studentRepo.findById(id);
+        if (targetStudent.isPresent()) {
+            Student theStudent = targetStudent.get();
+            if (student.getFirstName() != null) {
+                theStudent.setFirstName(student.getFirstName());
+            }
+            if (student.getLastName() != null) {
+                theStudent.setLastName(student.getLastName());
+            }
+            if (student.getCourseId() != null) {
+                theStudent.setCourseId(student.getCourseId());
+            }
+            return new ResponseEntity&lt;>(studentRepo.save(theStudent), HttpStatus.CREATED);
+        } else {
+            return new ResponseEntity&lt;>(null, HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @DeleteMapping(path = "/{id}", consumes = "application/json")
+    public ResponseEntity&lt;Student> removeStudent(@PathVariable("id") int id) {
+        Optional&lt;Student> targetStudent = studentRepo.findById(id);
+        if (targetStudent.isPresent()) {
+            studentRepo.delete(targetStudent.get());
+            return new ResponseEntity&lt;>(null, HttpStatus.NO_CONTENT);
+        }else {
+            return new ResponseEntity&lt;>(null, HttpStatus.NOT_FOUND);
+        }
+    }
+}
+</pre>
+<p>注意其中的红色部分要修改成当前的类，然后还要把StudentResourceAssembler修改如下：</p>
+<pre>
+package cc.conyli.restlearn.api;
+
+<span style="color: red">import cc.conyli.restlearn.controller.StudentRestController;</span>
+import cc.conyli.restlearn.entity.Student;
+import org.springframework.hateoas.mvc.ResourceAssemblerSupport;
+
+
+public class StudentResourceAssembler extends ResourceAssemblerSupport&lt;Student, StudentResource> {
+
+    public StudentResourceAssembler() {
+        super(<span style="color: red">StudentRestController.class</span>, StudentResource.class);
+    }
+
+    @Override
+    protected StudentResource instantiateResource(Student entity) {
+        return new StudentResource(entity);
+    }
+
+    @Override
+    public StudentResource toResource(Student student) {
+        return createResourceWithId(student.getId(), student);
+    }
+}
+</pre>
+<p>传入了正确的类之后，再获取JSON字符串，就可以显示出正确的结果了。现在还有一个问题，就是Student类全是基本类型和字符串，而Course类中有Student类的对象，也需要制作两个类。</p>
+<p>由于外键字段是一个列表，因此不能简单的在CourseResource类中使用原来的List&lt;Student>，而是要使用已经编写好的StudentResource对象(可以理解为最终渲染好的一段JSON）</p>
+<pre>
+package cc.conyli.restlearn.api;
+
+import cc.conyli.restlearn.entity.Course;
+import lombok.Getter;
+import org.springframework.hateoas.ResourceSupport;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class CourseResource extends ResourceSupport {
+
+    private final StudentResourceAssembler studentResourceAssembler = new StudentResourceAssembler();
+
+    @Getter
+    private String courseName;
+
+    @Getter
+    private <span style="color: red">List&lt;StudentResource></span> students = new ArrayList&lt;>();
+
+    public CourseResource(Course course) {
+        this.courseName = course.getCourseName();
+        this.students = studentResourceAssembler.toResources(course.getStudents());
+    }
+}
+</pre>
+<p>实际上这里的List是一个Resoure对象的List了，这部分调用了之前编写的studentResourceAssembler来转换学生列表，就和单独查询学生结果列表一样。</p>
+<p>其他就是还要编写一个CourseResourceAssembler用于生成最终的类：</p>
+<pre>
+package cc.conyli.restlearn.api;
+
+import cc.conyli.restlearn.controller.CourseRestController;
+import cc.conyli.restlearn.controller.StudentRestController;
+import cc.conyli.restlearn.entity.Course;
+import cc.conyli.restlearn.entity.Student;
+import org.springframework.hateoas.mvc.ResourceAssemblerSupport;
+
+
+public class CourseResourceAssembler extends ResourceAssemblerSupport&lt;Course, CourseResource> {
+
+    public CourseResourceAssembler() {
+        super(CourseRestController.class, CourseResource.class);
+    }
+
+    @Override
+    protected CourseResource instantiateResource(Course entity) {
+        return new CourseResource(entity);
+    }
+
+    @Override
+    public CourseResource toResource(Course course) {
+        return createResourceWithId(course.getId(), course);
+    }
+}
+</pre>
+<p>此时访问<code>http://127.0.0.1:8080/api/courses</code>，得到的JSON字符串如下：</p>
+<pre>
+{
+    "_embedded": {
+        "courseResourceList": [
+            {
+                "courseName": "Java Programming",
+                "students": [
+                    {
+                        "firstName": "Angelo",
+                        "lastName": "Gladstone",
+                        "courseId": 1,
+                        "_links": {
+                            "self": {
+                                "href": "http://127.0.0.1:8080/api/students/1"
+                            }
+                        }
+                    },
+                    {
+                        "firstName": "Ronald",
+                        "lastName": "Constance",
+                        "courseId": 1,
+                        "_links": {
+                            "self": {
+                                "href": "http://127.0.0.1:8080/api/students/2"
+                            }
+                        }
+                    },
+                    {
+                        "firstName": "Aries",
+                        "lastName": "Browning",
+                        "courseId": 1,
+                        "_links": {
+                            "self": {
+                                "href": "http://127.0.0.1:8080/api/students/11"
+                            }
+                        }
+                    },
+                    {
+                        "firstName": "Angelo",
+                        "lastName": "Gladstone",
+                        "courseId": 1,
+                        "_links": {
+                            "self": {
+                                "href": "http://127.0.0.1:8080/api/students/16"
+                            }
+                        }
+                    }
+                ],
+    ......
+</pre>
+<p>在每个课程的内部，带上了选上该课的学生的JSON。</p>
+<p>可见就是两个包裹类，如果是单独的数据对象，就直接包裹，如果有连接到其他数据对象的，可以直接显示外键的数值，也可以像第二个例子一样，用包装后的列表对象作为JSON显示，这样就可以通过一个数据同时获得相关的数据。</p>
+
+<h3 style="text-align: center;">自定义名称</h3>
+<p>查看JSON可以发现其中：</p>
+<pre>
+{
+    "_embedded": {
+        <span style="color: red">"courseResourceList"</span>: [
+            {
+</pre>
+<p>这个红色部分的名称，是从<code>List&lt;Resources&lt;XXX>></code>创建Resources对象的时候生成的，可以通过<code>@Relation</code>注解自定义：</p>
+<pre>
+@Relation(value = "course", collectionRelation = "courses")
+public class CourseResource extends ResourceSupport {
+
+    private final StudentResourceAssembler studentResourceAssembler = new StudentResourceAssembler();
+
+    @Getter
+    private String courseName;
+
+    @Getter
+    private List&lt;StudentResource> students = new ArrayList&lt;>();
+
+    public CourseResource(Course course) {
+        this.courseName = course.getCourseName();
+        this.students = studentResourceAssembler.toResources(course.getStudents());
+    }
+}
+</pre>
+<p>这么定义的话，表示如果一个List&lt;CourseResource>被用作Resources对象的一部分时，键名叫做courses。一个单独的Course对象则被叫做course。当然，返回单个对象我们这里没有编写。</p>
+
+<h1 style="text-align: center;">使用Spring Data Rest全自动生成HATEOAS REST API</h1>
+<p>感觉配置比较麻烦，还需要自定义包裹类一层一层包裹？ Spring Data Rest可以根据已经实例化的Repo自动生成对应的链接。</p>
+<p>只需要添加如下依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-data-rest&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>之后可以将所有的控制器都删除，不删除也可以。重新启动项目。</p>
+<p>访问如下地址<a href="http://localhost:8080/students">http://localhost:8080/students</a>可以获得全部学生列表，然后里边还生成了单个学生地址。</p>
+<p>访问<a href="http://localhost:8080/courses">http://localhost:8080/courses</a>可以获得课程地址，每个课程还带了例如<a
+        href="http://localhost:8080/courses/1/students">http://localhost:8080/courses/1/students</a>的查看每个课程里的学生的地址，非常方便。</p>
+<p>不只是能访问，还可以向<code>/students</code>地址POST新的对象，或者向<code>students/id</code>来PATCH和DELETE对象。</p>
+<p><code>spring.data.rest.base-path=/api</code>就是用来设置API前缀。</p>
+<p>这里还有一点要注意的就是，Spring Data Rest会自动根据Entity类的对象类名进行复数化。这里的courses和students都是普通复数，如果遇到一些自动复数有问题，可以在Entity类之前加上注解来指定路径和名称：</p>
+<p><code>@RestResource(rel="studentlists", path="stu")</code>这个表示路径会变成localhost:8080/api/stu，显示出的JSON中的列表键名会变成：</p>
+<pre>
+{
+  "_embedded" : {
+    <span style="color: red">"studentsss"</span> : [ {
+      "firstName" : "Angelo",
+      "lastName" : "Gladstone",
+      "courseId" : 1,
+</pre>
+
+<h3 style="text-align: center;">分页排序查询</h3>
+<p>关于分页排序查询，这里发现Spring Data Rest的查询参数不生效，不知道为什么了。实验了以前的项目是可以的。可能还需要再研究一下。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
