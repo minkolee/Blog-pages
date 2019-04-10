@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
     <title>Vue 01 基本例子</title>
-
+    <script src="vue.js"></script>
 </head>
 <body>
 <p>学起计算机，和以前学会计这种垃圾科目，逮着一本书学完再学下一本完全不同。</p>
@@ -14,54 +14,56 @@
 <p>书里的前端例子都是Angular，作者也说了可以用React或者Vue都可以，之前一直想学Vue，但是Django时期没有写过什么前后端分离的项目，这次要借着这个机会，好好的学习一下Vue。</p>
 <p>老样子，找到了<a href="https://www.udemy.com/vuejs-2-the-complete-guide/" target="_blank">这个视频</a>，在<a href="https://ftuforum.com/vue-js-2-the-complete-guide-incl-vue-router-vuex-5/">这里</a>可以免费下载。</p>
 <p>Vue的知识比较散，直接读官方视频容易一下迷乱，看了一下这个视频分成了几个部分还不错。先跟着视频来记录一下学习心得吧</p>
-
 <h1 style="text-align: center;">第一个例子</h1>
-<p>什么是MVC和MVVM这里就不大篇幅说了。由于前后端分离，前端也必须像后端一样，拿到数据，进行控制和处理，然后再渲染页面，等于在页面里也搞起了MVC。Vue就是这样一个前端框架，交给Vue的前端代码不再是原始的HTML，而是经过Vue渲染之后的代码，很像后端是经过模板处理引擎渲染的代码一样。</p>
+<p>什么是MVC和MVVM这里就不大篇幅说了。由于前后端分离，前端也必须像后端一样，拿到数据，进行控制和处理，然后再渲染页面，等于在页面里也搞起了MVC。Vue就是这样一个前端框架，交给浏览器的前端代码不再是原始的HTML，而是经过Vue渲染之后的代码，很像后端是经过模板处理引擎渲染的代码一样。</p>
+<p>先来写第一个Vue的例子，首先需要导入Vue。Vue的位置在Head标签的时候就可以导入，先于body标签中的内容导入，而不要放到body最后。</p>
+<p>之后就可以写一个最简单包含取值和双向绑定的页面：</p>
+<div id="app">
+    <input type="text" v-on:input="changeTitle">
+    <p>{{ title }}</p>
+</div>
 
 
+<pre>
+&lt;div id="app">
+    &lt;input type="text" v-on:input="changeTitle">
+    &lt;p>{{ title }}&lt;/p>
+&lt;/div>
+</pre>
+<pre>
+&lt;script>
+    new Vue({
+        el: '#app',
+        data:{
+            title:'Hello world!'
+        },
+        methods: {
+            changeTitle: function (event) {
+                this.title = event.target.value;
+            }
+        }
 
+    })
+&lt;/script>
+</pre>
+<p>一个Vue对象的实例，就相当于绑定了一个标签对应的区域的控制器。其中的el是选择器，可以选择对应的一个标签。data中是键值对，用于标识在标签区域内{{变量}}的变量名称，将其转换成字符串后渲染在其中。</p>
+<p>methods是方法名称和对应的方法内容，像JS原来的那些方法一样，可以传入事件对象来获取值。在vue实例的内部，关于data内部的键值，都用this.键名来取，这里要注意。</p>
+<p>v-on之类的叫做指令，指令都带有前缀v-，用于表示不同的功能。会慢慢学到。这里的v-on是事件监听器，监听事件，所以在方法中传入了event对象，再获取对应的值设置给title变量。</p>
+<p>可以看到，Vue对JS进行了重新的规划，以控制器和渲染的形式重新组织前端页面，将数据有效的绑定到最后的输出上。因为JS的灵活性，Vue也比较灵活，还需要大量的例子和总结。</p>
+<script>
+    new Vue({
+        el: '#app',
+        data:{
+            title:'Hello world!'
+        },
+        methods: {
+            changeTitle: function (event) {
+                this.title = event.target.value;
+            }
+        }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    })
+</script>
 
 </body>
 </html>

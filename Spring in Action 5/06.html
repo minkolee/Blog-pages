@@ -772,10 +772,10 @@ public class CourseResource extends ResourceSupport {
 </pre>
 
 <h3 style="text-align: center;">分页排序查询</h3>
-<p>关于分页排序查询，这里发现Spring Data Rest的查询参数不生效，不知道为什么了。实验了以前的项目是可以的。可能还需要再研究一下。</p>
-
-
-
+<p>关于分页排序查询，这里发现Spring Data Rest的查询参数不生效，经过试验，发现关键在于Repo类继承了哪个类。</p>
+<p>如果继承的是CrudRepository，则没有查询，因为这个类不支持查询。继承PagingAndSortingRepository或者JPARepository都可以。</p>
+<p>剩下就比较简单了，之前也学习过，直接采用URL请求参数查询：<code>http://localhost:8080/api/students?size=10&page=1&sort=id,desc</code>。</p>
+<p>这里还有一部分内容是让自己定义的Rest端点加入的Spring Data Rest的返回结果中，这一部分暂时先过去。</p>
 
 
 

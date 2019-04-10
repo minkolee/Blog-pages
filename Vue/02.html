@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:v-on="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
+    <title>Vue 02 Vue操作DOM元素</title>
+    <script src="vue.js"></script>
+</head>
+<body>
+<p>Vue毕竟也是对JS的封装，只要是JS，免不了对DOM的操作。老外的教程和官网Vue的教程分类很不同，先来看看DOM操作吧。</p>
+<ol>
+    <li><a href="#con1">双花括号 {{}} 叫做Interpolation或者 String Interpolation</a></li>
+    <li><a href="#con2">v-bind 绑定属性</a></li>
+    <li><a href="#con3">v-once 仅渲染一次</a></li>
+    <li><a href="#con4">v-html 输出原始HTML代码</a></li>
+    <li><a href="#con5">v-on 监听事件 给函数传入自定义参数</a></li>
+    <li><a href="#con6">控制事件冒泡</a></li>
+</ol>
+<h1 id="con1">双花括号 {{}}</h1>
+<p>双花括号就像是后端渲染的模板标签一样，对于其中的变量取值并且转换成字符串后进行显示，变量肯定也是有预先确定的命名空间。</p>
+<p>由于类似于表达式求值，在Vue中双花括号的内容除了可以是data中的数据属性之外，还可以是methods中的方法名加上括号执行的结果，比如：</p>
+<pre>
+&lt;div id="app">
+    &lt;p>{{ title }}&lt;/p>
+    &lt;p>{{ test1() }}&lt;/p>
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            title:"Hello world!"
+        },
+        methods:{
+            test1:function () {
+                return "gugugugu"
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>花括号里边的内容写成<code>this.title</code>和<code>this.test1()</code>也是可以的，但不能写成<code>data.title</code>，因为Vue会把属性和方法都设置到Vue实例上。</p>
+<p>methods中的方法也可以返回data中的数据，比如：</p>
+<pre>
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            title:"Hello world!"
+        },
+        methods:{
+            test1:function () {
+                return this.title
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>只要函数的返回值可以转换成字符串就可以，比如显示刷新页面时候的时间：</p>
+<pre>
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            title:"Hello world!"
+        },
+        methods:{
+            test1:function () {
+                return new Date();
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>注意，花括号只能用在原本是HTML的标签内容的部分，而不能应用在属性上。</p>
+
+
+
+<h1 id="con2">v-bind 绑定属性</h1>
+<p>指令<code>v-bind</code>加上HTML的标准属性，然后设置值，可以将HTML的属性值与Vue实例的数据绑定。</p>
+<p>比如想将一个链接的值设置为Vue实例内的一个URL字符串值：</p>
+<pre>
+&lt;div id="app">
+    &lt;p>{{ title }} - &lt;a v-bind:href="url">{{ showUrl() }}&lt;/a>&lt;/p>
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            title:"conyli.cc",
+            url:"http://conyli.cc"
+        },
+        methods:{
+            showUrl:function () {
+                return this.title;
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>使用了<code>v-bind</code>之后，虽然属性还是等于了一个字符串<code>"url"</code>，但这个字符串此时已经不是字符串，而是表示Vue实例中的url属性。</p>
+<p>有了绑定之后，不仅能使用双花括号操作标签的内容，还能使用绑定操作任意的标签属性。</p>
+
+<h1 id="con3">v-once 仅渲染一次</h1>
+<p>这是一条单独的指令，对应的标签在生成页面的时候仅使用对应数据渲染一次，之后不再变动。</p>
+<pre>
+&lt;div id="app">
+    &lt;h1 style="text-align: center;" v-once>{{ title }}&lt;/h1>
+    &lt;input type="text" v-on:input="changeTitle">
+    &lt;p>{{ title }}&lt;/p>
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            title:"conyli.cc",
+            url:"http://conyli.cc"
+        },
+        methods:{
+            changeTitle:function (event) {
+                this.title = event.target.value;
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>这里双向绑定了INPUT元素和P元素，输入之后P元素的内容会发生变化，但标题不会变动，只用最初数据渲染并且固定。可以发现双向绑定是自动去掉两端空格，中间重复空格只保留一个。</p>
+
+<h1 id="con4">v-html 输出原始HTML代码而不转义</h1>
+<p>正常情况下花括号的内容会被转义，以避免恶意脚本。如果想输出HTML代码，则要使用指令<code>v-html</code>，比较下边两个P元素：</p>
+<pre>
+&lt;div id="app">
+    &lt;p>{{ link }}&lt;/p>
+    &lt;p v-html="link">&lt;/p>
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            title:"conyli.cc",
+            url:"http://conyli.cc",
+            link: "&lt;a href='http://conyli.cc'>conyli.cc&lt;/a>"
+        }
+    })
+&lt;/script>
+</pre>
+<p>第一个P元素显示的就是转义后的字符串，而第二个P元素中就是HTML超链接，这说明<code>v-html</code>可以不转义直接输出HTML代码。在使用的时候要当心。</p>
+
+<h1 id="con5">v-on 监听事件</h1>
+<p>这个指令在最早的例子中使用过，监听input事件。<code>v-on</code>之后可以监听任何JS原生的事件名称，然后值可以设置为methods中的处理方法，可以传入event对象。</p>
+<p>做一个简单的计数器：</p>
+<pre>
+&lt;div id="app">
+    &lt;button v-on:click="add">Click me&lt;/button>
+    &lt;p>{{ counter }}&lt;/p>
+    &lt;p v-on:mousemove="update" style="height:100px;width: 200px;border: 1px solid red" >{{ x }} / {{ y }}&lt;/p>
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            counter: 0,
+            x:0,
+            y:0
+        },
+        methods: {
+            add: function () {
+                this.counter++
+            },
+            update: function (event) {
+                this.x = event.clientX;
+                this.y = event.clientY;
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>这里给BUTTON元素设置了监听事件的add方法，每点一次按钮，就调用add方法让counter变量自增1，由于P元素的内容和counter变量绑定，所以会看到不断增加的数字。其实和v-bind一样，一旦对html属性应用指令，其字符串就变成了变量或者函数名称。</p>
+<p>还给P元素设置了监听鼠标在其上移动的事件，动态的显示在框里鼠标的坐标。</p>
+<p>牛逼之处还在于还可以自定义参数。如果想每次增加2，可以这么写：</p>
+<pre>
+&lt;div id="app">
+    &lt;button v-on:click="add(2)">Click me&lt;/button>
+    &lt;p>{{ counter }}&lt;/p>
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            counter: 0,
+            x:0,
+            y:0
+        },
+        methods: {
+            add: function (step) {
+                this.counter = this.counter + step;
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>在methods中的方法中也增加对应的参数，这样就传入了2当做步长，每一次增加2。如果在使用自定义参数的情况下还想使用event参数，需要在v-on的部分传入固定的一个变量叫做<code>$event</code>，例子如下：</p>
+<pre>
+&lt;div id="app">
+    &lt;button v-on:click="add(2, $event)">Click me&lt;/button>
+    &lt;p>{{ counter }}&lt;/p>
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            counter: 0,
+            x:0,
+            y:0
+        },
+        methods: {
+            add: function (step, event) {
+                this.counter = this.counter + step;
+                console.log(event);
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>这样就能正确处理传入的事件了。对于methods中的所有方法，都可以如此来设置自定义参数。</p>
+
+<h1 id="con6">控制事件冒泡</h1>
+<p>像刚才的例子改进一下，用一个大的Div套一个小的Div，希望小Div内部不发生事件。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
