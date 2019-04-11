@@ -16,7 +16,8 @@
     <li><a href="#con3">v-once 仅渲染一次</a></li>
     <li><a href="#con4">v-html 输出原始HTML代码</a></li>
     <li><a href="#con5">v-on 监听事件 给函数传入自定义参数</a></li>
-    <li><a href="#con6">控制事件冒泡</a></li>
+    <li><a href="#con6">控制事件 - event modifier</a></li>
+    <li><a href="#con7">监听特定的键</a></li>
 </ol>
 <h1 id="con1">双花括号 {{}}</h1>
 <p>双花括号就像是后端渲染的模板标签一样，对于其中的变量取值并且转换成字符串后进行显示，变量肯定也是有预先确定的命名空间。</p>
@@ -232,16 +233,98 @@
 </pre>
 <p>这样就能正确处理传入的事件了。对于methods中的所有方法，都可以如此来设置自定义参数。</p>
 
-<h1 id="con6">控制事件冒泡</h1>
+<h1 id="con6">控制事件 - event modifier</h1>
 <p>像刚才的例子改进一下，用一个大的Div套一个小的Div，希望小Div内部不发生事件。</p>
+<p>代码如果用比较笨拙的方法实现，那么可以在小Div上监听同样的事件，然后阻止事件冒泡，这样外层就收不到事件：</p>
+<pre>
+&lt;div id="app">
+    &lt;div v-on:mousemove="move" class="outer">
+        &lt;div v-on:mousemove="dummy" class="inner">
+        &lt;/div>
+    &lt;/div>
+    &lt;p>{{x }} / {{ y }}&lt;/p>
+&lt;/div>
 
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            x:0,
+            y:0
+        },
+        methods:{
+            move: function (event) {
+                this.x = event.clientX;
+                this.y = event.clientY;
+            },
+            dummy: function (event) {
+                event.stopPropagation();
 
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>可以用更简单的方法做到，给指令加上一个.stop修饰符即可：</p>
+<pre>
+&lt;div id="app">
+    &lt;div v-on:mousemove="move" class="outer">
+        &lt;div v-on:mousemove.stop class="inner">
+        &lt;/div>
+    &lt;/div>
+    &lt;p>{{x }} / {{ y }}&lt;/p>
+&lt;/div>
 
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            x:0,
+            y:0
+        },
+        methods:{
+            move: function (event) {
+                this.x = event.clientX;
+                this.y = event.clientY;
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>这样就会在对应的元素上阻止该事件的发生。</p>
 
+<h1 id="con7">监听特定的键，依然是事件修饰符</h1>
+<pre>
+&lt;div id="app">
+    &lt;div v-on:mousemove="move" class="outer">
+        &lt;div v-on:mousemove.stop class="inner">
+        &lt;/div>
+    &lt;/div>
+    &lt;p>{{x }} / {{ y }}&lt;/p>
+    &lt;input type="text" v-on:keyup.enter.space="alertMe">
+&lt;/div>
 
+&lt;script>
+    new Vue({
+        el:"#app",
+        data:{
+            x:0,
+            y:0
+        },
+        methods:{
+            move: function (event) {
+                this.x = event.clientX;
+                this.y = event.clientY;
+            },
+            alertMe: function (event) {
+                alert("Input end");
 
-
-
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>这里监听了keyup事件，然后指定了enter.space表示输入空格，只要监听到了，就触发事件。</p>
 
 
 

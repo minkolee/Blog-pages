@@ -6,34 +6,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Vue Learn</title>
     <script src="vue.js"></script>
+    <style>
+        .outer {
+            width: 300px;
+            height: 300px;
+            background-color: gold;
+            position: relative;
+        }
+
+        .inner {
+            width: 150px;
+            height: 150px;
+            background-color: red;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+        }
+    </style>
 </head>
 <body>
 
+<!--<div id="app">-->
+<!--    <button v-on:click="add(2, $event)">Click me</button>-->
+<!--    <p>{{ counter }}</p>-->
+<!--</div>-->
+
+<!--<script>-->
+<!--    new Vue({-->
+<!--        el:"#app",-->
+<!--        data:{-->
+<!--            counter: 0,-->
+<!--            x:0,-->
+<!--            y:0-->
+<!--        },-->
+<!--        methods: {-->
+<!--            add: function (step, event) {-->
+<!--                this.counter = this.counter + step;-->
+<!--                console.log(event);-->
+<!--            }-->
+<!--        }-->
+<!--    })-->
+<!--</script>-->
+
+
 <div id="app">
-    <button v-on:click="add(2, $event)">Click me</button>
-    <p>{{ counter }}</p>
+    <div v-on:mousemove="move" class="outer">
+        <div v-on:mousemove.stop class="inner">
+        </div>
+    </div>
+    <p>{{x }} / {{ y }}</p>
+    <input type="text" v-on:keyup.enter.space="alertMe">
 </div>
 
 <script>
     new Vue({
         el:"#app",
         data:{
-            counter: 0,
             x:0,
             y:0
         },
-        methods: {
-            add: function (step, event) {
-                this.counter = this.counter + step;
-                console.log(event);
+        methods:{
+            move: function (event) {
+                this.x = event.clientX;
+                this.y = event.clientY;
+            },
+            alertMe: function (event) {
+                alert("Input end");
+
             }
         }
     })
 </script>
-
-
-
-
 
 
 
