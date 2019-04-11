@@ -22,6 +22,25 @@
             bottom: 0;
             right: 0;
         }
+        
+        .demo {
+            width: 100px;
+            height: 100px;
+            margin: 10px;
+            background-color: #dddddd;
+        }
+
+        .green {
+            background-color:green;
+        }
+
+        .blue {
+            background-color: blue;
+        }
+
+        .red {
+            background-color: red;
+        }
     </style>
 </head>
 <body>
@@ -49,41 +68,102 @@
 <!--</script>-->
 
 
+<!--<div id="app">-->
+<!--    <button v-on:click="count++">Count++</button>-->
+<!--    <button v-on:click="count&#45;&#45;">Count&#45;&#45;</button>-->
+<!--    <button v-on:click="another++">Another++</button>-->
+<!--    <button v-on:click="another&#45;&#45;">Another&#45;&#45;</button>-->
+<!--    <p>{{ count }} | {{ another }}</p>-->
+<!--    <p>{{ display() }} | {{computed_display }}</p>-->
+<!--</div>-->
+
+<!--<script>-->
+<!--    new Vue({-->
+<!--        el: "#app",-->
+<!--        data: {-->
+<!--            count: 0,-->
+<!--            another: 0-->
+<!--        },-->
+<!--        computed: {-->
+<!--          computed_display:function () {-->
+<!--              console.log("Computed value computed");-->
+<!--              return this.count >= 5 ? "Count > 5" : "Count < 5";-->
+<!--          }-->
+<!--        },-->
+<!--        watch:{-->
+<!--            count: function () {-->
+<!--                let vm = this;-->
+<!--                setTimeout(function () {-->
+<!--                    vm.count = 0;-->
+
+<!--                }, 2000);-->
+<!--            }-->
+<!--        },-->
+<!--        methods: {-->
+<!--            display: function () {-->
+<!--                console.log("display() is executed");-->
+<!--                return this.count >= 5 ? "Count > 5" : "Count < 5";-->
+<!--            }-->
+<!--        }-->
+<!--    });-->
+<!--</script>-->
+
+<!--<div id="app">-->
+<!--    <p>{{ count }}</p>-->
+<!--    <input type="text" :value="count">-->
+<!--    <button @click="count++">Click</button>-->
+<!--</div>-->
+<!--<script>-->
+<!--    new Vue({-->
+<!--        el: "#app",-->
+<!--        data:{-->
+<!--            count:0-->
+<!--        }-->
+<!--    })-->
+<!--</script>-->
+
+<!--<div id="app">-->
+<!--    <div class="demo" :class="{red:changeClass,blue:!changeClass}" @click="changeClass = !changeClass"></div>-->
+<!--    <div class="demo" :class="divClass" @click="changeClass = !changeClass"></div>-->
+<!--    <div class="demo" :class="color" @click="changeClass = !changeClass"></div>-->
+<!--    <div class="demo" :class="[color,{green:changeClass}]" @click="changeClass = !changeClass"></div>-->
+<!--    <input type="text" v-model="color">-->
+<!--</div>-->
 <div id="app">
-    <div v-on:mousemove="move" class="outer">
-        <div v-on:mousemove.stop class="inner">
-        </div>
-    </div>
-    <p>{{x }} / {{ y }}</p>
-    <input type="text" v-on:keyup.enter.space="alertMe">
+    <div class="demo" :style="styles"></div>
+    <div class="demo" :style="[styles, style2, {margin: this.height/5 + 'px'}]"></div>
+    <input type="text" v-model="color">
+    <input type="text" v-model="width">
+    <input type="text" v-model="height">
 </div>
+
+
 
 <script>
     new Vue({
-        el:"#app",
+        el: "#app",
         data:{
-            x:0,
-            y:0
+            changeClass: false,
+            color: "red",
+            width:200,
+            height:200
         },
-        methods:{
-            move: function (event) {
-                this.x = event.clientX;
-                this.y = event.clientY;
+        computed:{
+            styles:function () {
+                return {
+                    backgroundColor:this.color,
+                    width:this.width+"px"
+                }
             },
-            alertMe: function (event) {
-                alert("Input end");
-
+            style2:function () {
+                return {
+                    height:this.height+"px"
+                }
             }
         }
+        
     })
 </script>
-
-
-
-
-
-
-
 
 
 

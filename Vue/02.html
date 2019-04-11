@@ -16,8 +16,16 @@
     <li><a href="#con3">v-once 仅渲染一次</a></li>
     <li><a href="#con4">v-html 输出原始HTML代码</a></li>
     <li><a href="#con5">v-on 监听事件 给函数传入自定义参数</a></li>
-    <li><a href="#con6">控制事件 - event modifier</a></li>
-    <li><a href="#con7">监听特定的键</a></li>
+    <li><a href="#con6">事件修饰符 event modifier - 阻止冒泡</a></li>
+    <li><a href="#con7">事件修饰符 监听特定的键</a></li>
+    <li><a href="#con8">在Vue表达式中直接使用JS代码</a></li>
+    <li><a href="#con9">v-model 双向绑定</a></li>
+    <li><a href="#con10">computed 计算属性</a></li>
+    <li><a href="#con11">watch 侦听属性</a></li>
+    <li><a href="#con12">简化写法</a></li>
+    <li><a href="#con13">更改CSS类</a></li>
+    <li><a href="#con14">更改CSS样式</a></li>
+    <li><a href="#con15">总结</a></li>
 </ol>
 <h1 id="con1">双花括号 {{}}</h1>
 <p>双花括号就像是后端渲染的模板标签一样，对于其中的变量取值并且转换成字符串后进行显示，变量肯定也是有预先确定的命名空间。</p>
@@ -293,7 +301,7 @@
 </pre>
 <p>这样就会在对应的元素上阻止该事件的发生。</p>
 
-<h1 id="con7">监听特定的键，依然是事件修饰符</h1>
+<h1 id="con7">监听特定的键，使用事件修饰符</h1>
 <pre>
 &lt;div id="app">
     &lt;div v-on:mousemove="move" class="outer">
@@ -326,11 +334,295 @@
 </pre>
 <p>这里监听了keyup事件，然后指定了enter.space表示输入空格，只要监听到了，就触发事件。</p>
 
+<h1 id="con8">使用原生JS代码</h1>
+<p>在所有被当做表达式解析的地方，可以直接写JS代码，其中的函数和变量名称，就相当于在Vue的实例一样，可以直接使用。</p>
+<pre>
+&lt;div id="app">
+    &lt;button v-on:click="count++">Click ++&lt;/button>
+    &lt;button v-on:click="count--">Click --&lt;/button>
+    &lt;p>{{ count }}&lt;/p>
+    &lt;p>{{ count * 2 }}&lt;/p>
+    &lt;p>{{ count &lt; 10 ? "Less than 10": "Greater than 10" }}&lt;/p>
+&lt;/div>
 
+&lt;script>
+    new Vue({
+        el: "#app",
+        data: {
+            count: 0
+        },
+        methods: {
+            move: function (event) {
+                this.x = event.clientX;
+                this.y = event.clientY;
+            }
+        }
+    });
+&lt;/script>
+</pre>
 
+<h1 id="con9">v-model 双向绑定</h1>
+<p>第一个例子中的绑定input事件还不是双向绑定，双向绑定使用v-model：</p>
+<pre>
+&lt;div id="app">
+    &lt;input type="text" v-model="name">
+    &lt;p>{{ name }}&lt;/p>
+&lt;/div>
 
+&lt;script>
+    new Vue({
+        el: "#app",
+        data: {
+            name: "Saner"
+        },
+        methods: {
+            move: function (event) {
+                this.x = event.clientX;
+                this.y = event.clientY;
+            }
+        }
+    });
+&lt;/script>
+</pre>
+<p>双向绑定是一个单独指令，将当前的元素的值直接绑定给data中的一个属性，同步变化。如果使用程序修改name的值，input框中的值也会变化。</p>
 
+<h1 id="con10">computed 计算属性</h1>
+<p>考虑如下的情况：</p>
+<pre>
+&lt;div id="app">
+    &lt;button v-on:click="count++">Count++&lt;/button>
+    &lt;button v-on:click="count--">Count--&lt;/button>
+    &lt;button v-on:click="another++">Another++&lt;/button>
+    &lt;button v-on:click="another--">Another--&lt;/button>
+    &lt;p>{{ count }} | {{ another }}&lt;/p>
+    &lt;p>{{ display() }} | {{computed_display }}&lt;/p>
+&lt;/div>
 
+&lt;script>
+    new Vue({
+        el: "#app",
+        data: {
+            count: 0,
+            another: 0
+        },
+        computed: {
+          computed_display:function () {
+              console.log("Computed value computed");
+              return this.count >= 5 ? "Count > 5" : "Count &lt; 5";
+          }
+        },
+        methods: {
+            display: function () {
+                console.log("display() is executed");
+                return this.count >= 5 ? "Count > 5" : "Count &lt; 5";
+            }
+        }
+    });
+&lt;/script>
+</pre>
+<p>computed中的属性可以对应一个函数，但是不用像methods中的方法一样需要加括号调用，而是直接可以使用属性。</p>
+<p>这两个有什么不一样的，答案是methods中的结果每次刷新dom或者刷新Vue实例的状态，都会执行，因为Vue不知道函数其中的内容是什么，只好每次求值并渲染。</p>
+<p>但computed中的内容，会检查其内部和什么关联，当没有关联的时候，这个computed属性不会重新计算。</p>
+<p>所以点击更改count属性的按钮时，两个方法都会执行，而点击更改another属性的按钮时，只会对display()求值并渲染，Vue知道computed中的内容与another没有关系，因此不会执行。</p>
+
+<h1 id="con11">watch 侦听属性</h1>
+<pre>
+&lt;div id="app">
+    &lt;button v-on:click="count++">Count++&lt;/button>
+    &lt;button v-on:click="count--">Count--&lt;/button>
+    &lt;button v-on:click="another++">Another++&lt;/button>
+    &lt;button v-on:click="another--">Another--&lt;/button>
+    &lt;p>{{ count }} | {{ another }}&lt;/p>
+    &lt;p>{{ display() }} | {{computed_display }}&lt;/p>
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el: "#app",
+        data: {
+            count: 0,
+            another: 0
+        },
+        computed: {
+          computed_display:function () {
+              console.log("Computed value computed");
+              return this.count >= 5 ? "Count > 5" : "Count &lt; 5";
+          }
+        },
+        watch:{
+            count: function () {
+                let vm = this;
+                setTimeout(function () {
+                    vm.count = 0;
+
+                }, 2000);
+            }
+        },
+        methods: {
+            display: function () {
+                console.log("display() is executed");
+                return this.count >= 5 ? "Count > 5" : "Count &lt; 5";
+            }
+        }
+    });
+&lt;/script>
+</pre>
+<p>与computed属性有些类似，watch是一个异步的侦听器。watch部分中的键名是已经存在的data中的属性名，只要这个属性一发生变化，对应的函数就会执行。</p>
+
+<h1 id="con12">简化写法</h1>
+<p>经常使用的<code>v-bind:</code>可以简写成<code>:</code>；而<code>v-on:</code>可以简写成<code>@</code>：</p>
+<pre>
+&lt;div id="app">
+    &lt;p>{{ count }}&lt;/p>
+    &lt;input type="text" :value="count">
+    &lt;button @click="count++">Click&lt;/button>
+&lt;/div>
+&lt;script>
+    new Vue({
+        el: "#app",
+        data:{
+            count:0
+        }
+    })
+&lt;/script>
+</pre>
+<p>今后都采用简化的写法。</p>
+
+<h1 id="con13">更改CSS类</h1>
+<p>更改CSS类有好几种做法：</p>
+<pre>
+&lt;style>
+	.demo {
+		width: 100px;
+		height: 100px;
+		margin: 10px;
+		background-color: #dddddd;
+	}
+
+	.green {
+		background-color:green;
+	}
+
+	.blue {
+		background-color: blue;
+	}
+
+	.red {
+		background-color: red;
+	}
+&lt;/style>
+
+&lt;div id="app">
+    &lt;div class="demo" :class="{red:changeClass,blue:!changeClass}" @click="changeClass = !changeClass">&lt;/div>
+    &lt;div class="demo" :class="divClass" @click="changeClass = !changeClass">&lt;/div>
+    &lt;div class="demo" :class="color" @click="changeClass = !changeClass">&lt;/div>
+    &lt;div class="demo" :class="[color,{green:changeClass}]" @click="changeClass = !changeClass">&lt;/div>
+    &lt;input type="text" v-model="color">
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el: "#app",
+        data:{
+            changeClass: false,
+            color: "red"
+        },
+        computed:{
+            divClass:function () {
+                return {
+                    red:this.changeClass,
+                    green:!this.changeClass
+                }
+            }
+        }
+
+    })
+&lt;/script>
+</pre>
+<p>这里首先要知道的是可以有一个属性，然后再有一个v-bind的同名属性，对于css类来说，不会覆盖原来的类，只会控制新的类的增加和去除。</p>
+<p>在第一个DIV中，绑定了一个对象，要始终记得，花括号内和绑定的属性内，都是相当于在Vue实例内部执行的表达式。第一个div中用red和blue名称对应了两个布尔值，在改变的时候，red或者blue类名就会应用到原来的类上，不会覆盖demo类。</p>
+<p>第二个DIV中，是改用计算属性传递了一个对象，本质上和第一种方法类似</p>
+<p>第三个DIV是比较直观，直接绑定color属性，输入color的名称就可以增加指定的类名上去。</p>
+<p>第四个DIV是还可以传入一个数组，其中既可以有字符串名称，又可以有对象，都会被拆解应用到类名上，这里设置的意思是：默认就是red红色，不管如何点击。如果在input里去掉red字样，那么点击的时候就会在绿色和无色之间切换。</p>
+
+<h1 id="con14">更改CSS样式</h1>
+<p>更改CSS样式靠的是绑定style属性，然后给这个属性传入对象，对象中的键是css属性名称，而值是css属性的值。</p>
+<pre>
+&lt;div id="app">
+    &lt;div class="demo" :style="styles">&lt;/div>
+    &lt;input type="text" v-model="color">
+    &lt;input type="text" v-model="width">
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el: "#app",
+        data:{
+            changeClass: false,
+            color: "red",
+            width:200
+        },
+        computed:{
+            styles:function () {
+                return {
+                    backgroundColor:this.color,
+                    width:this.width+"px"
+                }
+            }
+        }
+
+    })
+&lt;/script>
+</pre>
+<p>想修改何种属性，只要在对象中设置好键值对，然后传给绑定的style属性即可。在这个程序里，就可以通过输入颜色和宽度来控制Div元素的样式。</p>
+<p>与类名一样，也可以通过数组的形式来修改css样式：</p>
+<pre>
+&lt;div id="app">
+    &lt;div class="demo" :style="styles">&lt;/div>
+    &lt;div class="demo" :style="[styles, style2, {margin: this.height/5 + 'px'}]">&lt;/div>
+    &lt;input type="text" v-model="color">
+    &lt;input type="text" v-model="width">
+    &lt;input type="text" v-model="height">
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el: "#app",
+        data:{
+            changeClass: false,
+            color: "red",
+            width:200,
+            height:200
+        },
+        computed:{
+            styles:function () {
+                return {
+                    backgroundColor:this.color,
+                    width:this.width+"px"
+                }
+            },
+            style2:function () {
+                return {
+                    height:this.height+"px"
+                }
+            }
+        }
+
+    })
+&lt;/script>
+</pre>
+<p>第二个Div元素的样式就同时通过两个对象和一个等于高度五分之一的margin来动态控制。</p>
+
+<h1 id="con15">总结</h1>
+<p>初看此处的部分有些凌乱，后来我总结了一下，由于是操作DOM，不外乎针对每个元素的所有能控制的属性进行控制，有如下这么几方面：</p>
+<ol>
+    <li>元素的内容，由花括号的表达式来修改。花括号普通情况下输出转义后的字符串，还可以使用v-html输入不转义的HTML代码，v-once仅渲染一次</li>
+    <li>元素的属性，由v-bind:来绑定修改，绑定后的属性值双引号里边的内容不再是字符串，而是当做Vue内部的表达式解析。这里边又分为单一的值属性和类似于CSS类和Style的多个值属性或者需要对象类别的属性，可以传入对象</li>
+    <li>事件，由v-on:来绑定修改，还可以使用事件修饰符来进行具体控制</li>
+    <li>双向绑定，Vue中的属性变化，对应的值也变化；值变化，Vue实例中的属性也变化，常用于input框，用一个单独的v-model指令即可。</li>
+    <li>computed计算属性和watch侦听属性，有些类似于事件。computed属性能减少不必要的调用方法，watch是异步的，比较方便。</li>
+</ol>
+<p>通过这些方法，就可以操控Dom上任何一个元素的内容，各种属性，类和样式，以及事件，这就是Vue操作Dom的方式，也是Vue使用的基础。</p>
 
 
 
