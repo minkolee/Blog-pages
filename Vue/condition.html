@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh" >
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Vue Learn</title>
+    <script src="vue.js"></script>
+    <style>
+        .outer {
+            width: 300px;
+            height: 300px;
+            background-color: gold;
+            position: relative;
+        }
+
+        .inner {
+            width: 150px;
+            height: 150px;
+            background-color: red;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+        }
+        
+        .demo {
+            width: 100px;
+            height: 100px;
+            margin: 10px;
+            background-color: #dddddd;
+        }
+
+        .green {
+            background-color:green;
+        }
+
+        .blue {
+            background-color: blue;
+        }
+
+        .red {
+            background-color: red;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+<button @click="persons.push('saner')">Add an item</button>
+<button @click="persons.pop()">Pop an item</button>
+<ol>
+    <li v-for="person in persons" key="person">
+        {{person}}
+    </li>
+</ol>
+    <p v-for="x in 10">{{x}}</p>
+
+
+</div>
+
+
+
+<script>
+    new Vue({
+        el: "#app",
+        data: {
+            disp:true,
+            persons: ["jenny", "minko", "cony"],
+            details: [{
+                name: "jenny",
+                age: 18,
+                hobby: "shopping"
+            }, {
+                name: "minko",
+                age: 37,
+                hobby: "programming"
+            }, {
+                name: "cony",
+                age: 5,
+                hobby: "piano"
+            }
+            ]
+        },
+        methods:{
+
+        }
+    });
+</script>
+</body>
+</html>

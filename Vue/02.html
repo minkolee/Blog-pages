@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:v-on="http://www.w3.org/1999/xhtml">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -326,7 +326,6 @@
             },
             alertMe: function (event) {
                 alert("Input end");
-
             }
         }
     })
@@ -621,6 +620,7 @@
     <li>事件，由v-on:来绑定修改，还可以使用事件修饰符来进行具体控制</li>
     <li>双向绑定，Vue中的属性变化，对应的值也变化；值变化，Vue实例中的属性也变化，常用于input框，用一个单独的v-model指令即可。</li>
     <li>computed计算属性和watch侦听属性，有些类似于事件。computed属性能减少不必要的调用方法，watch是异步的，比较方便。</li>
+    <li>更改CSS类和CSS样式，Vue这里特别做了增强，除了绑定单一属性，还可以绑定数组和对象，便于传递多个设置。</li>
 </ol>
 <p>通过这些方法，就可以操控Dom上任何一个元素的内容，各种属性，类和样式，以及事件，这就是Vue操作Dom的方式，也是Vue使用的基础。</p>
 

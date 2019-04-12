@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="base.css">
+    <title>Spring in Action 5 Self-learning notes 7 - 异步消息发送</title>
+</head>
+<body>
+<p>依稀记得上一次使用消息的时候，还是在翻译Django 2 by Example的时候使用RabbitMQ异步发送电子邮件。</p>
+<p>所谓异步消息，就是发送了之后并不要求立刻获得响应。SIA5 第八章的例子是订单发送到另外一个Taco Kitchen程序，用于制作实际的Taco。</p>
+<p>这里使用到Spring 提供的三种方式：</p>
+<ol>
+    <li>JMS Java Message Service</li>
+    <li>RabbitMQ和AMQP</li>
+    <li>Apache Kafka</li>
+</ol>
+<p>看来也需要另外编写一个项目，运行在其他的端口，两个项目之间来发送消息了。</p>
+
+<h1 style="text-align: center;">JMS</h1>
+<p>JMS最早于2001年引入，规范了异步消息的接口，Spring通过<code>JmsTemplate</code>对JMS提供支持，Spring还提供了事件驱动的POJO——可以根据队列或者订阅服务的消息进行响应的对象。</p>
+<h3 style="text-align: center;">配置JMS</h3>
+<p>JMS需要一个消息代理，可以在Apache ActiveMQ或者更新的Apache ActiveMQ Artemis之间选择，我们选择Apache ActiveMQ Artemis，添加依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-artemis&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>Apache ActiveMQ Artemis是Apache ActiveMQ的升级+重新实现版本，但选用哪个对实际编写程序没有什么影响，在配置方面略有不同。</p>
+<p>Spring默认将Artemis消息代理运行在61616端口，但是在生产环境下还需要几个配置：</p>
+<table>
+    <thead>
+    <tr>
+        <th>属性</th>
+        <th>解释</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>spring.artemis.host</td>
+        <td>消息代理主机地址</td>
+    </tr>
+    <tr>
+        <td>spring.artemis.port</td>
+        <td>消息代理的端口</td>
+    </tr>
+    <tr>
+        <td>spring.artemis.user</td>
+        <td>登录消息代理的用户名，可选</td>
+    </tr>
+    <tr>
+        <td>spring.artemis.password</td>
+        <td>登录消息代理的密码，可选</td>
+    </tr>
+    </tbody>
+</table>
+<p>如果是ActiveMQ的话略有不同，可以查阅原书181页，要注意这个是tcp连接，不是http连接。</p>
+<p>在配置文件中配置地址和端口：</p>
+<pre>
+spring.artemis.host=localhost
+spring.artemis.port=61616
+</pre>
+<p>最后还需要在系统里安装Apache ActiveMQ Artemis，安装步骤如下：</p>
+<ol>
+    <li>到<a href="http://activemq.apache.org/components/artemis/download/">Apache官网</a>下载bin.zip文件。解压到任意一个目录，这个目录是base目录。</li>
+    <li>需要配置好JDK_HOME，CLASSPATH等路径</li>
+    <li>创建一个新的目录，不要和Artemis的安装目录一样，这个目录叫做instance目录</li>
+    <li>到base目录的/bin目录下边，进入windows power shell，输入以下命令：
+    <pre>
+./artemis create <span style="color: red" title="instance目录">D:\Software\artemis</span> --home <span style="color: darkgoldenrod" title="base目录">D:\Software\apache-artemis-2.7.0</span> --nio  --no-mqtt-acceptor --password 123 --user mq --verbose --no-hornetq-acceptor --no-amqp-acceptor --autocreate
+    </pre>
+        这其中的红色部分是instance目录，金色部分是base目录。
+    </li>
+    <li>会询问是否运行匿名访问，选Yes即可，如果选No，需要用户名和密码。</li>
+    <li>之后会自动计算5次系统的超时时间，然后自动设置。</li>
+    <li>然后需要到实例目录下去运行Artemis，有如下几种方式：
+    <ol>
+        <li>实例目录下的bin目录中，可以看到有artemis.cmd文件，在命令行下输入<code>artemis run</code>，看到启动信息成功即可</li>
+        <li>同样在bin目录下边，运行<code>artemis-service.exe install</code>，将其安装为系统服务，再运行<code>artemis-service.exe start</code>即可在后台启动，无需每次手动启动。</li>
+    </ol></li>
+    <li>启动成功之后，Artemis的控制台是<a href="http://localhost:8161/console">http://localhost:8161/console</a>，REST API是<a
+            href="http://localhost:8161/console/jolokia">http://localhost:8161/console/jolokia</a></li>
+    <li>启动后的默认端口是61616。在Spring中要设置好。</li>
+</ol>
+
+<h3 style="text-align: center;">JmsTemplate 发送消息</h3>
+<p>方法有如下几种：</p>
+<ol>
+    <li>发送原始消息
+    <ol>
+        <li><code>void send(MessageCreator messageCreator) throws JmsException;</code></li>
+        <li><code>void send(Destination destination, MessageCreator messageCreator) throws JmsException;</code></li>
+        <li><code>void send(String destinationName, MessageCreator messageCreator) throws JmsException;</code></li>
+    </ol></li>
+    <li>发送对象，对象在后台转为消息
+        <ol>
+            <li><code>void convertAndSend(Object message) throws JmsException;</code></li>
+            <li><code>void convertAndSend(Destination destination, Object message) throws JmsException;</code></li>
+            <li><code>void convertAndSend(String destinationName, Object message) throws JmsException;</code></li>
+        </ol></li>
+    <li>用预处理自定义消息并发送
+        <ol>
+            <li><code>void convertAndSend(Object message, MessagePostProcessor postProcessor) throws JmsException;</code></li>
+            <li><code>void convertAndSend(Destination destination, Object message, MessagePostProcessor postProcessor) throws JmsException;</code></li>
+            <li><code>void convertAndSend(String destinationName, Object message, MessagePostProcessor postProcessor) throws JmsException;</code></li>
+        </ol></li>
+</ol>
+<p>虽然9个方法，但实际上很好记。发送原始消息就是send方法，发送对象消息一律是convertAndSend方法。发送原始消息需要创建器，发送对象消息需要对象。地址可以是字符串也可以是地址对象，在最后加上预处理器即可。</p>
+<hr>
+<p>来看一个发送原始消息的例子：</p>
+<pre>
+package cc.conyli.restlearn.service;
+
+import cc.conyli.restlearn.entity.Student;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.core.MessageCreator;
+import org.springframework.stereotype.Service;
+
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.Session;
+
+@Service
+public class JmsMessageService implements JmsService {
+
+    private JmsTemplate jmsTemplate;
+
+    @Autowired
+    public JmsMessageService(JmsTemplate jmsTemplate) {
+        this.jmsTemplate = jmsTemplate;
+    }
+
+    @Override
+    public void sendStudentMessage(Student student) {
+        jmsTemplate.send(new MessageCreator() {
+            @Override
+            public Message createMessage(Session session) throws JMSException {
+                return session.createObjectMessage(student);
+            }
+        });
+    }
+}
+</pre>
+<p>这里实际上有一个自行编写的服务接口JmsService，其中的方法是public void sendStudentMessage(Student student)，接口的代码省略。</p>
+<p>send方法发送的消息实际上是从student对象构建而来，所以需要传入一个匿名对象，并且重写其中的方法，使用<code>javax.jms.Session</code>的<code>createObjectMessage(student)</code>方法来创建消息。</p>
+<p>这里传入student对象后，可以发现其要求对象必须可序列化，所以还要给Student类加上实现Serializable接口。</p>
+<p>由于是传入匿名对象，很自然的想到可以用lambda表达式改写：</p>
+<pre>
+@Override
+public void sendStudentMessage(Student student) {
+    jmsTemplate.send(session -> session.createObjectMessage(student));
+}
+</pre>
+<p>如果此时运行这个方法，会发送到哪里呢，需要在配置文件中指定一个默认发送的地址：</p>
+<pre>
+spring.jms.template.default-destination=localhost:61616
+</pre>
+<p>当然也可以自己指定地址，可以使用字符串形式的地址，也可以组装一个Destination对象的Bean，然后注入给我们的服务类。</p>
+<p>修改后的类如下：</p>
+<pre>
+package cc.conyli.restlearn.service;
+
+import cc.conyli.restlearn.entity.Student;
+import org.apache.activemq.artemis.jms.client.ActiveMQQueue;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.stereotype.Service;
+
+import javax.jms.Destination;
+
+@Service
+public class JmsMessageService implements JmsService {
+
+    private JmsTemplate jmsTemplate;
+    private Destination destination;
+
+    @Autowired
+    public JmsMessageService(JmsTemplate jmsTemplate, Destination destination) {
+        this.jmsTemplate = jmsTemplate;
+        this.destination = destination;
+    }
+
+    @Override
+    public void sendStudentMessage(Student student) {
+        jmsTemplate.send(destination, session -> session.createObjectMessage(student));
+    }
+
+}
+
+</pre>
+<p>注意，Destination Bean要定义在其他的配置类中，否则编译会自己引用自己，无法通过：</p>
+<pre>
+@Bean
+public Destination studentQueue() {
+    return new ActiveMQQueue("localhost:61616");
+}
+</pre>
+<hr>
+<p>发送原始消息需要自己指定处理器，对要发送的对象进行处理以后才能发送，为此还要传入匿名代码，比较麻烦。如果可以直接发送对象，让消息转换在后台完成，就会简单一些。来看看基于对象的消息发送：</p>
+<pre>
+@Override
+public void sendStudentObejct(Student student) {
+    jmsTemplate.convertAndSend(destination, student);
+}
+</pre>
+<p>相比原来的方法简单不少，当然这里也需要在接口里再定义一个方法。使用这个方法，在后台student对象会被MessageConverter的实现类转换成一个消息对象再发送。</p>
+<p><code>MessageConverter</code>是一个只有两个抽象方法的接口，一个方法用来将对象转换成消息，一个用来将消息转换成对象。</p>
+<pre>
+public interface MessageConverter {
+    Message toMessage(Object object, Session session) throws JMSException, MessageConversionException;
+
+    Object fromMessage(Message message)
+}
+</pre>
+<p>Spring针对这个消息转换类已经提供了一系列的实现，所有的实现都位于<code>org.springframework.jms.support.converter</code>包里：</p>
+<table>
+    <thead>
+    <tr>
+        <th>Message converter</th>
+        <th>如何转换</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>MappingJackson2MessageConverter</td>
+        <td>使用Jackson 2 JSON库将对象转换成JSON字符串</td>
+    </tr>
+    <tr>
+        <td>MarshallingMessageConverter</td>
+        <td>使用JAXB将消息转换成XML</td>
+    </tr>
+    <tr>
+        <td>MessagingMessageConverter</td>
+        <td>额，没怎么看懂，好像是使用一种映射来进行来回转换</td>
+    </tr>
+    <tr>
+        <td>SimpleMessageConverter</td>
+        <td>将字符串转换成TestMessage对象，二进制序列转换成BytesMessage，Map类型转换成MapMessage，对象则进行序列化。</td>
+    </tr>
+    </tbody>
+</table>
+<p><code>SimpleMessageConverter</code>是默认的转换器，需要对象实现Serializable接口。如果要使用其他的转换器，需要将其声明为一个Bean：</p>
+<pre>
+@Bean
+public MappingJackson2MessageConverter messageConverter() {
+    MappingJackson2MessageConverter messageConverter = new MappingJackson2MessageConverter();
+    messageConverter.setTypeIdPropertyName("_typeId");
+    return messageConverter;
+}
+</pre>
+<p>这里在返回Bean之前，调用了<code>setTypeIdPropertyName("_typeId")</code>方法，这非常重要。如果不调用该方法，这个方法仅接受一个类的全路径，这样导致接收消息的一方也必须使用全路径。</p>
+<p>为了灵活性更高，可以调用<code>setTypeIdMappings()</code>方法，设置一个自定义的名称与实际的类进行对应：</p>
+<pre>
+@Bean
+public MappingJackson2MessageConverter messageConverter() {
+    MappingJackson2MessageConverter messageConverter = new MappingJackson2MessageConverter();
+    messageConverter.setTypeIdPropertyName("_typeId");
+
+    Map&lt;String, Class&lt;?>> typeIdMappings = new HashMap&lt;>();
+    typeIdMappings.put("student", Student.class);
+    messageConverter.setTypeIdMappings(typeIdMappings);
+
+    return messageConverter;
+}
+</pre>
+<p>这个MessageConverter实际上是为了接收信息而配置的，需要写在其他的配置类里。很可能接收端里有另外一个Student的实现类，也能与消息的内容相匹配，但是可能还有其他不同的代码，用这种方式就很容易指定具体的类。</p>
+<hr>
+<p>现在又面临着新的需求，在每次发送一个Student消息的时候，我希望加上一个学生的额外信息A，这个A仅仅只用在让接收端进行一些处理。为了这个需求，去更改Student类和数据库没有意义，这个时候就可以对Student对象进行处理。</p>
+<p>实际上就是给消息加上一个头部数据，用于传递这个额外信息，如果使用直接发送消息，则可以使用<code>setStringProperty</code>给消息添加一个键值对：</p>
+<pre>
+@Override
+public void sendStudentMessage(Student student) {
+    jmsTemplate.send(destination, new MessageCreator() {
+        @Override
+        public Message createMessage(Session session) throws JMSException {
+            Message message = session.createObjectMessage(student);
+            message.setStringProperty("ExtraInfo", "123");
+            return message;
+        }
+    });
+}
+</pre>
+<p>也可以写成lambda形式：</p>
+<pre>
+@Override
+public void sendStudentMessage(Student student) {
+    jmsTemplate.send(destination, session -> {
+        Message message = session.createObjectMessage(student);
+        message.setStringProperty("ExtraInfo", "123");
+        return message;});
+}
+</pre>
+<p>此时的消息除了Student对象信息之外，还带着一个ExtraInfo=123的信息。</p>
+<p>对于convertAndSend，则需要传入第三个参数，也就是处理器，使用起来和send方法传匿名转换对象一样：</p>
+<pre>
+@Override
+public void sendStudentObejct(Student student) {
+    jmsTemplate.convertAndSend(destination, student, new MessagePostProcessor() {
+        @Override
+        public Message postProcessMessage(Message message) throws JMSException {
+            message.setStringProperty("ExtraInfo", "123");
+            return message;
+        }
+    });
+}
+</pre>
+<p>也可以写成lambda形式：</p>
+<pre>
+@Override
+public void sendStudentObejct(Student student) {
+    jmsTemplate.convertAndSend(destination, student, message -> {message.setStringProperty("ExtraInfo","123");
+        return message;} );
+}
+</pre>
+<p>这个处理器的<code>postProcessMessage(Message message)</code>方法接收消息，然后返回消息，在方法体内可以对象消息进行任意处理。</p>
+<p>由于匿名处理器每次也要硬编码，如果有多个处理器方法的话，还可以采用this::process名称的方式传入不同的处理器，万变不离其宗。</p>
+
+<h3 style="text-align: center;">JmsTemplate 接收消息</h3>
+<p>在接收信息的时候，有两种模式：</p>
+<ol>
+    <li>pull model -- 代码等候一个消息，直到消息抵达，实际上是同步方式</li>
+    <li>push model -- 消息可用的时候会到达代码中，实际上是异步方式</li>
+</ol>
+<p>JmsTemplate提供了很多接收消息的方法，但全部都是pull model，也就是同步的，如果接受不到消息，线程将会阻塞。我们也可以来使用push model，一个消息监听器会在消息可用的时候通知我们。</p>
+<p>同步模式和异步模式有着不同的用途，但一般情况下，都应该使用异步模式。</p>
+<hr>
+<h4 style="text-align: center;">同步模式 - 使用 JmsTemplate 接收消息</h4>
+<p>一系列接收消息的方法有：</p>
+<ol>
+    <li>返回消息对象
+    <ol>
+        <li><code>Message receive() throws JmsException;</code></li>
+        <li><code>Message receive(Destination destination) throws JmsException;</code></li>
+        <li><code>Message receive(String destinationName) throws JmsException;</code></li>
+    </ol></li>
+    <li>返回实际类型的对象
+        <ol>
+            <li><code>Object receiveAndConvert() throws JmsException;</code></li>
+            <li><code>Object receiveAndConvert(Destination destination) throws JmsException;</code></li>
+            <li><code>Object receiveAndConvert(String destinationName) throws JmsException;</code></li>
+        </ol></li>
+</ol>
+<p>本质上就是两种方法，返回值不同，都需要地址或者使用默认地址。</p>
+<pre>
+package cc.conyli.restlearn.service;
+
+import cc.conyli.restlearn.entity.Student;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.support.converter.MessageConverter;
+import org.springframework.stereotype.Service;
+
+import javax.jms.Destination;
+import javax.jms.JMSException;
+import javax.jms.Message;
+
+@Service
+public class ReceiveMessageService implements JmsReceiveService {
+
+    private JmsTemplate jmsTemplate;
+
+    private MessageConverter messageConverter;
+
+    private Destination destination;
+
+
+    @Autowired
+    public ReceiveMessageService(JmsTemplate jmsTemplate, MessageConverter messageConverter, Destination destination) {
+        this.destination = destination;
+        this.jmsTemplate = jmsTemplate;
+        this.messageConverter = messageConverter;
+    }
+
+    @Override
+    public Student receiveStudent() throws JMSException {
+        Message message = jmsTemplate.receive(destination);
+        return (Student) messageConverter.fromMessage(message);
+    }
+}
+</pre>
+<p>如果采用<code>receiveAndConvert</code>方法，就更简单一些：</p>
+<pre>
+@Override
+public Student receiveStudent() {
+    return (Student) jmsTemplate.receiveAndConvert(destination);
+}
+</pre>
+<p>这里编写了一个控制器，用两个按钮来控制。可以发现，点击接受的时候线程阻塞住，浏览器没有反应。这个时候另外开一个页面点击发送消息，可以发现发送之后，另外一个在监听的也收到了消息。</p>
+<p>不过如果先发送消息，不去接收的话，这个消息就会被抛掉，需要push方式去监听才可以。</p>
+<p>后来试验了一下，将Destination设置为<code>public Destination studentQueue() { return new ActiveMQQueue("192.168.0.234:61616");}</code>，使用linux服务器安装的Artimes，也是一样的，现在来看看异步监听。</p>
+<hr>
+<h4 style="text-align: center;">异步 - 使用 监听器</h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
