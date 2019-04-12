@@ -64,22 +64,27 @@ spring.artemis.port=61616
 </pre>
 <p>最后还需要在系统里安装Apache ActiveMQ Artemis，安装步骤如下：</p>
 <ol>
-    <li>到<a href="http://activemq.apache.org/components/artemis/download/">Apache官网</a>下载bin.zip文件。解压到任意一个目录，这个目录是base目录。</li>
+    <li>到<a href="http://activemq.apache.org/components/artemis/download/">Apache官网</a>下载bin.zip文件。解压到任意一个目录，这个目录是base目录。
+    </li>
     <li>需要配置好JDK_HOME，CLASSPATH等路径</li>
     <li>创建一个新的目录，不要和Artemis的安装目录一样，这个目录叫做instance目录</li>
     <li>到base目录的/bin目录下边，进入windows power shell，输入以下命令：
-    <pre>
-./artemis create <span style="color: red" title="instance目录">D:\Software\artemis</span> --home <span style="color: darkgoldenrod" title="base目录">D:\Software\apache-artemis-2.7.0</span> --nio  --no-mqtt-acceptor --password 123 --user mq --verbose --no-hornetq-acceptor --no-amqp-acceptor --autocreate
+        <pre>
+./artemis create <span style="color: red" title="instance目录">D:\Software\artemis</span> --home <span
+                style="color: darkgoldenrod" title="base目录">D:\Software\apache-artemis-2.7.0</span> --nio  --no-mqtt-acceptor --password 123 --user mq --verbose --no-hornetq-acceptor --no-amqp-acceptor --autocreate
     </pre>
         这其中的红色部分是instance目录，金色部分是base目录。
     </li>
     <li>会询问是否运行匿名访问，选Yes即可，如果选No，需要用户名和密码。</li>
     <li>之后会自动计算5次系统的超时时间，然后自动设置。</li>
     <li>然后需要到实例目录下去运行Artemis，有如下几种方式：
-    <ol>
-        <li>实例目录下的bin目录中，可以看到有artemis.cmd文件，在命令行下输入<code>artemis run</code>，看到启动信息成功即可</li>
-        <li>同样在bin目录下边，运行<code>artemis-service.exe install</code>，将其安装为系统服务，再运行<code>artemis-service.exe start</code>即可在后台启动，无需每次手动启动。</li>
-    </ol></li>
+        <ol>
+            <li>实例目录下的bin目录中，可以看到有artemis.cmd文件，在命令行下输入<code>artemis run</code>，看到启动信息成功即可</li>
+            <li>同样在bin目录下边，运行<code>artemis-service.exe install</code>，将其安装为系统服务，再运行<code>artemis-service.exe
+                start</code>即可在后台启动，无需每次手动启动。
+            </li>
+        </ol>
+    </li>
     <li>启动成功之后，Artemis的控制台是<a href="http://localhost:8161/console">http://localhost:8161/console</a>，REST API是<a
             href="http://localhost:8161/console/jolokia">http://localhost:8161/console/jolokia</a></li>
     <li>启动后的默认端口是61616。在Spring中要设置好。</li>
@@ -89,23 +94,29 @@ spring.artemis.port=61616
 <p>方法有如下几种：</p>
 <ol>
     <li>发送原始消息
-    <ol>
-        <li><code>void send(MessageCreator messageCreator) throws JmsException;</code></li>
-        <li><code>void send(Destination destination, MessageCreator messageCreator) throws JmsException;</code></li>
-        <li><code>void send(String destinationName, MessageCreator messageCreator) throws JmsException;</code></li>
-    </ol></li>
+        <ol>
+            <li><code>void send(MessageCreator messageCreator) throws JmsException;</code></li>
+            <li><code>void send(Destination destination, MessageCreator messageCreator) throws JmsException;</code></li>
+            <li><code>void send(String destinationName, MessageCreator messageCreator) throws JmsException;</code></li>
+        </ol>
+    </li>
     <li>发送对象，对象在后台转为消息
         <ol>
             <li><code>void convertAndSend(Object message) throws JmsException;</code></li>
             <li><code>void convertAndSend(Destination destination, Object message) throws JmsException;</code></li>
             <li><code>void convertAndSend(String destinationName, Object message) throws JmsException;</code></li>
-        </ol></li>
+        </ol>
+    </li>
     <li>用预处理自定义消息并发送
         <ol>
-            <li><code>void convertAndSend(Object message, MessagePostProcessor postProcessor) throws JmsException;</code></li>
-            <li><code>void convertAndSend(Destination destination, Object message, MessagePostProcessor postProcessor) throws JmsException;</code></li>
-            <li><code>void convertAndSend(String destinationName, Object message, MessagePostProcessor postProcessor) throws JmsException;</code></li>
-        </ol></li>
+            <li><code>void convertAndSend(Object message, MessagePostProcessor postProcessor) throws
+                JmsException;</code></li>
+            <li><code>void convertAndSend(Destination destination, Object message, MessagePostProcessor postProcessor)
+                throws JmsException;</code></li>
+            <li><code>void convertAndSend(String destinationName, Object message, MessagePostProcessor postProcessor)
+                throws JmsException;</code></li>
+        </ol>
+    </li>
 </ol>
 <p>虽然9个方法，但实际上很好记。发送原始消息就是send方法，发送对象消息一律是convertAndSend方法。发送原始消息需要创建器，发送对象消息需要对象。地址可以是字符串也可以是地址对象，在最后加上预处理器即可。</p>
 <hr>
@@ -145,7 +156,8 @@ public class JmsMessageService implements JmsService {
 }
 </pre>
 <p>这里实际上有一个自行编写的服务接口JmsService，其中的方法是public void sendStudentMessage(Student student)，接口的代码省略。</p>
-<p>send方法发送的消息实际上是从student对象构建而来，所以需要传入一个匿名对象，并且重写其中的方法，使用<code>javax.jms.Session</code>的<code>createObjectMessage(student)</code>方法来创建消息。</p>
+<p>send方法发送的消息实际上是从student对象构建而来，所以需要传入一个匿名对象，并且重写其中的方法，使用<code>javax.jms.Session</code>的<code>createObjectMessage(student)</code>方法来创建消息。
+</p>
 <p>这里传入student对象后，可以发现其要求对象必须可序列化，所以还要给Student类加上实现Serializable接口。</p>
 <p>由于是传入匿名对象，很自然的想到可以用lambda表达式改写：</p>
 <pre>
@@ -269,7 +281,8 @@ public MappingJackson2MessageConverter messageConverter() {
 </pre>
 <p>这个MessageConverter实际上是为了接收信息而配置的，需要写在其他的配置类里。很可能接收端里有另外一个Student的实现类，也能与消息的内容相匹配，但是可能还有其他不同的代码，用这种方式就很容易指定具体的类。</p>
 <hr>
-<p>现在又面临着新的需求，在每次发送一个Student消息的时候，我希望加上一个学生的额外信息A，这个A仅仅只用在让接收端进行一些处理。为了这个需求，去更改Student类和数据库没有意义，这个时候就可以对Student对象进行处理。</p>
+<p>
+    现在又面临着新的需求，在每次发送一个Student消息的时候，我希望加上一个学生的额外信息A，这个A仅仅只用在让接收端进行一些处理。为了这个需求，去更改Student类和数据库没有意义，这个时候就可以对Student对象进行处理。</p>
 <p>实际上就是给消息加上一个头部数据，用于传递这个额外信息，如果使用直接发送消息，则可以使用<code>setStringProperty</code>给消息添加一个键值对：</p>
 <pre>
 @Override
@@ -332,17 +345,19 @@ public void sendStudentObejct(Student student) {
 <p>一系列接收消息的方法有：</p>
 <ol>
     <li>返回消息对象
-    <ol>
-        <li><code>Message receive() throws JmsException;</code></li>
-        <li><code>Message receive(Destination destination) throws JmsException;</code></li>
-        <li><code>Message receive(String destinationName) throws JmsException;</code></li>
-    </ol></li>
+        <ol>
+            <li><code>Message receive() throws JmsException;</code></li>
+            <li><code>Message receive(Destination destination) throws JmsException;</code></li>
+            <li><code>Message receive(String destinationName) throws JmsException;</code></li>
+        </ol>
+    </li>
     <li>返回实际类型的对象
         <ol>
             <li><code>Object receiveAndConvert() throws JmsException;</code></li>
             <li><code>Object receiveAndConvert(Destination destination) throws JmsException;</code></li>
             <li><code>Object receiveAndConvert(String destinationName) throws JmsException;</code></li>
-        </ol></li>
+        </ol>
+    </li>
 </ol>
 <p>本质上就是两种方法，返回值不同，都需要地址或者使用默认地址。</p>
 <pre>
@@ -391,18 +406,304 @@ public Student receiveStudent() {
 </pre>
 <p>这里编写了一个控制器，用两个按钮来控制。可以发现，点击接受的时候线程阻塞住，浏览器没有反应。这个时候另外开一个页面点击发送消息，可以发现发送之后，另外一个在监听的也收到了消息。</p>
 <p>不过如果先发送消息，不去接收的话，这个消息就会被抛掉，需要push方式去监听才可以。</p>
-<p>后来试验了一下，将Destination设置为<code>public Destination studentQueue() { return new ActiveMQQueue("192.168.0.234:61616");}</code>，使用linux服务器安装的Artimes，也是一样的，现在来看看异步监听。</p>
+<p>后来试验了一下，将Destination设置为<code>public Destination studentQueue() { return new
+    ActiveMQQueue("192.168.0.234:61616");}</code>，使用linux服务器安装的Artimes，也是一样的，现在来看看异步监听。</p>
 <hr>
 <h4 style="text-align: center;">异步 - 使用 监听器</h4>
+<p>对于异步的方法，需要使用<code>@JmsListener</code>修饰方法，可以将接收消息的方法变成被动监听，新创建一个监听消息并打印的类：</p>
+<pre>
+package cc.conyli.restlearn.controller;
+
+import cc.conyli.restlearn.entity.Student;
+import org.springframework.stereotype.Component;
+
+
+@Component
+public class JmsListener {
+
+    @org.springframework.jms.annotation.JmsListener(destination = "192.168.100.100:61616")
+    public void receiveStudent(Student student) {
+        System.out.println(student);
+    }
+}
+</pre>
+<p>这个方法需要将要接受的对象当做参数传入，然后使用<code>@JmsListener</code>修饰，重新启动项目之后，只要给Artimes发送一条消息，就会自动接收，然后在控制台打印出来。</p>
+<p>
+    实际上，有了这个方法之后，就可以在后台进行任何工作，这样一个程序给另外一个程序发消息，另外一个程序接受到消息之后，就可以进行工作了。这就是异步的好处，可以让一个程序集中处理一些事情，将一些开销大，需要后边慢慢执行的任务，通过消息的方式交给机器上的其他程序或者其他的机器去处理。</p>
+
+<h1 style="text-align: center;">Rabbit MQ</h1>
+<p>AMQP最著名的实现就是RabbitMQ了。相比JMS，兔子MQ提供了更高级的消息路由系统。JMS只是一个地址的指定队列，而兔子可以在一个地址提供不同的队列，消息在生产者放入兔子的时候，可以携带<code>exchange
+    key</code>（可以理解为交换机）和<code>routing key</code>（相当于队列号）。这样不同的订阅者可以收到不同的消息，比JMS的灵活性大大提高。</p>
+<p>生产者在将消息发送给Exchange的时候，一般会指定一个routing key（当然也可以不指定），来指定这个消息的路由规则，而这个routing key需要与Exchange Type及binding
+    key联合使用才能最终生效。</p>
+<p>在Exchange Type与binding key固定的情况下，我们的生产者就可以在发送消息给Exchange时，通过指定routing key来决定消息流向哪里。RabbitMQ为routing key设定的长度限制为255
+    bytes。</p>
+<p>在绑定（Binding）Exchange与Queue的同时，一般会指定一个binding key；消费者将消息发送给Exchange时，一般会指定一个routing key；当binding key与routing
+    key相匹配时，消息将会被路由到对应的Queue中。在绑定多个Queue到同一个Exchange的时候，这些Binding允许使用相同的binding key。binding key
+    并不是在所有情况下都生效，它依赖于Exchange Type，比如fanout类型的Exchange就会无视binding key，而是将消息路由到所有绑定到该Exchange的Queue。
+</p>
+<p>兔子MQ有几种Exchange Type：</p>
+<ol>
+    <li><code>Default</code>，消息代理自动进行交换，所有队列会被绑定到默认的交换机，然后把消息发到与消息的routing key相同的队列里</li>
+    <li><code>Direct</code>，把消息路由到消息的routing key和binding key相同的队列</li>
+    <li><code>Topic</code>，把一个消息同时路由到多个binding key 和消息的routing key相等的队列</li>
+    <li><code>Fanout</code>，把消息路由到所有的队列，不管两个key的内容</li>
+    <li><code>Headers</code>，与Topic模式很像，唯一不同的是基于消息Header的内容，而不是key</li>
+    <li><code>Dead Letter</code>，所有无处可去的消息的集合，无处可去指的是key都不匹配的消息</li>
+</ol>
+<p>这么多名词有点晕，实际上就可以认为兔子先指定一个路由模式，然后路由模式使用binding key规则绑定不同的队列，到实际消息进来的时候，看消息的routing
+    key来决定消息到底被路由到哪个队列，不同的队列有不同的监听者。因此比起JMS，兔子MQ实际上是有了消息分类的概念。通过一个代理就可以输出多条消息，而JMS如果想输出多条消息，只能新开多个不同的JMS运行时实例。</p>
+<p>由于兔子MQ是高级消息队列协议AMQP的实现，因此需要添加依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-amqp&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>有了依赖之后，Spring就会自动生成RaabitTemplate的Bean。当然，也会有属性可以配置：</p>
+<table>
+    <thead>
+    <tr>
+        <th>属性</th>
+        <th>解释</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>spring.rabbit.addresses</td>
+        <td>一个兔子MQ代理的地址列表</td>
+    </tr>
+    <tr>
+        <td>spring.rabbit.host</td>
+        <td>主机名称，默认是localhost</td>
+    </tr>
+    <tr>
+        <td>spring.rabbit.port</td>
+        <td>端口，默认是5672</td>
+    </tr>
+    <tr>
+        <td>spring.rabbit.port.usrname</td>
+        <td>可选的用户名</td>
+    </tr>
+    <tr>
+        <td>spring.rabbit.port.password</td>
+        <td>可选的密码</td>
+    </tr>
+    </tbody>
+</table>
+<p>RabbitTemplate的方法与Jms有点像，也有一个发送原始消息和发送对象消息的方法，但是不再是Destination对象，而是exchang和routing key，都是字符串类型的参数：</p>
+<ol>
+    <li>发送原始消息
+        <ol>
+            <li><code>void send(Message message) throws AmqpException;</code></li>
+            <li><code>void send(String routingKey, Message message) throws AmqpException;</code></li>
+            <li><code>void send(String exchange, String routingKey, Message message)throws AmqpException;</code></li>
+        </ol>
+    </li>
+    <li>发送对象消息
+        <ol>
+            <li><code>void convertAndSend(Object message) throws AmqpException;</code></li>
+            <li><code>void convertAndSend(String routingKey, Object message) throws AmqpException;</code></li>
+            <li><code>void convertAndSend(String exchange, String routingKey, Object message) throws
+                AmqpException;</code></li>
+        </ol>
+    </li>
+    <li>发送带有预处理过的消息
+        <ol>
+            <li><code>void convertAndSend(Object message, MessagePostProcessor mPP) throws AmqpException;</code></li>
+            <li><code>void convertAndSend(String routingKey, Object message, MessagePostProcessor messagePostProcessor) throws AmqpException;</code></li>
+            <li><code>void convertAndSend(String exchange, String routingKey, Object message, MessagePostProcessor messagePostProcessor) throws AmqpException</code></li>
+        </ol>
+    </li>
+</ol>
+<p>这些方法很相似。来看一下具体使用。</p>
+<hr>
+<p>先来发送原始消息。JMS需要使用一个匿名类或者lambda传入一个转换器，而RabbitTemplate自带了一个转换器，比较方便：</p>
+<pre>
+package cc.conyli.restlearn.service;
+
+import cc.conyli.restlearn.entity.Student;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class RabbitMessageService implements JmsService {
+
+    private RabbitTemplate rabbitTemplate;
+
+    @Autowired
+    public RabbitMessageService(RabbitTemplate rabbitTemplate) {
+        this.rabbitTemplate = rabbitTemplate;
+    }
 
 
 
+    @Override
+    public void sendStudentMessage(Student student) {
+        MessageConverter messageConverter = rabbitTemplate.getMessageConverter();
+        MessageProperties properties = new MessageProperties();
+        Message message = messageConverter.toMessage(student, properties);
+        rabbitTemplate.send("conyli.cc", message);
+    }
 
+    @Override
+    public void sendStudentObejct(Student student) {
 
+    }
+}
+</pre>
+<p>这里就无须传入转换器，直接先获取MessageProperties对象，相当于JMS的设置自定义的信息，然后使用转换器将数据对象和属性一起转换成消息。最后发送消息，由于发送的地址已经写在配置文件中，所以前边的"conyli.cc"是routing key。由于没有出传入exchange类型，所以会使用默认的exchange。</p>
+<p>说到默认的exchange，其实默认的exchange名称是一个""，也就是一个空字符串。默认的routing key也是一个空字符串。可以在配置文件中设置默认的这两个内容：</p>
+<pre>
+spring.rabbitmq.template.exchange=central
+spring.rabbitmq.template.routing-key=conyli.cc
+</pre>
+<p>这么设置的话，如果不传入exchange，就会使用conyli.cc当做routing key，用central当做exchange的名称。</p>
+<p>使用convertAndSend方法就更简单了：</p>
+<pre>
+@Override
+public void sendStudentObejct(Student student) {
+    rabbitTemplate.convertAndSend(student);
+}
+</pre>
+<hr>
+<p>发送和接受的时候像JMS一样，依然需要配置转换器，兔子MQ的转换器类型比JMS多一些：</p>
+<table>
+    <thead>
+    <tr>
+        <th>Message converter</th>
+        <th>如何转换</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>Jackson2JsonMessageConverter</td>
+        <td>使用Jackson 2 JSON库将对象转换成JSON字符串</td>
+    </tr>
+    <tr>
+        <td>MarshallingMessageConverter</td>
+        <td>使用Spring Marshaller转换</td>
+    </tr>
+    <tr>
+        <td>SerializerMessageConverter</td>
+        <td>序列化转换，和JMS一样要求实现序列化接口</td>
+    </tr>
+    <tr>
+        <td>SimpleMessageConverter</td>
+        <td>将字符串转换成TestMessage对象，二进制序列转换成BytesMessage，Map类型转换成MapMessage，对象则进行序列化。</td>
+    </tr>
+    <tr>
+        <td>ContentTypeDelegatingMessageConverter</td>
+        <td>代理给另外一个基于contentType header信息的转换器</td>
+    </tr>
+    <tr>
+        <td>MessagingMessageConverter</td>
+        <td>把消息代理给其他的MessageConverter，但是把header信息代理给AmqpHeaderConverter</td>
+    </tr>
+    </tbody>
+</table>
+<p>需要自己定义一个转换器的Bean，例如JSON格式：</p>
+<pre>
+@Bean
+public MessageConverter messageConverter() {
+return new Jackson2JsonMessageConverter()
+}
+</pre>
+<p>注意这里的MessageConverter来自于包<code>org.springframework.amqp.support.converter</code>，都是AMQP相关的包，不要弄错。</p>
+<p>Spring会自动发现这个Bean，然后将其注入RabbitTemplate中作为转换器。在获取消息的时候会用到。</p>
+<p>也可以传入自定义转换器参数给convertAndSend方法，这个时候由于不能直接获得转换器，就和JMS的比较像，需要传入匿名对象了：</p>
+<pre>
+@Override
+public void sendStudentObejct(Student student) {
+    rabbitTemplate.convertAndSend("conyli.cc", student, new MessagePostProcessor() {
+        @Override
+        public Message postProcessMessage(Message message) throws AmqpException {
+            MessageProperties properties = message.getMessageProperties();
+            properties.setHeader("ExtraInfo", "123");
+            return message;
+        }
+    });
+}
+</pre>
+<hr>
+<p>接受消息也有两种模式，使用RabbitTemplate的pull模式和使用<code>@RabbitListener</code>的push模式。</p>
+<p>先来看RabbitTemplate的receive()方法。</p>
+<p>这个也有一堆方法，核心是队列的名称和过期时间，可以查看原书的199页。</p>
+<p>注意其中的<code>T receiveAndConvert(ParameterizedTypeReference&lt;T> type)</code>这类方法，只能用于JSON转换器，其他对象只能用上边的几个方法。</p>
+<p>SIA5原书这里只是用到了一个队列，并没有区分RabbitMQ的各个不同队列。关于这方面内容还需要深入研究。</p>
+<p>编写一个接收类：</p>
+<pre>
+package cc.conyli.restlearn.service;
 
+import cc.conyli.restlearn.entity.Student;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+import javax.jms.JMSException;
 
+@Service
+public class RabbitReceiveService implements JmsReceiveService {
 
+    private RabbitTemplate rabbitTemplate;
+
+    private MessageConverter messageConverter;
+
+    @Autowired
+    public RabbitReceiveService(RabbitTemplate rabbitTemplate, MessageConverter messageConverter) {
+        this.rabbitTemplate = rabbitTemplate;
+        this.messageConverter = messageConverter;
+    }
+
+    @Override
+    public Student receiveStudent() throws JMSException {
+        Message message = rabbitTemplate.receive("conyli.cc", 3000);
+        return message == null ? (Student) messageConverter.fromMessage(message) : null;
+    }
+}
+</pre>
+<p>这里传入了队列名称，还有过期时间，以毫秒计算。默认的过期时间也可以配置：</p>
+<pre>
+spring.rabbitmq.template.receive-timeout=3000
+</pre>
+<p>如果使用receiveAndConvert，可以更加简化：</p>
+<pre>
+@Override
+public Student receiveStudent() throws JMSException {
+    return (Student) rabbitTemplate.receiveAndConvert("conyli.cc");
+}
+</pre>
+<p>如果是JSON转换器，还可以使用类型安全的方法：</p>
+<pre>
+@Override
+public Student receiveStudent() throws JMSException {
+    return rabbitTemplate.receiveAndConvert("conyli.cc", new ParameterizedTypeReference&lt;Student>() {
+    });
+}
+</pre>
+<p>使用这种方法，转换器必须是一个SmartMessageConverter的实现，Jackson2JsonMessageConverter就是一个实现。</p>
+<p>在编写了获取之后，一开始总是报错找不到队列，后来到RabbitMQ的控制台里，自己新建了叫做sia5的控制台，然后在发送的时候使用sia5作为routing key，在接收的时候也使用sia5作为队列名称，就可以了。</p>
+<p>我的机器的RabbitMQ里还有原来用Django时候留下来的celery queue，发现用这个queue不行，会报错。使用sia5新建的队列倒是没问题。</p>
+<p>而且这个比JMS好的地方是，放到队列里的东西，可以不立刻取，比如先发送三次，就可以获取三次，获取第四次的时候就会阻塞然后三秒钟后获得null对象。</p>
+<hr>
+<p>push方法的使用和JMS几乎一样，需要指定队列名称即可：</p>
+<pre>
+@RabbitListener(queues = {"sia5"})
+public void receiveRabbitStudent(Student student) {
+    System.out.println(student);
+}
+</pre>
+<p>queues可以是一个字符串表示单个队列名，也可以是一个字符串数组。</p>
+<p>第三个消息队列Kafka暂时先不看，相信有了前边两个的学习经验，最后一个到时候看文档和看书也能搞定。</p>
+
+<p>总结一下，如果说REST服务和消费是比较直观的方式，那么通过消息代理两个程序之间互相通信是比较间接的方式，然而因为不像HTTP请求的时效性那么强，异步的消息队列处理尤其适合将重型任务分解。</p>
+<p>相比JMS，应该还是使用RabbitMQ更加棒，今后尽量使用RabbitMQ来进行编写程序，比如编写两个运行在不同服务器上的程序，通过消息代理来沟通，确实很不错。</p>
 
 
 
