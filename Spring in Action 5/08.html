@@ -132,8 +132,7 @@ import org.springframework.integration.transformer.GenericTransformer;
 import java.io.File;
 
 @Configuration
-//@ImportResource(locations = "classpath:/filewriterconfig.xml")
-public class FileWriterXMLConfig {
+public class FileWriterJavaConfig {
 
     @Bean
     @Transformer(inputChannel = "textInChannel", outputChannel = "fileWriterChannel")
@@ -170,24 +169,219 @@ public MessageChannel fileWriterChannel() {
 <p>可以看到，Java配置的逻辑和XML是相反的，XML基于管道，给管道附加上功能。Java配置基于功能，给功能指定使用的管道。</p>
 <p>再次启动程序，可以发现依然可以写文件了。</p>
 
+<h3 style="text-align: center;">Spring Integration DSL</h3>
+<p>DSL是 Domain Specific Language 的缩写，中文翻译为领域特定语言，还可以用Spring Integration的特定方法来进行配置，用链式调用的方式，这个先看看如何写配置类吧：</p>
+<pre>
+package cc.conyli.restlearn.config;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.dsl.MessageChannels;
+import org.springframework.integration.file.dsl.Files;
+import org.springframework.integration.file.support.FileExistsMode;
 
+import java.io.File;
 
+@Configuration
+public class FileWriterDSLConfig {
 
+    @Bean
+    public IntegrationFlow fileWriterFlow() {
+        return IntegrationFlows.from(MessageChannels.direct("textInChannel"))
+                .&lt;String, String>transform(t -> t.toUpperCase())
+                .handle(Files.outboundAdapter(new File("/tmp/sia5/files"))
+                        .fileExistsMode(FileExistsMode.APPEND)
+                        .appendNewLine(true))
+                .get();
+    }
+}
+</pre>
+<p>这段代码简洁不少，<code>IntegrationFlows</code>用于初始化一个流对象，然后在后边以链式调用的方式进行各种配置，最后用get()生成配置好的<code>IntegrationFlow</code>对象。</p>
+<p>相比Java配置，连文件输出的管道都无需显式生面了，只要直接给一个文件绑定的适配器进行写入就行了。当然，这个DSL与普通的Java配置相比不容易掌握，需要专门研究。</p>
+<p>如果一定要显式配置第二段管道的名称，可以修改如下：</p>
+<pre>
+@Bean
+    public IntegrationFlow fileWriterFlow() {
+        return IntegrationFlows
+                .from(MessageChannels.direct("textInChannel"))
+                .&lt;String, String>transform(t -> t.toUpperCase())
+                <span>.channel(MessageChannels.direct("fileWriterChannel"))</span>
+                .handle(Files.outboundAdapter(new File("/tmp/sia5/files"))
+                        .fileExistsMode(FileExistsMode.APPEND)
+                        .appendNewLine(true))
+                .get();
+    }
+</pre>
+<p>现在就用三种方式都配置完成了一个整合了文件系统操作的应用。</p>
 
+<h1 style="text-align: center;">Spring Integration 管道组件</h1>
+<p>之前用了两个管道组件和一个Transformer组件整合了一条通往文件系统的数据管道。现在来看一看整个家族里还有那些组件加在管道上。</p>
+<ol>
+    <li><code>Channels</code>，把消息从一个元素发到另一个元素</li>
+    <li><code>Filters</code>，有条件的允许消息通过</li>
+    <li><code>Transformers</code>，根据设置好的条件修改消息</li>
+    <li><code>Routers</code>，通常根据消息的头部信息，将消息发到不同的channel里</li>
+    <li><code>Splitters</code>，将消息拆成两个或者更多，发送到不同的channel里</li>
+    <li><code>Aggregators</code>，与Splitters相反，将来自不同channel的消息组装成一个消息</li>
+    <li><code>Service activators</code>，将消息交给一个Java方法进行处理，然后把结果输出到channel中</li>
+    <li><code>Channel adapters</code>，将管道连接到外部系统，可以接受或者发送数据</li>
+    <li><code>Gateways</code>，将消息发送到一个整合流中</li>
+</ol>
+<p>可以把channel想象成是管道，剩下的每一个都是一个处理节点，然后共同构成一个流，信息从一段扔进去，经过各种处理，从另外一端出来。这其中的每一个东西，在Spring里边都会被做成一个Bean。</p>
 
+<h3 style="text-align: center;">Message Channels</h3>
+<p>Spring Integration提供了几种实现：</p>
+<ol>
+    <li><code>PublishSubscribeChannel</code>，发布订阅模式管道，将消息发给一个或者多个组件</li>
+    <li><code>QueueChannel</code>，队列模式，发布的消息会存在一个队列里，直到有人来拿走，如果有多个消费者，只有一个消费者可以拿到某一个数据</li>
+    <li><code>PriorityChannel</code>，优先级管道，和队列模式相似，区别是依据消息头部的优先级来决定哪些消息先被送出去</li>
+    <li><code>RendezvousChannel</code>，与队列模式相似，但是发送者会阻塞发送直到消息被拿走，实际是一个同步的方式，有一个消息就必须被消费掉才能发下一个</li>
+    <li><code>DirectChannel</code>，像发布订阅管道，但是会发送一个单独的消息给在同一个线程里的消费者，可以让数据传输跨channel（没看懂）</li>
+    <li><code>ExecutorChannel</code>，像DirectChannel，但是消息由一个TaskExecutor分发。</li>
+    <li><code>FluxMessageChannel</code>，一个基于Project Reactor's Flux的响应式管道，将在第十章来讲Spring 5新增的Reactive系列玩意。</li>
+</ol>
+<p>如果不做任何设置，就像刚才我们直接配置管道的话，默认生成的管道都是<code>DirectChannel</code>类型。如果想使用不同的实现，必须在Bean里显式指定返回的具体类型：</p>
+<pre>
+@Bean
+public MessageChannel orderChannel() {
+    return new PublishSubscribeChannel();
+}
+</pre>
+<p>方法的名称就是管道的名称。对于input来说，是不区分管道类型的。</p>
+<p>这里要特别注意的是，如果是<code>QueueChannel</code>类型，在使用<code>@ServiceActivator</code>注解的时候，必须加上一个<code>poller</code>属性：</p>
+<pre>
+@ServiceActivator(inputChannel="orderChannel", poller=@Poller(fixedRate="1000"))
+</pre>
+<p>这表示轮询的频率是每秒一次。</p>
 
+<h3 style="text-align: center;">Filters</h3>
+<p>Filter对应的Bean的方法必须返回一个布尔值，其中传入要处理的值，如果返回true，就会通过；返回false，就会阻止该消息。</p>
+<pre>
+@Filter(inputChannel = "firstChannel", outputChannel = "textInChannel")
+public boolean isContentH(String string) {
+    return string.contains("H");
+}
+</pre>
+<p>给原来的程序加上一个新的管道，进来的叫做<code>firstChannel</code>，出去的叫做<code>textInChannel</code>，然后把Gateway中的管道改成<code>firstChannel</code>，如此修改之后，只有包含有大写字母H的内容才会被写入文件。</p>
+<p>DSL的了解一下即可：</p>
+<pre>
+.&ltInteger>filter((p) -> p % 2 == 0)
+</pre>
 
+<h3 style="text-align: center;">Transformers</h3>
+<p>这是一个对消息进行处理的组件，实际上处理之后的消息已经不是原来的消息，而是原来消息的处理结果。所以业务逻辑可以很简单，比如我们编写的基于原来消息把小写改成大写；也可能是很复杂的业务逻辑，比如根据字符串去查找对应的其他数据，然后再返回找到的数据中的一个字段，处理后的消息和原来的消息差异就很大。</p>
+<p>GenericTransformer的泛型第一个指的是传入的类型，第二个指的是处理之后传出的类型。注意GenericTransformer只是一个接口，所以需要返回匿名对象或者lambda表达式。</p>
 
+<h3 style="text-align: center;">Routers</h3>
+<p>Routers用于把一个消息根据条件发送到不同的管道中。</p>
+<p>按照SIA5的例子，把奇数和偶数发送到不同的管道中，可以编写如下的代码：</p>
+<pre>
+@Bean
+@Router(inputChannel = "numberChannel")
+public AbstractMessageRouter evenOddRouter() {
+    return new AbstractMessageRouter() {
+        @Override
+        protected Collection&ltMessageChannel> determineTargetChannels(Message&lt?> message) {
+            Integer number = (Integer) message.getPayload();
+            if (number % 2 == 0) {
+                return Collections.singleton(evenChannel());
+            }
+            return Collections.singleton(oddChannel());
+        }
+    };
+}
 
+@Bean
+public MessageChannel evenChannel() {
+    return new DirectChannel();
+}
 
+@Bean
+public MessageChannel oddChannel() {
+    return new DirectChannel();
+}
+</pre>
+<p>所有的Routers需要返回<code>AbstractMessageRouter</code>的对象，其中需要重写<code>determineTargetChannels</code>方法，从消息中取出数字，然后进行判断。</p>
+<p>返回值则是所有管道集合中取单独的一个渠道（在下边被声明为一个Bean）。这只是一个示例，估计具体使用还是得看文档。</p>
 
+<h3 style="text-align: center;">Splitters</h3>
+<p>将一个消息分割成多个消息，发给不同的Channel。这个组件用途很广泛，比如：</p>
+<ol>
+    <li>一个信息体中是一个相同类型数据的集合，将其分拆成多个单独的数据，或者只想处理其中的一个。</li>
+    <li>一个信息体中包含多个相关的信息，但是可以拆分成不同的不同类型的对象。</li>
+</ol>
+<p>使用这个组件的时候，一般需要针对要分拆的消息定义好一个POJO，然后还需要定义拆分出来的POJO，然后编写代码，先分拆，将分拆后的东西都扔到一个管道里，然后在接上一个Router，根据消息类型来分发即可。</p>
+<p>如果消息包含的是一个相同类型的数据集合，可以直接这么写：</p>
+<pre>
+@Splitter(inputChannel="lineItemsChannel", outputChannel="lineItemChannel")
+public List&ltLineItem> lineItemSplitter(List&ltLineItem> lineItems) {
+    return lineItems;
+}
+</pre>
+<p>这一块东西SIA5介绍的比较少，还需要自己在用到的时候钻研了。</p>
 
+<h3 style="text-align: center;">Service activators</h3>
+<p>Service activators接受一个消息，然后将其委托给MessageHandler的一个实现类去进行处理，把处理后的结果继续往下传输，也可以结束数据流通。</p>
+<p>虽然Spring对此也有实现，但肯定看编写自定义的处理方法，否则没有什么实际用处。</p>
+<pre>
+@Bean
+@ServiceActivator(inputChannel="someChannel")
+public MessageHandler sysoutHandler() {
+    return message -> {
+        System.out.println("Message payload: " + message.getPayload());
+    };
+}
+</pre>
+<p>这个方法只有一个inputChannel，和我们编写的写入文件的方法很类似，但是是以打印结束，没有继续流通的管道。</p>
+<p>如果要让数据在处理后继续流动，就必须使用<code>GenericHandler</code>：</p>
+<pre>
+@Bean
+@ServiceActivator(inputChannel="orderChannel", outputChannel="completeOrder")
+public GenericHandler&ltOrder> orderHandler(OrderRepository orderRepo) {
+    return (payload, headers) -> {
+        return orderRepo.save(payload);
+    };
+}
+</pre>
+<p>这段代码是根据header信息来保存payload中的信息，返回的结果是一个数据对象，这个对象就会被继续扔到<code>completeOrder</code>管道里</p>
 
+<h3 style="text-align: center;">Gateway</h3>
+<p>可以把Gateway认为是应用程序开始往管道里扔数据的地方。我们已经用过了FileWriterGateway这个神奇接口，这个接口是一个单向的Gateway，只有一个接受字符串然后写入的方法，返回void。</p>
+<p>当然也有双向的Gateway，让其方法返回值即可，比如：</p>
+<pre>
+@Component
+@MessagingGateway(defaultRequestChannel="inChannel", defaultReplyChannel="outChannel")
+public interface UpperCaseGateway {
+    String uppercase(String in);
+}
+</pre>
+<p>同样，这个Gateway也无需编写实现类。当数据到达注解中的outChannel的时候，数据就会从uppercase方法中返回。</p>
 
+<h3 style="text-align: center;">Channel adapters</h3>
 
+<p>Channel adapters是整合流开始和结束的地方。数据通过一个inbound adapter进入流，从一个outbound adapter离开流。</p>
+<p>inbound流的具体形式可以有很多，根据具体的数据形式而定，比如：</p>
+<pre>
+@Bean
+@InboundChannelAdapter(poller=@Poller(fixedRate="1000"), channel="numberChannel")
+public MessageSource&lt;Integer> numberSource(AtomicInteger source) {
+    return () -> {
+        return new GenericMessage<>(source.getAndIncrement());
+    };
+}
+</pre>
+<p>这个Bean使用了<code>@InboundChannelAdapter</code>注解，表示这是一个起点，管道无需规定input和output，因为就是起点。</p>
+<p>轮询时间设置为1秒，有一个依赖注入是AtomicInteger，这个类的意思是，每一秒钟，传入AtomicInteger的一个新增的数字。</p>
+<p>这个类要求返回的对象是MessageSource的泛型，可以用匿名类也可以用lambda表达式。</p>
+<p>很多Channel Adapters都由Spring Integration的很多端点模块提供，比如有FileReadingMessageSource类等。</p>
 
-
+<h3 style="text-align: center;">Endpoint modules</h3>
+<p>Spring Integration提供的端点模块相当于预先写好的针对某种外部服务的端点模块，当然也可以自定义，但是内置模块基本上已经涵盖了大部分的内容。</p>
+<p>从前边可以知道，实际上端点模块提的都是adapter。</p>
+<p>来看看有哪一些整合外部服务的端点：</p>
+<p>Spring Integration允许创建自定义的端点模块，但</p>
 
 
 
