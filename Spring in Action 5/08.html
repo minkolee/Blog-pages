@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="base.css">
-    <title>Spring in Action 5 Self-learning notes 9 - 整合其他服务</title>
+    <title>Spring in Action 5 Self-learning notes 8 - 整合其他服务</title>
 </head>
 <body>
 <p>现代的应用程序，如果可以说的上是一个不错的应用的话，几乎都要和其他程序进行交互，从其他程序获取数据或者发送数据给其他程序，无论是在互联网，还是在一个公司的内网上。</p>
@@ -380,8 +380,101 @@ public MessageSource&lt;Integer> numberSource(AtomicInteger source) {
 <h3 style="text-align: center;">Endpoint modules</h3>
 <p>Spring Integration提供的端点模块相当于预先写好的针对某种外部服务的端点模块，当然也可以自定义，但是内置模块基本上已经涵盖了大部分的内容。</p>
 <p>从前边可以知道，实际上端点模块提的都是adapter。</p>
-<p>来看看有哪一些整合外部服务的端点：</p>
-<p>Spring Integration允许创建自定义的端点模块，但</p>
+<p>所有端点的Group ID都是<code>org.springframework.integration</code>，端点列表可以查看原书230-231页，基本上涵盖了各种内容。
+<p>用一个整合邮件功能的流来做个例子。</p>
+
+<h3 style="text-align: center;">整合邮件流</h3>
+<p>原书的例子是让Taco cloud可以通过邮件来下订单，本质就是不断检测新邮件，然后解析邮件中的内容，然后根据内容生成订单。</p>
+<p>用整合流的术语来描述，就是需要一个email端点的inbound adapter，然后flow中的处理器解析邮件内容，生成订单对象，然后把订单对象交给Taco Cloud的REST API即可。</p>
+<p>这里可以模仿这个程序，写一个解析学生对象的程序，然后调用我们的REST API去添加一个学生。</p>
+<p>先添加依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.integration&lt;/groupId>
+    &lt;artifactId>spring-integration-mail&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>首先需要针对电子邮件创建一个配置属性类，用于生成IMAP的url地址，用于接收邮件：</p>
+<pre>
+package cc.conyli.restlearn.entity;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Data
+@ConfigurationProperties(prefix = "mymock.email")
+@Component
+public class EmailProperties {
+    private String username;
+    private String password;
+    private String host;
+    private String mailbox;
+    private long pollRate = 30000;
+
+    public String getImapUrl() {
+        return String.format("imaps://%s:%s@%s/%s", this.username, this.password, this.host, this.mailbox);
+    }
+}
+</pre>
+<p>首先要注意的是<code>@ConfigurationProperties(prefix = "mymock.email")</code>，这表示这个类是一个属性类，使用这个注解首先需要添加如下依赖来开启自定义注解声明属性：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-configuration-processor&lt;/artifactId>
+    &lt;optional>true&lt;/optional>
+&lt;/dependency>
+</pre>
+<p><code>prefix</code>中的前缀表示这个类对应<code>application.properties</code>中的配置以<code>mymock.email</code>开始。</p>
+<p>之后就可以配置邮箱连接的具体属性：</p>
+<pre>
+mymock.email.host=imap.vip.sina.com
+mymock.email.mailbox=""
+mymock.email.username=lee0709@vip.sina.com
+mymock.email.password=********
+mymock.email.poll-rate=30000
+</pre>
+<p>这里邮箱名到新浪邮箱看了，没有给出，先空着，不知道能不能连接成功。</p>
+<p>之后我们要创建整合流，这个流是这样的：</p>
+<p><span style="color: red;">Email inbound adapter</span> --> <span style="color: goldenrod;">管道</span> --> <span style="color: purple;">邮件转换成数据对象的Transformer</span> --> <span style="color: goldenrod;">管道</span> --> <span style="color: blue;">提交数据到REST API的outbound adapter</span></p>
+<p>如何创建这个流，一般有两种做法：</p>
+<ol>
+    <li>将流创建在当前应用的内部</li>
+    <li>将流创建为一个独立的应用</li>
+</ol>
+<p>由于这个流要使用Student对象，比较方便的做法是创建在当前应用的内部。然而创建为一个独立的应用也有好处，方便调试，更加灵活，耦合程度低。</p>
+
+<p>创建流可以使用XML，Java或者DSL，现在用DSL来创建一下流：</p>
+<p>后边的源代码基本看懂了，就是组装Transformer和其他的内容。待我后边详细看看如何自己写一个Email程序。</p>
+<p>使用Java发送和接收邮件的相关内容也要看看，不过不管怎样，基本上对于Spring Integration知道是怎么回事了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
