@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="base.css">
+    <title>Spring in Action 5 Self-learning notes 9 - 整合其他服务</title>
+</head>
+<body>
+<p>现代的应用程序，如果可以说的上是一个不错的应用的话，几乎都要和其他程序进行交互，从其他程序获取数据或者发送数据给其他程序，无论是在互联网，还是在一个公司的内网上。</p>
+<p>当然程序间的通信，需要事先协商好通信的协议，以让双方都能够理解。Spring Integration是一个<code>Enterpirise Integration Patterns</code>的实现</p>
+<p>其中的每一个模式，都被实现成一个组件，这些组件共同组成一个管道进行发送和接收信息。使用Spring 的配置，可以很方便的将这些组件组装成一个数据流通的管道。</p>
+<p>所以可以将所有这种与外部服务进行沟通的方式都视作一个管道，成为Integration Flow ，即一条数据的管道连接到其他程序，这就是整合其他服务的本质。</p>
+
+<h1 style="text-align: center;">简单的文件系统整合流</h1>
+<p>大概文件系统是几乎所有应用程序都要与其交互的程序了，在Spring Integration中，有很多组件都是用来读和写文件的。</p>
+<p>依然需要引入依赖，如下：</p>
+<pre>
+&lt;dependency>
+	&lt;groupId>org.springframework.boot&lt;/groupId>
+	&lt;artifactId>spring-boot-starter-integration&lt;/artifactId>
+&lt;/dependency>
+&lt;dependency>
+	&lt;groupId>org.springframework.integration&lt;/groupId>
+	&lt;artifactId>spring-integration-file&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>第一个依赖是Spring Boot的 Integration依赖，这个依赖用于创建Spring Integration Flow。第二个是Spring Integration的文件端点模块，是Spring Integration 12个整合其他系统的模块之一。</p>
+<p>在之后还会讨论这些模块，现在先要知道文件端点模块是用来和文件系统打交道的，用于从文件系统中读取数据或者向文件系统中写入数据。</p>
+
+<h3 style="text-align: center;">创建一个消息网关</h3>
+<p>在实际创建这条管道之前，需要创建一个gateway interface 消息网关：</p>
+<pre>
+package cc.conyli.restlearn.integration;
+
+import org.springframework.integration.annotation.MessagingGateway;
+import org.springframework.integration.file.FileHeaders;
+import org.springframework.messaging.handler.annotation.Header;
+
+@MessagingGateway(defaultRequestChannel = "textInChannel")
+public interface FileWriterGateway {
+
+    void writeToFile(@Header(FileHeaders.FILENAME) String filename, String data);
+}
+</pre>
+<p>尽管代码很短，但是这几个注解有的解释一番：</p>
+<ol>
+    <li><code>@MessagingGateway</code>是用于在运行时生成这个接口的实现类的一个Bean，就像Spring Data在运行时自动生成神奇接口对应的实现类一样。在需要的地方进行依赖注入这个接口就可以了。</li>
+    <li><code>(defaultRequestChannel = "textInChannel")</code>是说对于writeToFile的调用，都往名称叫做textInChannel的管道里去放。</li>
+    <li><code>writeToFile()</code>这个方法，接受一个@Header注解的文件名，这里表示文件名的信息，实际上会被放到消息的头部中叫做file_name的键中，而不是放在报文（payload）中，后边的data表示需要写入到文件中的内容，这部分是放在消息的报文中的。</li>
+</ol>
+<p>消息网关实际上就相当于我们这里的管道的端点，可以往里边扔数据和接收数据。有了端点之后，还需要定义管子是什么样的：</p>
+<p>虽然有部分自动配置，但这里还是需要写一些配置以让管道满足应用的需求，有三种方法：</p>
+<ol>
+    <li>XML配置</li>
+    <li>Java配置</li>
+    <li>使用DSL的Java配置</li>
+</ol>
+
+<h3 style="text-align: center;">XML配置</h3>
+<p>虽然不推荐用XML，但很多时候XML的语义相当清晰，还是值得一看。在resources目录下创建一个filewriterconfig.xml：</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:int-file="http://www.springframework.org/schema/integration/file"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/integration
+        http://www.springframework.org/schema/integration/spring-integration.xsd
+        http://www.springframework.org/schema/integration/file
+        http://www.springframework.org/schema/integration/file/spring-integration-file.xsd">
+
+    &lt;int:channel id="textInChannel"/>
+
+    &lt;int:transformer id="upperCase"
+                     input-channel="textInChannel"
+                     output-channel="fileWriterChannel"
+                     expression="payload.toUpperCase()"/>
+
+    &lt;int:channel id="fileWriterChannel"/>
+
+    &lt;int-file:outbound-channel-adapter id="writer"
+                                       channel="fileWriterChannel"
+                                       directory="/tmp/sia5/files"
+                                       mode="APPEND"
+                                       append-new-line="true"/>
+&lt;/beans>
+</pre>
+<ol>
+    <li><code>&lt;int:channel id="textInChannel"/></code>定义了管道的名称，这个名称和消息网关里注解里的管道名称要相符，如果多个管道，名称不能相同。</li>
+    <li><code>&lt;int:transformer id="upperCase" ...</code>的部分实际上是一个消息处理器，接受<code>textInChannel</code>传进来的消息，进行大写处理，然后输出给<code>fileWriterChannel</code></li>
+    <li><code>&lt;int:channel id="fileWriterChannel"/></code>又定义了一个叫做<code>fileWriterChannel</code>的管道，就是上一个配置里接受输出的管道。</li>
+    <li><code>&lt;int-file:outbound-channel-adapter id="writer" ...</code>是对刚才的<code>fileWriterChannel</code>管道的详细配置，注意这里的命名空间换成了<code>int-file</code>，这是Spring Integration规定的写文件的管道命名空间。其中定义了管道名称，然后设置了<code>directory</code>，会在这个目录下，按照消息头部的文件名，将消息报文中的数据写入这个文件里。<code>mode</code>和<code>append-new-line</code>的设置表示如果文件存在，则开始新行并向文件的尾部追加。</li>
+    <li><code></code></li>
+</ol>
+<p>可以把一个int看做一段管道，XML文件中的配置是 一段管道-对应的配置 这样成对出现，每一段管道还可以指定来源和输出，最后实际上是组装了如下图一样的一个管道：</p>
+<img src="http://img.conyli.cc/spring/channel.png" alt="FileWriterChannel">
+<p>要使XML配置生效，对于Spring Boot来说，只要随便创建一个空的配置类，然后加入<code>@ImportResource</code>注解，在config目录下创建配置类：</p>
+<pre>
+package cc.conyli.restlearn.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.ImportResource;
+
+@Configuration
+@ImportResource(locations = "classpath:/filewriterconfig.xml")
+public class FileWriterXMLConfig {
+}
+
+</pre>
+<p>实际这个时候就可以编写控制器和页面来测试了。自行编写了一个/write路径的控制器，用于接收/write?data=xxx的数据，在前端页面用vue可以绑定input与值，然后动态拼接链接去访问。</p>
+<p>经过试验，发现每次发送请求，都可以写入一行大写字母到程序所在的硬盘的根目录\tmp\sia5\files下的自定义文件名的文件中。还可以发现写入一个字符的时候文件是三字节，说明是UTF-8格式，非常方便。</p>
+<p>这里IDE会提示，找不到<code>FileWriterGateway</code>类型可用的Bean，但实际上无需在接口上添加<code>@Component</code>，也无需理会IDE，运行时一切正常。</p>
+<p>接下来可以去掉配置类上的注解，使用配置类来编写Java配置。</p>
+
+<h3 style="text-align: center;">Java配置</h3>
+<p>熟悉XML的配置的话，其实知道刚才的配置里把每一段管道配置为一个Bean。在Java配置里，也需要配置这两段管道的Bean：</p>
+<pre>
+package cc.conyli.restlearn.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.integration.annotation.Transformer;
+import org.springframework.integration.file.FileWritingMessageHandler;
+import org.springframework.integration.file.support.FileExistsMode;
+import org.springframework.integration.transformer.GenericTransformer;
+
+import java.io.File;
+
+@Configuration
+//@ImportResource(locations = "classpath:/filewriterconfig.xml")
+public class FileWriterXMLConfig {
+
+    @Bean
+    @Transformer(inputChannel = "textInChannel", outputChannel = "fileWriterChannel")
+    public GenericTransformer&lt;String, String> upperCaseTransformer() {
+        return text -> text.toUpperCase();
+    }
+
+    @Bean
+    @ServiceActivator(inputChannel = "fileWriterChannel")
+    public FileWritingMessageHandler fileWriter() {
+        FileWritingMessageHandler handler = new FileWritingMessageHandler(new File("/tmp/sia5/files"));
+        handler.setExpectReply(false);
+        handler.setFileExistsMode(FileExistsMode.APPEND);
+        handler.setAppendNewLine(true);
+        return handler;
+    }
+}
+</pre>
+<p>这里定义了两个Bean：</p>
+<p>第一个Bean定义了一个Transformer，GenericTransformer是一个接口，因此靠lambda方式传入了一个实现类，用于转换大小写。</p>
+<p>第二个Bean的注解<code>ServiceActivator</code>表示这个Bean会接受从fileWriterChannel传入的数据，然后将数据交给FileWritingMessageHandler进行操作。Bean内部的配置显然一看就明白。其中有一个新增的就是<code>handler.setExpectReply(false);</code>，表示无需返回一个响应。由于我们没有接收端，如果这里设置为true，每次会收到一个错误信息。</p>
+<p>这里一个很明显的与XML不同的是，没有显式的定义管道的名称，这是因为在注解中指定了管道的名称，如果管道存在就会使用对应的管道，如果不存在就会自动创建。如果想要进一步自定义管道，可以使用与管道名同名的方法，通过返回MessageChannel对象来创建对应的Bean：</p>
+<pre>
+@Bean
+public MessageChannel textInChannel() {
+    return new DirectChannel();
+}
+...
+@Bean
+public MessageChannel fileWriterChannel() {
+    return new DirectChannel();
+}
+</pre>
+<p>可以看到，Java配置的逻辑和XML是相反的，XML基于管道，给管道附加上功能。Java配置基于功能，给功能指定使用的管道。</p>
+<p>再次启动程序，可以发现依然可以写文件了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
