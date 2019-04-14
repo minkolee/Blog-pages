@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="base.css">
+    <title>Spring in Action 5 Self-learning notes 9 - Reactor</title>
+</head>
+<body>
+<p>有两种编程模式：Imperative和Reactive。</p>
+<p>Imperative有点像SIA5中提到的一次订阅一年报纸，但是要等到一年结束才能给一年的报纸的方法。</p>
+<p>Reactive有点像现实中的报纸订阅，很多任务可以并行工作，每个任务都可以处理数据并把数据交给下一个任务</p>
+<p>这一章要了解Reactor这个东西，因为Reactor是Spring 5 reactive programming的核心，也是创建reactive controller和repository的基础。</p>
+
+<h1 style="text-align: center;">Spring Reactive Programming的理论</h1>
+<p>反应式编程和指令式编程各有不同的适应场合。</p>
+<p>指令式编程就是老式的写程序，每一条指令让计算机完成一个任务。但是在高I/O操作的时候，这些任务花费的时间很大，即使是为这些高I/O的任务启动一些新线程，这些线程自己也会阻塞。管理大批阻塞的线程也非常麻烦。</p>
+<p>反应式编程实际上是声明了一个数据流通的管道，管道中的数据甚至可以是无限的，不声明一步步的操作步骤，而是将数据视为流。</p>
+<p>反应式流最初于2013年由Netflix，Light-bend和Pivotal（Spring的开发商）联合创建，目的是为了创建非阻塞的反压力的异步流数据处理的标准。</p>
+<p>所谓反压力，指的是数据的消费者不会被海量数据所淹没导致无法处理，而是可以建立消费者消费数据的能力。</p>
+<p>Java Stream和Reactive Stream听上去有点像，但其实完全不同。前者是同步的，本质上还是一步步进行工作，而后者对于任意类型的数据都提供了异步支持，包括无限的数据流动，实时处理数据。</p>
+<p>Reactive Stream的规范可以归类为四个接口：</p>
+<ol>
+    <li><code>Publisher</code>发布者</li>
+    <li><code>Subscriber</code>订阅者</li>
+    <li><code>Subscription</code>订阅</li>
+    <li><code>Processor</code>处理器</li>
+</ol>
+<p><code>Publisher</code>生产数据，并发送给每个<code>Subscription</code>的<code>Subscriber</code>。<code>Publisher</code>接口有一个方法叫做<code>subscribe()</code>，通过这个方法，一个订阅者可以订阅这个发布者：</p>
+<pre>
+public interface Publisher&lt;T> {
+    void subscribe(Subscriber&lt;? super T> subscriber);
+}
+</pre>
+<p>这其中的泛型是具体消息的类型，由于订阅者的信息类型可能更加抽象，所以订阅者想要获取的信息类型是发布者的消息类型的相同类型或者父类，这样就肯定可以接受订阅者的消息。</p>
+<p>订阅者订阅了发布者之后，就会从发布者那里接收事件，这些事件通过订阅者的接口里的方法来控制：</p>
+<pre>
+public interface Subscriber&lt;T> {
+    void onSubscribe(Subscription sub);
+    void onNext(T item);
+    void onError(Throwable ex);
+    void onComplete();
+}
+</pre>
+<p>订阅者接受的第一个事件就是这个订阅关系对象，当发布者调用订阅者的<code>onSubscribe(Subscription sub)</code>方法时，就会传入一个<code>Subscription</code>对象给订阅者。</p>
+<p>订阅者通过订阅关系对象接口的方法来管理订阅关系：</p>
+<pre>
+public interface Subscription {
+    void request(long n);
+    void cancel();
+}
+</pre>
+<p>订阅者可以调用订阅关系里的<code>request(long n)</code>向发布者请求数据，或者调用<code>cancel()</code>表示不再对该发布者感兴趣。</p>
+<p>调用<code>request(long n)</code>的时候，订阅者会传入一个long类型参数，表示可以接受多少个数据对象，以防止发布者发来过多数据，这就是可以灵活定制反压力的地方。在发布者发来消息之后，可以重复调用这个方法继续请求数据。</p>
+<p>一旦订阅者调用了<code>request(long n)</code>，数据就开始在反应流里开始流动了。对于每个数据，通过调用<code>onNext(T item)</code>方法，这个数据就会到达订阅者。如果有异常，<code>onError</code>方法会被调用。</p>
+<p>如果发布者没有更多要发送的数据，就会调用<code>onComplete()</code>来通知订阅者发送结束。</p>
+<p>对于<code>Processor</code>来说，是一个订阅者和发布者的结合，像这样：</p>
+<pre>
+public interface Processor&lt;T, R> extends Subscriber&lt;T>, Publisher&lt;R> {}
+</pre>
+<p>这个接口先会作为订阅者接受数据然后处理，之后会作为一个发布者，将数据发布给它的订阅者。</p>
+<p>这四个接口或者说是组件，就是用来创建一个数据流动的管道，管道从发布者开始，经过0个或者更多的处理器，最后将结果发送给最终的订阅者。（其实和第九章的管道组件的逻辑有点像，只不过组件更加少，也更清晰）。</p>
+<p>Project Reactor就是将上边四个组件组成一个实际可用的管道的实现，所以是 Spring 5 反应式编程模型的核心，剩下的时间就来探索这个Reactor。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
