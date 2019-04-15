@@ -331,6 +331,9 @@ public void mergeFluxesFirst() {
     <li>转换数据类型 - <code>.map</code></li>
     <li>异步转换数据类型 - <code>.flatmap</code></li>
     <li>缓冲大小 - <code>.buffer(n)</code></li>
+    <li>组成List - <code>.buffer()</code>无参</li>
+    <li>把Flux重组成一个Mono - <code>.collectList()</code>无参</li>
+    <li>把Flux重组成一个Mono - <code>.collectMap()</code>，传入一个方法用于生成key。</li>
 </ol>
 <p>过滤信息的一个基础功能是直接忽略从头开始的指定数量的数据：</p>
 <pre>
@@ -518,24 +521,64 @@ public void bufferedFlatMapFlux() {
 }
 </pre>
 <p>这段程序的意思是，依然先创建了一个缓冲区大小为3的List&lt;String&gt;的Flux，但是对于其中每一个元素，创建了一个对应的Flux，然后将其字符串变成大写，使用并行处理，最后再一起订阅这些新生成的小的Flux。这里添加的.log()是可以打印出每次进行的步骤。</p>
-<p>如果<code>buffer()</code>不添加参数，那就是将全部结果组装为一个List。</p>
+<p>如果<code>buffer()</code>不添加参数，那就是将全部结果组装为一个List。这个代码就省略了。</p>
+<p>由于全部结果就是一个List，所以可以用一个Mono对象来装，就可以使用<code>.collectList()</code>方法。</p>
+<pre>
+@Test
+public void collectMonoFlux() {
+    Flux&lt;String> flux = Flux.just("jenny", "cony", "minko", "owl", "gege");
+    Mono&lt;List&lt;String>> mono = flux.collectList();
 
+    StepVerifier
+            .create(mono)
+            .expectNext(Arrays.asList("jenny", "cony", "minko", "owl", "gege"))
+            .verifyComplete();
+}
+</pre>
+<p><code>Flux&lt;String></code>类型会变成一个<code>Mono&lt;List&lt;String>></code>类型。</p>
+<p>有趣的是，<code>.collectMap()</code>方法会把Flux组成一个Mono的Map对象，每一个对象的key可以用传入的方法来生成：</p>
+<pre>
+@Test
+public void collectMapMonoFlux() {
+    Flux&lt;String> flux = Flux.just("jenny", "cony", "minko", "owl", "gege");
+    Mono&lt;Map&lt;String, String>> mono = flux.collectMap(s -> s.substring(0, 2));
 
+    StepVerifier
+            .create(mono)
+            .expectNextMatches(map->{
+                return map.size() == 5 &&
+                        map.get("je").equals("jenny") &&
+                        map.get("co").equals("cony") &&
+                        map.get("mi").equals("minko") &&
+                        map.get("ow").equals("owl") &&
+                        map.get("ge").equals("gege");})
+            .verifyComplete();
+}
+</pre>
+<p>将字符串Flux转换成了一个Mono，里边有Map对象，键为传入的函数生成的每个字符串的前两个字符，值为对应的值。</p>
+<p>以上是常用的Transformers类型，有通用的，也有适合转换和封装的。</p>
 
+<h3 style="text-align: center;">Logic</h3>
+<p>有时候仅仅只需要知道流内的数据对象是否满足某些条件，而不是进行某些复杂处理。可以使用<code>all()</code>和<code>any()</code>方法来进行一些逻辑操作。</p>
+<p><code>all()</code>用来测试所有的数据是否满足某些条件。而<code>any()</code>用来测试所有的数据中至少有一个满足某些条件。</p>
+<p>如果我们测试字符串里是否含有y和z：</p>
+<pre>
+@Test
+public void collectMapMonoFlux() {
+    Flux&lt;String> flux = Flux.just("jenny", "cony", "minko", "owl", "gege");
+    Mono&lt;Boolean> hasY = flux.all(s -> s.contains("y"));
 
+    StepVerifier.create(hasY).expectNext(false).verifyComplete();
 
+    Mono&lt;Boolean> hasZ = flux.any(s -> s.contains("y"));
+    StepVerifier.create(hasZ).expectNext(true).verifyComplete();
+}
+</pre>
+<p>第一个测试表示是否Flux中的每一个数据都包含"y"，结果显然是<code>false</code>，第二个测试表示至少有一个数据含有"y"，肯定为真了。</p>
 
-
-
-
-
-
-
-
-
-
-
-
+<h1 style="text-align: center;">总结</h1>
+<p>其实Reactor和之前学习的管道有点像，都是一个抽象的数据流，只不过集成的过程更注重分发，而这个过程更注重不会阻塞。</p>
+<p>这里的很多Operation其实是一个模式，即在程序中需要什么样的处理方式，就可以找找SIA5书中这些常用模型看看有没有对应的内容。再不行就要翻文档了。</p>
 
 
 
