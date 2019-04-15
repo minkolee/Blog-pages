@@ -64,6 +64,464 @@ public interface Processor&lt;T, R> extends Subscriber&lt;T>, Publisher&lt;R> {}
 <p>Project Reactor就是将上边四个组件组成一个实际可用的管道的实现，所以是 Spring 5 反应式编程模型的核心，剩下的时间就来探索这个Reactor。</p>
 
 
+<h1 style="text-align: center;">开始使用Reactor</h1>
+<p>Reactor实际上是<a href="https://projectreactor.io/">projectreactor.io</a>提供的库，所以需要先添加依赖，因为是测试项目就随便写点代码试验一下先要添加依赖：</p>
+<pre>
+&lt;dependencyManagement>
+    &lt;dependencies>
+        &lt;dependency>
+            &lt;groupId>io.projectreactor&lt;/groupId>
+            &lt;artifactId>reactor-bom&lt;/artifactId>
+            &lt;version>Bismuth-RELEASE&lt;/version>
+            &lt;type>pom&lt;/type>
+            &lt;scope>import&lt;/scope>
+        &lt;/dependency>
+    &lt;/dependencies>
+&lt;/dependencyManagement>
+    
+&lt;dependency>
+    &lt;groupId>io.projectreactor&lt;/groupId>
+    &lt;artifactId>reactor-core&lt;/artifactId>
+&lt;/dependency>
+
+&lt;dependency>
+    &lt;groupId>io.projectreactor&lt;/groupId>
+    &lt;artifactId>reactor-test&lt;/artifactId>
+    &lt;scope>test&lt;/scope>
+&lt;/dependency>
+</pre>
+<p>这实际也是Pivotal开发的库，能够和Spring很好的结合在一起，也可以单独使用，依赖安装的部分来自于：<a
+        href="https://projectreactor.io/docs/core/release/reference/">https://projectreactor.io/docs/core/release/reference/</a>中的Maven Installation部分。</p>
+<p>可以看到添加依赖后在外部库里增加了io.projectreactor:reactor-core和test两个包，说明添加依赖成功。</p>
+<p>原书247页的图很好，其实我个人理解就是多个队列，处理完一个放到下一个队列里，没有的话就直接放到输出队列中..不知道底层是不是这样，因为都说和JS的异步一样，所以推测应该也是事件驱动的消息队列异步方式。</p>
+<p><code>Flux</code>和<code>Mono</code>是Reactor包提供的核心的用于创建管道的类，Flux可以表示一个管子里有0个，1个直到无限个数据，Mono表示管道里只有不多于1个的数据。</p>
+<p>Flux 和 Mono 有500多个操作，可以分为四类：</p>
+<ol>
+    <li>创建操作 Creation</li>
+    <li>合并操作 Combination</li>
+    <li>转换操作 Transformation</li>
+    <li>逻辑操作 Logic</li>
+</ol>
+<p>来看一下最常用的操作，剩下的具体用途就要看文档了。</p>
+
+<h1 style="text-align: center;">创建反应式类型</h1>
+<p>很多时候如果使用了也采用反应式编程的程序，会提供建立好的数据流管道，但很多时候也需要自己创建一个。从不同的数据来源可以创建不同的管道。主要有如下几个方面：</p>
+<ol>
+    <li>从对象创建</li>
+    <li>从数组创建</li>
+    <li>从Iterable创建</li>
+    <li>创建连续的数字</li>
+    <li>创建interval数字</li>
+</ol>
+
+<p>常见的是从一个或多个对象创建一个管道，管道用来传输对象数据。</p>
+<pre>
+public void createFlux_just() {
+    Flux&lt;String> fruitFlux = Flux.just("Apple", "Orange", "Grape", "Banana", "Strawberry");
+    fruitFlux.subscribe(new Consumer&lt;String>() {
+        @Override
+        public void accept(String s) {
+            System.out.println(s);
+        }
+    });
+}
+</pre>
+<p>Flux的泛型就是管道中传输的数据类型。<code>.just</code>方法表示基于其中的参数内容创建管道。这里基于了连续的5个字符串类型的水果名称。</p>
+<p>订阅对象必须是一个Consumer类，然后重写accept方法，用表示接收到数据如何处理。</p>
+<p>可以编写对应的测试：</p>
+<pre>
+StepVerifier.create(fruitFlux)
+    .expectNext("Apple")
+    .expectNext("Orange")
+    .expectNext("Grape")
+    .expectNext("Banana")
+    .expectNext("Strawberry")
+    .verifyComplete();
+</pre>
+<p>还可以从数组创建Flux：</p>
+<pre>
+@Test
+public void createFlux_just() {
+    String[] fruits = new String[]{"Apple", "Orange", "Grape", "Banana", "Strawberry"};
+    Flux&lt;String> fruitFlux = Flux.fromArray(fruits);
+    fruitFlux.subscribe(s -> System.out.println(s));
+    
+    StepVerifier.create(fruitFlux)
+            .expectNext("Apple")
+            .expectNext("Orange")
+            .expectNext("Grape")
+            .expectNext("Banana")
+            .expectNext("Strawberry")
+            .verifyComplete();
+
+}
+</pre>
+<p>使用的方法是<code>.fromArray</code>，传入的Consumer对象改成lambda表示，依然可以通过测试。</p>
+<p>既然可以从数组，能够想到，其实可以从所有的Iterable对象来创建Flux：</p>
+<pre>
+@Test
+public void createFluxFromIterable() {
+    ArrayList&lt;String> fruits = new ArrayList&lt;>();
+    fruits.add("Apple");
+    fruits.add("Orange");
+    fruits.add("Grape");
+    fruits.add("Banana");
+    fruits.add("Strawberry");
+    Flux&lt;String> fruitFlux = Flux.fromIterable(fruits);
+    fruitFlux.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(fruitFlux)
+            .expectNext("Apple")
+            .expectNext("Orange")
+            .expectNext("Grape")
+            .expectNext("Banana")
+            .expectNext("Strawberry")
+            .verifyComplete();
+
+}
+</pre>
+<p>使用的方法是<code>fromIterable</code>。</p>
+<p>还有的时候，可能不需要具体的数字，而是把Flux当成一个计数器，不断的生成新的数字，这个时候可以使用<code>.range()</code>方法：</p>
+<pre>
+@Test
+public void createFluxFromRange() {
+    Flux&lt;Integer> intervalCount = Flux.range(1, 5);
+    intervalCount.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(intervalCount)
+            .expectNext(1)
+            .expectNext(2)
+            .expectNext(3)
+            .expectNext(4)
+            .expectNext(5)
+            .verifyComplete();
+
+}
+</pre>
+<p>这会打印出1-5，这个区间范围包含两端的数据。与此类似，还可以创建间隔一定时间的数字：</p>
+<pre>
+@Test
+public void createFluxOfInterval() {
+    Flux&lt;Long> intervalCount = Flux.interval(Duration.ofSeconds(1)).take(5);
+    intervalCount.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(intervalCount)
+            .expectNext(1L)
+            .expectNext(2L)
+            .expectNext(3L)
+            .expectNext(4L)
+            .expectNext(5L)
+            .verifyComplete();
+}
+</pre>
+<p>这里先指定间隔时间，再指定数字，注意.take的参数是Long类型，故要相应修改代码。结果的区间也不再相同，而是0-4，所以这个测试会失败。</p>
+
+<h3 style="text-align: center;">Combination</h3>
+<p>说是合并，其实这里涉及到将两个Flux合并以及将一个FLux或者Mono来拆分。有如下几种：</p>
+<ol>
+    <li>合并流输出结果</li>
+    <li>将两个Flux各一个结果打包成一个对象进行数据</li>
+    <li>将两个Flux的结果进行处理，以处理后的结果输出</li>
+    <li>选择速度较快的Flux</li>
+</ol>
+
+
+<p>SIA5 253页的图很好的解释了合并的过程，将两个Flux的结果合并成一个结果流输出，需要使用<code>.mergeWith()</code>方法：</p>
+<pre>
+@Test
+public void mergeFluxes() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl").delayElements(Duration.ofMillis(500));
+
+    Flux&lt;String> zi = Flux.just("master", "queen", "slave", "guardian").delaySubscription(Duration.ofMillis(250)).delayElements(Duration.ofMillis(500));
+
+    Flux&lt;String> mergedFlux = names.mergeWith(zi);
+
+    mergedFlux.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(mergedFlux)
+            .expectNext("jenny")
+            .expectNext("master")
+            .expectNext("cony")
+            .expectNext("queen")
+            .expectNext("minko")
+            .expectNext("slave")
+            .expectNext("owl")
+            .expectNext("guardian")
+            .verifyComplete();
+}
+</pre>
+<p>这里创建了两个Flux，delayElements表示第一个元素立刻投递，第二个元素开始间隔的时间。<code>delaySubscription</code>则表示从订阅开始延迟一定时间才向管道内放数据。</p>
+<p>如果画一条时间线的话，第一个放到管道里的是"jenny"，之后250毫秒之后第二个Flux被订阅，然后"master"被放到管道里，之后是"cony"。。。</p>
+<p>被merge的两个Flux，生产和投放数据的控制属性依然是其原来的，但是数据投放到了同一个输出的地方。</p>
+<p>实际的顺序就像是测试结果里的一样。但是这里因为时间间隔设置的比较大，实际上并不能依赖于这种用时间代码来控制的排序。</p>
+<p>如果要组合两个Flux，还有一种办法就是zip()，用zip()组合之后的Flux，必定会从两个Flux中各取一个，组装成一个<code>Tuple2&lt?, ?&gt;</code>对象：</p>
+<pre>
+@Test
+public void mergeFluxesToTuple() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl");
+
+    Flux&lt;String> zi = Flux.just("master", "queen", "slave", "guardian");
+
+    Flux&lt;Tuple2&lt;String, String>> mergedFlux = names.zipWith(zi);
+
+    mergedFlux.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(mergedFlux)
+            .expectNextMatches(p -> p.getT1().equals("jenny") && p.getT2().equals("master"))
+            .expectNextMatches(p -> p.getT1().equals("cony") && p.getT2().equals("queen"))
+            .expectNextMatches(p -> p.getT1().equals("minko") && p.getT2().equals("slave"))
+            .expectNextMatches(p -> p.getT1().equals("owl") && p.getT2().equals("guardian"))
+            .verifyComplete();
+}
+</pre>
+<p>代码比较好懂，这里注意的是顺序，<code>names.zipWith(zi)</code>表示在测试的时候.getT1()拿到的是name，getT2对应是zi里的数据，如果写成<code>zi.zipWith(names)</code>测试就会失败。</p>
+<p>除了上边的打包，还可以调用<code>Flux.zip()</code>方法传入一个接受两个参数的方法，然后就会把这个方法的返回值输出到流里，这也是一种combination。</p>
+<pre>
+@Test
+public void mergeFluxesProcessed() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl");
+
+    Flux&lt;String> zi = Flux.just("master", "queen", "slave", "guardian");
+
+    Flux&lt;String> mergedFlux = Flux.zip(names, zi, (a, b) -> a + "|" + b);
+
+
+    mergedFlux.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(mergedFlux)
+            .expectNext("jenny|master")
+            .expectNext("cony|queen")
+            .expectNext("minko|slave")
+            .expectNext("owl|guardian")
+            .verifyComplete();
+}
+</pre>
+<p>还可以从两个Flux中选择一个来输出，使用.first()方法，就可以只选择那个被标记为“快速”的Flux进行输出：</p>
+<pre>
+@Test
+public void mergeFluxesFirst() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl").delaySubscription(Duration.ofMillis(100));
+
+    Flux&lt;String> zi = Flux.just("master", "queen", "slave", "guardian");
+
+    Flux&lt;String> mergedFlux = Flux.first(names, zi);
+
+
+    mergedFlux.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(mergedFlux)
+            .expectNext("master")
+            .expectNext("queen")
+            .expectNext("slave")
+            .expectNext("guardian")
+            .verifyComplete();
+}
+</pre>
+<p>这里的第一个names设置了延迟100毫秒，就被认为是一个慢Flux，于是mergedFlux就只输出了“快”Flux，而完全忽略了慢Flux</p>
+
+<h3 style="text-align: center;">Transformer和Filter</h3>
+<p>这里也有很多功能，先列表如下：</p>
+<ol>
+    <li>过滤信息-跳过一定个数 - <code>.skip(n)</code></li>
+    <li>过滤信息-跳过一定时间 - <code>.skip(time)</code></li>
+    <li>过滤信息-只取前几个数据 - <code>.take(n)</code></li>
+    <li>过滤信息-只取指定时间之前的数据 - <code>.take(time)</code></li>
+    <li>通用过滤器 - <code>.filter()</code></li>
+    <li>去重 - <code>.ditinct</code></li>
+    <li>转换数据类型 - <code>.map</code></li>
+    <li>异步转换数据类型 - <code>.flatmap</code></li>
+    <li>缓冲大小 - <code>.buffer(n)</code></li>
+</ol>
+<p>过滤信息的一个基础功能是直接忽略从头开始的指定数量的数据：</p>
+<pre>
+@Test
+public void skipFlux() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl").skip(2);
+
+    names.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(names)
+            .expectNext("minko")
+            .expectNext("owl")
+            .verifyComplete();
+}
+</pre>
+<p><code>.skip(2)</code>表示跳过最开头的2个数据，这里的链式调用之后产生的Flux并不是4个元素的Flux，而是一个新的只包含后边2个数据的Flux。</p>
+<p>有时候可能不需要按个数，而是忽略从头开始一定时间的数据，到了一定时间后才开始输出数据，可以给<code>.skip</code>传入一个Duration对象：</p>
+<pre>
+@Test
+public void skipTimeFlux() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl").delayElements(Duration.ofMillis(100)).skip(Duration.ofMillis(300));
+
+    names.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(names)
+            .expectNext("minko")
+            .expectNext("owl")
+            .verifyComplete();
+}
+</pre>
+<p>程序运行时会在100毫秒后投放"jenny"，200毫秒后投放"cony"，不忽略的时间从300毫秒开始，所以会显示出minko和owl。如果将延迟时间改成99毫秒，就只会显示owl了。</p>
+<p>之前看过了<code>interval</code>与<code>take</code>的连用，实际上<code>.take(n)</code>表示只取前几个数据：</p>
+<pre>
+@Test
+public void takeFlux() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl").take(3);
+
+    names.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(names)
+            .expectNext("jenny")
+            .expectNext("cony")
+            .expectNext("minko")
+            .verifyComplete();
+}
+</pre>
+<p>这就是仅取前三个数据的Flux。如果给<code>take()</code>传入时间对象，表示只取指定时间之前的结果：</p>
+<pre>
+@Test
+public void takeTimeFlux() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl").delayElements(Duration.ofSeconds(1)).take(Duration.ofMillis(3500));
+
+    names.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(names)
+            .expectNext("jenny")
+            .expectNext("cony")
+            .expectNext("minko")
+            .verifyComplete();
+}
+</pre>
+<p>第三秒结束的时候投放完三个数据，3.5秒之后的数据都不再获取，于是就只有前三个数据。当然，这里的时间片如果分的太短，测试不一定通过，比如把3500改成3001。</p>
+<p>以上都是基于个数或者是时间的，还有通用的过滤器方法<code>.filter()</code>，只会过滤满足条件的数据：</p>
+<pre>
+@Test
+public void filterFlux() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl", "gege", "dazhuan").filter(s -> s.length() == 4);
+
+    names.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(names)
+            .expectNext("jenny")
+            .expectNext("minko")
+            .verifyComplete();
+}
+</pre>
+<p><code>.filter()</code>方法里传入一个返回值为boolean的方法，只要运算结果是true，这个数据就会出现在结果流里，是false则会被抛弃。</p>
+<p><code>.distinct</code>方法可以去掉一个Flux中重复发布的内容，只留下不重复的部分：</p>
+<pre>
+@Test
+public void distinctFlux() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl", "gege", "dazhuan","owl","minko").distinct();
+
+    names.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(names)
+            .expectNext("jenny")
+            .expectNext("cony")
+            .expectNext("minko")
+            .expectNext("owl")
+            .expectNext("gege")
+            .expectNext("dazhuan")
+            .verifyComplete();
+}
+</pre>
+<p>后边的owl和minko会被忽略，只保留第一个不相同的数据对象。</p>
+<p>之前都是各种filter，当然也可以对数据进行处理，转换成其他类型的数据，可以使用<code>.map()</code>方法，把一个Flux的数据转换成另一个Flux上的不同类型的数据或者处理过的数据：</p>
+<pre>
+@Test
+public void mappedFlux() {
+    Flux&lt;Employee> names = Flux.just("jenny", "cony", "minko", "owl")
+            .map(s -> new Employee(s, "", ""));
+
+    names.subscribe(s -> System.out.println(s));
+
+    StepVerifier.create(names)
+            .expectNext(new Employee("jenny","",""))
+            .expectNext(new Employee("cony","",""))
+            .expectNext(new Employee("minko","",""))
+            .expectNext(new Employee("owl","",""))
+            .verifyComplete();
+}
+</pre>
+<p>这个就是把一个字符串Flux转换成了一个Employee类型的Flux，注意开始指定Flux泛型的时候要注意与返回值一致。</p>
+<p style="color:red;">注意，<code>.map()</code>方法是同步的。可以考虑使用异步的<code>.flatmap()</code>方法，这个方法实际上是利用一个中间Flu进行中转，所以可以实现异步效果：</p>
+<pre>
+@Test
+public void flatmappedFlux() {
+    Flux&lt;Employee> names = Flux.just("jenny", "cony", "minko", "owl", "gege")
+            .flatMap(s -> Mono.just(s).map(n -> new Employee(n, "", ""))).subscribeOn(Schedulers.parallel());
+}
+</pre>
+<p>每一个字符串，实际上被<code>.flatMap</code>映射到了一个Mono对象上，这个Mono对象的内容来自于map的处理结果，然后会同时订阅这些Mono。</p>
+<p>这里有一个新方法<code>.subscribeOn</code>，并不是订阅方法，而是一个表示如何通过并发手段来处理订阅的方法。这里加在最后，表示这些转换成Mono的工作和订阅Mono的工作有多线程并行执行。</p>
+<p>Reactor并不强行指定具体的并发模型，而是通过<code>.subscribeOn</code>这个方法进行指定，常用的方法解释如下：</p>
+<table>
+    <thead>
+    <tr>
+        <th>方法</th>
+        <th>解释</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>.immediate()</td>
+        <td>在当前线程中执行订阅</td>
+    </tr>
+    <tr>
+        <td>.single()</td>
+        <td>在单独的一个新线程中执行，所有调用都用这同一个线程</td>
+    </tr>
+    <tr>
+        <td>.newSingle()</td>
+        <td>每个订阅用一个新线程执行</td>
+    </tr>
+    <tr>
+        <td>.elastic()</td>
+        <td>用一个弹性线程池</td>
+    </tr>
+    <tr>
+        <td>.parallel()</td>
+        <td>用一个固定数量的线程池，一般等于CPU的核心数</td>
+    </tr>
+    </tbody>
+</table>
+<p>使用<code>.flatMap</code>搭配<code>subscribeOn</code></p>
+
+<p>对于大量的数据，可以将其拆分成一个一个最大数量的包来进行处理，使用<code>.buffer()</code>方法：</p>
+<pre>
+@Test
+public void bufferedFlux() {
+    Flux&lt;String> names = Flux.just("jenny", "cony", "minko", "owl", "gege");
+
+    Flux&lt;List&lt;String>> buffered = names.buffer(2);
+
+    StepVerifier.create(buffered)
+            .expectNext(Arrays.asList("jenny", "cony"))
+            .expectNext(Arrays.asList("minko", "owl"))
+            .expectNext(Arrays.asList("gege"))
+            .verifyComplete();
+}
+</pre>
+<p>这里先创建一个字符串Flux，然后使用buffer的时候，可以发现泛型要修改为一个List泛型，buffer(2)表示返回最大长度为2的列表，如果装不满，列表中就只有部分元素。</p>
+<p>这里要注意的是，组装List的过程也是同步的，如果要改成异步，可以搭配flatMap来使用：</p>
+<pre>
+@Test
+public void bufferedFlatMapFlux() {
+    Flux.just("jenny", "cony", "minko", "owl", "gege")
+            .buffer(3).
+            flatMap(x -> Flux.fromIterable(x)
+                    .map(y -> y.toUpperCase())
+                    .subscribeOn(Schedulers.parallel())
+                    .log()
+            ).subscribe();
+}
+</pre>
+<p>这段程序的意思是，依然先创建了一个缓冲区大小为3的List&lt;String&gt;的Flux，但是对于其中每一个元素，创建了一个对应的Flux，然后将其字符串变成大写，使用并行处理，最后再一起订阅这些新生成的小的Flux。这里添加的.log()是可以打印出每次进行的步骤。</p>
+<p>如果<code>buffer()</code>不添加参数，那就是将全部结果组装为一个List。</p>
+
+
+
 
 
 
