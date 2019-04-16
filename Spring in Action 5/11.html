@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="base.css">
+    <title>Spring in Action 5 Self-learning notes 11 - Reactive 存取数据</title>
+</head>
+<body>
+<p>上一篇的当务之急就是还没有响应式的数据库，JPA无法直接返回Flux或者Mono类型。</p>
+<p>目前Spring 响应式支持的数据库有Cassandra，MongoDB，Couchbase和Redis。</p>
+
+<h1 style="text-align: center;">非响应式数据库</h1>
+<p>非响应式数据库的主要支持来自于Spring Data JPA，遗憾的是，这些关系型数据库都不是响应式的。</p>
+<p>如果一定要使用，可以在查询到数据后将其转换成响应式，或者响应式数据到达订阅者的时候，将其转换成非响应式数据：</p>
+<pre>
+List&lt;Order> orders = repo.findByUser(someUser);
+Flux&lt;Order> orderFlux = Flux.fromIterable(orders);
+</pre>
+<pre>
+Order order repo.findById(Long id);
+Mono&lt;Order> orderMono = Mono.just(order);
+</pre>
+<p>响应式数据转换成非响应式数据：</p>
+<pre>
+Taco taco = tacoMono.block();
+tacoRepo.save(taco);
+
+Iterable&lt;Taco> tacos = tacoFlux.toIterable();
+tacoRepo.saveAll(tacos);
+</pre>
+<p>一般也可以采用订阅的形式：</p>
+<pre>
+tacoFlux.subscribe(taco -> {
+    tacoRepo.save(taco);
+});
+</pre>
+<p>注意，这些语句，在查询数据库，保存数据和转换成非响应式数据的时候，都是阻塞的。</p>
+<p>如果一个Web应用想要是响应式的，必须从控制器到数据库全部是响应式的，所以要发挥响应式的真正作用，还是赶快来看看真正的响应式吧。</p>
+<p>SIA5里提供了Cassandra和MongoDB的例子。不过我打算学习MongoDB和Redis，这里先按照书把MongoDB学一下并运用，之后的Redis要自学补上这一章，毕竟Redis太好用了。</p>
+
+<h1 style="text-align: center;">使用MongoDB</h1>
+<p>MongoDB是一个文档数据库，实际上MongoDB存储的是二进制JSON文件，也被称为BSON，可以像SQL数据库一样查询取出来。</p>
+<p>Spring Initializr提供了两个依赖，注意选择Reactive的那个：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>
+        spring-boot-starter-data-mongodb-reactive
+    &lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>注意，和其他的响应式数据库一样，这是JPA的替代品，所以需要把JPA，H2数据库等一并从依赖里去掉，或者单独创建一个新项目来试验一下。</p>
+<p>导入依赖后的默认MongoDB会运行在本机的27017端口，为了方便也可以使用集成的MongoDB，可以在Spring Initializr中勾选，也可以单独添加依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>de.flapdoodle.embed&lt;/groupId>
+    &lt;artifactId>de.flapdoodle.embed.mongo&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>与H2一样，所有数据在应用停止之后会全部消失。</p>
+<p>MongoDB的配置与其他数据库很相似：</p>
+<ol>
+    <li><code>spring.data.mongodb.host</code>，主机地址，默认localhost</li>
+    <li><code>spring.data.mongodb.port</code>，端口，默认27017</li>
+    <li><code>spring.data.mongodb.username</code>，用户名</li>
+    <li><code>spring.data.mongodb.password</code>，密码</li>
+    <li><code>spring.data.mongodb.database</code>，数据库名称，默认是test</li>
+</ol>
+
+<h3 style="text-align: center;">Java类与MongoDB数据库的映射关系</h3>
+<p>Spring Data MongoDB提供了很多注解，不过只有三个是最常用的：</p>
+<ol>
+    <li><code>@Id</code>，标记文档ID</li>
+    <li><code>@Document</code>，标记一个文档</li>
+    <li><code>@Field</code>，标记一个域（可定义顺序），就是个键名，存入文档中。</li>
+</ol>
+<p>对于每一个映射类，<code>@Id</code>和<code>@Document</code>是一定要有的，不标记<code>@Field</code>的属性会默认有同名属性。</p>
+<p>把Student类改成MongoDB的类：</p>
+<pre>
+package cc.conyli.webflux.domain;
+
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.io.Serializable;
+
+@Data
+@NoArgsConstructor(access = AccessLevel.PRIVATE, force = true)
+@RequiredArgsConstructor
+@Document
+public class Student implements Serializable {
+
+
+    @Id
+    private String id;
+
+    private String firstName;
+
+    private String lastName;
+
+    private Integer courseId;
+
+}
+</pre>
+<p>现在因为不使用JPA了，所以<code>@Entity</code>，<code>@Table</code>之类的注解都没有了，换成了<code>@Document</code>注解，表示这个类被映射为一个文档。</p>
+<p>默认文档的名称是第一个字母小写的类名，不过也可以自定义：<code>@Document(collection="studentds")</code>。</p>
+<p><code>@Id</code>可以用在任意可以序列化的域变量上，包括字符串和Long类型。</p>
+<p>把Course做一下修改：</p>
+<pre>
+package cc.conyli.webflux.domain;
+
+import lombok.Data;
+
+import lombok.NoArgsConstructor;
+import lombok.NonNull;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import javax.validation.constraints.Size;
+import java.util.Date;
+import java.util.List;
+
+@Data
+@NoArgsConstructor(force = true)
+@Document
+public class Course {
+
+    @Id
+    private String id;
+    
+    @NonNull
+    @Size(min=5,message = "At least 5 characters long")
+    private String courseName;
+
+    private Date createAt = new Date();
+    
+    private List&lt;Student> students;
+    
+}
+</pre>
+<p>比想象的要简单，@Id不像JPA一样只能是INT或者LONG，也不像Cassandra是UUID，可以是任意可序列化的类型。实际上如果选择String类型作为ID，Mongo自动分配一个值存进去（如果是null的话），实际上是获得了一个数据库管理的ID，无需再手动设置。</p>
+<p>注意List&lt;Student>，这个不会单独在Mongo中再另外存一个collection，而是会直接把这个列表进行存储。</p>
+<p>原书还展示了Order对象和User对象的存储，一样的简单，除了标识ID之外，几乎不用做任何调整。</p>
+<p>当然也会有其他高级和不经常使用的映射方法，不过目前先了解这些足够了。</p>
+
+<h3 style="text-align: center;">编写MongoDB的神奇接口</h3>
+<p>有两个接口可以选择：</p>
+<ol>
+    <li><code>ReactiveCrudRepository</code>，使用<code>.save()</code>方法保存新老数据</li>
+    <li><code>ReactiveMongoRepository</code>，提供了一些<code>insert()</code>方法，写入的时候更高效</li>
+</ol>
+<p>对于不需要经常变动的文档，可以选择前者。需要经常写入的，推荐选择后者p。</p>
+<p>写一个简单的学生接口试试：</p>
+<pre>
+package cc.conyli.webflux.repository;
+
+import cc.conyli.webflux.domain.Student;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import org.springframework.web.bind.annotation.CrossOrigin;
+
+@CrossOrigin(origins = "*")
+public interface StudentRepo extends ReactiveCrudRepository&lt;Student, Integer> {
+
+}
+</pre>
+<p>由于这个接口是响应式，注意了，返回的是Flux或者Mono对象，findAll方法会返回Flux&lt;Student>，findById则会返回Mono&lt;Student>。</p>
+<p>再来编写一个使用insert的接口：</p>
+<pre>
+package cc.conyli.webflux.repository;
+
+import cc.conyli.webflux.domain.Course;
+import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import reactor.core.publisher.Flux;
+
+@CrossOrigin(origins = "*")
+public interface CourseRepo extends ReactiveMongoRepository&lt;Course, Integer> {
+    Flux&lt;Course> findByOrOrderByCreateAtDesc();
+}
+</pre>
+<p><code>ReactiveMongoRepository</code>相比<code>ReactiveCrudRepository</code>唯一的缺点是仅能用于MongoDB，无法移植。</p>
+<p>增和查会了，但是修改还不会，因为现在还不会通过自动生成的_id字段进行查找。</p>
+<p>MongoDB和Redis在Java中的使用，看来也需要排上日程了。针对公司的合同台账系统的升级，还是继续用老的来写吧。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
