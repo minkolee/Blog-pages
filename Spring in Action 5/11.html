@@ -110,7 +110,8 @@ public class Student implements Serializable {
 </pre>
 <p>现在因为不使用JPA了，所以<code>@Entity</code>，<code>@Table</code>之类的注解都没有了，换成了<code>@Document</code>注解，表示这个类被映射为一个文档。</p>
 <p>默认文档的名称是第一个字母小写的类名，不过也可以自定义：<code>@Document(collection="studentds")</code>。</p>
-<p><code>@Id</code>可以用在任意可以序列化的域变量上，包括字符串和Long类型。</p>
+<p><code>@Id</code>可以用在任意可以序列化的域变量上，包括字符串和Long类型。这个id的名称无所谓，只要是字符串类型，在Mongo内就必定会生成<code>_id</code>键，如果不指定@Id，会自动生成。这个可以看<a
+        href="https://docs.spring.io/spring-data/mongodb/docs/current/reference/html/">Spring Data MongoDB - Reference Documentation</a></p>
 <p>把Course做一下修改：</p>
 <pre>
 package cc.conyli.webflux.domain;
@@ -181,16 +182,26 @@ import reactor.core.publisher.Flux;
 
 @CrossOrigin(origins = "*")
 public interface CourseRepo extends ReactiveMongoRepository&lt;Course, Integer> {
-    Flux&lt;Course> findByOrOrderByCreateAtDesc();
+    Flux&lt;Course> findByOrderByCreateAtDesc();
 }
 </pre>
 <p><code>ReactiveMongoRepository</code>相比<code>ReactiveCrudRepository</code>唯一的缺点是仅能用于MongoDB，无法移植。</p>
-<p>增和查会了，但是修改还不会，因为现在还不会通过自动生成的_id字段进行查找。</p>
-<p>MongoDB和Redis在Java中的使用，看来也需要排上日程了。针对公司的合同台账系统的升级，还是继续用老的来写吧。</p>
-
-
-
-
+<p>增和查全部的会了，按照id查找的话，需要重写一下神奇接口中的方法，因为默认的方法是按照Int类型查：</p>
+<pre>
+@CrossOrigin(origins = "*")
+public interface StudentRepo extends ReactiveCrudRepository&lt;Student, Integer> {
+    Mono&lt;Student> findById(String id);
+}    
+</pre>
+<pre>
+@GetMapping("/students/{id}")
+public Mono&lt;Student> getSingleStudent(@PathVariable("id") String id) {
+    return studentRepo.findById(id);
+}
+</pre>
+<p>而修改对于MongoDB来说，就是直接找到对应的id然后更改对象。由于是一个流，可以取出来之后使用流操作，比较方便。</p>
+<p>这里后续找到了一篇文章，说的比SIA5要完整详细一些<a href="https://blog.51cto.com/liukang/2090163">响应式Spring的道法术器（Spring WebFlux 快速上手 + 全面介绍）</a>。</p>
+<p>准备跟着这个来做一遍了。</p>
 
 
 
