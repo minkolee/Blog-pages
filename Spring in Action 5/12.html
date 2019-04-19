@@ -5,14 +5,254 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="base.css">
-    <title>Spring in Action 5 Self-learning notes 12 - Reactive 存取数据</title>
+    <title>Spring in Action 5 Self-learning notes 12 - Eureka 服务器配置</title>
 </head>
 <body>
-<p>响应式Web编程的三章看的还是挺刺激的，第一次接触到这种声明式编程和大量的lambda在Java中的应用，还需要好好适应一下。Java 8 和 9 的新特性也需要再学习一下。跟许多其他技能一样，语言的基础还是很重要的。</p>
-<p>这一章开始是云，之前从来没接触过，怕不是要学的云里雾里了，不过不管怎么样，开始吧。</p>
+<p>Eureka服务本身也是一个微服务，相当于一个黄页，只不过是动态的。其他的所有服务都要到Eureka其中注册，要使用服务的消费者需要到Eureka中查询服务的状态，然后根据Eureka返回服务的地址，去寻找对应的服务端点进行消费。</p>
+<p>根据SIA5的内容，这一次搭建一个简单的REST服务注册到Eureka里，再搭建一个前端用于消费REST数据来试验一下。</p>
+<p>先来看看Eureka服务器的相关内容。</p>
 
-<h1 style="text-align: center;">注册服务</h1>
-<p>Spring Cloud是一个很大的组件，由很多单独的子项目组成，其中一个子项目是Spring Cloud Netflix，提供了很多从Netflix开源的而来组件，经过Spring的修改，其中用于注册服务的组件是<code>Eureka</code>。</p>
+<h1 style="text-align: center;">Eureka服务器</h1>
+<p>Eureka的依赖是：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.cloud&lt;/groupId>
+    &lt;artifactId>spring-cloud-starter-netflix-eureka-server&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>由于Eureka一般不对外提供其他类型的服务，就起到注册作用，因此可以从Spring Initializr只选Eureka的依赖：<code>Eureka Server: spring-cloud-netflix Eureka Server</code>。</p>
+<p>如果通过Spring Initializr，会增加一个额外的配置：</p>
+<pre>
+&lt;dependencyManagement>
+    &lt;dependencies>
+        &lt;dependency>
+            &lt;groupId>org.springframework.cloud&lt;/groupId>
+            &lt;artifactId>spring-cloud-dependencies&lt;/artifactId>
+            &lt;version>${spring-cloud.version}&lt;/version>
+            &lt;type>pom&lt;/type>
+            &lt;scope>import&lt;/scope>
+        &lt;/dependency>
+    &lt;/dependencies>
+&lt;/dependencyManagement>
+</pre>
+<p>还有一个：</p>
+<pre>
+&lt;properties>
+    &lt;java.version>1.8&lt;/java.version>
+    &lt;spring-cloud.version>Greenwich.SR1&lt;/spring-cloud.version>
+&lt;/properties>
+</pre>
+<p>这里指定了Spring Cloud 的 Release Train信息在，最新的已经是Greenwich，如果要更换Spring Cloud的版本，<code>spring-cloud.version</code></p>
+<p>在生成了Eureka项目之后，唯一要做的，就是在启动类上添加一个新的注解<code>@EnableEurekaServer</code>：</p>
+<pre>
+package cc.conyli.servicereg;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.eureka.server.EnableEurekaServer;
+
+@SpringBootApplication
+<span style="color: red">@EnableEurekaServer</span>
+public class ServiceregApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ServiceregApplication.class, args);
+	}
+}
+</pre>
+<p>启动之后可以访问本地8080端口查看Web界面暴露的Eureka信息。Eureka还有一个XML端点，在<code>http://localhost:8080/eureka/apps</code>，打开之后显示：</p>
+<pre>
+&lt;applications>
+    &lt;script/>
+    &lt;versions__delta>1&lt;/versions__delta>
+    &lt;apps__hashcode/>
+&lt;/applications>
+</pre>
+<p>此时如果查看控制台，会发现每隔30秒左右就会出现一次异常，但是服务依然运行的好好的，这是因为每隔30秒Eureka就会去检测其他的Eureka，这个玩意天生是分布式的。正好来看看其配置：</p>
+
+<h3 style="text-align: center;">Eureka配置</h3>
+<pre>
+eureka.instance.hostname=localhost
+server.port=8761
+eureka.client.fetch-registry=false
+eureka.client.register-with-eureka=false
+eureka.client.service-url.map.defaultZone=http://${eureka.instance.hostname}:${server.port}/eureka
+</pre>
+<p>前两个配置是主机和端口号，中间两个配置是第一个是说eureka会从其他eureka实例中获取注册信息，第二个是说eureka将自己注册在其他eureka实例中。这两个默认都是true，这里设置成false因为目前只有一个eureka服务，就可以关闭上边说的异常，在有了多个的时候和生产环境的时候必须打开。</p>
+<p>最后一个是默认的zone，也就是eureka对外提供服务的完整端点，如果有多个eureka服务实例，这里不能都相同。重新启动服务就不报错了。</p>
+<p>还有一个配置：<code>eureka.server.enable-selfpreservation</code>表示Eureka每30秒钟会向所有注册服务去询问一下状态，看注册服务是否可用，如果90秒没有收到答复，就会将那个服务实例取消注册，如果设置为true，此时Eureka就会进入这个状态，不会取消注册服务。设置成false就会自动取消服务的注册。目前由于还没服务，可以设置成false，在生产环境则必须要设置为true。</p>
+
+<h3 style="text-align: center;">扩展Eureka</h3>
+<p>现在有了一个跑在本机的8761端口上的Eureka实例，如果需要扩展Eureka实例的数量，可以通过在yml文件中指定Eureka服务器的信息来配置多个Eureka服务：</p>
+<p>这块等以后再看看，我发现SIA5上边的逻辑好像有问题，启动了之后两个服务互相认不出对方，先启动一个Eureka实例，然后看看如何让服务来注册：</p>
+
+<h1 style="text-align: center;">服务端程序注册到Eureka中</h1>
+<p>这里我们就随便找一个之前曾经编写过，对外提供REST增删改查的程序，也可以新建一个非常简单的，但是在依赖里要添加：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.cloud&lt;/groupId>
+    &lt;artifactId>spring-cloud-starter-netflix-eureka-client&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>添加之后，这个服务端就可以作为Eureka的一个客户端，将自己注册到Eureka的服务中。注意，也需要把上边<code>dependencyManagement</code>和<code>properties</code>两段配置添加到pom文件中。</p>
+<p>我在这里写了简单的对外提供Student的REST API的一个客户端。</p>
+
+<h3 style="text-align: center;">将应用注册到Eureka中</h3>
+<p>首先必须给应用起一个名字，这个名字很重要，标识应用在Eureka中的名称：</p>
+<pre>
+spring.application.name=student-rest
+server.port=0
+</pre>
+<p>顺便把端口也改一下，设置为0表示随机端口，由于服务在Eureka中注册，所以什么端口就不重要了。</p>
+<p>启动项目，添加了依赖之后，默认会到localhost的8761端口寻找Eureka，注意看日志里<code>com.netflix</code>开头的几条输出：</p>
+<pre>
+Discovery Client initialized at timestamp 1555557575120 with initial instances count: 0
+Registering application STUDENT-REST with eureka with status UP
+DiscoveryClient_STUDENT-REST/localhost:student-rest:8001: registering service...
+DiscoveryClient_STUDENT-REST/localhost:student-rest:8001 - registration status: 204
+</pre>
+<p>可以看到注册成功，返回了204响应，此时刷新Eureka的页面，可以看到<code>Instances currently registered with Eureka</code>多出来了<code>UP (1) - localhost:student-rest:0</code>，这个就是刚启动的程序，已经注册为一个服务。</p>
+<p><code>spring-cloud-starter-netflix-eureka-client</code>除了可以将自己注册到Eureka之外，本身也是一个负载均衡器。</p>
+<p>点击注册的服务，虽然显示端口是0，但其实表示随机端口，可以进到该服务实际的actuator信息端点中，这里就顺便把actuator也加到依赖里吧：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-actuator&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>再次启动服务，刷新Eureka，可以发现点击连接就可以看到服务的端点信息了，虽然什么都没有，此时端口也发生了变化。可见一切都是动态的。</p>
+<p>现在使用的是默认端口，如果要更换要注册的Eureka服务器的地址和端口以及服务端点，可以配置：</p>
+<pre>
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+</pre>
+<p>如果有多个Eureka实例，可以配置多个，用逗号隔开。</p>
+
+
+<h3 style="text-align: center;">通过Eureka使用服务</h3>
+<p>为了不硬编码，需要让程序访问Eureka，获得要使用的服务，然后去访问对应的端点获取服务。</p>
+<p>如果服务有多个实例，也无需手工选择，让负责均衡器和Eureka进行沟通后选择比较好。有如下两种方法：</p>
+<ol>
+    <li>负载均衡的RestTemplate</li>
+    <li>Feign库</li>
+</ol>
+<p>先看第一种，在第七章消费REST 数据的时候使用过简单的的RestTemplate。在启用了当前的应用作为Eureka的客户端后，可以添加一个<code>@LoadBalanced</code>在RestTemplate的Bean上：</p>
+<pre>
+@Bean
+<span style="color: red">@LoadBalanced</span>
+public RestTemplate restTemplate() {
+    return new RestTemplate();
+}
+</pre>
+<p>因为云由各种微服务构成，这里我们编写另外一个应用，去消费API，新建一个项目选上Web和Eureka Discovery。这个应用里，我们由于数据都是通过API取得，所以就编写Service类就可以了。</p>
+<pre>
+package cc.conyli.consumer1.service;
+
+import cc.conyli.consumer1.entity.Student;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+@Service
+public class StudentService {
+
+    private RestTemplate restTemplate;
+
+    @Autowired
+    public StudentService(<span style="color: red">@LoadBalanced RestTemplate restTemplate</span>) {
+        this.restTemplate = restTemplate;
+    }
+
+    public Student getStudentById(String studentId) {
+        return restTemplate.getForObject("http://<span style="color: red">student-rest</span>/students/{id}", Student.class, studentId);
+    }
+}
+</pre>
+<p>这个Service其中的restTemplate域变量，注入的就是刚才新创建的用<code>@LoadBalanced</code>标注的新RestTemplate实例，注意参数里的写法。</p>
+<p>打开Eureka的页面可以看到，当前的应用也注册到了Eureka中，起的名字是student-consumer，此时我们就不是从数据库中读取数据，而是从REST API中读取数据，因此我们不需要知道具体的地址，只要知道是从哪个名称的服务进行读取就可以了，因此这里在主机名和端口的部分，直接用服务名称替代，让Eureka和Ribbon负载均衡器去帮我们寻找。只需要知道后边的地址就可以了。</p>
+<p>再编写一个简单的控制器，用于显示页面或者直接显示JSON都可以：</p>
+<pre>
+package cc.conyli.consumer1.controller;
+
+import cc.conyli.consumer1.entity.Student;
+import cc.conyli.consumer1.service.StudentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping(path = "/students", produces = "application/json;charset=UTF-8")
+public class StudentController {
+
+    public StudentService studentService;
+
+    @Autowired
+    public StudentController(StudentService studentService) {
+        this.studentService = studentService;
+    }
+
+    @GetMapping("/{id}")
+    public String getStudentById(@PathVariable("id") String id, Model model) {
+        Student student = studentService.getStudentById(id);
+        System.out.println("查到的Student：" + student);
+        model.addAttribute("student", student);
+        return "student";
+    }
+}
+</pre>
+<p>这样我们就使用了两个微服务，一个提供REST API也就是数据，另外一个通过REST API输出了学生信息渲染后的页面。</p>
+<p>如果还想启动更多的微服务，比如说输出课程信息，可以再增加一个微服务提供课程API，再提供一个输出课程的页面，与学生这个很类似。</p>
+<p>如果对象提供的是FLux或者Mono响应式数据流，那么就无需用RestTemplate，只需要替换成WebClient经过注解之后的实例注入就可以了，当然其他代码也需要改成响应式的：</p>
+<pre>
+@Bean
+<span style="color: red">@LoadBalanced</span>
+public WebClient.Builder webClientBuilder() {
+    return WebClient.builder();
+}
+</pre>
+<p>在注入的时候也需要使用注解：</p>
+<pre>
+@Service
+public class IngredientServiceClient {
+    private WebClient.Builder wcBuilder;
+
+    public IngredientServiceClient(<span style="color: red">@LoadBalanced WebClient.Builder</span> webclientBuilder wcBuilder) {
+        this.wcBuilder = wcBuilder;
+    }
+...
+}
+</pre>
+<p>注意这里的对象并不是直接传<code>WebClient</code>，而是传入<code>WebClient.builder</code>，在实际使用的时候需要先调用一个<code>.build()</code>方法来创建<code>WebClient</code>的实例就可以了：</p>
+
+
+<h3 style="text-align: center;">使用Feign库</h3>
+<p>依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.cloud&lt;/groupId>
+    &lt;artifactId>spring-cloud-starter-openfeign&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>注解<code>@EnableFeignClients</code>加在配置类上，然后创建一个接口即可，具体看SIA5书。</p>
+
+<h1 style="text-align: center;">总结</h1>
+<p>其实以前一直不知道云具体怎么分布，有了Eureka这个东西，自己试验着写了提供Student对象，Course对象的两个服务，各自启动。然后写了一个消费Student数据的，一个消费Course数据的，发现互相之间确实可以通信，而且无需知道实际运行的地址，非常方便。</p>
+<p>现在就是访问不同API的时候，如果遇到错误，要如何来处理的问题，应该是可以一层一层设置好HTTP响应码，然后来处理。</p>
+<p>配置好服务的时候，访问<code>http://localhost:8761/eureka/apps</code>，这个时候就会有数据了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
