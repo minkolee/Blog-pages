@@ -5,11 +5,69 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="base.css">
-    <title>Spring in Action 5 Self-learning notes 14 - 配置服务器</title>
+    <title>Spring in Action 5 Self-learning notes 14 - 错误和延迟处理</title>
 </head>
 <body>
-<p></p>
+<h1 style="text-align: center;">错误处理</h1>
+<p>如果服务取不到数据，或者发生错误，如果需要一层层的try catch和处理比较麻烦，有一个软件可以提供一旦出错之后，自动去执行其他的方法，来完成这个方法的返回结果。</p>
+<p>比如如果REST 服务查不到一个数据，那么可以返回一个默认的数据，需要添加依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.cloud&lt;/groupId>
+    &lt;artifactId>spring-cloud-starter-netflix-hystrix&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>这个也需要云的那两个配置一起发挥作用，之后在启动类上加上注解<code>@EnableHystrix</code>。</p>
+<p>然后在要修饰的方法之前加上：</p>
+<pre>
+@HystrixCommand(fallbackMethod = "getDefaultCourse")
+public Course getCourseById(String id) {
+    return restTemplate.getForObject("http://course-supplier/courses/{id}", Course.class, id);
+}
 
+public Course getDefaultCourse(String id) {
+    return restTemplate.getForObject("http://course-supplier/courses/{id}", Course.class, 1);
+}
+</pre>
+<p>原来的<code>getCourseById(String id)</code>如果查不到，就会返回500错误直接显示在页面上。现在有了这个之后，就可以指定出现错误后的fallback方法。</p>
+<p>fallback方法的参数和返回类型都必须与原来的方法一致，重新启动服务，在查不到的地方，就可以返回指定的内容了。一般可以把这个注解加载Service层的方法上，不让异常泄露到Controller层。</p>
+
+<h1 style="text-align: center;">超时处理</h1>
+<p>被@HystrixCommand(fallbackMethod = "getDefaultCourse")修饰的这个方法，还隐含了如果1秒钟都没有得到响应，也会去调用fallback方法的设置，如果要修改时间，可以修改注解：</p>
+<pre>
+@HystrixCommand(fallbackMethod = "getDefaultCourse", commandProperties = {@HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "500")})
+</pre>
+<p>这样就设置了具体的过期时间，如果不想要过期时间，配置如下：</p>
+
+<h1 style="text-align: center;">控制具体短路设置</h1>
+<p>默认加上这个注解之后，如果在10秒钟之内，对这个方法的调用有50%失败，会进入保护模式，所有的调用都会自动指向fallback方法，再经过5秒，会重新回到正常模式，调用又会先去调用被保护的方法。</p>
+<p>可以通过具体配置来修改。这些修改都是直接写在注解里的，可以看原书的383页。</p>
+
+<h1 style="text-align: center;">监控失败情况</h1>
+<p>hystrix也提供了Actuator端点，添加依赖之后在配置文件（已经在云上了）加上一条：</p>
+<p>management.endpoints.web.exposure.include=hystrix.stream</p>
+<p>重启服务之后，点开<code>http://localhost:7884/actuator/hystrix.stream</code>，这是一个流数据源，不断的可以看到各种统计数据。</p>
+<p>还可以使用监控面板，需要新建一个服务，然后开启Dashboard，由于这是个监控面板，因此可以使用一个固定的端口地址，比如7979：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.cloud&lt;/groupId>
+    &lt;artifactId>spring-cloud-starter-netflix-hystrix-dashboard&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>然后在启动类上添加<code>@EnableHystrixDashboard</code>，之后启动服务，访问<code>http://localhost:7979/hystrix</code>，就可以看到一个熊头的界面。</p>
+<p>界面上有一个长的input框，就把刚刚我们的服务暴露的hystrix.stream端点的地址填进去，之后回车，就可以看到监控界面。</p>
+<p>故意连续输错很多次，就可以看到变化了。对于监控状态的详细解释，可以查看原书387页。此外还可以整合多个应用的流到一个界面里。使用另外一个依赖叫做Turbine，具体查看原书吧，只是一些具体配置。</p>
+
+<h1 style="text-align: center;">总结</h1>
+<p>云的部分从刚开始的不太懂，到现在基本上也学完了，针对一个微服务，如果要作为云的一部分，需要给这个微服务添加很多成为云服务组件的特性，有如下的主要内容：</p>
+<ol>
+    <li>创建一个Eureka服务器</li>
+    <li>在Eureka服务器中注册为一个组件</li>
+    <li>创建配置分发服务器</li>
+    <li>通过配置分发服务器取得配置，还可以自动更新配置</li>
+    <li>添加错误处理和超时处理</li>
+    <li>通过面板监控错误和超时情况</li>
+</ol>
 
 
 
