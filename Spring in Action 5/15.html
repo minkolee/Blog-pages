@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="base.css">
+    <title>Spring in Action 5 Self-learning notes 15 - Actuator的使用</title>
+</head>
+<body>
+<h1 style="text-align: center;">Actuator 端点</h1>
+<p>这一章主要是Actuator的使用，都是一些纯粹的工具和配置方法，以记录要点的形式快速通过。</p>
+<p>修改默认路径：<code>management.endpoints.web.base-path=/ac</code></p>
+<p>默认只有/health和/info端点，可以自行添加和减少内容：</p>
+<pre>
+management.endpoints.web.exposure.include=beans  //指定某个端点开放
+management.endpoints.web.exposure.include=* //全部开发
+management.endpoints.web.exposure.exclude=info //指定某个端点不开放
+</pre>
+
+<h3>/info</h3>
+<p>可以在配置文件内以<code>info.xxx.xxx</code>的方式进行配置，这里边的信息都会被/info端点展示出来。</p>
+
+<h3>/health</h3>
+<p>这个/health表示的是这个应用依赖的外部应用的状态，而不是自己的状态。UP表示正常，其他的DOWN，UNKNOWN，OUT_OF_SERVICE，只要有一个依赖的外部服务异常，就会显示出对应的代码。</p>
+<code>management.endpoint.health.show-details=always</code>设置了之后，就可以显示详细的外部服务依赖信息。所有的依赖都至少有一个diskspace，表示文件系统。
+<p>Spring还对很多常用的外部依赖可以具体显示情况，详情看原书402页。</p>
+
+<h3>/beans</h3>
+<p>显示当前Web应用的Spring容器里所有的Bean，可以详细知道每一个Bean的源文件，以及注入的依赖。</p>
+
+<h3>/conditions</h3>
+<p>表示Spring容器里所有根据某些条件决定组装或者不组装的Bean，以及无条件组装的Bean的清单</p>
+
+<h3>/env</h3>
+<p>所有配置变量，可以通过变量的具体名称来获取详情，比如<code>http://localhost:8080/actuator/env/server.port</code></p>
+<p>还可以向/env端点进行POSTJSON对象来配置属性。注意，如此POST的属性都是临时的，在服务重启之后会消失。</p>
+
+<h3>/mappings</h3>
+<p>所有对外提供的端点及映射，非常详细，包含可访问的方法及对应的处理类和方法。</p>
+
+<h3>/loggers</h3>
+<p>应用里所有类的日志级别，可以通过POST设置。</p>
+
+<h3>/httptrace</h3>
+<p>列出100个最近的HTTP请求的详细信息，包括请求头，响应头，uri，方法等。</p>
+
+<h3>/headdump</h3>
+<p>是一个堆文件的内存dump，比较高级，这里不展开了。</p>
+
+<h3>/threaddump</h3>
+<p>当前线程情况的快照</p>
+
+<h3>/metrics</h3>
+<p>列出所有可以监控的metric，可以使用具体的名称加在后边，比如常用的<code>http://localhost:8080/actuator/metrics/http.server.requests</code>，可以显示出HTTP的处理时间等信息。</p>
+
+<p>后边的自定义内容了解即可，一般还需要使用Spring Security来保护Actuator的端点，最好不要将其对外开放，一般可以指定给管理员角色即可。</p>
+
+
+<h1 style="text-align: center;">图形化监控Actuator</h1>
+
+<h3 style="text-align: center;">Spring Admin 服务器</h3>
+<p>和之前的Eureka和配置分发服务器还有熔断监控服务器类似，我们的每个微服务都启动了Actuator之后，可以使用一个客户端来集中监控所有的Actuator信息。</p>
+<p>这个客户端就是Spring Admin，是一个自动去消费Actuator提供的REST API的监控服务器。</p>
+<p>套路也是一样的，先添加依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>de.codecentric&lt;/groupId>
+    &lt;artifactId>spring-boot-admin-starter-server&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>之后在启动类上添加<code>@EnableAdminServer</code>注解。最好把端口设置为9090，之后启动这个应用，就变成一个Spring Admin服务器了。</p>
+
+<h3 style="text-align: center;">Spring Admin 客户端</h3>
+<p>客户端要连接到这个监控服务器，需要添加依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>de.codecentric&lt;/groupId>
+    &lt;artifactId>spring-boot-admin-starter-client&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>学习云道现在，对这种模式已经不陌生了。剩下肯定还需要修改配置：</p>
+<pre>
+boot.admin.client.url:localhost:9090
+</pre>
+<p>注意，现在我们云配置了，这个也需要去写在各个程序的云配置里。</p>
+<p>注意<code>spring.application.name</code>也要写，这个是不能写在云的配置里的。重新应用之后，就可以发现应用已经注册在Admin里。</p>
+
+<p>还可以将Admin注册为一个Eureka服务，如果注册了Eureka服务，则完全不需要为每个服务配置成为Admin Client，Admin会通过Eureka找到所有服务然后使用它们的端点。</p>
+<p>如果不想Admin注册为一个服务，可以在其配置里写上 <code>eureka.client.register-with-eureka=false</code></p>
+<p>剩下的部分主要是怎么看这些内容了。还有一个特殊的地方就是如果Actuator设置了身份验证，需要配置一下用户名和密码：</p>
+<pre>
+spring.boot.admin.client.url=localhost:9090
+spring.boot.admin.client.instance.metadata.user.name=***
+spring.boot.admin.client.instance.metadata.user.password=***
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
