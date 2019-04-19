@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="base.css">
+    <title>Spring in Action 5 Self-learning notes 13 - 配置服务器</title>
+</head>
+<body>
+<p>有了注册服务器，解决了服务之间互相找其他服务的依赖问题（这也是更广范围的依赖注入啊哈哈），还有一个问题需要解决，就是配置问题。</p>
+<p>之前每个微服务的配置都是散落在各自的软件包中。这一次就要来看看Spring Cloud’s Config Server，是一个集中配置到一处的服务器，通过这个服务器可以集中配置所有注册的服务，而且不会重复。</p>
+<p>集中式配置相比每个微服务独立配置，有很多好处，就不一一看了，来看看如何启动一个配置服务器吧。</p>
+
+<h1 style="text-align: center;">运行配置服务器</h1>
+<p>配置服务器的本质和Eureka一样，也是一个微服务，对外暴露REST API，可以被其他程序当成配置属性进行消费。一般来说配置服务器的配置文件并不直接放在配置服务器中，而是放在其他地方比如Git上，配置服务器通过读取这些配置，将配置分发给需要配置的微服务们。</p>
+<p>依赖是：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.cloud&lt;/groupId>
+    &lt;artifactId>spring-cloud-config-server&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>还需要在启动类上添加一个注解<code>@EnableConfigServer</code>，然后还需要在配置文件里指定配置的地址：</p>
+<pre>
+spring.cloud.config.server.git.uri=https://github.com/habuma/tacocloud-config
+server.port=8888
+</pre>
+<p>这里先用了原书作者的配置，之后要创建自己的配置仓库。此外端口要设置为8888，这是默认情况下，其他微服务会去寻找的配置服务器的端口号。</p>
+<p>注意这些配置都是针对配置服务器自己的，不会对外发布。真正对外发布的配置是从git或者其他SVN工具上拿回来的内容。</p>
+<p>启动服务器，然后访问<code>localhost:8888/application/default</code>看看：</p>
+<p>可以看到返回了一堆JSON，如果要取到对应的Git上的具体配置，就需要看一下URL规则：</p>
+<pre>http://localhost:8888/<span style="color: red">application</span>/<span style="color: #22bb5b">default</span>/<span style="color: #c95e00">master</span></pre>
+<p>红色的部分是应用名称，也就是在Eureka中注册的服务的名称，需要和git上具体的配置文件名称对应起来。</p>
+<p>绿色字体用来区分不同的配置文件。</p>
+<p>橙色字体则表示Git的分支，默认就是主分支，不写也行。</p>
+
+<h3 style="text-align: center;">创建仓库</h3>
+<p>最简单的方法，就是把想要的配置文件以服务名称.properties或者.yml的方式推送到一个Git仓库的根目录下边。</p>
+<p>在刚才使用了作者的仓库，可以在返回的JSON中的<code>propertySources</code>中看到一些配置，现在起一个空白项目，然后传一个默认的配置上去看看。</p>
+<p>这里我搞了一个Github仓库：<a href="https://github.com/minkolee/cloudconfig" target="_blank">https://github.com/minkolee/cloudconfig</a>，先传了一个微服务的配置上去，修改一下配置服务器的地址，然后再启动看看：</p>
+<pre>
+{
+    "name": "application",
+    "profiles": [
+        "default"
+    ],
+    "label": null,
+    "version": "815d67f81681f979f6b60c421ce0a64c12326903",
+    "state": null,
+    "propertySources": [
+        {
+            "name": "https://github.com/minkolee/cloudconfig/application.properties",
+            "source": {
+                "server.port": "0",
+                "spring.application.name": "student-consumer"
+            }
+        }
+    ]
+}
+</pre>
+<p>能看到propertySources属性中的name，来自于什么文件，已经source，就是文件里的具体配置。如果配置文件不是放在根目录，可以在服务器的配置内加上：</p>
+<pre>
+spring.cloud.config.server.git.search-paths=config,metaconfig,conf*
+</pre>
+<p>这样就可以去寻找多个目录下的配置文件，还可以使用通配符。另外<code>spring.cloud.config.server.git.default-label</code>还能指定具体的分支。</p>
+<p>如果版本管理工具需要用户名和密码的话，也可以指定：</p>
+<pre>
+spring.cloud.config.server.git.username=****
+spring.cloud.config.server.git.password=****
+</pre>
+
+<h1 style="text-align: center;">获取配置数据</h1>
+<p>像Eureka一样，给每一个应用添加依赖，就可以为每个应用开启寻找配置的功能：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.cloud&lt;/groupId>
+    &lt;artifactId>spring-cloud-starter-config&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>然后需要为每个应用指定配置服务器的位置：</p>
+<pre>
+spring.cloud.config.uri=http://localhost:8888
+</pre>
+<p>现在就可以把每个微服务的配置文件搬上去了，注意要把每个微服务的配置文件，修改成与<code>spring.application.name</code>属性一致的名称.properties或者.yml文件就可以了。</p>
+<p>在重启每个微服务的时候，可以看到并没有一开始就启动，而是显示：</p>
+<pre>c.c.c.ConfigServicePropertySourceLocator : Fetching config from server at : http://localhost:8888</pre>
+<p>还成功显示出具体对应的配置文件，之后一系列配置就生效了。</p>
+<p>我这里把四个微服务配置都搬了上去，然后也开启了configserver在Eureka中的注册，发现所有的服务都正常了。</p>
+<p>本章剩下的内容是配置具体的profile，以及加密安全配置，这块以后再来看了。</p>
+
+<h1 style="text-align: center;">刷新配置</h1>
+<p>将一个应用配置为Config Client之后，这个应用会有一个特殊的actuator端点，需要安装Actuator的依赖：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework.boot&lt;/groupId>
+    &lt;artifactId>spring-boot-starter-actuator&lt;/artifactId>
+&lt;/dependency>
+</pre>
+<p>手动刷新就是POST一个属性到/actuator/refresh。这里创建一个控制器用于从配置文件读入一些属性，然后去修改git仓库中的配置，再读，可以发现没有读出新的数据。</p>
+<p>此时就可以向应用的端点发送POST请求，比如用Postman，这次随机端口是1898：</p>
+<pre>
+http://localhost:1898/actuator/refresh
+</pre>
+<p>但是实际操作发现更新这一块POST返回的是404，查看暴露的端点发现压根就没有<code>/actuator/refresh</code>。这块只好以后再来了。</p>
+<p>至于自动更新的部分，需要创建WebHook然后通知Spring，之后用消息队列来通知各个应用更新，这块先不写具体代码了，不过原理搞清楚了。实际上关键就是WebHook。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
