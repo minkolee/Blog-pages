@@ -97,11 +97,11 @@ spring.boot.admin.client.instance.metadata.user.password=***
 
 <h1 style="text-align: center;">JMX 监听</h1>
 <p>Java历史很悠久，这么多库都是业界共同努力创建标准，刚知道对于监控程序的内部情况，也有一个标准叫做JMX。</p>
-<p>想让Spring Boot应用被JMX监听，只需要配置Actuator，来暴露符合JMX规范的端点就可以了。</p>
-
-
-
-
+<p>想让Spring Boot应用被JMX监听，JDK在bin目录下有一个自带的<code>jconsole.exe</code>，启动之后就可以对actuator的端点进行监听。</p>
+<p>启动jconsole之后，会自动列出所有当前的java虚拟机进程应用名称，其中选择和项目名称的启动类同名的进程，就可以进行监听了。</p>
+<p>进入监听之后，选择最后一项<code>MBean</code>，然后选择<code>org.springframework.boot</code>中的<code>Endpoint</code>，可以监听具体的内容。</p>
+<p>比如选择了info，然后选执行命令，就可以看到结果中就是自己设定的键值对。</p>
+<p>这里简单了解一下即可，自定义Mbean之类以后有需要再来看吧。</p>
 
 
 
