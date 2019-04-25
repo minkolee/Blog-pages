@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
+    <title>函数式编程 - 函数</title>
+    <script src="vue.js"></script>
+</head>
+<body>
+<p>这是<a href="https://item.jd.com/12256043.html" target="_blank">Java函数式编程</a>的自学笔记。</p>
+<h1 style="text-align: center;">函数的概念</h1>
+<p>函数的定义域叫做domain，就是source set。结果集叫做 codomain，二者并不一定不相同。</p>
+<p>深入理解函数的本质在于函数可以被结果直接替换，没有不可控的副作用。</p>
+<p>但是所有的domain中的元素，必须在codomain中存在唯一对应的元素。也就是意味着：</p>
+<ol>
+    <li>domain中的元素，在codomain中不能没有对应的元素</li>
+    <li>domain中的一个元素，codomain中不能存在两个或更多对应的元素</li>
+    <li>codomain中的元素不能在domain中没有对应的元素</li>
+    <li>可以有domain中的多个元素对应一个codomain中的元素</li>
+</ol>
+<p>codomain中所有与domain中有对应关系的元素组成的集合叫做元素的image（像）。</p>
+<p>看了英文版原书，发现其实domain和codomain是人为规定的定义域和结果集，比如如果规定<code>f(x) = 2 * x</code>，规定x为整数集和codomain也是整数集，那么只有偶数是函数的像。</p>
+<p>一个函数未必会有逆函数，即反向计算的关系不一定符合正向的结果。比如一个值可能反过来对应多个值。还是前边的<code>f(x) = 2 * x</code>，如果domain和codomain都是整数集，则不存在逆函数。</p>
+<p>复合函数为 f◦g，表示f(g(x))。</p>
+<p>多参函数实际上不存在，需要将所有的参数看成是一个特殊的组合，比如元组。所以可以理解为，给定一个元组，返回一个特定的结果。</p>
+
+<h3 style="text-align: center;">函数柯里化</h3>
+<p>这是理解函数式编程的一个关键。加入有一个函数<code>f(x+y) = n</code>，如果可以将其改写成<code>f(x)(y) = n</code>，后者就是前者的柯里化函数。</p>
+<p>柯里化的关键是，f(x)返回一个函数，这个函数直接作用于第二个参数y，最终得到结果。</p>
+<p>f(x)的codomain此时不是一个具体的结果，而是一个函数集，其中附带着已经确定的x。</p>
+
+<h1 style="text-align: center;">Java中的函数</h1>
+<p>在Java中，没有独立存在的函数，只有方法。并不是所有的方法都是函数式的，满足纯函数的要求，可以说是函数式的：</p>
+<ol>
+    <li>不能修改函数之外的东西</li>
+    <li>不能修改参数</li>
+    <li>不能抛出异常和错误</li>
+    <li>必须返回一个值</li>
+    <li>调用参数相同，结果也必须相同</li>
+</ol>
+
+<h1 style="text-align: center;">将实例方法改写成静态方法</h1>
+<p>有些对象的方法，在其中直接调用了实例变量，而没有通过参数传入，这种函数不是纯函数，因为实例变量可能发生变化。</p>
+<p>如果把实例变量传入函数，由于依然与实例绑定，因此也不是纯函数，最好将其改造为传入的是一个对象，这样这个方法就会实例无关，可以改造成一个静态方法。</p>
+<p>将所有的参数都显式写在参数上，对实例的引用改成一个对象变量，就可以彻底改造成静态方法。</p>
+<p>简单的链式调用的改写，则需要实例方法返回一个带有当前计算过的所有参数的新对象即可。</p>
+
+<h1 style="text-align: center;">Java 的函数式接口与匿名类</h1>
+<pre>
+package fpinjava.chapter2;
+
+public interface Function&lt;T,R> {
+
+    R apply(T t);
+
+    static Function&lt;Integer, Integer> compose(Function&lt;Integer, Integer> f1, Function&lt;Integer, Integer> f2) {
+        return new Function&lt;Integer, Integer>() {
+            @Override
+            public Integer apply(Integer integer) {
+                return f2.apply(f1.apply(integer));
+            }
+        };
+    }
+}
+</pre>
+<p>在使用的时候，可以编写这个Function类的多个实例：</p>
+<pre>
+public static void main(String[] args) {
+
+    Function&lt;Integer,Integer> triple =new Function&lt;Integer, Integer>() {
+        @Override
+        public Integer apply(Integer integer) {
+            return integer * 3;
+
+        }
+    };
+
+
+    Function&lt;Integer,Integer> square = new Function&lt;Integer, Integer>() {
+        @Override
+        public Integer apply(Integer integer) {
+            return integer * integer;
+        }
+    };
+
+    //静态方法Compose用于组合两个Integer泛型的函数
+
+    Function&lt;Integer, Integer> tripleThenSquare = Function.compose(triple, square);
+
+    System.out.println(tripleThenSquare.apply(4));
+
+    Function&lt;Integer, Integer> squareThenTriple = Function.compose(square, triple);
+
+    System.out.println(squareThenTriple.apply(4));
+}
+</pre>
+<p>由于Java的函数一定要有个对象罩着，实际上将squareThenTriple.apply(4)理解成 squareThenTriple(4)更加易于学习函数式编程</p>
+<p>同样，可以将triple.apply(4)理解为triple(4) square.apply(4)理解成square(4)</p>
+<p>那么compose的结果就是 square(triple(4))或者 triple(square(4)) 取决于参数顺序和compose方法的具体编写</p>
+<p>可以看到，就像是先把参数进行了第一个参数里的函数的运算，结果再交给第二个参数的函数运算一样</p>
+<p>但是可以发现，自己编写新的函数对象的时候，实际上还是new 了一个对象出来，然后重写方法。</p>
+<p>可以用lambda表达式，让Java程序看上去像是一个函数而不是一个对象+方法。</p>
+
+
+<h1 style="text-align: center;">lambda表达式</h1>
+<p>在之前总以为lambda表达式主要是简化函数。其实最重要的是，lambda表达式为代码编译提供了类型推断。</p>
+<p>看一下原来的代码：</p>
+<pre>
+Function&lt;Integer,Integer> triple = new Function&lt;Integer, Integer>() {
+    @Override
+    public Integer apply(Integer integer) {
+        return integer * 3;
+
+    }
+};
+</pre>
+<p>triple变量的类型已经由前边的<code>Function&lt;Integer,Integer></code>声明了，所以我们知道，后边去new一个新对象的时候，一定也是<code>Function&lt;Integer,Integer></code>对象。</p>
+<p>原来的接口只有一个方法，要让对象成为接口的实现类，一定会重写唯一的方法。这个方法的返回值和名称都写在了接口里。</p>
+<p>也就是说，这段代码里标为红色的部分，即使不写出来，我们也能推断出来：</p>
+<pre>
+Function&lt;Integer,Integer> triple = <span style="color:red">new Function&lt;Integer, Integer>()</span> {
+    <span style="color: red">@Override</span>
+    <span style="color: red">public Integer apply</span>(Integer integer) {
+        return integer * 3;
+    }
+};
+</pre>
+<p>当然参数的类型也是可以知道的，因为被泛型确定了。但是由于函数体的计算过程需要形参的名称，所以不能省略。</p>
+<p>既然如此，我们就传入一个lambda表达式来代替这个匿名的接口实现类对象，只保留需要的内容：</p>
+<pre>
+Function&lt;Integer, Integer> triple = arg -> arg * 3;
+</pre>
+<p>后边就是Java 8 中的lambda表达式的标准形式，相比原来的匿名类，这个表达式看起来就像是一个函数对象而不是一个类对象，当然，实际上Java 8是没有函数对象的。</p>
+<p>所以凡是匿名内部类的地方，都可以考虑换成lambda表达式，只要通过观察看是否可以推断出类型即可：</p>
+<p>修改后的compose静态方法如下：</p>
+<pre>
+package fpinjava.chapter2;
+
+public interface Function&lt;T,R> {
+
+    R apply(T t);
+
+    static Function&lt;Integer, Integer> compose(Function&lt;Integer, Integer> f1, Function&lt;Integer, Integer> f2) {
+        return arg -> f2.apply(f1.apply(arg));
+    }
+}
+</pre>
+<p>如果思维绕不过来，就记住，lambda表达式是一个匿名对象，并不是一个函数，也不是函数的值，就可以了。</p>
+
+<h1 style="text-align: center;">高阶函数特性-函数返回函数or函数的参数是函数</h1>
+
+<h3 style="text-align: center;">把多参函数转换为柯里化函数</h3>
+<p>前边已经说过，不存在多个参数的函数，形式上的多参函数，其参数其实是一个元组。但是，参数可以一个一个的应用。</p>
+<p>理论上来说，一个函数的参数是元组，则也可以找到一个函数，对元组里的各个元素一个个的应用函数即可。</p>
+<p>这就要求在过程中，每一次应用一个函数，会生成一个新的函数，直到最后一个函数来求值。</p>
+<p>前边我们写了：</p>
+<pre>
+public interface Function&lt;T,R> {
+    R apply(T t);
+}
+</pre>
+<p>表示这个函数对象通过传入T返回R类型，现在新建一个声明：（注意，不要将其想成匿名对象，想成其中的方法就是对象，就是一个函数对象）</p>
+<pre>
+Function&lt;Integer, Function&lt;Integer,Integer>> myFunction
+</pre>
+<p>这个声明是什么意思呢，从泛型可以看出，这个函数接受一个Integer，返回一个Function&lt;Integer,Integer>。即我们的函数对象接受一个整数，返回一个接受整数返回整数的函数。</p>
+<p>也就是说，假如此时我们执行：</p>
+<pre>
+myFunction.apply(5)
+</pre>
+<p>返回的是一个<code>Function&lt;Integer,Integer></code>对象。</p>
+<p>刚才我们已经知道，对于<code>Function&lt;Integer, Integer></code>可以写成lambda表达式，那么这个myFunction可以写成伪代码：</p>
+<pre>
+Function&lt;Integer, Function&lt;Integer,Integer>> myFunction = Integer - >(Function&lt;Integer,Integer>);
+</pre>
+<p>而<code>Function&lt;Integer, Integer></code>依然可以写成lambda表达式，最终就是：</p>
+<pre>
+Integer -> (Integer -> Integer)
+</pre>
+<p>更刺激的是还可以去掉括号，因为函数是从右向左逐层求值然后递归的，变成<code>Integer -> Integer -> Integer</code>。</p>
+<p>这里我们没有编写具体的计算结果的函数体，就以返回值作为伪代码来示例，但是这样也已经足够刺激了，至少我看到的时候内心“卧槽”了一声，Java代码还能这么写。</p>
+<p>如果用这种方式编写两个数相加的函数，如下：</p>
+<pre>
+Function&lt;Integer, Function&lt;Integer, Integer>> add = x -> y -> x + y;
+</pre>
+<p>注意这里的x和y其实是两个不同的参数，分别为先接受的第一个参数，和接受了第一个参数之后返回的函数需要再接受的参数。由于我们的Function函数（实际上是类）每次只接受一个函数，因此这里编写的两个数相加的函数，其实就是<code>add(x,y) = x + y</code>的柯里化函数：<code>add(x)(y) = x + y</code>。</p>
+<p>想一下，如果这个函数用没有lambda表达式的Java语言写出来会是什么样子：</p>
+<pre>
+Function&lt;Integer, Function&lt;Integer, Integer>> curry = new Function&lt;Integer, Function&lt;Integer, Integer>>() {
+    @Override
+    public Function&lt;Integer, Integer> apply(Integer x) {
+        return new Function&lt;Integer, Integer>() {
+            @Override
+            public Integer apply(Integer y) {
+                return x + y;
+            }
+        };
+    }
+};
+</pre>
+<p>相比lambda表达式，看明白上边这串玩意要花点功夫，不要说更复杂的逻辑了。</p>
+<p>有了这个函数之后，其实相当于我们有了一个新的接口，原来的接口标示了 f(T) -> R，现在可以创建一个新接口，用于标识 f(T)(T) -> R：</p>
+<pre>
+public interface BinaryOperator extends Function&lt;Integer, Function&lt;Integer, Integer>> {
+}
+</pre>
+<p>这个接口继承了原来的泛型接口的一个具体类型的接口，其中的apply方法也继承了过来，返回一个<code>Function&lt;Integer, Integer></code>对象。</p>
+<p>我们的这个<code>BinaryOperator</code>接口，实际上就是一个先后接收两个参数，返回一个结果的函数对象。</p>
+<p>有了这个，定义两个参数的函数就方便多了：</p>
+<pre>
+BinaryOperator add = x -> y -> x + y;
+
+BinaryOperator multi = x -> y -> x * y;
+
+BinaryOperator pow = x -> y-> {
+    int temp = 1;
+    for (int i = 0; i < y; i++) {
+        temp *= x;
+    }
+    return temp;
+};
+</pre>
+<p>最后一个是取x的y次幂，lambda表达式还可以具体使用参数来计算结果，可以写任意长度的逻辑，保证返回值与需要的一致即可。</p>
+<p>这样就完成了函数的柯里化。遗憾的是，在应用具体操作的时候，只能写成：</p>
+<pre>
+System.out.println(add.apply(3).apply(4));
+System.out.println(multi.apply(3).apply(4));
+System.out.println(pow.apply(5).apply(5));
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

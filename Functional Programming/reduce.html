@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
+    <title>reduce的三种重载</title>
+    <script src="vue.js"></script>
+</head>
+<body>
+<h1 style="text-align: center;">reduce的重载秘密</h1>
+<p>在之前看SIA5的过程中，比较头疼的就是lambda表达式还不是很熟练，反应式的流全部都要用函数式编程，这两天正好在补一补lambda的相关知识。</p>
+<p>Java 8里对于lambda最多的应用就是集合加上一个<code>.stream()</code>变成Stream接口对象，然后用lambda表达式操作。其中常用的map，filter，reduce方法的参数都是Java 8里新增的一批函数式接口<code>@FunctionalInterface</code>。</p>
+<p>昨晚在看<a href="https://item.jd.com/11673259.html" target="_blank">《Java 8 函数式编程》</a>的时候，仿照书上的例子写了段代码：</p>
+<pre>
+ArrayList&lt;String> s = stringList.stream().reduce(new ArrayList&lt;String>(), (x, y) -> {
+    if (y.length() > 3) {
+        x.add(y);
+
+    }
+    return x;
+}, (x, y) -> x);
+</pre>
+<p>但是发现如果把第三个参数去掉，就总是报错。一开始没有想明白，由于reduce的原理是不断的操作前两个数字（包含或者不包含初始值），得到一个结果继续和第三个数字计算，那我把初始值设置为一个新的集合，然后每次用集合和下一个元素操作，将下一个元素加到集合中来，再返回这个集合，逻辑上应该不存在任何问题。</p>
+<p>后边反复看了reduce的三个重载方法，才发现奥秘所在。</p>
+<p>reduce的三个重载分别是一个参数，二个参数和三个参数的重载，分别是：</p>
+<ol>
+    <li><code>Optional&lt;T> reduce(BinaryOperator&lt;T> accumulator)</code></li>
+    <li><code>T reduce(T identity, BinaryOperator&lt;T> accumulator);</code></li>
+    <li><code>&lt;U> U reduce(U identity, BiFunction&lt;U, ? super T, U> accumulator, BinaryOperator&lt;U> combiner);</code></li>
+</ol>
+
+<h3 style="text-align: center;">单参数的reduce</h3>
+<p>从泛型方法可以看到，单参数的类型限定死了，一定就是Stream&lt;T>中的类型T，而且由于没有初始值，是直接从流的前两个元素开始计算。</p>
+<p>其中的参数<code>BinaryOperator&lt;T></code>就是我遇到的坑，这个参数和两参数的reduce重载方法的第二个参数是一样的。</p>
+<p><code>BinaryOperator&lt;T></code>是一个特殊的BiFunction，其定义是 <code>public interface BinaryOperator&lt;T> extends BiFunction&lt;T,T,T></code>。</p>
+<p>可以发现，这个参数强制要求两个传入的类型和返回类型都相同，所以单参数和两参数的reduce其实没有什么花头，能返回的东西都已经限定好了。</p>
+<p>单参数的特点是返回一个<code>Optional&lt;T&gt;</code>对象，这也是Java 8新增的对象，用于包装可能是null的对象，在null的情况下可以通过<code>.orElse()</code>返回内容。</p>
+
+<h3 style="text-align: center;">两参数的reduce</h3>
+<p>两参数的reduce相比单参数，只不过多了一个初始值，在计算的时候，是拿初始值和流内第一个元素进行计算，然后再依次与其他元素进行计算。</p>
+<p>其类型限定依然已经定死，就是流的类型。而且不会返回Optional对象，这是因为有初始值，所以结果不可能是null。</p>
+<p>我在最开始提到的问题就是，删掉第三个参数之后，类型已经限定死了，初始值的类型必须与流中的元素类型一致，所以总是不通过。</p>
+<p>如果要实现自定义的逻辑，那就必须采用三参数的reduce了，因为三参数的reduce的第二个参数与前两个重载不同。</p>
+
+<h3 style="text-align: center;">三参数的reduce</h3>
+<p>三参数的reduce的第二个参数是<code>BiFunction&lt;U, ? super T, U> accumulator</code>，这是任意一个类型（初始值的类型）与流元素的超类（因为要和流元素做运算）做运算，返回初始值类型的<code>BiFunction</code>函数式接口，采用这个，就可以解决我开头的问题了。</p>
+<p>那么第三个参数有什么用呢？第三个参数是两个相同的类型计算出一个相同的类型，而且都是最终返回类型。</p>
+<p>第三个参数只有在并行计算即<code>.stream().parallel()</code>之后才会发生作用。</p>
+<p>回想一下，如果不采用并行计算，reduce的计算方式肯定是单线程的，因为不可能直接计算出最终结果，而是每一个计算都依赖于上一个计算。</p>
+<p>而并行计算的话，很显然与非并行计算的计算方式不同，如果还是按照原来reduce的方式进行计算，多线程也没有用，因为结果一步一步都互相依赖。</p>
+<p>实际上，并行计算之后，计算方式不再是将结果依次与下一个元素计算，而是直接拿初始值与流中的每一个元素进行计算，这个过程被第二个参数控制。</p>
+<p>计算出来的各个结果如何合并，则由第三个参数进行控制。</p>
+<p>用一个简单的例子来说明：</p>
+<pre>
+Stream&lt;Integer> integerStream = Stream.of(3, 4, 5, 6, 7);
+Stream&lt;Integer> integerStream2 = Stream.of(3, 4, 5, 6, 7);
+
+int parellelResult = integerStream.parallel().reduce(10, (x, y) -> x + y, (x, y) -> (x * y));
+
+int result = integerStream2.reduce(10, (x, y) -> x + y);
+
+System.out.println("单线程操作的结果是："+result);
+
+
+System.out.println("并行操作的结果是："+parellelResult);
+</pre>
+<p>单线程操作的结果很明显，是10+3+4+5+6+7=35。</p>
+<p>并行操作呢，结果实际上是(10+3)*(10+4)*(10+5)*(10+6)*(10+7)，第二个参数中的(x,y)实际上变成了初始值和每一个元素的运算过程，最后一个参数则表示将所有的结果相乘。</p>
+
+<p>最后还要提一句的是，标准的<code>BiFunction</code>函数式接口是：</p>
+<pre>
+public interface BiFunction&lt;T, U, R> {
+    R apply(T t, U u);
+}
+</pre>
+<p>看仔细喽，reduce方法中的<code>BiFunction</code>参数全部都不是标准的<code>BiFunction</code>函数式接口。这就是昨晚让我一开始困惑的地方。</p>
+
+
+<h3 style="text-align: center;">结论</h3>
+<p>所以reduce一共有三个重载方法，但是有四种应用场合，两种计算逻辑。应用reduce的情况可以总结如下：</p>
+<ol>
+    <li>不需要初始值且无需改变返回类型，使用单参数的reduce方法，注意返回的是Optional对象</li>
+    <li>需要初始值且无需改变返回类型，使用两参数的reduce方法，直接返回指定类型</li>
+    <li>单线程对所有元素依次操作，需要返回其他类型，使用三参数的reduce方法，第三个参数随便传个lambda表达式即可，没有影响</li>
+    <li>多线程同时操作所有元素然后进行联合，需要增加<code>.parallel()</code>，此时reduce的计算逻辑会发生变化。</li>
+</ol>
+
+<p>如何理解单线程reduce的思想呢，就拿编程这事来说吧，经常面临的情况是：</p>
+<ul>
+    <li>想要会A，发现需要懂B</li>
+    <li>想懂B，发现需要掌握C</li>
+    <li>想掌握C，发现需要了解D</li>
+    <li>想了解D，发现需要深入理解E</li>
+    <li>想深入了解E，发现需要精通F</li>
+</ul>
+<p>然后就开始看F，看完以后得到了精通F的自己，然后再看E，得到了精通F和理解E的自己，一直到看完A。得到了懂ABCDEF的自己。</p>
+<p>链式调用，也是一种函数式的改造，比如<code>myself.learn(F).learn(E)....</code></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
