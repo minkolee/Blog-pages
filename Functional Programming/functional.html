@@ -229,11 +229,76 @@ System.out.println(add.apply(3).apply(4));
 System.out.println(multi.apply(3).apply(4));
 System.out.println(pow.apply(5).apply(5));
 </pre>
+<p>像python可以写成<code>add(3)(4)</code>，但在Java里不能这么写。</p>
 
+<h3 style="text-align: center;">高阶函数</h3>
+<p>之前的compose方法，接受两个函数对象，返回一个函数对象。但是apply方法中是直接调用了函数的结果。</p>
+<p>现在我们要函数套函数，采用柯里化的方式来改造compose方法，也就是接受第一个函数参数，应用过之后，再应用到第二个函数参数上，最后还得到一个函数对象。</p>
+<p>仔细想想原来的例子：</p>
+<code>Function&lt;Integer, Function&lt;Integer, Integer>></code>
+<p><code>Function&lt;Integer, Integer></code>表示一个从Integer到Integer的关系，即函数，如果接收一个函数返回一个函数，则应该是<code>Function&lt;Function&lt;Integer, Integer>, Function&lt;Integer, Integer>></code></p>
+<p>那么第一个参数显然应该第二个函数对象的参数，也就是<code>Function&lt;Integer, Integer></code></p>
+<p>最终的函数应该是：<code>Function&lt;Function&lt;Integer, Integer>, Function&lt;Function&lt;Integer, Integer>, Function&lt;Integer,
+    Integer>>></code></p>
+<p>如果不理解的话，只要想想<code>Function&lt;Integer, Function&lt;Integer, Integer>></code>，把里边的Integer都换成<code>Function&lt;Integer, Integer></code>即可。</p>
+<p>始终要注意映射关系，接受一个函数，返回一个函数，然后柯里化，实际上就是<code>Function&lt;T, Function&lt;T, T>></code>，这里的T换成其他类型也一样。</p>
+<p>最后写出来的东西是这样：</p>
+<pre>
+public interface Compose extends Function&lt;Function&lt;Integer, Integer>, Function&lt;Function&lt;Integer, Integer>, Function&lt;Integer, Integer>>> {
+}
+</pre>
+<p>传参数的话，记得其实是三个参数，因为要传一个初始的参数：</p>
+<pre>Compose compose = x -> y -> z -> x.apply(y.apply(z));</pre>
+<p>一次性看到这里不晕的话感觉很厉害了。其实就是从最简单的f(x,y) = n 转换到f(x)(y) = n的过程来推算。</p>
+<p>f(x)的结果必然是一个g(y) = n的函数，也就是<code>Function&lt;Integer,Integer></code>，那f(x)传入x返回g(y)，必然就是<code>Function&lt;Integer,Function&lt;Integer,Integer></code>>了。一次柯里化暗含着2个参数。</p>
+<p>compose是什么呢，接受两个函数作为参数，返回一个函数对象，也就是即f(x)(y)(z) = n，也就是f(x)(y) = g(z)。</p>
+<p>注意观察，其实f(x)(y)和之前的一样，可以写成Function&lt;T,Function&lt;T,R>>,关键就是这个T和R到底是什么。</p>
+<p>从之前的分析可以发现，x的类型一定是T，最后的返回类型是R，这里的x，y和返回值都是一个函数对象，因此把T和R都替换成<code>Function&lt;Integer, Integer></code>，就得到了答案：</p>
+<pre>Function&lt;Function&lt;Integer, Integer>,Function&lt;Function&lt;Integer, Integer>,Function&lt;Integer, Integer>>></pre>
+<p>要调用这个方法，就要按照次序传入：</p>
+<pre>System.out.print(compose.apply(triple).apply(square).apply(4));</pre>
+<p>这下就很清楚了，传入两个函数得到一个函数，再给这个函数传个参数得到值。</p>
 
+<p>写到这里，突然想写一个普通的三个值的柯里化函数，就是：</p>
+<pre>
+public interface TripleOperator extends Function&lt;Integer,Function&lt;Integer, Function&lt;Integer, Integer>>>  {
 
+}
+</pre>
+<p>调用这个就是三个参数了：</p>
+<pre>
+TripleOperator threeCurry = x -> y -> z -> x + y + z;
+System.out.println(threeCurry.apply(2).apply(3).apply(4));
+</pre>
+<p>结果是7，有了BinaryOperator之后，就可以把一个参数是一个元组的函数，变成柯里化函数了。</p>
 
+<h3 style="text-align: center;">泛型高阶函数</h3>
+<p>如果把上边的改造过的compose继续改造成泛型。就得好好考虑一下类型了。</p>
+<p>看这条：</p>
+<p>假如我们有两个lambda了：</p>
+<pre>
+Function&lt;Double, Integer> f = a -> (int) (a * 3);
 
+Function&lt;Long, Double> g = x -> x + 2.0;
+</pre>
+<p>很显然我们要组合成f.apply(g.apply(x))</p>
+<p>那么很显然，在链式调用的时候，先传入一个f当参数，然后是g当参数，最后是x。</p>
+<p>那么我们的泛型接口就要有三个具体类型，于是第一个肯定是最外层，也就是<code>Function&lt;Double,Integer&gt;</code>，第二个是<code>Function&lt;Long,double&gt;</code>。</p>
+<p>关键是最后返回的Function对象是什么，由于对外来看，最后返回的就是整个函数。而整个函数实际完成的工作是Long->Integer，就是<code>Function&lt;Long,Integer&gt;</code>了。</p>
+
+<p>先把泛型定死，写下来看看：</p>
+<pre>
+interface ComposeR extends Function&lt;Function&lt;Double, Integer>, Function&lt;Function&lt;Long, Double>, Function&lt;Long, Integer>>> {
+
+}
+</pre>
+<p>然后再把泛型抽象出来：</p>
+<pre>
+interface ComposeR&lt;T,U,V> extends Function&lt;Function&lt;U, V>, Function&lt;Function&lt;T, U>, Function&lt;T, V>>> {
+}
+</pre>
+<p>可见多次柯里化，不管传实际值还是传函数对象，泛型从最开始的类型到最终返回类型按顺序排好，而其中的函数则从最外层排到最内层，最后返回的对象是整个函数的映射，所以泛型是从最初类型到最终返回类型。这就是高阶函数泛型的关键。</p>
+<p>书里67页的题目，通过higherCompose编写 higherAndThen，就可以知道如何来编写了，注意泛型的顺序即可。</p>
 
 
 
