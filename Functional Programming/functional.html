@@ -298,11 +298,96 @@ interface ComposeR&lt;T,U,V> extends Function&lt;Function&lt;U, V>, Function&lt;
 }
 </pre>
 <p>可见多次柯里化，不管传实际值还是传函数对象，泛型从最开始的类型到最终返回类型按顺序排好，而其中的函数则从最外层排到最内层，最后返回的对象是整个函数的映射，所以泛型是从最初类型到最终返回类型。这就是高阶函数泛型的关键。</p>
-<p>书里67页的题目，通过higherCompose编写 higherAndThen，就可以知道如何来编写了，注意泛型的顺序即可。</p>
+<p>书里67页的题目，通过higherCompose编写higherAndThen，也就是先应用g，再应用f。</p>
+<p>要写这个题目，其实只要想到每一步返回的到底是什么类型的函数，先应用g，也就是第一个参数是<code>Function&lt;Long, Double></code>，返回的函数肯定参数是<code>Function&lt;Double, Integer></code>，关键还是最后一个函数，是什么呢，其实还是从最终参数返回最终结果，所以依然是<code>Function&lt;Long, Integer></code>。</p>
+<p>然后串起来，一层套一层：</p>
+<pre>
+Function&lt;Function&lt;Long, Double>, Function&lt;Function&lt;Double, Integer>, Function&lt;Long, Integer>>>
+</pre>
+<p>再把泛型抽取出来：</p>
+<pre>
+interface ComposeThen&lt;T,U,V> extends Function&lt;Function&lt;T, U>, Function&lt;Function&lt;U, V>, Function&lt;T, V>>> {
 
+}
+</pre>
+<p>这里如果往细了想，容易绕进去，不要太多关注泛型，就想三个参数是什么，参数类型只要匹配，就一层一层套壳柯里化即可。</p>
 
+<h3 style="text-align: center;">方法引用</h3>
+<p>如果lambda的实现是一个单参数的方法调用，可以不用写表达式，直接以类名::方法名来写即可。</p>
 
+<h3 style="text-align: center;">闭包</h3>
+<p>在方法内部使用匿名类或者lambda表达式的时候，方法的局部变量只要被引用，就自动会变成实际上的final，这就是Java的闭包。</p>
+<p>这是因为在之前介绍纯函数的时候说过，函数的返回值如果直接引用了局部变量，就变成了隐式参数，如果变化，就会影响返回值。</p>
+<p>如果之后再给被引用的变量赋值，就无法通过编译。</p>
+<p>最好尽量少引用局部变量，将其作为一个显式的参数可能更加，虽然多参数可能需要进一步柯里化，但使用元组作为一个参数也是可以的，从元组中取出参数就行了。</p>
 
+<h3 style="text-align: center;">柯里化的应用</h3>
+<p>如果一个函数多参（实际上参数是一个元组），所有的参数都要被计算出来才能够传入函数，但是将函数柯里化之后，可以发现可以按顺序传入参数。</p>
+<p>比如在计算税的时候，如果一次性传入税率和税基，那么只能针对这一种组合计算一次。</p>
+<p>但是一般税率比较固定，只想更改税基来看对应的结果，这个时候可以将函数柯里化，先传入一个税率生成一个函数对象。之后只要复用这个函数对象，作用于不同的税基就可以了。</p>
+<p>柯里化如果反序，其实就是在类型上进行游戏，记住或者将这段代码放到自己的库里即可：</p>
+<pre>
+public static &lt;T, U, V> Function&lt;U, Function&lt;T, V>> reverseArgs(Function&lt;T, Function&lt;U, V>> f) {
+    return u -> t -> f.apply(t).apply(u);
+}
+</pre>
+
+<h3 style="text-align: center;">递归</h3>
+<p>匿名的递归无法编写，因为无法调用到自己。所以不能直接用lambda表达式。但是用this就可以调用当前对象，进而可以调用自己。</p>
+<p>比较直观的是采用静态方法，加上类名来反复调用自己，比如阶乘方法：</p>
+<pre>
+static Function&lt;Integer, Integer> factorial = n -> n &lt;= 1 ? n : n * Function.factorial.apply(n - 1);
+</pre>
+
+<h3 style="text-align: center;">恒等函数</h3>
+<p>对于函数式操作来说，函数也被当成值一样传来传去，也会用于操作函数，所以需要一个中性元素或者恒等元素。</p>
+<p></p>
+
+<h3>最后实际上是编写了基于Function&lt;T,R>的一个完整的接口，这个接口如下：</h3>
+<pre>
+public interface Function&lt;T, U> {
+
+    //作为抽象函数接口的基础方法，接受T类型返回U类型
+    U apply(T arg);
+
+    
+    default &lt;V> Function&lt;V, U> compose(Function&lt;V, T> f) {
+        return x -> apply(f.apply(x));
+    }
+
+    default &lt;V> Function&lt;T, V> andThen(Function&lt;U, V> f) {
+        return x -> f.apply(apply(x));
+    }
+
+    static &lt;T> Function&lt;T, T> identity() {
+        return t -> t;
+    }
+
+    static &lt;T, U, V> Function&lt;V, U> compose(Function&lt;T, U> f, Function&lt;V, T> g) {
+        return x -> f.apply(g.apply(x));
+    }
+
+    static &lt;T, U, V> Function&lt;T, V> andThen(Function&lt;T, U> f, Function&lt;U, V> g) {
+        return x -> g.apply(f.apply(x));
+    }
+
+    static &lt;T, U, V> Function&lt;Function&lt;T, U>, Function&lt;Function&lt;U, V>, Function&lt;T, V>>> compose() {
+        return x -> y -> y.compose(x);
+    }
+
+    static &lt;T, U, V> Function&lt;Function&lt;T, U>, Function&lt;Function&lt;V, T>, Function&lt;V, U>>> andThen() {
+        return x -> y -> y.andThen(x);
+    }
+
+    static &lt;T, U, V> Function&lt;Function&lt;U, V>, Function&lt;Function&lt;T, U>, Function&lt;T, V>>> higherCompose() {
+        return f -> g -> x -> f.apply(g.apply(x));
+    }
+
+    static &lt;T, U, V> Function&lt;Function&lt;T, U>, Function&lt;Function&lt;U, V>, Function&lt;T, V>>> higherAndThen() {
+        return f -> g -> z -> g.apply(f.apply(z));
+    }
+}
+</pre>
 
 
 
