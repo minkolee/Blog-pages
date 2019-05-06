@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Vue in Action</title>
+    <style>
+        .
+    </style>
+</head>
+<body>
+<div id="app">
+    {{realA}}
+</div>
+
+
+<script src="vue.js"></script>
+<script>
+
+    var app = new Vue({
+            el: "#app",
+            data: {
+                a:10
+            },
+            computed: {
+                realA:{get:function () {
+                        var b = parseInt(Math.random() * 10) + this.a;
+                        return b;},
+                    set:function () {
+                        console.log("Set被触发了");
+                    }
+
+                }
+            }
+        }
+    );
+
+</script>
+</body>
+</html>

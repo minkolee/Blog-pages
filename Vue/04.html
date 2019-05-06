@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
+    <title>Vue 04 Vue操作DOM补遗</title>
+    <script src="vue.js"></script>
+</head>
+<body>
+<ol>
+    <li><a href="#con1"><code>app.$el</code>访问被绑定的元素</a></li>
+    <li><a href="#con2">data可以绑定js对象实现双向绑定</a></li>
+    <li><a href="#con3">Vue实例的生命周期</a></li>
+    <li><a href="#con4">v-pre 不渲染</a></li>
+    <li><a href="#con5">{{表达式}}</a></li>
+    <li><a href="#con6">filters 过滤器</a></li>
+    <li><a href="#con7">简易生成数字序列</a></li>
+    <li><a href="#con8">用key属性鉴别独立性</a></li>
+    <li><a href="#con9">总结</a></li>
+</ol>
+<h1 id="con1"><code>app.$el</code>访问被绑定的元素</h1>
+<p>使用Vue实例的变量名称+ <code>$el</code>可以直接访问实例中被el属性绑定的HTML元素，方便快速定位Vue的元素。</p>
+
+
+
+
+<h1 id="con2">data除了自己设置属性，也可以直接绑定一个对象，这时候依然是双向绑定</h1>
+<pre>
+var myData = {a: 10};
+var app = new Vue({
+    el: "#app",
+    data: myData
+});
+
+console.log("myData.a is " + myData.a);
+console.log("Vue实例的a属性是：" + app.a);
+console.log("改变Vue实例的a属性：");
+app.a = 99;
+console.log("myData.a 现在是 " + myData.a);
+</pre>
+<p>可以看到直接把对象的属性弄到了Vue实例中，改变Vue实例的属性，原来的属性跟着一起变化。</p>
+
+
+
+<h1 id="con3">Vue实例的生命周期</h1>
+<p>Vue实例的生命周期就像jQuery在DOM加载完成的时候自动加载一样。</p>
+
+<ol>
+Vue实例常用的生命周期钩子有：
+    <li><code>created</code>：实例创建完成后调用，此时完成了数据观测，但是$el还不可用，数据还未挂载到实例中。常用于数据初始化。</li>
+    <li><code>mounted</code>：el挂载到实例上的时候调用，一般业务逻辑就从此开始</li>
+    <li><code>beforeDestroy</code>：实例销毁之前调用，主要解绑一些使用addEventListener添加的事件。</li>
+</ol>
+<p>钩子直接使用名称，作为Vue实例的属性进行操作：</p>
+<pre>
+var myData = {a: 10,
+        date: new Date()};
+
+
+    var app = new Vue({
+        el: "#app",
+        data: myData,
+        created: function () {
+            console.log(this.a);
+        },
+        mounted: function () {
+            var _this = this;
+            this.timer = setInterval(function () {
+                _this.date = new Date();
+            }, 1000);
+        }
+    });
+</pre>
+
+
+<h1 id="con4">v-pre 不编译</h1>
+<p>加在元素上之后不进行该元素和其所有子元素的渲染，原样输出</p>
+
+<h1 id="con5">{{ 表达式的限制 }}</h1>
+<p>在双花括号之间的表达式，只能是单个表达式，变量只能使用Vue实例的变量，不能使用语句和表达式。</p>
+<p>一些全局变量，只能使用Vue白名单之内的全局变量，先理解为JS自带的Math和Date等变量。</p>
+
+<h1 id="con6">filters 过滤器</h1>
+<p>很像Django模板渲染的过滤器，用一个管道符号加上过滤器的标识符即可。实际上是将管道符前边的内容交给后边的过滤器进行处理，渲染成处理后的内容。</p>
+<p>过滤器是Vue实例中的filters属性，键值对为过滤器名称：匿名方法。</p>
+<pre>
+var myData = {
+        a: 10,
+        date: new Date()
+    };
+
+var app = new Vue({
+        el: "#app",
+        data: myData,
+        created: function () {
+            console.log(this.a);
+            this.a = 30;
+        },
+        mounted: function () {
+            var _this = this;
+            this.timer = setInterval(function () {
+                _this.date = new Date();
+            }, 1000);
+        },
+        filters: {
+            filterDate: function (value) {
+                return value + " 过滤后的内容";
+            }
+        }
+    }
+);
+</pre>
+<p>过滤器实际上是以被过滤对象为参数的函数，过滤器还可以串联。还可以传入额外的参数。第一个参数默认是被过滤的对象。</p>
+<pre>
+&lt;div id="app">
+    {{date|filterDate|filter2("gugugug","saner")}}
+&lt;/div>
+
+&lt;script src="vue.js">&lt;/script>
+&lt;script>
+    var myData = {
+        a: 10,
+        date: new Date()
+    };
+
+    var app = new Vue({
+            el: "#app",
+            data: myData,
+            created: function () {
+                console.log(this.a);
+                this.a = 30;
+            },
+            mounted: function () {
+                var _this = this;
+                this.timer = setInterval(function () {
+                    _this.date = new Date();
+                }, 1000);
+            },
+            filters: {
+                filterDate: function (value) {
+                    return value + " 过滤后的内容";
+                },
+                filter2: function (value,a,b) {
+                    return value + a + b;
+                }
+            }
+        }
+    );
+&lt;/script>
+</pre>
+<p>过滤器常用于处理简单的文本变换，如果要处理更加复杂的逻辑，一般使用计算属性。</p>
+
+
+<h1 id="con7">简易生成数字序列</h1>
+<p>对于要生成一些简易的数字序列，可以直接用简易语法：</p>
+<pre>
+&lt;p v-for="x in 10">{{x}}&lt;/p>
+</pre>
+<p>这会显示10个P元素，其中的内容是1-10，注意和index不同，不是0-9。</p>
+
+<h1 id="con8">key元素鉴别独立性</h1>
+<p>有的时候经常发生元素的内容没有改变的情况，就不会重新渲染，还有可能发生在数组长度有所改变，为了避免复用相同的元素，可以给一个元素指定一个key属性，只要这个属性唯一，就不会重复使用。</p>
+<p>这在遍历数组的时候经常使用，一般常见的做法是将key设置为数据对象的id或者是数组的索引，或者就是数据对象本身，设置如下：</p>
+<pre>
+&lt;ol>
+    &lt;li v-for="person in persons" key="person">
+        {{person}}
+    &lt;/li>
+&lt;/ol>
+</pre>
+<p>这样就保证了每次数组有变化的时候，会重新检测唯一性，然后重新渲染，不会出现增删元素导致的错误。在从数据库中取得元素并展示，或者进行POST的时候，非常重要。</p>
+
+<h1 id="con9">总结</h1>
+<p>流程控制和展示列表的指令很少，核心就是v-if和v-for两个语句，然后再逐层遍历。</p>
+<p>这里要注意的就是v-for经常与key搭配使用保证元素不重用，这在从后端获取数据的时候非常重要。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
