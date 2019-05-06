@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link href="https://cdn.bootcss.com/twitter-bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
     <title>Vue in Action</title>
     <style>
         .
@@ -11,7 +12,27 @@
 </head>
 <body>
 <div id="app">
-    {{realA}}
+    <template v-if="type">
+        <input type="text" placeholder="1st" key="myself" v-model="first">
+    </template>
+    <template v-else>
+        <input type="text" placeholder="2nd" key="2ndself" v-model="second">
+    </template>
+
+    <button @click="handleClick">切换类型</button>
+</div>
+
+<div id="app2">
+    <ul>
+        <li v-for="(book,index) in books">{{index+1}}--{{book.name}}</li>
+    </ul>
+
+    <template >
+        <ul>
+        <li v-for="(value,key,index) in user">{{index}} -- {{key}} -- {{value}}</li>
+        </ul>
+    </template>
+
 </div>
 
 
@@ -21,20 +42,34 @@
     var app = new Vue({
             el: "#app",
             data: {
-                a:10
+                type: true,
+                first:"",
+                second:""
             },
-            computed: {
-                realA:{get:function () {
-                        var b = parseInt(Math.random() * 10) + this.a;
-                        return b;},
-                    set:function () {
-                        console.log("Set被触发了");
-                    }
-
+        methods:{
+                handleClick:function () {
+                    this.type = this.type !== true;
+                    console.log(this.type)
                 }
-            }
+        }
         }
     );
+
+    var app2 = new Vue({
+        el:"#app2",
+        data:{
+            books:[
+                {name:"Vue实战"},
+                {name:"Vue实战2"},
+                {name:"Vue实战3"},
+            ],
+            user:{
+                name:"jenny",
+                gender:"male",
+                age:26
+            }
+        }
+    })
 
 </script>
 </body>

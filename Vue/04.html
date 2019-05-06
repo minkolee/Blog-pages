@@ -16,7 +16,7 @@
     <li><a href="#con4">v-pre 不渲染</a></li>
     <li><a href="#con5">{{表达式}}</a></li>
     <li><a href="#con6">filters 过滤器</a></li>
-    <li><a href="#con7">简易生成数字序列</a></li>
+    <li><a href="#con7">计算属性的getter和setter方法</a></li>
     <li><a href="#con8">用key属性鉴别独立性</a></li>
     <li><a href="#con9">总结</a></li>
 </ol>
@@ -153,12 +153,33 @@ var app = new Vue({
 <p>过滤器常用于处理简单的文本变换，如果要处理更加复杂的逻辑，一般使用计算属性。</p>
 
 
-<h1 id="con7">简易生成数字序列</h1>
-<p>对于要生成一些简易的数字序列，可以直接用简易语法：</p>
+<h1 id="con7">计算属性的getter和setter方法</h1>
+<p>计算属性除了直接设置为一个匿名函数之外，还可以设置为get和set对应的对象，读取计算属性就是调用get方法，直接设置计算属性就会调用set方法。</p>
 <pre>
-&lt;p v-for="x in 10">{{x}}&lt;/p>
+var app = new Vue({
+            el: "#app",
+            data: {
+                a:10
+            },
+            computed: {
+                realA:{get:function () {
+                        var b = parseInt(Math.random() * 10) + this.a;
+                        return b;},
+                    set:function (value) {
+                        console.log("Set被触发了");
+                    }
+                },
+                now:function () {
+                    return Date.now();
+                }
+            }
+        }
+    );
 </pre>
-<p>这会显示10个P元素，其中的内容是1-10，注意和index不同，不是0-9。</p>
+<p>如果直接显示a的值，发现每次都是随机的。如果直接设置a的值，就会在控制台打印出语句。get函数的return就是实际计算出的值，而set函数中的value参数就是要设置的值。</p>
+<p>计算属性牛逼的是可以依赖其他计算变量，以及依赖其他Vue实例的变量，这样在组件化的时候非常方便。</p>
+<p>计算属性和函数的区别是计算属性有缓存，依赖的内容没有变化，就不会重新计算，所以如果一个计算变量没有依赖，那么也不会更新，而函数只要调用就会更新。上边的now计算属性只要生成了，就一直不会自动变化。</p>
+
 
 <h1 id="con8">key元素鉴别独立性</h1>
 <p>有的时候经常发生元素的内容没有改变的情况，就不会重新渲染，还有可能发生在数组长度有所改变，为了避免复用相同的元素，可以给一个元素指定一个key属性，只要这个属性唯一，就不会重复使用。</p>
