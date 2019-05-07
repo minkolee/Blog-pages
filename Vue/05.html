@@ -13,7 +13,7 @@
     <li><a href="#con1">基本用法：v-model双向绑定</a></li>
     <li><a href="#con2">单选按钮Radio</a></li>
     <li><a href="#con3">复选框Checkbox</a></li>
-    <li><a href="#con4">v-pre 不渲染</a></li>
+    <li><a href="#con4">选择列表Select-Option</a></li>
     <li><a href="#con5">{{表达式}}</a></li>
     <li><a href="#con6">filters 过滤器</a></li>
     <li><a href="#con7">计算属性的getter和setter方法</a></li>
@@ -117,6 +117,34 @@
 </pre>
 <p>多个复选框的时候，略有变化，单选框是选一个值，而复选框是一系列value属性。</p>
 <p>所以这里Vue要绑定的属性是一个数组，与单选框类似，无需设置name，将所有需要复选的内容用v-model绑定到一个Vue实例上即可。</p>
+<pre>
+&lt;div id="app5">
+    &lt;label>A &lt;input  type="checkbox" value="A" v-model="content">&lt;/label>
+    &lt;label>B &lt;input  type="checkbox" value="B" v-model="content">&lt;/label>
+    &lt;label>C &lt;input  type="checkbox" value="C" v-model="content">&lt;/label>
+    &lt;label>D &lt;input  type="checkbox" value="D" v-model="content">&lt;/label>
+    &lt;label>E &lt;input  type="checkbox" value="E" v-model="content">&lt;/label>
+    &lt;p>选中的是 {{result}}&lt;/p>
+&lt;/div>
+&lt;script>
+    var app5 = new Vue({
+        el: "#app5",
+        data:{
+            content:[]
+        },
+        computed:{
+            result: function () {
+                if (this.content.length === 0) {
+                    return "";
+                } else {
+                    return this.content;
+                }
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>无论是勾选，还是直接将一个对应value的字符串值加入进实例的绑定属性，都可以同步修改复选框的被选中状态。</p>
 
 
 
@@ -136,9 +164,7 @@
 
 
 
-
-
-<h1 id="con4">v-pre 不编译</h1>
+<h1 id="con4">Select-Option</h1>
 <p>加在元素上之后不进行该元素和其所有子元素的渲染，原样输出</p>
 
 <h1 id="con5">{{ 表达式的限制 }}</h1>

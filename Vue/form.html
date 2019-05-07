@@ -41,14 +41,21 @@
 </div>
 
 <div id="app5">
-    <label>A <input  type="checkbox" value="A"></label>
-    <label>B <input  type="checkbox" value="B"></label>
-    <label>C <input  type="checkbox" value="C"></label>
-    <label>D <input  type="checkbox" value="D"></label>
-    <label>E <input  type="checkbox" value="E"></label>
+    <label>A <input  type="checkbox" value="A" v-model="content"></label>
+    <label>B <input  type="checkbox" value="B" v-model="content"></label>
+    <label>C <input  type="checkbox" value="C" v-model="content"></label>
+    <label>D <input  type="checkbox" value="D" v-model="content"></label>
+    <label>E <input  type="checkbox" value="E" v-model="content"></label>
+    <p>选中的是 {{result}}</p>
+</div>
 
-
-
+<div id="app6">
+    <select v-model="select">
+        <option value="A">AA</option>
+        <option value="B">BB</option>
+        <option value="C">CC</option>
+        <option value="D">DD</option>
+    </select>
 </div>
 
 
@@ -92,7 +99,25 @@
     var app4 = new Vue({
         el:"#app4",
         data:{
-            checked: false
+            checked: false,
+            content: []
+        },
+
+    });
+
+    var app5 = new Vue({
+        el: "#app5",
+        data:{
+            content:[]
+        },
+        computed:{
+            result: function () {
+                if (this.content.length === 0) {
+                    return "";
+                } else {
+                    return this.content;
+                }
+            }
         }
     })
 </script>
