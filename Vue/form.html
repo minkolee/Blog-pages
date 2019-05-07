@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link href="https://cdn.bootcss.com/twitter-bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <title>Vue Form Learn</title>
+    <style>
+
+    </style>
+</head>
+<body>
+<div id="app">
+    <input type="text" v-model="message">
+    <p>{{message}}</p>
+</div>
+
+<div id="app1">
+    <input type="text" @input="handleInput" placeholder="输入...">
+    <p>{{message}}</p>
+</div>
+
+<div id="app2">
+    <label>男性
+    <input type="radio" :checked="check">
+    </label>
+</div>
+
+<div id="app3">
+    <label>A<input name="ooo" type="radio" v-model="alpha" value="A"></label>
+    <label>B<input name="ppp" type="radio" v-model="alpha" value="B"></label>
+    <label>C<input name="o321" type="radio" v-model="alpha" value="C"></label>
+    <label>D<input name="sdui" type="radio" v-model="alpha" value="D"></label>
+    <p>被选中的Radio的Value是：{{alpha}}</p>
+</div>
+
+<div id="app4">
+    <label>A <input type="checkbox" value="3" v-model="checked"></label>
+    <p>选择状态： {{checked}}</p>
+</div>
+
+<div id="app5">
+    <label>A <input  type="checkbox" value="A"></label>
+    <label>B <input  type="checkbox" value="B"></label>
+    <label>C <input  type="checkbox" value="C"></label>
+    <label>D <input  type="checkbox" value="D"></label>
+    <label>E <input  type="checkbox" value="E"></label>
+
+
+
+</div>
+
+
+
+<script src="vue.js"></script>
+
+<script>
+    var app = new Vue({
+        el: "#app",
+        data: {
+            message: ""
+        }
+    });
+
+    var app1 = new Vue({
+        el: "#app1",
+        data: {
+            message: ""
+        },
+        methods: {
+            handleInput: function (e) {
+                this.message = e.target.value;
+            }
+        }
+    });
+
+    var app2 = new Vue({
+        el:"#app2",
+        data:{
+            check: true
+        }
+    });
+
+    var app3 = new Vue({
+        el:"#app3",
+        data:{
+            alpha: ""
+        }
+    });
+
+    var app4 = new Vue({
+        el:"#app4",
+        data:{
+            checked: false
+        }
+    })
+</script>
+
+
+
+</body>
+</html>

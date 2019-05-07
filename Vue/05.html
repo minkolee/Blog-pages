@@ -5,14 +5,14 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
-    <title>Vue 04 Vue操作DOM补遗</title>
+    <title>Vue 05 Vue操作表单</title>
     <script src="vue.js"></script>
 </head>
 <body>
 <ol>
-    <li><a href="#con1"><code>app.$el</code>访问被绑定的元素</a></li>
-    <li><a href="#con2">data可以绑定js对象实现双向绑定</a></li>
-    <li><a href="#con3">Vue实例的生命周期</a></li>
+    <li><a href="#con1">基本用法：v-model双向绑定</a></li>
+    <li><a href="#con2">单选按钮Radio</a></li>
+    <li><a href="#con3">复选框Checkbox</a></li>
     <li><a href="#con4">v-pre 不渲染</a></li>
     <li><a href="#con5">{{表达式}}</a></li>
     <li><a href="#con6">filters 过滤器</a></li>
@@ -20,59 +20,122 @@
     <li><a href="#con8">用key属性鉴别独立性</a></li>
     <li><a href="#con9">总结</a></li>
 </ol>
-<h1 id="con1"><code>app.$el</code>访问被绑定的元素</h1>
-<p>使用Vue实例的变量名称+ <code>$el</code>可以直接访问实例中被el属性绑定的HTML元素，方便快速定位Vue的元素。</p>
-
-
-
-
-<h1 id="con2">data除了自己设置属性，也可以直接绑定一个对象，这时候依然是双向绑定</h1>
+<h1 id="con1"><code>v-model</code>双向绑定</h1>
+<p>双向绑定以后，表单显示的值只依赖于绑定的数据，不再使用初始化的value属性，在textarea标签之间插入的值也不生效。</p>
+<p><code>v-model</code>其实是一个语法糖，也可以用@input方法来改写。实际上是自动监听input事件。</p>
+<p>使用v-model的例子：</p>
 <pre>
-var myData = {a: 10};
-var app = new Vue({
-    el: "#app",
-    data: myData
-});
-
-console.log("myData.a is " + myData.a);
-console.log("Vue实例的a属性是：" + app.a);
-console.log("改变Vue实例的a属性：");
-app.a = 99;
-console.log("myData.a 现在是 " + myData.a);
+&lt;div id="model">
+    &lt;input type="text" v-model="message">
+    &lt;p>{{message}}&lt;/p>
+&lt;/div>
+&lt;script>
+    var app2 = new Vue({
+        el: "#model",
+        data: {
+            message: ""
+        }
+    })
+&lt;/script>
 </pre>
-<p>可以看到直接把对象的属性弄到了Vue实例中，改变Vue实例的属性，原来的属性跟着一起变化。</p>
-
-
-
-<h1 id="con3">Vue实例的生命周期</h1>
-<p>Vue实例的生命周期就像jQuery在DOM加载完成的时候自动加载一样。</p>
-
-<ol>
-Vue实例常用的生命周期钩子有：
-    <li><code>created</code>：实例创建完成后调用，此时完成了数据观测，但是$el还不可用，数据还未挂载到实例中。常用于数据初始化。</li>
-    <li><code>mounted</code>：el挂载到实例上的时候调用，一般业务逻辑就从此开始</li>
-    <li><code>beforeDestroy</code>：实例销毁之前调用，主要解绑一些使用addEventListener添加的事件。</li>
-</ol>
-<p>钩子直接使用名称，作为Vue实例的属性进行操作：</p>
+<p>还原成监听input时间的例子：</p>
 <pre>
-var myData = {a: 10,
-        date: new Date()};
-
-
+&lt;div id="app">
+    &lt;input type="text" @input="handleInput" placeholder="输入...">
+    &lt;p>{{message}}&lt;/p>
+&lt;/div>
+&lt;script>
     var app = new Vue({
         el: "#app",
-        data: myData,
-        created: function () {
-            console.log(this.a);
+        data: {
+            message: ""
         },
-        mounted: function () {
-            var _this = this;
-            this.timer = setInterval(function () {
-                _this.date = new Date();
-            }, 1000);
+        methods: {
+            handleInput: function (e) {
+                this.message = e.target.value;
+            }
         }
     });
+&lt;/script>
 </pre>
+
+
+<h1 id="con2">单选按钮Radio</h1>
+<p>单独使用单选按钮，只需要使用其checked属性，绑定一个Vue实例的布尔值属性即可表示选中与否。只需要更改Vue实例的布尔值属性，就可以改变选中的状态。</p>
+<pre>
+&lt;div id="app2">
+    &lt;label>男性
+    &lt;input type="radio" :checked="check">
+    &lt;/label>
+&lt;/div>
+&lt;script>
+    var app2 = new Vue({
+        el: "#app2",
+        data: {
+            check: true
+        }
+    })
+&lt;/script>
+</pre>
+<p>使用多个单选按钮，主要是为了获得被选中的项目的name和value，一般也可能是动态生成的按钮。如果是依赖HTML，则radio控件的name必须相同。</p>
+<p>有了Vue之后，无需设置name，只需要把一批按钮都通过v-model绑定给一个属性即可。实际上，只要绑定了同一个属性，即使name不同也没事，所以一般就不设置name属性了。</p>
+<pre>
+&lt;div id="app3">
+    &lt;label>A&lt;input type="radio" v-model="alpha" value="A">&lt;/label>
+    &lt;label>B&lt;input type="radio" v-model="alpha" value="B">&lt;/label>
+    &lt;label>C&lt;input type="radio" v-model="alpha" value="C">&lt;/label>
+    &lt;p>被选中的Radio的Value是：{{alpha}}&lt;/p>
+&lt;/div>
+&lt;script>
+    var app3 = new Vue({
+        el:"#app3",
+        data:{
+            alpha: ""
+        }
+    })
+&lt;/script>
+</pre>
+
+
+
+
+<h1 id="con3">复选框Checkbox</h1>
+<p>Checkbox单独使用的时候也是直接绑定v-model和checked属性即可。绑定布尔值也可以，但是做不到双向绑定，只能通过Vue实例去控制，所以v-model略好。</p>
+<pre>
+&lt;div id="app4">
+    &lt;label>A &lt;input type="checkbox" value="3" :checked="checked">&lt;/label>
+    &lt;p>选择状态： {{checked}}&lt;/p>
+&lt;/div>
+&lt;script>
+    var app4 = new Vue({
+        el:"#app4",
+        data:{
+            checked: false
+        }
+    })
+&lt;/script>
+</pre>
+<p>多个复选框的时候，略有变化，单选框是选一个值，而复选框是一系列value属性。</p>
+<p>所以这里Vue要绑定的属性是一个数组，与单选框类似，无需设置name，将所有需要复选的内容用v-model绑定到一个Vue实例上即可。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 <h1 id="con4">v-pre 不编译</h1>
@@ -179,18 +242,6 @@ var app = new Vue({
 <p>如果直接显示a的值，发现每次都是随机的。如果直接设置a的值，就会在控制台打印出语句。get函数的return就是实际计算出的值，而set函数中的value参数就是要设置的值。</p>
 <p>计算属性牛逼的是可以依赖其他计算变量，以及依赖其他Vue实例的变量，这样在组件化的时候非常方便。</p>
 <p>计算属性和函数的区别是计算属性有缓存，依赖的内容没有变化，就不会重新计算，所以如果一个计算变量没有依赖，那么也不会更新，而函数只要调用就会更新。上边的now计算属性只要生成了，就一直不会自动变化。</p>
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 </body>

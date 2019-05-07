@@ -1,181 +1,136 @@
 <!DOCTYPE html>
-<html class="no-js" lang="zh" >
+<html class="no-js" lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link href="https://cdn.bootcss.com/twitter-bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
     <title>Vue Learn</title>
-    <script src="vue.js"></script>
     <style>
-        .outer {
-            width: 300px;
-            height: 300px;
-            background-color: gold;
-            position: relative;
-        }
 
-        .inner {
-            width: 150px;
-            height: 150px;
-            background-color: red;
-            position: absolute;
-            bottom: 0;
-            right: 0;
-        }
-        
-        .demo {
-            width: 100px;
-            height: 100px;
-            margin: 10px;
-            background-color: #dddddd;
-        }
-
-        .green {
-            background-color:green;
-        }
-
-        .blue {
-            background-color: blue;
-        }
-
-        .red {
-            background-color: red;
-        }
     </style>
 </head>
 <body>
+    <div id="app">
+        <template v-if="products.length">
+            <table class="table table-striped">
+                <thead>
+                <tr class="text-center">
+                    <th>序号</th>
+                    <th>全选&nbsp;<input type="checkbox" :checked="allchecked" @click="handler($event)"></th>
+                    <th>商品名称</th>
+                    <th>商品单价</th>
+                    <th>购买数量</th>
+                    <th>操作</th>
 
-<!--<div id="app">-->
-<!--    <button v-on:click="add(2, $event)">Click me</button>-->
-<!--    <p>{{ counter }}</p>-->
-<!--</div>-->
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="(product,index) in products" class="text-center">
+                    <td>{{index+1}}</td>
+                    <td><input type="checkbox" v-model="product.checked"> </td>
+                    <td>{{product.name}}</td>
+                    <td>{{product.price|standard}}</td>
+                    <td><button class="btn btn-info btn-sm" style="width: 27px" @click="decreaseCount(index)">-</button> {{product.count}} <button style="width: 27px" class="btn btn-info btn-sm" @click="increaseCount(index)">+</button></td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" @click="removeItem(index)">删除</button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <div>总价：{{totalprice}}</div>
+        </template>
+        <p v-else>购物车为空</p>
+    </div>
 
-<!--<script>-->
-<!--    new Vue({-->
-<!--        el:"#app",-->
-<!--        data:{-->
-<!--            counter: 0,-->
-<!--            x:0,-->
-<!--            y:0-->
-<!--        },-->
-<!--        methods: {-->
-<!--            add: function (step, event) {-->
-<!--                this.counter = this.counter + step;-->
-<!--                console.log(event);-->
-<!--            }-->
-<!--        }-->
-<!--    })-->
-<!--</script>-->
-
-
-<!--<div id="app">-->
-<!--    <button v-on:click="count++">Count++</button>-->
-<!--    <button v-on:click="count&#45;&#45;">Count&#45;&#45;</button>-->
-<!--    <button v-on:click="another++">Another++</button>-->
-<!--    <button v-on:click="another&#45;&#45;">Another&#45;&#45;</button>-->
-<!--    <p>{{ count }} | {{ another }}</p>-->
-<!--    <p>{{ display() }} | {{computed_display }}</p>-->
-<!--</div>-->
-
-<!--<script>-->
-<!--    new Vue({-->
-<!--        el: "#app",-->
-<!--        data: {-->
-<!--            count: 0,-->
-<!--            another: 0-->
-<!--        },-->
-<!--        computed: {-->
-<!--          computed_display:function () {-->
-<!--              console.log("Computed value computed");-->
-<!--              return this.count >= 5 ? "Count > 5" : "Count < 5";-->
-<!--          }-->
-<!--        },-->
-<!--        watch:{-->
-<!--            count: function () {-->
-<!--                let vm = this;-->
-<!--                setTimeout(function () {-->
-<!--                    vm.count = 0;-->
-
-<!--                }, 2000);-->
-<!--            }-->
-<!--        },-->
-<!--        methods: {-->
-<!--            display: function () {-->
-<!--                console.log("display() is executed");-->
-<!--                return this.count >= 5 ? "Count > 5" : "Count < 5";-->
-<!--            }-->
-<!--        }-->
-<!--    });-->
-<!--</script>-->
-
-<!--<div id="app">-->
-<!--    <p>{{ count }}</p>-->
-<!--    <input type="text" :value="count">-->
-<!--    <button @click="count++">Click</button>-->
-<!--</div>-->
-<!--<script>-->
-<!--    new Vue({-->
-<!--        el: "#app",-->
-<!--        data:{-->
-<!--            count:0-->
-<!--        }-->
-<!--    })-->
-<!--</script>-->
-
-<!--<div id="app">-->
-<!--    <div class="demo" :class="{red:changeClass,blue:!changeClass}" @click="changeClass = !changeClass"></div>-->
-<!--    <div class="demo" :class="divClass" @click="changeClass = !changeClass"></div>-->
-<!--    <div class="demo" :class="color" @click="changeClass = !changeClass"></div>-->
-<!--    <div class="demo" :class="[color,{green:changeClass}]" @click="changeClass = !changeClass"></div>-->
-<!--    <input type="text" v-model="color">-->
-<!--</div>-->
-<div id="app">
-    <div class="demo" :style="styles"></div>
-    <div class="demo" :style="[styles, style2, {margin: this.height/5 + 'px'}]"></div>
-    <input type="text" v-model="color">
-    <input type="text" v-model="width">
-    <input type="text" v-model="height">
-</div>
-
-
+<script src="vue.js"></script>
 
 <script>
-    new Vue({
+    var app = new Vue({
         el: "#app",
-        data:{
-            changeClass: false,
-            color: "red",
-            width:200,
-            height:200
+        data: {
+            products: [
+                {
+                    id: 1,
+                    name: 'iPhone 7',
+                    price: 5000,
+                    count: 1,
+                    checked:true
+                },
+                {
+                    id: 2,
+                    name: 'iPad Pro',
+                    price: 8000,
+                    count: 1,
+                    checked:true
+                },
+                {
+                    id: 3,
+                    name: 'Macbook Pro',
+                    price: 10000,
+                    count: 1,
+                    checked:true
+                }
+            ]
         },
-        computed:{
-            styles:function () {
-                return {
-                    backgroundColor:this.color,
-                    width:this.width+"px"
+        computed: {
+            totalprice: function () {
+                var total = 0;
+                for (var i = 0; i < this.products.length; i++) {
+                    if (this.products[i].checked === true) {
+                        total += (this.products[i].price * this.products[i].count);
+                    }
+                }
+                return total.toString().replace(/\B(?=(\d{3})+$)/g, ',');
+            },
+
+            allchecked: function () {
+                var checked = true;
+                for (var i = 0; i < this.products.length; i++) {
+                    if (this.products[i].checked === false) {
+                        checked = false;
+                        break;
+                    }
+                }
+                return checked
+            }
+        },
+
+        filters: {
+            standard: function (value) {
+                return value.toString().replace(/\B(?=(\d{3})+$)/g, ',');
+            }
+        },
+
+        methods: {
+            increaseCount(index) {
+                this.products[index].count++;
+            },
+            decreaseCount(index) {
+                if (this.products[index].count === 1) {
+
+                } else {
+                    this.products[index].count--;
                 }
             },
-            style2:function () {
-                return {
-                    height:this.height+"px"
+            removeItem(index) {
+                this.products.splice(index, 1);
+            },
+            handler:function (event) {
+                if (event.target.checked === false) {
+                    for (var i = 0; i < this.products.length; i++) {
+                        this.products[i].checked = false;
+                    }
+                }
+                else {
+                    for (var j = 0; j < this.products.length; j++) {
+                        this.products[j].checked = true;
+                    }
                 }
             }
         }
-        
     })
 </script>
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 </body>
