@@ -12,7 +12,7 @@
 </head>
 <body>
 <div id="app">
-    <input type="text" v-model="message">
+    <input type="text" v-model.trim="message">
     <p>{{message}}</p>
 </div>
 
@@ -23,7 +23,7 @@
 
 <div id="app2">
     <label>男性
-    <input type="radio" :checked="check">
+        <input type="radio" :checked="check">
     </label>
 </div>
 
@@ -41,11 +41,11 @@
 </div>
 
 <div id="app5">
-    <label>A <input  type="checkbox" value="A" v-model="content"></label>
-    <label>B <input  type="checkbox" value="B" v-model="content"></label>
-    <label>C <input  type="checkbox" value="C" v-model="content"></label>
-    <label>D <input  type="checkbox" value="D" v-model="content"></label>
-    <label>E <input  type="checkbox" value="E" v-model="content"></label>
+    <label>A <input type="checkbox" value="A" v-model="content"></label>
+    <label>B <input type="checkbox" value="B" v-model="content"></label>
+    <label>C <input type="checkbox" value="C" v-model="content"></label>
+    <label>D <input type="checkbox" value="D" v-model="content"></label>
+    <label>E <input type="checkbox" value="E" v-model="content"></label>
     <p>选中的是 {{result}}</p>
 </div>
 
@@ -56,7 +56,57 @@
         <option value="C">CC</option>
         <option value="D">DD</option>
     </select>
+    <p>选中的项目是 {{select}}</p>
 </div>
+
+<div id="app7">
+    <select v-model="select" multiple>
+        <option value="A">AA</option>
+        <option value="B">BB</option>
+        <option value="C">CC</option>
+        <option value="D">DD</option>
+    </select>
+    <p>选中的项目是 {{select}}</p>
+</div>
+
+<div id="app8">
+    <select v-model="select">
+        <option v-for="opt in options" :value="opt.value">{{opt.text}}</option>
+    </select>
+    <p>选中的项目是 {{select}}</p>
+</div>
+
+<div id="app9">
+    <label>按钮<input type="radio" v-model="picked" :value="value"></label>
+    <p>{{picked.name}}</p>
+    <p>{{value}}</p>
+</div>
+
+<div id="app10">
+    <input type="checkbox"
+    v-model="toggle"
+    :true-value="value1"
+    :false-value="value2">
+    <p>{{toggle}}</p>
+    <p>{{value1}}</p>
+    <p>{{value2}}</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -83,22 +133,22 @@
     });
 
     var app2 = new Vue({
-        el:"#app2",
-        data:{
+        el: "#app2",
+        data: {
             check: true
         }
     });
 
     var app3 = new Vue({
-        el:"#app3",
-        data:{
+        el: "#app3",
+        data: {
             alpha: ""
         }
     });
 
     var app4 = new Vue({
-        el:"#app4",
-        data:{
+        el: "#app4",
+        data: {
             checked: false,
             content: []
         },
@@ -107,10 +157,10 @@
 
     var app5 = new Vue({
         el: "#app5",
-        data:{
-            content:[]
+        data: {
+            content: []
         },
-        computed:{
+        computed: {
             result: function () {
                 if (this.content.length === 0) {
                     return "";
@@ -119,9 +169,71 @@
                 }
             }
         }
-    })
-</script>
+    });
 
+    var app6 = new Vue({
+        el: "#app6",
+        data: {
+            select: "A"
+        }
+    });
+
+    var app7 = new Vue({
+        el: "#app7",
+        data: {
+            select: ["A"]
+        }
+    });
+
+    var app8 = new Vue({
+        el: "#app8",
+        data: {
+            select: "AA",
+            options: [
+                {
+                    text: "A",
+                    value: "AA"
+                },
+                {
+                    text: "B",
+                    value: "BB"
+                },
+                {
+                    text: "C",
+                    value: "CC"
+                },
+                {
+                    text: "D",
+                    value: "DD"
+                },
+            ]
+        }
+    });
+
+    var app9 = new Vue({
+        el: "#app9",
+        data: {
+            picked: false,
+            value: {
+                name: "jenny"
+            }
+        }
+    });
+
+    var app10 = new Vue({
+        el:"#app10",
+        data:{
+            toggle:false,
+            value1: {
+                name:"jenny"
+            },
+            value2:{
+                name:"cony"
+            }
+        }
+    })
+
+</script>
 
 
 </body>
