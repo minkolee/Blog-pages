@@ -5,37 +5,34 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
-    <title>Vue 06 组件</title>
+    <title>Vue 07 组件通信</title>
     <script src="vuejs实战/vue.js"></script>
 </head>
 <body>
 <ol>
-    <li><a href="#con1">组件基础概念</a></li>
-    <li><a href="#con2">全局注册</a></li>
+    <li><a href="#con1">组件通信综述</a></li>
+    <li><a href="#con2">子组件向父组件传递数据</a></li>
     <li><a href="#con3">局部注册</a></li>
     <li><a href="#con4">is属性强制挂载组件</a></li>
     <li><a href="#con5">组件的其他属性</a></li>
     <li><a href="#con6">父组件向子组件传递数据：props使用字符串数组</a></li>
     <li><a href="#con7">单向数据流</a></li>
     <li><a href="#con8">父组件向子组件传递数据：props使用对象</a></li>
+    <li><a href="#con9">组件通信</a></li>
 </ol>
-<h1 id="con1">组件基础概念</h1>
-<p>一个组件在HTML里就像是一个自定义标签，一个组件同时也是一个Vue实例，会根据实例的内容被渲染成实际的样子。</p>
-<p>一个组件可以单独使用，也可以放在其他实例的内部使用，但在使用之前，都需要注册。</p>
-<p>注册有两种方式，全局注册和局部注册。全局注册就是直接写在js代码或者文件的外层，这样在其后的所有代码都可以使用这个组件。局部注册就是在一个Vue实例的内部进行注册。</p>
-<p>全局和局部并不是对于页面来说的。仅仅进行注册，而不在Vue实例的$el属性绑定的元素内，是无法使用组件的（因为HTML会把其当做一个普通的元素，在Vue内部才能对组件进行渲染。</p>
+<h1 id="con1">组件通信</h1>
+<p>父组件单向将数据传递给子组件只是通信的一种方式。实际上组件通信可以分为：</p>
+<ol>
+    <li>父子组件通信</li>
+    <li>兄弟组件通信</li>
+    <li>跨级组件通信</li>
+</ol>
+<p>这些还都分为单向和双向。在组件中学习的props只是父组件传数据给子组件的方式。还有很多传递数据的方式。</p>
 
 
-
-
-
-
-
-
-
-
-<h1 id="con2">全局注册</h1>
-<p>可以认为组件也是一个Vue实例，只不过写法和普通的Vue实例有些区别，现在先看一个最简单的全局注册例子，即组件的template属性可以渲染HTML元素：</p>
+<h1 id="con2">子组件向父组件传递数据</h1>
+<p>Vue提供了子组件用<code>$emit()</code>来触发事件，父组件<code>$on()</code>来监听子组件的事件。</p>
+<p>在实际开发中，可以在子组件的标签上使用v-on来监听子组件触发的自定义事件</p>
 <pre>
 &lt;div id="app">
 &lt;my-comp>&lt;/my-comp>
@@ -470,7 +467,14 @@ message5:{
 },
 </pre>
 
-
+<h1 id="con9">组件通信</h1>
+<p>父组件单向将数据传递给子组件只是通信的一种方式。实际上组件通信可以分为：</p>
+<ol>
+    <li>父子组件通信</li>
+    <li>兄弟组件通信</li>
+    <li>跨级组件通信</li>
+</ol>
+<p>这些还都分为单向和双向。刚才的只是父组件单向传递数据给子组件。</p>
 
 
 

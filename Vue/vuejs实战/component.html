@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Vue Learn</title>
+    <script src="vue.js"></script>
+
+</head>
+<body>
+
+<div id="app">
+    <p>传给子组件的是{{message}}</p>
+    <my-comp :message5="message"></my-comp>
+</div>
+
+<script>
+    var app = new Vue({
+        el: "#app",
+        components: {
+            "my-comp": {
+                template: "<div>{{message5}}</div>",
+                props: {
+                    // 传入Number类型的值
+                    message1:Number,
+
+                    //String和Number类型
+                    message2:[String,Number],
+
+                    //布尔类型，默认是true
+                    message3:{
+                        type:Boolean,
+                        default: true
+                    },
+
+                    //Number类型的必传值
+                    message4:{
+                        type: Number,
+                        required: true
+                    },
+
+                    //数组或者对象类型，必须用一个函数来返回
+                    message5:{
+                        type:function (obj) {
+                            return obj instanceof Function;
+                        },
+                        default: function () {
+                            return []
+                        }
+                    },
+
+                    //自定义验证器
+                    message6:{
+                        validator:function (value) {
+                            return value.length >= 5 && value instanceof Array;
+                        }
+                    }
+                },
+            }
+        },
+        data: {
+            message: [1, 3, 4, 5,5]
+        }
+    })
+</script>
+</body>
+</html>
