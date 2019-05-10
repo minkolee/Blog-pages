@@ -9,10 +9,12 @@
 
 </head>
 <body>
-
 <div id="app">
-    <button @click="clickhandler">从子组件获取消息</button>
-    <my-comp ref="child"></my-comp>
+    <my-comp>
+        <p slot="slot1">这是插入给slot1插槽的内容</p>
+        <p slot="slot2">这是插入给slot2插槽的内容</p>
+        <p>这是父元素的不具名插槽的内容</p>
+    </my-comp>
 </div>
 
 <script>
@@ -20,7 +22,7 @@
         el: "#app",
         components: {
             "my-comp": {
-                template: "<div><button>++</button></div>",
+                template: "<div><slot name='slot2'></slot><slot name='slot1'></slot><slot></slot></div>",
                 data: function () {
                     return {
                         count: 0,
@@ -31,13 +33,8 @@
         },
         data: {
             total: 0,
-            message:""
-        },
-        methods: {
-            clickhandler() {
-                this.message = this.$refs.child.message;
-                console.log("从子组件传来的数据是：" + this.message);
-            },
+            fathermessage: "父组件的信息",
+            message: "",
         }
     })
 </script>

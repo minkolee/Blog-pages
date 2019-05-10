@@ -229,15 +229,16 @@
 &lt;/script>
 </pre>
 
-
-
-<h1 id="con5">使用slot</h1>
+<h1 id="con5">使用单个slot</h1>
 <p>有的时候需要混合父组件与子组件的模板，就会用到slot，就是内容分发。</p>
 <p>用一个形象的说明就是，一个子组件模板的一块区域是留给父组件的，像一个插槽一样，其实际渲染的部分，是父组件渲染出来的。</p>
 <p>一个Vue组件对外交互的API，其实就是三块内容，之前学过了props，还有事件传递，现在还有第三个，就是slot。</p>
+<p>在子组件内使用特殊的<code>&lt;slot&gt;</code>就可以为这个组件开启一个插槽，父组件可以把渲染的内容插进来。</p>
 <pre>
 &lt;div id="app">
-    &lt;my-comp>&lt;/my-comp>
+    &lt;my-comp>
+        <span style="color: red;">&lt;p>{{fathermessage}}&lt;/p></span>
+    &lt;/my-comp>
 &lt;/div>
 
 &lt;script>
@@ -245,92 +246,36 @@
         el: "#app",
         components: {
             "my-comp": {
-                template: "&lt;div>&lt;p>{{message}}&lt;/p>&lt;input type='text' v-model='message'>&lt;p>&lt;button @click='alertMessage'>alert&lt;/button>&lt;/p>&lt;/div>",
-                data:function () {
+                template: "&lt;div>&lt;slot>&lt;p>子组件的默认内容&lt;/p>&lt;/slot>&lt;/div>",
+                data: function () {
                     return {
-                        message:"组件的message属性",
-                        count: 0
-                    }
-                },
-                methods:{
-                    alertMessage:function() {
-                        this.count++;
-                        console.log(this.message + this.count);
-                    }
-                }
-            }
-        }
-
-    })
-&lt;/script>
-</pre>
-<p>这里直接去访问了子组件的属性，直接从中获取了数据。注意<code>$refs</code>是非响应式的，也就是访问一次赋值一次，在computed或者模板中最好不要使用。这其实是一个应急方案。</p>
-<p>此外如果把ref标签写在普通的标签上，则不会被解释为子组件引用。</p>
-
-
-
-<h1 id="con6">父组件向子组件传递数据</h1>
-<p>为什么要有组件，主要是为了可以方便的复用。想象一下这个场景：在一个聊天页面中，很多地方都需要显示用户的名称。</p>
-<p>如果不使用组件，而是使用Vue实例控制每个小区域，那么这些组件都要互相去找用户使用的名称。</p>
-<p>如果使用组件，让组件进行父子组件之间的通信，只要给父组件传递数据，数据就自动会被放到子组件中更新和处理，就会非常方便，也利于解耦。</p>
-<p><code>props</code>属性用于在组件中声明需要从父组件中接收的数据，值可以有两种，一种是字符串数组代表的各个变量名称，一种是对象。</p>
-<p>先来看一个字符串数组的例子</p>
-<pre>
-&lt;div id="app">
-    &lt;my-comp message="From Father Vue instance">&lt;/my-comp>
-&lt;/div>
-
-&lt;script>
-    var app = new Vue({
-            el: "#app",
-            components: {
-                "my-comp": {
-                    template: "&lt;div>&lt;p>{{message}}&lt;/p>&lt;/div>",
-                    props: ['message'],
-                    data:function () {
-                        return {
-                            count: 0
-                        }
-                    }
-                }
-            }
-        })
-&lt;/script>
-</pre>
-<p>props属性中的字符串数据中的每一个元素实际上是属性名称，就和data返回的count属性一样可以在子组件的作用域内使用。二者的不同是data返回的属性只能在子组件作用域内使用，而props的值来自于父级。要传递多个</p>
-<p>如果把父组件的传递的内容绑定上属性，在父组件内就可以控制子组件的数据了：</p>
-<pre>
-&lt;div id="app">
-    &lt;my-comp :message="mess">&lt;/my-comp>
-    &lt;input type="text" v-model="mess">
-&lt;/div>
-
-&lt;script>
-    var app = new Vue({
-        el: "#app",
-        components: {
-            "my-comp": {
-                template: "&lt;div>&lt;p>{{message}}&lt;/p>&lt;p>{{message2}}&lt;/p>&lt;/div>",
-                props: ['message'],
-                data:function () {
-                    return {
-                        count: 0
+                        count: 0,
                     }
                 }
             }
         },
-        data:{
-            mess: ""
+        data: {
+            fathermessage: "父组件的信息",
         }
     })
 &lt;/script>
 </pre>
-<p>这个例子是把父组件传递给子组件的数据绑定给父组件的input框，输入什么，子组件就显示什么。</p>
-<p>唯一要注意的是如果在HTML属性名中使用了减号，props中的属性名称要写成驼峰：</p>
+<p>在子组件元素中的内容，也就是<code>&lt;p>{{fathermessage}}&lt;/p></code>，是父组件插入给子组件的内容，注意这里的作用域是父组件而不是子组件。</p>
+<p>在子组件的slot标签中的HTML元素，是父组件没有插入内容的时候，默认显示的内容。slot标签中的内容是子组件的作用域。</p>
+<p>这个例子渲染之后的实际结果是父组件的信息，如果删除<code>&lt;p>{{fathermessage}}&lt;/p></code>，则会显示子组件的默认内容。</p>
+
+
+
+<h1 id="con6">具名slot</h1>
+<p>在父组件的渲染区域，可以给<span style="color: red">元素上添加slot属性</span>，用于指定一个命名的插槽。在组件内，则要通过<span style="color: red">slot标签的name属性</span>来指定对应名称的插槽。</p>
+<p>指定了名称之后，父组件渲染的元素就会插到子组件同名的插槽中。如果子组件有一个不带有name属性的slot标签，则父元素所有不具名的插入元素都会被收集到这个无名的slot标签中。</p>
 <pre>
 &lt;div id="app">
-    &lt;my-comp :message-new="mess">&lt;/my-comp>
-    &lt;input type="text" v-model="mess">
+    &lt;my-comp>
+        &lt;p slot="slot1">这是插入给slot1插槽的内容&lt;/p>
+        &lt;p slot="slot2">这是插入给slot2插槽的内容&lt;/p>
+        &lt;p>这是父元素的不具名插槽的内容&lt;/p>
+    &lt;/my-comp>
 &lt;/div>
 
 &lt;script>
@@ -338,50 +283,33 @@
         el: "#app",
         components: {
             "my-comp": {
-                template: "&lt;div>&lt;p>{{messageNew}}&lt;/p>&lt;/div>",
-                props: ['messageNew'],
-                data:function () {
+                template: "&lt;div>&lt;slot name='slot2'>&lt;/slot>&lt;slot name='slot1'>&lt;/slot>&lt;slot>&lt;/slot>&lt;/div>",
+                data: function () {
                     return {
-                        count: 0
+                        count: 0,
+                        message: "子组件的内容"
                     }
                 }
             }
         },
-        data:{
-            mess: ""
+        data: {
+            total: 0,
+            fathermessage: "父组件的信息",
+            message: "",
         }
     })
 &lt;/script>
 </pre>
-<p>如果props里写成了<code>message-new</code>是没有作用的。</p>
-<p>使用v-bind的好处是，可以传递除了字符串以外的值。如果直接写死，传递的都是字符串。使用v-bind可以传递对象或者其他类型的数据：</p>
-<pre>
-&lt;div id="app">
-    &lt;my-comp :message1="mess" message2="[1,2,3,4]">&lt;/my-comp>
-&lt;/div>
+<p>可以看到父组件渲染的内容分别插入到了不同的插槽中，通过结果页面的顺序就可以看到。如果没有匿名的slot，则父组件所有不具名的slot渲染内容都会被抛弃。</p>
+<p>可以看到内容分发API也是非常重要的。</p>
 
-&lt;script>
-    var app = new Vue({
-        el: "#app",
-        components: {
-            "my-comp": {
-                template: "&lt;div>&lt;p>message1的长度是：{{message1.length}}&lt;/p>&lt;p>message2的长度是：{{message2.length}}&lt;/p>&lt;/div>",
-                props: ['message1','message2'],
-                data:function () {
-                    return {
-                        count: 0
-                    }
-                }
-            }
-        },
-        data:{
-            mess: [1,2,3,4]
-        }
-    })
-&lt;/script>
-</pre>
-<p>可以看到message1的长度是4，即数组的元素数，而message2的长度是9，是字符串的长度。</p>
-<p>这里只需要在<code>&lt;my-comp :message1="mess" message2="[1,2,3,4]">&lt;/my-comp></code>中，将<code>message2</code>前边加上一个<code>:</code>或者<code>v-bind:</code>指令，传给子组件的就是js表达式解析出的数组而不是字符串了。</p>
+
+
+
+
+
+
+
 
 
 <h1 id="con7">单向数据流</h1>
