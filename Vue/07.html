@@ -11,10 +11,10 @@
 <body>
 <ol>
     <li><a href="#con1">组件通信综述</a></li>
-    <li><a href="#con2">子组件向父组件传递数据</a></li>
-    <li><a href="#con3">局部注册</a></li>
-    <li><a href="#con4">is属性强制挂载组件</a></li>
-    <li><a href="#con5">组件的其他属性</a></li>
+    <li><a href="#con2">子组件向父组件传递数据：v-on监听自定义事件</a></li>
+    <li><a href="#con3">子组件向父组件传递数据：v-model绑定</a></li>
+    <li><a href="#con4">非父子组件通信</a></li>
+    <li><a href="#con5">使用slot</a></li>
     <li><a href="#con6">父组件向子组件传递数据：props使用字符串数组</a></li>
     <li><a href="#con7">单向数据流</a></li>
     <li><a href="#con8">父组件向子组件传递数据：props使用对象</a></li>
@@ -35,105 +35,206 @@
 <p>在实际开发中，可以在子组件的标签上使用v-on来监听子组件触发的自定义事件</p>
 <pre>
 &lt;div id="app">
-&lt;my-comp>&lt;/my-comp>
+    &lt;p>传给子组件的是{{count}}&lt;/p>
+    &lt;my-comp :child-count="count" <span style="color: red;">@event-from-child="fatherFunction"</span>>&lt;/my-comp>
 &lt;/div>
-&lt;script>
-    // 全局注册一个叫做my-comp的组件
-    Vue.component('my-comp', {
-        template: "&lt;div>组件内容&lt;/div>",
-
-    });
-
-    //这是使用组件的实例，也是my-comp组件的父实例
-    var app = new Vue({
-        el:"#app",
-
-    })
-&lt;/script>
-</pre>
-<p>这个例子会实际显示出template属性中的字符串以HTML解析后的内容，也就是组件内容四个字。</p>
-<p>template属性中的内容，必须包含在HTML标签内才会被渲染，如果写成<code>&lt;div>组件内容&lt;/div>123</code>，运行页面后可以看到Vue的提示：</p>
-<pre>
-[Vue warn]: Error compiling template:
-
-text "321" outside root element will be ignored.
-
-1  |  &lt;div>组件内容&lt;/div>321
-   |                 ^^^
-
-found in
-
----> &lt;MyComp>
-       &lt;Root>
-</pre>
-<p>即321不会被渲染。</p>
-
-
-
-<h1 id="con3">局部注册</h1>
-<p>局部注册是使用Vue实例的components属性进行注册。把上边全局注册的例子改成如下：</p>
-<pre>
-&lt;div id="app">
-    &lt;my-comp>&lt;/my-comp>
-&lt;/div>
-
 
 &lt;script>
     var app = new Vue({
         el: "#app",
         components: {
             "my-comp": {
-                template: "&lt;div>组件内容&lt;/div>"
+                props:["childCount"],
+                template: "&lt;div>" +
+                    "&lt;button @click='myFunction1'>++&lt;/button>" +
+                    "&lt;button @click='myFunction2'>--&lt;/button>&lt;/div>",
+                methods: {
+                    myFunction1: function () {
+                        this.initCount++;
+                        <span style="color: red">this.$emit('event-from-child', this.initCount);</span>
+                    },
+                    myFunction2: function () {
+                        this.initCount--;
+                        <span style="color: red">this.$emit('event-from-child', this.initCount);</span>
+                    }
+                },
+                data: function () {
+                    return {
+                        initCount: this.childCount
+                    }
+                }
+            }
+        },
+        data: {
+            message: [1, 2, 3, 4, 5],
+            count: 0
+        },
+        methods: {
+            fatherFunction(value) {
+                console.log("从子组件传来的数据是：" + value);
             }
         }
-
     })
 &lt;/script>
 </pre>
-<p>只要是一个带有template属性的对象，就可以注册为一个组件，后边还会学到许多其他的属性。</p>
-
-<h1 id="con4">is属性强制挂载组件</h1>
-<p>有些HTML标签，其中默认不会出现其他的元素，比如table内部。</p>
+<p>注意这里红色的几行。先看子组件，子组件从父组件接收了count属性，并用一个initCount存放了这个属性。这样做到数据和父组件隔离。</p>
+<p>此后子组件两个按钮定义了两个事件，一个减少自己的initCount，一个增加自己的initCount，然后使用了特殊的<code>$emit(自定义事件名称，数据)</code>方法来生成一个自定义事件。</p>
+<p>父组件将这个自定义事件的名称写在子组件的元素标签内，对其监听并用自己的<code>fatherFunction</code>去处理。</p>
+<p><code>fatherFunction</code>参数直接就是子组件传递来的数据。子组件的<code>$emit</code>可以传递多个数据参数，在父组件的事件内也提供同样多的参数进行接收即可。</p>
+<p>通过自定义事件，就可以实现子组件向父组件传递数据。</p>
+<p>除了直接监听自定义事件之外，还可以监听原生的DOM事件，在上边的例子里如果还想监听子组件内所有的按钮被按下的事件，可以增加如下代码：</p>
 <pre>
 &lt;div id="app">
-    &lt;table>
-        &lt;tbody>
-        &lt;tr>
-            &lt;td>1&lt;/td>
-        &lt;/tr>
-        &lt;my-comp>&lt;/my-comp>
-        &lt;tr>
-            &lt;td>2&lt;/td>
-        &lt;/tr>
-        &lt;/tbody>
-    &lt;/table>
+    &lt;p>传给子组件的是{{count}}&lt;/p>
+    &lt;my-comp :child-count="count" @event-from-child="fatherFunction" <span style="color: red">@click.native="clickhandler"</span>>&lt;/my-comp>
 &lt;/div>
+
+&lt;script>
+    var app = new Vue({
+        el: "#app",
+        components: {
+            "my-comp": {
+                props: ["childCount"],
+                template: "&lt;div>" +
+                    "&lt;button @click='myFunction1'>++&lt;/button>" +
+                    "&lt;button @click='myFunction2'>--&lt;/button>&lt;/div>",
+                methods: {
+                    myFunction1: function () {
+                        console.log(this.initCount);
+                        this.$emit('event-from-child', this.initCount, this.initCount + 10, this.initCount + 100);
+                        this.initCount++;
+                    },
+                    myFunction2: function () {
+                        console.log(this.initCount);
+                        this.$emit('event-from-child', this.initCount, this.initCount + 10, this.initCount + 100);
+                        this.initCount--;
+                    }
+                },
+                data: function () {
+                    return {
+                        initCount: this.childCount
+                    }
+                }
+            }
+        },
+        data: {
+            message: [1, 2, 3, 4, 5],
+            count: 0
+        },
+        methods: {
+            fatherFunction(value, value1, value2) {
+                console.log("从子组件传来的数据是：" + value);
+                console.log("从子组件传来的数据是：" + value1);
+                console.log("从子组件传来的数据是：" + value2);
+            },
+            <span style="color: red">clickhandler:function () {
+                console.log("我被按了");
+            }</span>
+        }
+    })
+&lt;/script>
 </pre>
-<p>如果是普通渲染，会发现组件被自动移动到了表格外部，如果想让组件强制显示，可以使用is属性：</p>
+
+
+<h1 id="con3">v-model监听事件</h1>
+<p>v-model其实是一个语法糖，会自动监听input事件并从中获得数据，本质上还是监听自定义事件。看一个简单的例子</p>
 <pre>
 &lt;div id="app">
-    &lt;table>
-        &lt;tbody>
-        &lt;tr>
-            &lt;td>1&lt;/td>
-        &lt;/tr>
-        &lt;tr>
-            &lt;td is="my-comp">&lt;/td>
-        &lt;/tr>
-        &lt;tr>
-            &lt;td>2&lt;/td>
-        &lt;/tr>
-        &lt;/tbody>
-    &lt;/table>
+    &lt;p v-if="total">从子组件传来的数据是{{total}}&lt;/p>
+    &lt;my-comp v-model="total">&lt;/my-comp>
 &lt;/div>
+
+&lt;script>
+    var app = new Vue({
+        el: "#app",
+        components: {
+            "my-comp": {
+                template: "&lt;div>&lt;button @click='myFunction'>++&lt;/button>&lt;/div>",
+                methods: {
+                    myFunction: function () {
+                        this.count++;
+                        this.$emit('input', this.count);
+                    },
+                },
+                data: function () {
+                    return {
+                        count: 0
+                    }
+                }
+            }
+        },
+        data: {
+            total: 0
+        },
+        methods: {
+            fatherFunction(value) {
+                this.total = value;
+                console.log("从子组件传来的数据是：" + value);
+            },
+        }
+    })
+&lt;/script>
 </pre>
-<p>此时这个td标签，会被替换成组件的div标签。这就是强制渲染。像ol，ul，select元素都有这方面的限制。</p>
+<p>这个东西其实就是一个语法糖，需要使用v-model语法糖，需要满足两个条件：</p>
+<ol>
+    <li>v-model在子组件元素上绑定父组件一个data属性</li>
+    <li>子组件必须使用<code>$emit</code>产生名称为<code>input</code>的事件并传递一个value值</li>
+</ol>
+<p>有了父子组件通信之后，很多想法就可以实现了，比如组件是一个表单，接受输入之后传给父组件。</p>
+
+
+<h1 id="con4">非父子组件通信</h1>
+<p>很多时候可能还需要非父子组件之间通信，比如两个各渲染一块内容的组件通信。</p>
+<p>这个时候推荐用一个专门的Vue实例，来做事件中介。在进阶的时候再来学习这个。</p>
+<p>现在先来看两种方式：</p>
+<ol>
+    <li>父链</li>
+    <li>子组件索引</li>
+</ol>
+<p>父链其实就是在组件中去直接访问父级组件和子组件，采用<code>this.$parent</code>就可以访问当前组件的父级组件，<code>this.$children</code>则可以访问子组件。</p>
+<p>可以一层一层向上或者向下访问，可以取得对组件的完全控制。</p>
+<p>尽管父链和子链是Vue提供的功能，但实际中最好不要去写直接操作父子组件的代码，这样会造成高耦合，如果是单纯的父子组件，最好还是使用之前介绍的通信方法。</p>
+<p>一个父组件有多个子组件是很常见的，如果通过<code>this.$children</code>遍历，由于渲染顺序不固定，比较麻烦。Vue提供了子组件索引的方法，用<code>ref</code>属性再子组件标签上为子组件指定一个索引名称，之后就可以比较方便的通过<code>this.$refs.xxx</code>访问该子组件。</p>
+<pre>
+&lt;div id="app">
+    &lt;button @click="clickhandler">从子组件获取消息&lt;/button>
+    &lt;my-comp ref="child">&lt;/my-comp>
+&lt;/div>
+
+&lt;script>
+    var app = new Vue({
+        el: "#app",
+        components: {
+            "my-comp": {
+                template: "&lt;div>&lt;button>++&lt;/button>&lt;/div>",
+                data: function () {
+                    return {
+                        count: 0,
+                        message: "子组件的内容"
+                    }
+                }
+            }
+        },
+        data: {
+            total: 0,
+            message:""
+        },
+        methods: {
+            clickhandler() {
+                this.message = this.$refs.child.message;
+                console.log("从子组件传来的数据是：" + this.message);
+            },
+        }
+    })
+&lt;/script>
+</pre>
 
 
 
-<h1 id="con5">组件的其他属性</h1>
-<p>除了template之外，组件中也可以使用data、computed、methods等属性，除了data之外都和原来的一样。</p>
-<p>data属性则必须是一个匿名函数，返回一个对象，对象中包含属性名称和值即可。</p>
+<h1 id="con5">使用slot</h1>
+<p>有的时候需要混合父组件与子组件的模板，就会用到slot，就是内容分发。</p>
+<p>用一个形象的说明就是，一个子组件模板的一块区域是留给父组件的，像一个插槽一样，其实际渲染的部分，是父组件渲染出来的。</p>
+<p>一个Vue组件对外交互的API，其实就是三块内容，之前学过了props，还有事件传递，现在还有第三个，就是slot。</p>
 <pre>
 &lt;div id="app">
     &lt;my-comp>&lt;/my-comp>
@@ -163,8 +264,9 @@ found in
     })
 &lt;/script>
 </pre>
-<p>data返回的对象中，如果引用到了外部对象，则会同时修改对象的属性的值。这点和普通的Vue实例是一样的。</p>
-<p>这里不要受到返回一个对象的干扰，在组件中，依然可以使用this.属性名来找到对应的data属性。只是形式的变化，用法没有发生变化。</p>
+<p>这里直接去访问了子组件的属性，直接从中获取了数据。注意<code>$refs</code>是非响应式的，也就是访问一次赋值一次，在computed或者模板中最好不要使用。这其实是一个应急方案。</p>
+<p>此外如果把ref标签写在普通的标签上，则不会被解释为子组件引用。</p>
+
 
 
 <h1 id="con6">父组件向子组件传递数据</h1>
