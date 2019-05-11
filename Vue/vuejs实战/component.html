@@ -11,9 +11,10 @@
 <body>
 <div id="app">
     <my-comp>
-        <p slot="slot1">这是插入给slot1插槽的内容</p>
-        <p slot="slot2">这是插入给slot2插槽的内容</p>
-        <p>这是父元素的不具名插槽的内容</p>
+        <template slot-scope="props">
+            <p>父组件渲染的内容</p>
+            <p>{{props.msg}}</p>
+        </template>
     </my-comp>
 </div>
 
@@ -22,19 +23,8 @@
         el: "#app",
         components: {
             "my-comp": {
-                template: "<div><slot name='slot2'></slot><slot name='slot1'></slot><slot></slot></div>",
-                data: function () {
-                    return {
-                        count: 0,
-                        message: "子组件的内容"
-                    }
-                }
+                template: "<div><slot msg='子组件渲染的内容'></slot></div>",
             }
-        },
-        data: {
-            total: 0,
-            fathermessage: "父组件的信息",
-            message: "",
         }
     })
 </script>

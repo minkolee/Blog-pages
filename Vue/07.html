@@ -16,7 +16,7 @@
     <li><a href="#con4">非父子组件通信</a></li>
     <li><a href="#con5">使用slot</a></li>
     <li><a href="#con6">父组件向子组件传递数据：props使用字符串数组</a></li>
-    <li><a href="#con7">单向数据流</a></li>
+    <li><a href="#con7">作用域插槽</a></li>
     <li><a href="#con8">父组件向子组件传递数据：props使用对象</a></li>
     <li><a href="#con9">组件通信</a></li>
 </ol>
@@ -303,20 +303,16 @@
 <p>可以看到父组件渲染的内容分别插入到了不同的插槽中，通过结果页面的顺序就可以看到。如果没有匿名的slot，则父组件所有不具名的slot渲染内容都会被抛弃。</p>
 <p>可以看到内容分发API也是非常重要的。</p>
 
-
-
-
-
-
-
-
-
-
-<h1 id="con7">单向数据流</h1>
-<p>为什么要提到单向数据流，因为在Vue 1.x中，子组件修改props属性会连带修改父组件的数据。在Vue 2.x中就不行了，这是避免子组件污染父组件。看这个例子：</p>
+<h1 id="con7">作用域插槽</h1>
+<p>作用域插槽使用一个模板替换已经渲染的元素，先看一个例子：</p>
 <pre>
 &lt;div id="app">
-    &lt;my-comp :message="mess">&lt;/my-comp>
+    &lt;my-comp>
+        &lt;template slot-scope="props">
+            &lt;p>父组件渲染的内容&lt;/p>
+            &lt;p>{{props.msg}}&lt;/p>
+        &lt;/template>
+    &lt;/my-comp>
 &lt;/div>
 
 &lt;script>
@@ -324,109 +320,31 @@
         el: "#app",
         components: {
             "my-comp": {
-                template: "&lt;div>&lt;p>message是：{{message}}&lt;/p>&lt;button @click='modify'>修改子组件数据&lt;/button>&lt;/div>",
-                props: ['message'],
-                data:function () {
-                    return {
-                        count: 0
-                    }
-                },
-                methods:{
-                    modify:function () {
-                        this.message++;
-                    }
-                }
+                template: "&lt;div>&lt;slot msg='子组件渲染的内容'>&lt;/slot>&lt;/div>",
             }
-        },
-        data:{
-            mess: 100
         }
     })
 &lt;/script>
 </pre>
-<p>父组件传给子组件一个数据是100，子组件用按钮来直接将其自增。每点一次按钮，控制台内会有Vue的警告：</p>
-<pre>
-vue.js:634 [Vue warn]: Avoid mutating a prop directly since the value will be overwritten whenever the parent component re-renders. Instead, use a data or computed property based on the prop's value. Prop being mutated: "message"
-found in
----> &lt;MyComp>
-       &lt;Root>
-</pre>
-<p>这里会警告不要直接修改父组件的对应数据，实际上也没能修改成功，在控制台里查看<code>app.mess</code>依然是100。</p>
-<p>但是这样很不好，父子组件的数据其实没同步。Vue也给出了解决方案，就是在data里创建一个自己的局部变量用来接受初始值，或者使用计算属性基于传进来的值计算出新的值。</p>
-<p>例子可以修改成这样：</p>
-<pre>
-&lt;div id="app">
-    &lt;my-comp :message="mess">&lt;/my-comp>
-&lt;/div>
 
-&lt;script>
-    var app = new Vue({
-        el: "#app",
-        components: {
-            "my-comp": {
-                template: "&lt;div>&lt;p>initCount是：{{initCount}}&lt;/p>&lt;p>计算后的是{{computedCount}}&lt;/p>&lt;button @click='modify'>修改子组件数据&lt;/button>&lt;/div>",
-                props: ['message'],
-                data:function () {
-                    return {
-                        initCount: this.message
-                    }
-                },
-                methods:{
-                    modify:function () {
-                        this.initCount++;
-                    }
-                },
-                computed:{
-                    computedCount: function () {
-                        return this.initCount + 100000;
-                    }
-                }
-            }
-        },
-        data:{
-            mess: 100
-        }
-    })
-&lt;/script>
-</pre>
-<p>不过要注意的是，如果传递了一个对象比如数组，由于JS传递的是引用，所以依然会被修改：</p>
-<pre>
-&lt;div id="app">
-    &lt;my-comp :message="mess">&lt;/my-comp>
-&lt;/div>
 
-&lt;script>
-    var app = new Vue({
-        el: "#app",
-        components: {
-            "my-comp": {
-                template: "&lt;div>&lt;p>initCount是：{{initCount}}&lt;/p>&lt;p>计算后的是{{computedCount}}&lt;/p>&lt;button @click='modify'>修改子组件数据&lt;/button>&lt;/div>",
-                props: ['message'],
-                data:function () {
-                    return {
-                        initCount: this.message
-                    }
-                },
-                methods:{
-                    modify:function () {
-                        this.initCount.push(666);
-                    }
-                },
-                computed:{
-                    computedCount: function () {
-                        return this.initCount.length;
-                    }
-                }
-            }
-        },
-        data:{
-            mess: [1, 2, 3, 4, 5]
-        }
-    })
-&lt;/script>
-</pre>
-<p>每次点击按钮，查看父组件的mess属性，会发现也一并发生了变化。</p>
-<p>因此子组件最好不要直接修改父组件的数据，尤其父组件的数据还有其他用途的时候。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <h1 id="con8">props传递对象</h1>
 <p>当传入的数据需要验证的时候，就可以使用对象传递，并在每个属性名后跟上需要验证的类型，有特定的写法，看几个例子：</p>
