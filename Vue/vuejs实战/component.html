@@ -23,7 +23,12 @@
         el: "#app",
         components: {
             "my-comp": {
-                template: "<div><slot msg='子组件渲染的内容'></slot></div>",
+                template: "<div><slot msg='message'></slot></div>",
+            },
+            data:function () {
+                return {
+                    message:"子组件内容"
+                }
             }
         }
     })
