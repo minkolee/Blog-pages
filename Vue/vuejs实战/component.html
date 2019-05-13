@@ -9,29 +9,20 @@
 
 </head>
 <body>
-<div id="app">
-    <my-comp>
-        <template slot-scope="props">
-            <p>父组件渲染的内容</p>
-            <p>{{props.msg}}</p>
-        </template>
-    </my-comp>
+<div id="mount">
 </div>
 
 <script>
-    var app = new Vue({
-        el: "#app",
-        components: {
-            "my-comp": {
-                template: "<div><slot msg='message'></slot></div>",
-            },
-            data:function () {
-                return {
-                    message:"子组件内容"
-                }
+    vueobj = Vue.extend({
+        template: "<p>新创建的Vue实例 {{name}}</p>",
+        data: function () {
+            return {
+                name: "Jenny"
             }
         }
     })
 </script>
+
+
 </body>
 </html>
