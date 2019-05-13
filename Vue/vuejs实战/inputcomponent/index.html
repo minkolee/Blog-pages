@@ -8,12 +8,14 @@
     <script src="../vue.js"></script>
 </head>
 <body>
+<div id="app">
+<!--    一般表单类控件提供一个value，以及其他属性上下限制。有点类似Spring属性注入的方式-->
+    <input-number v-model="value" :max="10" :min="0"></input-number>
+</div>
 
 
-
-
-
-
+<script src="input-number.js"></script>
+<script src="index.js"></script>
 
 
 
