@@ -10,9 +10,17 @@
 <body>
 <div id="app">
 <!--    一般表单类控件提供一个value，以及其他属性上下限制。有点类似Spring属性注入的方式-->
-    <input-number v-model="value" :max="10" :min="0"></input-number>
+    <input-number v-model="value" :max="11" :min="0" :step="3" @on-change="changeHandler"></input-number>
 </div>
 
+
+<script type="text/x-template" id="numbertemplate">
+    <div class="input-number">
+        <input type="text" :value="currentValue" @change="handleChange" @keyup.up="handleKeyUp" @keyup.down="handleKeyDown">
+        <button @click="handleDown" :disabled="currentValue <= min">-</button>
+        <button @click="handleUp" :disablede="currentValue >= max">+</button>
+    </div>
+</script>
 
 <script src="input-number.js"></script>
 <script src="index.js"></script>
