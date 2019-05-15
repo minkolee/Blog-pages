@@ -49,8 +49,73 @@
 <p>现在既然准备开始做这个项目了，也拿到需求了，就得先分析分析技术选型了。博客估计要变成项目文档了，这大概是Blog-Drive</p>
 
 <h1 style="text-align: center;">技术准备</h1>
-
-
+<p>把上边的需求分析了一下：</p>
+<table border="1">
+    <thead>
+    <tr>
+        <th>需求内容</th>
+        <th>需求分析和技术</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>项目基础结构</td>
+        <td>Java+Spring（Boot)，Spring Boot的依赖要根据每个需求而定</td>
+    </tr>
+    <tr>
+        <td>用户登录后生成投票表单</td>
+        <td>由于后边大佬提出要前后端分离，不能使用Spring Security，要使用Shiro安全框架加jjwt。这个还需要学习，找了一篇<a href="https://zhuanlan.zhihu.com/p/30155904" target="_blank">文章</a>。</td>
+    </tr>
+    <tr>
+        <td>投票项可以单选，可以多选</td>
+        <td>这个倒是容易，就是把投票选项做成checkbox控件。</td>
+    </tr>
+    <tr>
+        <td>其它用户投票后显示当前投票结果（但是不能刷票）。</td>
+        <td>这个就是指用户只能投票才能查看投票结果，从设想上来看，应该就是投票发送请求之后，如果响应成功，就应该返回结果页面，不成功则弹出提示。</td>
+    </tr>
+    <tr>
+        <td>投票有相应的时间，页面上需要出现倒计时。</td>
+        <td>这个可以使用JS控件来完成，只是要通过HTML或者其他方式传递数据。也可以考虑在新一些的浏览器上通过SSE来实现（似乎推送时间）没有必要。</td>
+    </tr>
+    <tr>
+        <td>投票结果需要用不同颜色不同长度的横条，并显示百分比和人数</td>
+        <td>这个是具体样式了，可以通过前端来计算，或者后端返回也可以</td>
+    </tr>
+    <tr>
+        <td>后端不返回任何的HTML，只返回JSON数据给前端</td>
+        <td>这实际上是要求做一个单页面应用。要仔细规划一下。由于是投票，很容易想到，投票内容可以保存在Redis的有序集合中，因此需要集成Redis。而用户可以通过redis或者mongo来保存。</td>
+    </tr>
+    <tr>
+        <td>由前端的JQuery来处理并操作相关的HTML动态生成在前端展示的页面</td>
+        <td>说明这里需要使用jQuery</td>
+    </tr>
+    <tr>
+        <td>响应式页面</td>
+        <td>这个就按照大佬说的，使用Bootstrap了</td>
+    </tr>
+    <tr>
+        <td>通过微信授权后记录用户信息</td>
+        <td>这个很显然，如果要做到前后端分离，就要使用Oauth2认证，不过搜了一下，发现企业号才能使用，暂时无法做该功能。</td>
+    </tr>
+    <tr>
+        <td>可以不用刷页面，就可以动态地看到投票结果的变化</td>
+        <td>这个可以采用两个方案：如果客户端支持，就采用SSE；如果不支持，就采用轮询的方式。如果要采用SSE的方式，则必须使用Spring Webflux。</td>
+    </tr>
+    </tbody>
+</table>
+<p>由于既然要做项目就要努力把挑战都完成。分析到现在，我发现这基本上就是要做一个单页面应用。</p>
+<p>主要用的技术有：</p>
+<ol>后端
+    <li><code>Spring Boot</code></li>
+    <li><code>Shiro安全框架</code></li>
+    <li>数据库方面<code>Hibernate</code>+<code>MySQL</code>+<code>Redis</code></li>
+</ol>
+<ol>前端
+    <li><code>Vue</code></li>
+    <li><code>Bootstrap</code></li>
+</ol>
+<p>发现还缺失Vue相关的一些路由，以及前后端分离用户鉴权的知识。</p>
 
 
 
