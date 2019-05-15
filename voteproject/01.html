@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>项目记录</title>
+    <title>项目的故事</title>
 
 </head>
 <body>
 <h1 style="text-align: center;">第一个项目</h1>
-<p>学编程，一定要写一个东西出来，单独的那些小练习最多练练算法，但练不了实际解决问题的能力。</p>
+<p>古人云：学编程，一定要写一个完整的项目出来。</p>
 <p>在去年的10-11月，为公司写过一个<a href="https://github.com/minkolee/ContractCMS" target="_blank">合同管理项目</a>，是我学了Web开发之后写的第一个项目。</p>
 <p>当时由于这方面的需求比较强烈，公司又没有一个像样的信息系统，就前后花了两个星期的时间，和其他部门开会问需求，然后写出初版进行测试，最后正式上线。虽然都不是什么非常正式的项目，但总算也经历过了一个完整的开发。</p>
 <p>就在10天前，还更新到了1.1版本，添加了两个公司的支持。</p>
@@ -108,14 +108,19 @@
 <p>主要用的技术有：</p>
 <ol>后端
     <li><code>Spring Boot</code></li>
-    <li><code>Shiro安全框架</code></li>
-    <li>数据库方面<code>Hibernate</code>+<code>MySQL</code>+<code>Redis</code></li>
+    <li><code>Shiro安全框架</code>用于前后端分离鉴权</li>
+    <li>数据库方面<code>Hibernate</code>+<code>MySQL</code>+<code>Redis</code>，MySQL用于存储用户信息，而Redis负责存储投票信息。</li>
 </ol>
 <ol>前端
-    <li><code>Vue</code></li>
-    <li><code>Bootstrap</code></li>
+    <li><code>Vue</code>，由于这是一个彻底的前后端分离的项目因此考虑来还是准备使用Vue，但是看来需要多研读一下单页面Web应用的编写了。</li>
+    <li><code>Bootstrap</code>，还是先用这个吧，未来可能升级到Vue的一些组件库。</li>
 </ol>
-<p>发现还缺失Vue相关的一些路由，以及前后端分离用户鉴权的知识。</p>
+<p>列出了技术栈之后发现，大佬的这个作业一点也不简单，是一个彻底前后端分离的单页面应用，虽然功能简单，但是五脏俱全。之后检查了目前的技术栈积累，还差如下部分：</p>
+<ol>
+    <li>Vue的路由等内容还需继续学习</li>
+    <li>前后端分离情况下的用户鉴权</li>
+    <li>Spring 与 Redis的响应式整合</li>
+</ol>
 
 
 
