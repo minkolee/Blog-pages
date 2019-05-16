@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>前端工程化 01 - Node.js与NPM</title>
+    <script src="../../../sites/node-experiment/test.js"></script>
+
+</head>
+<body>
+<h1 style="text-align: center;">前端工程化</h1>
+<p>搞Web开发，想要当全栈工程师，前端也是必须要过去的坎。别的先不说，Java+JavaScript两大语言都要练好。</p>
+<p>刚学Web开发的时候，自己可以写页面，用jQuery，后端渲染，但是当时还没有前后端分离。</p>
+<p>现在要用Vue搞前后端分离，几乎所有的Vue教学都要用到Webpack等开发，常用的WebStorm其实也可以工程化，但是这方面一直没有涉及到。</p>
+<p>现在为了用Vue开发，确实必须来学习前端工程化了。在Udemy上找到了<a href="https://www.udemy.com/git-a-web-developer-job-mastering-the-modern-workflow/" target="_blank">Git a Web Developer Job: Mastering the Modern Workflow</a>这门课程，正好是讲述前端工程化的，不过使用的工具是Gulp，不是webpack，准备找一些其他的东西搭配来看了。</p>
+<p>就按照这门课程来入门吧，希望很快就可以创建Vue工程项目了，也为写大佬的投票项目继续积累技术栈。</p>
+
+<ol>
+    <li><a href="#con1">Node.js</a></li>
+    <li><a href="#con2">NPM</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">Node.js</h1>
+<p>学过了Python，学过了Java，这Node.js其实就是一个JVM，当然，是JavaScript的虚拟机，让JS代码可以运行在浏览器之外，让JS像一门普通的编程语言一样可以用在任何地方。当然，主要还是Web开发。</p>
+<p>Node.js的官方网站是<a href="https://nodejs.org/" target="_blank">https://nodejs.org/</a>，目前的长期支持版本是10.15.3 LTS，最新版是12.2.0。</p>
+<p>Node.js可以装在服务器上作为后端，也可以装在我们的个人电脑上，用来当做开发工具和测试工具。</p>
+
+<h3 style="text-align: center;">安装Node.js</h3>
+<p>在官网可以下载各个版本的安装包，我自己暂时还不打算用node.js当后端，就没有将其安装在我的linux虚拟机上。下载windows 安装包，直接安装即可。</p>
+<p>安装完之后，进入cmd，输入<code>node -v</code>，如果显示出来版本，说明安装正确。</p>
+<p>来运行一个简单的程序了解一下基本用法。</p>
+<p>创建任意一个目录，然后在其中创建一个js文件，随便起个名字比如<code>test.js</code>，就来一个最简单的<code>console.log("Hello World");</code>。</p>
+<p>在cmd下进入该目录，然后执行：</p>
+<pre>
+node test.js
+Hello World
+</pre>
+<p>其实python，java之类解释程序或者说虚拟机，执行程序的套路都一样，没有什么新鲜的。现在JavaScript通过Node.js也变成泛用。其中可以写任意的JS代码。</p>
+<p>像其他编程语言一样，也有很多库，node导入库可以使用require(库名)。</p>
+<p>来试验一个稍微复杂的程序，使用fs模块，就是file system模块：</p>
+<pre>
+let fs = require('fs');
+
+fs.writeFile(__dirname+"/index.html","<h1>First Node Js File</h1>",function (error) {
+    if(error){
+        return console.log('error');
+    }else{
+        return console.log("Congratulations");
+    }
+});
+</pre>
+<p>这里的第一行是导入fs库，然后用变量fs接收。之后调用writeFile方法，这个方法有三个参数，第一个是路径，这里使用__dirname表示当前路径，然后拼接要写的文件名。第二个参数是写入文件的内容，这里写了一个HTML一级标题元素。最后一个是回调函数，参数是error。</p>
+<p>然后进行一个判断，如果存在error就返回错误信息，否则返回正确信息。</p>
+<p>然后用node运行，就成功写了一个文件。</p>
+<p>再实验从网上获取资源：</p>
+<pre>
+let https = require('https');
+var photoLocation = "https://raw.githubusercontent.com/LearnWebCode/welcome-to-git/master/images/dog.jpg"
+
+https.get(photoLocation,function (response) {
+    response.pipe(fs.createWriteStream(__dirname+"/photo.jpg"))
+});
+</pre>
+<p>如果图片地址不是https开头的，需要导入http库。这里使用了get方法，第一个参数是URL，第二个参数是处理获得的数据的函数，将数据写入到当前目录下photo.jpg文件里。</p>
+<p>由此可见，相比在浏览器中的JS，node.js可以操作文件系统，使用操作系统的标准输入输出，还能访问Web资源，还能当成Web服务器，与数据库交互，极大的扩展了JavaScript的应用。</p>
+
+<h1 id="con2" style="text-align: center;">NPM</h1>
+<p>NPM的全称是Node Package Manger，所以大概就可以知道了，类似于像Java的Maven一样的管理工具，下载并自动添加依赖。</p>
+<p>NPM管理的主要类型的包：</p>
+<ol>
+    <li>Node Packages
+        <ol>
+            <li>Automation</li>
+            <li>Build Tools</li>
+            <li>Server tasks</li>
+        </ol>
+    </li>
+    <li>Other
+        <ol>
+            <li>jQuery</li>
+            <li>lodash</li>
+            <li>Bootstrap</li>
+            <li>Normalize.css</li>
+        </ol>
+    </li>
+</ol>
+<p>实际操作一下jQuery，在某个项目的目录下，cmd中运行<code>npm install jquery</code>，之后会看到在项目目录下多了一个<code>node_modules</code>目录，其中有jquery目录，点开之后是发行包，可以在里边找到jquery.min.js文件。</p>
+<p>现在把<code>node_modules</code>目录删除，然后在项目目录下运行<code>npm init</code>，一路默认或者输入信息之后，会看到生成了一个<code>package.json</code>文件，这个文件就是我们的项目包的依赖清单文件。</p>
+<p>打开该文件：</p>
+<pre>
+{
+  "name": "npmlearn",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
+
+</pre>
+<p>现在其中包含的都是基础信息，实际上只需要保留name和version属性，其他的都可以删除。为了简单起见都删除，然后保存退出。</p>
+<p>再运行<code>npm install jquery <span style="color: red">--save</span></code>，注意后缀，会发现刚才删除的目录又出现了，此时再打开<code>package.json</code>文件：</p>
+<pre>
+{
+  "name": "npmlearn",
+  "version": "1.0.0",
+  "dependencies": {
+    "jquery": "^3.4.1"
+  }
+}
+</pre>
+<p>可以看到其中出现了dependencies属性，里边记录了依赖包名和版本号。</p>
+<p>再来试试<code>npm install normalize.css --save</code>，再看json文件：</p>
+<pre>
+{
+  "name": "npmlearn",
+  "version": "1.0.0",
+  "dependencies": {
+    "jquery": "^3.4.1",
+    "normalize.css": "^8.0.1"
+  }
+}
+</pre>
+<p>很显然，--save的install命令就是同时安装包以及更新包的依赖。</p>
+<p>既然有依赖文件，很显然，也可以通过依赖文件让其自动安装所有依赖，而无需指定某一个依赖。</p>
+<p>再次删除<code>node_modules</code>目录，然后运行：</p>
+<pre>
+npm install
+</pre>
+<p>这个时候npm会找到<code>package.json</code>文件，并按照其中的依赖项目列表安装所有依赖。可以看到被删除的目录又回来了，依赖又装上了。</p>
+<p>这就是最简单的npm应用，之后就像maven一样，有一个依赖文件，就可以迅速建立起工程项目和所需的依赖包。</p>
+<p>注意如果项目有Git，下边会有一个<code>.gitignore</code>文件，自动将包的所有文件排除在git之外，如果没有正常排除，可以手工编辑<code>.gitignore</code>文件。</p>
+
+
+
+
+</body>
+</html>
