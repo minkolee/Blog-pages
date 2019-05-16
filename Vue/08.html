@@ -12,6 +12,9 @@
 <ol>
     <li><a href="#con1">自定义指令基本用法</a></li>
     <li><a href="#con2">例子</a></li>
+    <li><a href="#con3">Virtual Dom</a></li>
+    <li><a href="#con4">Render函数例子</a></li>
+    <li><a href="#con5">createElement</a></li>
 </ol>
 <h1 id="con1">自定义指令基本用法</h1>
 <p>自定义指令就像是之前使用的v-if,v-show等，本质上是解析一段表达式，并给当前元素绑定一个指令对象。和组件很像，也分为局部注册和全局注册，注册的函数是directive。</p>
@@ -74,14 +77,6 @@ var app = new Vue({
 <p>而绑定的值从binding对象也能看出来，有绑定值（经过JS解析）和绑定的值的字符串形式两种内容。所以在绑定值的时候也可以传一个JS能够解析的字符串比如对象。</p>
 
 
-
-
-
-
-
-
-
-
 <h1 id="con2">例子</h1>
 <p>我个人的理解，所有的“自定义”，其实都是为了满足特定的需求，然而也会带来更高的耦合程度。如果说Vue实例绑定了一个区域用于控制，自定义指令实际上绑定了一个具体元素，确实大大提高了灵活性。通过一个指令就可以让一个元素化身为一个具体特定功能的区域。</p>
 <p>例子其实要举就太多了，还是就简单遍历一个自定义指令的所有内容吧：</p>
@@ -94,6 +89,8 @@ var app = new Vue({
     Vue.directive('test',{
         bind: function (el, binding, vnode) {
             console.log(el);
+            console.log(binding);
+            console.log(vnode);
             var keys = [];
             for (var i in vnode) {
                 keys.push(i)
@@ -117,6 +114,152 @@ var app = new Vue({
 </pre>
 <p>用了一个带有参数，绑定元素，绑定解析内容的指令，基本上把前边的都用全了。这其中尤其需要关注的就是value，expression和argument。</p>
 <p>指令具体实现的功能，则都要使用函数的各个参数来进行操作。</p>
+
+<h1 id="con3">Virtual Dom 虚拟DOM节点</h1>
+<p>一般来说，我们的组件的模板都是写在template元素里的，当然也可以写在其他的元素里。不管什么元素，都会被Vue解析成Virtual Dom。</p>
+<p>更新DOM的操作要比执行JS代码开销大很多，所以Vue在更新页面的时候，实际上先对Virtual Dom进行计算，看是否有变化，然后渲染有变化的DOM部分，而不是整个页面重绘，这样的单页面应用要比从服务器获取静态页面速度好很多。</p>
+<p>在自定义指令的例子里，打印vnode参数在控制台里看到VNode对象，这个就是Vue的虚拟DOM节点对象。这个对象用一些属性封装了DOM节点的一些内容</p>
+<p>其中的一堆属性里比较重要的有两个：</p>
+<ol>
+    <li><code>tag</code>，当前节点的标签名称，像例子里指令绑定的是div元素，就会是div字符串。</li>
+    <li><code>data</code>，当前节点的数据对象，Vue源码中对应的类叫做VNodeData类。</li>
+    <li><code>children</code>，子节点数组，其中元素也全部是VNode类型</li>
+    <li><code>text</code>，当前节点的文本，一般文本和注释节点有此属性</li>
+    <li><code>elm</code>，即element，当前虚拟节点对应的真实DOM节点</li>
+    <li><code>ns</code>，节点的命名空间</li>
+    <li><code>content</code>，编译作用域</li>
+    <li><code>functionalContext</code>，函数化组件的作用域</li>
+    <li><code>key</code>，节点的key属性，用于唯一标识，方便更新DOM</li>
+    <li><code>componentOptions</code>，创建组件实例用到的设置</li>
+    <li><code>child</code>，当前节点对应的组件实例</li>
+    <li><code>parent</code>，组件的占位节点</li>
+    <li><code>raw</code>，原始HTML</li>
+    <li><code>istatic</code>，是否是静态节点</li>
+    <li><code>isRootlnsert</code>，是否作为根节点插入</li>
+    <li><code>isComment</code>，是否是注释节点</li>
+    <li><code>isCloned</code>，是否是克隆节点</li>
+    <li><code>isOnce</code>，当前节点是否存在V-once指令</li>
+</ol>
+<p>例子里的data点开之后，由于这是一个指令，能看到其中有一个directives: Array(1)，其中存放着指令的参数，表达式等一系列内容。</p>
+<p>Vnode可以分为如下几类：</p>
+<ol>
+    <li><code>TextVNode</code>，文本节点</li>
+    <li><code>ElementVNode</code>，普通元素节点</li>
+    <li><code>ComponentVNode</code>，组件节点</li>
+    <li><code>EmptyVNode</code>，无内容的注释节点</li>
+    <li><code>CloneVNode</code>，克隆节点，可以是上边四种的任意一个，属性<code>isCloned</code>为true</li>
+</ol>
+<p>通过理论知识可以知道，Vue实际上是把被绑定的所有DOM节点，用自己的方式在后台写了一套对应的虚拟节点。通过操作虚拟节点来更新实际DOM页面，实现前端也有控制器和view的功能。</p>
+
+<h1 id="con4">Render函数的例子</h1>
+<p>render实际上也是Vue实例的一个属性，与用模板渲染不同，render就是进行渲染的函数，可以把要渲染的内容都使用这个函数来完成，先看一个例子。</p>
+<p>这个例子想编写一个组件，传入级别和标题，插槽插入显示的内容，自动生成对应级别的H元素包含的链接，点击之后可以自动添加锚点。</p>
+<p>标准的做法，就是编写一个组件，传入level参数用于控制显示哪个级别的标题，然后留个插槽供父组件插入内容，还需要一个文本属性控制锚点的内容：</p>
+<pre>
+&lt;div id="app">
+    &lt;anchor :level="2" title="自定义标题">标题&lt;/anchor>
+&lt;/div>
+
+&lt;script type="text/x-template" id="mytemp">
+    &lt;div>
+        &lt;h1 v-if="level === 1">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h1>
+        &lt;h2 v-if="level === 2">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h2>
+        &lt;h3 v-if="level === 3">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h3>
+        &lt;h4 v-if="level === 4">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h4>
+        &lt;h5 v-if="level === 5">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h5>
+        &lt;h6 v-if="level === 6">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h6>
+    &lt;/div>
+&lt;/script>
+&lt;script>
+    Vue.component('anchor',{
+        template:"#mytemp",
+        props:{
+            level:{
+                type:Number
+            },
+            title:{
+                type:String
+            }
+        }
+    });
+
+    var app = new Vue({
+        el: "#app"
+    })
+&lt;/script>
+</pre>
+<p>仔细观察一下，其实组件模板的大部分内容都相同，只是v-if控制的不同，如果能直接能拼出一段HTML字符串，那变量其实只有level和title，剩下的都是重复内容。这个时候就可以使用render函数，不再用模板。</p>
+<p>修改后的全部代码是：</p>
+<pre>
+&lt;div id="app">
+    &lt;anchor :level="4" title="saner">ttile&lt;/anchor>
+&lt;/div>
+
+&lt;script>
+    Vue.component('anchor',{
+        props:{
+            level:{
+                type:Number
+            },
+            title:{
+                type:String
+            }
+        },
+        render:function (createElement) {
+            return createElement(
+                'h' + this.level, [
+                    createElement(
+                        'a', {
+                            domProps: {
+                                href: '#' + this.title
+                            }
+                        },
+                        this.$slots.default
+                    )
+                ]
+            );
+        }
+    });
+
+    var app = new Vue({
+        el: "#app"
+    })
+&lt;/script>
+</pre>
+<p>虽然还没有学，但是能看出来，Render函数内置的createElement参数是其中的关键，可以通过字符串和其他的createElement返回的结果进行嵌套，最后生成一段HTML代码。下边就来具体看createElement。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 </body>

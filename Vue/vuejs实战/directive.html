@@ -10,13 +10,15 @@
 </head>
 <body>
 <div id="app">
-    <div v-test:msg.a.b='{name:"jenny"}'></div>
+    <div v-test:msg.a.b='{name:"jenny"}'>3333</div>
 </div>
 
 <script>
     Vue.directive('test',{
         bind: function (el, binding, vnode) {
             console.log(el);
+            console.log(binding);
+            console.log(vnode);
             var keys = [];
             for (var i in vnode) {
                 keys.push(i)
