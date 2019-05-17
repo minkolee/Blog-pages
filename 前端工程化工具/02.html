@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>前端工程化 02 - Gulp入门</title>
+    <script src="../../../sites/node-experiment/test.js"></script>
+
+</head>
+<body>
+<p>Gulp其实就是一个实现自动监听文件变化，调用插件来进行编译各种工程文件的工具。本质上和webpack是一样的。只不过配置的内容更加详细。</p>
+<p>Gulp主要是通过安装插件，然后在gulp的任务文件里定义好需要监听的文件内容，然后调用插件进行预处理，最后在指定的位置生成最终工程文件。</p>
+<p>Udemy的课程没有Webpack，先把Gulp了解一下，之后再搞Webpack，毕竟在Webstorm里启动Vue项目，默认模板就是Webpack。</p>
+
+<ol>
+    <li><a href="#con1">Gulp安装</a></li>
+    <li><a href="#con2">配置Gulp任务</a></li>
+    <li><a href="#con3">自动侦听任务</a></li>
+    <li><a href="#con4">配置CSS工程环境</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">Gulp</h1>
+<p>安装好了Node.js+NPM之后，需要安装Gulp。Gulp的安装方式有两种：全局安装和局部安装。</p>
+<p>在开发一个项目的时候，需要同时进行全局安装和局部安装。</p>
+
+<h3 style="text-align: center;">全局安装Gulp</h3>
+<p>所谓全局安装，就是在命令行里直接打Gulp有没有反应，有就是全局安装，如果需要在项目中运行，就是局部安装。</p>
+<p>Gulp是开发工具，开发工具一般都全局安装比较方便，因为要执行命令行模式，所以必须要全局安装。</p>
+<p>通过npm全局安装Gulp的命令是：</p>
+<pre>npm install gulp-cli --global</pre>
+<p>之后会看到提示，安装成功：</p>
+<pre>
++ gulp-cli@2.2.0
+added 236 packages from 157 contributors in 37.959s
+</pre>
+<p>然后随便创建一个项目，到项目目录中路径，在命令行模式下运行：</p>
+<pre>
+>gulp -v
+CLI version: 2.2.0
+Local version: Unknown
+
+>gulp
+[09:18:41] Local modules not found in D:\Coding\frontendworkflow
+[09:18:41] Try running: npm install
+</pre>
+<p>能够正确显示版本号，有报错信息是因为还没有配置gulp的任务，但是说明gulp已经在全局环境下生效了。</p>
+
+<h3 style="text-align: center;">局部安装</h3>
+<p>如果项目需要协同工作，但其他计算机上没有安装全局环境的Gulp，这个时候可以将Gulp作为项目包的一部分进行安装，由于Gulp是开发工具，并不是我们项目运行时的依赖，所以安装的时候和安装普通的包略有不同：</p>
+<pre>npm install gulp --save-dev</pre>
+<p>这会把Gulp放入当前项目目录的包目录中，Udemy的视频里是在package.json中增加了一个新的依赖<code>devDependencies</code>项目，而我实际执行，是新生成了一个<code>package-lock.json</code>文件。</p>
+<p>查了一下发现这个是新版npm用来版本锁定的文件，只要存在这个文件，会优先按照这个文件中安装依赖。用了也没什么问题，这个文件也需要一并提交到git上，这样才能保证版本一致。</p>
+<p>同时<code>package.json</code>中也更新了gulp的依赖：</p>
+<pre>
+{
+  "name": "frontendworkflow",
+  "version": "1.0.0",
+<span style="color: red">  "devDependencies": {
+    "gulp": "^4.0.2"
+  }</span>
+}
+</pre>
+<p>这样就完成了Gulp的安装。</p>
+
+<h1 id="con2" style="text-align: center;">配置Gulp任务</h1>
+<p>Gulp的核心功能是当项目中的文件发生变化的时候，进行一些任务。Gulp相关的任务，需要写在项目根目录下边的<code>gulpfile.js</code>文件中。</p>
+<p>项目根目录下创建一个<code>gulpfile.js</code>文件，来简单入门一下任务编写：</p>
+<pre>
+var gulp = require('gulp');
+
+gulp.task("default", function () {
+    console.log("My first gulp task");
+});
+</pre>
+<p>这段代码先导入Gulp库，然后使用<code>gulp.task()</code>启动一个任务，第一个参数是任务名称，在命令行中启动具体任务的时候需要任务名，第二个参数是实际要执行的工作。这里的名称<code>default</code>是一个特殊的名称，表示默认任务。</p>
+<p>然后在项目根目录运行命令：</p>
+<pre>
+>gulp default
+[09:53:00] Using gulpfile D:\Coding\frontendworkflow\gulpfile.js
+[09:53:00] Starting 'default'...
+My first gulp task
+[09:53:00] The following tasks did not complete: default
+[09:53:00] Did you forget to signal async completion?
+</pre>
+<p>代码执行了，但是提示没有返回异步完成的通知，这里查了一下，官方文档里说需要使用一个特别的done参数，通知任务完成，代码需要改成这样：</p>
+<pre>
+var gulp = require('gulp');
+
+gulp.task("default", done=> {
+    console.log("My first gulp task");
+    done();
+});
+</pre>
+<p>再执行，就能顺利完成任务了：</p>
+<pre>
+>gulp
+[09:54:53] Using gulpfile D:\Coding\frontendworkflow\gulpfile.js
+[09:54:53] Starting 'default'...
+My first gulp task
+[09:54:53] Finished 'default' after 3.96 ms
+</pre>
+<p>可见执行了gulp之后，就会在当前目录下寻找gulpfile.js文件，然后按照任务名称执行对应的任务。</p>
+<p>再添加几个其他的任务试验一下：</p>
+<pre>
+var gulp = require('gulp');
+
+gulp.task("default", done=> {
+    console.log("My first gulp task");
+    done();
+});
+
+gulp.task('html',done=>{
+    console.log("Processing HTML file...");
+    done();
+});
+
+gulp.task('css',done=>{
+    console.log("Processing CSS file ...");
+    done();
+});
+</pre>
+<p>之后可以使用<code>gulp taksname</code>的方式启动任务：</p>
+<pre>
+>gulp html
+[09:56:55] Using gulpfile D:\Coding\frontendworkflow\gulpfile.js
+[09:56:55] Starting 'html'...
+Processing HTML file...
+[09:56:55] Finished 'html' after 3.57 ms
+
+>gulp css
+[09:56:59] Using gulpfile D:\Coding\frontendworkflow\gulpfile.js
+[09:56:59] Starting 'css'...
+Processing CSS file ...
+[09:56:59] Finished 'css' after 3.75 ms
+</pre>
+
+<h1 id="con3" style="text-align: center;">自动侦听任务</h1>
+<p>了解了任务之后，需要引入一个插件<code>gulp-watch</code>，使用Gulp进行前端工程化的核心就在于这个插件。</p>
+<p>此插件的作用是自动监听文件的变化，一旦产生变化，就执行指定的任务。</p>
+<p>先安装该插件：</p>
+<pre>
+npm install gulp-watch --save-dev
+</pre>
+<p>成功之后，修改<code>gulpfile.js</code>，需要使用这个新包：</p>
+<pre>
+var watch = require('gulp-watch');
+
+gulp.task('watchhtml', function (done) {
+    watch('./index.html', function () {
+        console.log("HTML has changed!!!");
+    });
+    done();
+});
+</pre>
+<p>这里注册了一个叫做<code>watchhtml</code>的任务，每次执行的时候，其代码里调用了新的库<code>watch</code>，其第一个参数是要监听的文件路径，可以使用通配符。第二个参数是要执行的任务。</p>
+<p>现在用文本编辑器打开项目根目录下的index.html，进行修改然后保存，就会自动触发这个任务，就完成了监听工作。</p>
+
+<h1 id="con4" style="text-align: center;">配置CSS工程环境</h1>
+
+<h3>现代CSS开发</h3>
+<p>现代前端协同开发CSS，已经不是直接编写CSS文件了，而是采取以下几种方式：</p>
+<ol>
+    <li>将大的CSS文件分割成很多针对具体样式的小文件</li>
+    <li>CSS文件使用变量来标识色彩等内容，只要修改变量，就可以很容易的修改很多引用CSS变量的实际值</li>
+    <li>嵌套编写CSS</li>
+</ol>
+<p>CSS的工程文件直接交给浏览器是无法被浏览器解析的，必须通过一系列工具，将CSS工程文件编译成最终生成的标准格式CSS文件。</p>
+<p>这个过程和上边的自动侦听任务结合起来，就很方便。只要自动监听CSS文件的变化，然后调用一些预处理库，之后指定生成具体css文件的路径，就可以了。</p>
+<p>CSS预处理主要做的事情有：</p>
+<ol>
+    <li>自动添加浏览器前缀</li>
+    <li>处理CSS变量</li>
+    <li>还原CSS嵌套为标准格式</li>
+</ol>
+<p>SASS和LASS等都是现代CSS工程预处理的工具。这里我们来使用一些Gulp的插件完成这些工作：</p>
+
+<h3>Gulp的流</h3>
+<p>在开始处理之前，需要知道Gulp的流。还好在之前Spring 5里硬啃了WebFlux，Gulp的流很相似。</p>
+<p><code>gulp.src()</code>用来表示流的起点，也就是源数据。</p>
+<p><code>gulp.pipe()</code>表示流处理过程上的一个节点，其中的参数可以传入处理流的库，处理之后会流向下一个节点</p>
+<p><code>gulp.dest()</code>表示流的目标，注意是一个文件夹的名称，而不是文件名，会自动将编译后的CSS文件放入这个目录中。这个dest本身可以作为一个节点参数放入到<code>gulp.pipe()</code>中。</p>
+<p>来看一个不经过任何处理，直接复制css文件的例子：</p>
+<pre>
+gulp.task('watchcss', done => {
+    console.log("CSS processing...");
+    watch('./dev/style/style.css', function () {
+        gulp.src('./dev/style/style.css')
+            .pipe(gulp.dest('./style'));
+    });
+    done();
+});
+</pre>
+<p>这里开发CSS的目录位于项目目录<code>/dev/style/style.css</code>，最终供页面使用的目录在项目的<code>/style</code>目录下，这个任务就是监听<code>style.css</code>的变动，然后将这个文件复制到<code>/style</code>目录下。</p>
+<p>编辑一下开发的css文件，做一些修改然后保存，可以看到自动触发了任务：</p>
+<pre>
+[10:47:37] Using gulpfile D:\Coding\frontendworkflow\gulpfile.js
+[10:47:37] Starting 'watchcss'...
+CSS processing...
+[10:47:37] Finished 'watchcss' after 17 ms
+</pre>
+
+<h3>CSS处理工具</h3>
+<p>使用的CSS处理工具有：</p>
+<ol>
+    <li><code>gulp-postcss</code>，相当于一个壳，调用其他插件处理CSS文件</li>
+    <li><code>autoprefixer</code>，自动添加不同浏览器的前缀支持</li>
+    <li><code>postcss-simple-vars</code>，用于处理CSS变量</li>
+    <li><code>postcss-nested</code>，处理嵌套CSS编译</li>
+</ol>
+<p>使用npm --save-dev安装上边的库，然后修改<code>gulpfile.js</code>，向流中添加CSS处理器。</p>
+<pre>
+var gulp = require('gulp');
+var watch = require('gulp-watch');
+var postcss = require("gulp-postcss");
+var autoprefixer = require("autoprefixer");
+var cssvars = require('postcss-simple-vars');
+var nestedcss = require('postcss-nested');
+
+gulp.task('watchcss', done => {
+    console.log("CSS processing...");
+    watch('./dev/style/style.css', function () {
+        gulp.src('./dev/style/style.css')
+            <span style="color: red">.pipe(postcss([cssvars, autoprefixer, nestedcss]))</span>
+            .pipe(gulp.dest('./style'));
+    });
+    done();
+});
+</pre>
+<p>重新启动新的watchcss任务。然后在style.css中写带有变量，嵌套，有前缀兼容性的css语句来看看：</p>
+<pre>
+$mainColor: #2f5572;
+
+body {
+    color: $mainColor;
+    padding: 25px;
+    margin: 10px;
+    columns: 300px 2;
+}
+
+.box {
+    a {
+        display: block;
+        padding: 10px;
+    }
+
+    b {
+        display: inline-block;
+        padding: 20px;
+    }
+}
+</pre>
+<p>保存之后，在项目的style目录下可以找到编译后的CSS文件，内容如下：</p>
+<pre>
+body {
+    color: #2f5572;
+    padding: 25px;
+    margin: 10px;
+    -webkit-columns: 300px 2;
+       -moz-columns: 300px 2;
+            columns: 300px 2;
+}
+
+.box a {
+    display: block;
+    padding: 10px;
+}
+
+.box b {
+    display: inline-block;
+    padding: 20px;
+}
+</pre>
+<p>现在就初步搭建好了CSS的工程环境。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

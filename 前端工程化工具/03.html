@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>前端工程化 03 - CSS工程样例</title>
+    <script src="../../../sites/node-experiment/test.js"></script>
+
+</head>
+<body>
+<p>来写一个CSS工程实例感受一下前端工程化的便利。顺便也复习一下CSS。</p>
+
+<ol>
+    <li><a href="#con1">项目文件结构</a></li>
+    <li><a href="#con2">分离CSS文件与导入CSS文件</a></li>
+    <li><a href="#con3">BEM理念与拼接类名</a></li>
+    <li><a href="#con4">编写CSS样式</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">项目文件结构</h1>
+<p>这个项目的例子采用了Udemy课程第五部分的例子，使用WebStorm创建新的Node.js项目，然后把项目的源代码复制进来。打开/app/index.html，之后就可以来编写CSS文件了。</p>
+<p>想象我们在一个公司里工作，设计人员给了我们要达到的网页目标（在大的psd文件里），就以这个目标设计样式。</p>
+<p>项目的CSS源文件的路径是：<code>app/assets/styles/styles.css</code>。<code>index.html</code>位于<code>app/index.html</code>中，我们的CSS目标路径是<code>app/temp/styles/styles.css</code>。</p>
+<p>所以先要更新一下gulp监听任务的路径：</p>
+<pre>
+gulp.task('watchcss', done => {
+    watch('app/assets/styles/styles.css', function () {
+        gulp.src('app/assets/styles/styles.css')
+            .pipe(postcss([cssvars, nestedcss, autoprefixer]))
+            .pipe(gulp.dest('app/temp/styles/'));
+    });
+    done();
+});
+</pre>
+<p>然后在<code>index.html</code>中添加上最终CSS文件的link标签：</p>
+<pre>
+&lt;link rel="stylesheet" href="temp/styles/styles.css">
+</pre>
+<p>之后就可以编写具体的CSS样式，然后自动编译到目录路径，刷新页面即可看到加载后的样式。</p>
+
+<h1 id="con2" style="text-align: center;">导入其他CSS文件</h1>
+<p>开始编写CSS样式，先是一些基础的全局样式，英文现在用Roboto比较漂亮。</p>
+<pre>
+body {
+    font-family: 'Roboto', sans-serif;
+    color: #333;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+</pre>
+<p>之后要开始处理顶部标题栏以及大图片和居中的文字。在开始处理之前，发现大图片的类是<code>large-hero</code>，当然可以继续往下编写，但为了简便和解耦，可以将这部分的CSS代码单独放在一个文件里</p>
+<p>在<code>app/assets/styles</code>下创建<code>modules</code>目录，在其中创建<code>_large-hero.css</code>文件。这个文件的完整路径是<code>app/assets/styles/modules/_large-hero.css</code>，名字可以自己起，没有影响。</p>
+<p>在编写large-hero类之前，先解决的问题是，如何将多个CSS文件拼合成一个呢？只需要使用<code>postcss-import</code>库：</p>
+<pre>
+npm install postcss-import --save-dev
+</pre>
+<p>然后修改<code>gulpfile.js</code>：</p>
+<pre>
+var gulp = require('gulp');
+var watch = require('gulp-watch');
+var postcss = require("gulp-postcss");
+var autoprefixer = require("autoprefixer");
+var cssvars = require('postcss-simple-vars');
+var nestedcss = require('postcss-nested');
+<span style="color: red">var cssImport = require('postcss-import');</span>
+gulp.task('watchcss', done => {
+    watch('app/assets/styles/styles.css', function () {
+        gulp.src('app/assets/styles/styles.css')
+            .pipe(postcss([<span style="color: red">cssImport</span>, cssvars, nestedcss, autoprefixer]))
+            .pipe(gulp.dest('app/temp/styles/'));
+    });
+    done();
+});
+</pre>
+<p>重新启动gulp任务。之后在CSS文件中，就可以使用<code>@Import</code>导入其他CSS文件，在<code>style.css</code>源文件里，编写<code>large-hero</code>类的地方添加：</p>
+<pre>
+@import "modules/_large-hero.css";
+</pre>
+<p>当然一般可以把导入语句都放入CSS文件的顶部。</p>
+<p>以后就可以按此方法导入多个CSS文件，这些文件最后会拼合成一个完整的CSS文件并输出到目标目录下。</p>
+<p>现在来重新整理一下CSS工程文件，之前的全局设置也单独用一个文件，放在<code>app/assets/styles/base/_global.css</code>中，这样目前的<code>style.css</code>源文件只有如下两行：</p>
+<pre>
+@import "base/_global.css";
+@import "modules/_large-hero.css";
+</pre>
+<p>这样就初步搭建起互相分离但能最后结合在一起的CSS样式表文件。之后就可以按照HTML里元素对应的类来编写CSS文件了。</p>
+<p>注意之前我们添加了<code>normalize.css</code>的依赖，这个依赖目前是在项目的<code>node_modules/normalize.css/normalize.css</code>路径内，要怎么把这个东西加进来呢？如果NPM包是一个CSS样式包，可以直接导入这个包的名称：</p>
+<pre>
+@import "normalize.css";
+</pre>
+<p>在编译后的<code>style.css</code>中，可以看到已经添加上了<code>normalize.css</code>的内容。</p>
+
+<h1 id="con3" style="text-align: center;">BEM理念与拼接类名</h1>
+<p>让文字在图片居中，子绝父相老套路，div为相对定位，把子元素设置为绝对定位即可。</p>
+<p>现代WEB开发，遵循BEM理念：</p>
+<ol>
+    <li>B-Block，指可重复利用样式片段，即一个CSS样式类</li>
+    <li>E-Element，指属于一个Block的元素，不能在这个Block以外使用，依赖于这个Block，即依赖于一个CSS类的样式类</li>
+    <li>M-Modifier，修饰符，用于一个Block或者一个Element，改变这个对象的默认状态，比如让一个菜单显示与否，经常就是用一个CSS样式类存在与否来控制</li>
+</ol>
+<p>我的理解，BEM其实指的是存在于元素上的CSS样式类的功能类别，所以不能直接去选择元素，而是要给元素添加类，然后再编写对应的CSS样式。</p>
+<pre>
+.large-hero {
+    position: relative;
+}
+
+.large-hero__text-content {
+    position: absolute;
+    left: 0;
+    /*定位之后由于是块级，直接伸展到父元素100%，然后居中*/
+    width: 100%;
+    text-align: center;
+    /*垂直居中：下移动50%父元素距离，然后向上移动自身50%距离*/
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.large-hero__title {
+    font-weight: 300;
+    color:#2f5572;
+    font-size: 4.8rem;
+}
+
+.large-hero__subtitle {
+    font-weight: 300;
+    color:#2f5572;
+    font-size: 2.8rem;
+}
+</pre>
+<p>这里实际上为了特定选择，最好把父类加上去，但是相比写成：</p>
+<pre>.large-hero .large-hero__text-content</pre>
+<p>可以采用一种拼接的方式：</p>
+<pre>
+.large-hero {
+    position: relative;
+
+    &__text-content {
+    position: absolute;
+    left: 0;
+    /*定位之后由于是块级，直接伸展到父元素100%，然后居中*/
+    width: 100%;
+    text-align: center;
+    /*垂直居中：下移动50%父元素距离，然后向上移动自身50%距离*/
+    top: 50%;
+    transform: translateY(-50%);
+    }
+
+    &__title {
+        margin: 0;
+        font-weight: 300;
+        color:#2f5572;
+        font-size: 4.8rem;
+    }
+
+    &__subtitle {
+        font-weight: 300;
+        color:#2f5572;
+        font-size: 2.8rem;
+    }
+}
+</pre>
+<p>实际上这是把嵌套的类名当做变量，然后在嵌套中拼合，最终生成的样式和原来一样。</p>
+
+<h1 id="con4" style="text-align: center;">编写CSS样式</h1>
+<p>继续给large-hero类中的p元素设置类和编写样式：</p>
+<pre>
+&__description {
+    color: #FFF;
+    font-size: 1.875rem;
+    font-weight: 100;
+    text-shadow: 2px 2px 0 rgba(0,0,0,.1);
+    max-width: 30rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+</pre>
+<p>这里解释一下rem，表示相对HTML元素的字体比例大小，1rem就说明和HTML元素的字体大小相等。大部分浏览器的默认HTML元素的字体大小是16px，1.5rem就是24像素。</p>
+<p>rem尺寸可以方便的根据浏览器和用户实际设置的字体来调整，不光是字体大小，间距，宽度都可以，在响应式页面中运用的非常广泛。</p>
+<p>之后是当中部分的按钮，观察整个页面，发现右上方，右下方，下方都还有按钮，蓝色按钮应该是一般样式的，橙色按钮只要在基础样式上添加modifier即可。在modules目录下新建一个btn样式表文件，名字随便起，导入到主style.css中，然后编写样式：</p>
+<pre>
+$mainBlue: #2f5572;
+
+.btn {
+    background-color: $mainBlue;
+    color: #FFF;
+}
+</pre>
+<p>这里为了进一步解耦，在base目录下创建一个专门用来存储变量的文件：<code>_variables.css</code>，把这个变量提取走。现在的<code>style.css</code>源文件如下：</p>
+<pre>
+@import "normalize.css";
+@import "base/_global.css";
+@import "base/_variables.css";
+@import "modules/_large-hero.css";
+@import "modules/_btn.css";
+</pre>
+<p>相比没有工程化之前，写在一个CSS文件里，或者写在多个CSS文件里需要导入多次，简直是又解耦又方便啊。</p>
+<p>剩下就可以继续编写样式了，以后的变量就自动抽离到<code>_variables.css</code>中。</p>
+<pre>
+.btn {
+    background-color: $mainBlue;
+    color: #FFF;
+    text-decoration: none;
+/*    设置了padding，要更改为块级才有效*/
+    padding: .75rem 1.2em;
+    display: inline-block;
+
+    &--orange {
+        background-color: $mainOrange;
+    }
+
+    &--large {
+        font-size: 1.25rem;
+        padding: 1.1rem 1.9rem;
+    }
+}
+
+$mainOrange: #d59541;
+</pre>
+<p>之后在页脚和中央的按钮上，应用btn样式类和btn--orange，btn--large修饰符样式类即可。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

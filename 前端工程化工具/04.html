@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>前端工程化 04 - 自动刷新页面</title>
+    <script src="../../../sites/node-experiment/test.js"></script>
+
+</head>
+<body>
+<p>每次更改完样式，需要手工刷新页面才行，如果用过Bracket等开发工具的会知道，有一个功能是动态展示，只要保存，就会自动更新页面显示，Gulp通过<code>Browsersync</code>这个插件也可以实现该功能。</p>
+
+<ol>
+    <li><a href="#con1">安装Browsersync和修改Gulp任务</a></li>
+    <li><a href="#con2">分离CSS文件与导入CSS文件</a></li>
+    <li><a href="#con3">BEM理念与拼接类名</a></li>
+    <li><a href="#con4"></a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;"><a href="#con1">安装Browsersync和修改Gulp任务</a></h1>
+<p>首先还是安装这个包，有点大，可能需要下载一会：</p>
+<pre>npm install browser-sync --save-def</pre>
+<p>之后需要修改gulpfile.js，来使用这个包(这里遇到了<code>.start is not a function</code>错误，由于还没有深入gulp，只好先改成3.9.1版。)，然后使用了例子的文件：</p>
+<pre>
+var gulp = require('gulp'),
+watch = require('gulp-watch'),
+postcss = require('gulp-postcss'),
+autoprefixer = require('autoprefixer'),
+cssvars = require('postcss-simple-vars'),
+nested = require('postcss-nested'),
+cssImport = require('postcss-import'),
+<span style="color: red">browserSync = require('browser-sync').create();</span>
+
+gulp.task('default', function() {
+  console.log("Hooray - you created a Gulp task.");
+});
+
+gulp.task('html', function() {
+  console.log("Imagine something useful being done to your HTML here.");
+});
+
+gulp.task('styles', function() {
+  return gulp.src('./app/assets/styles/styles.css')
+    .pipe(postcss([cssImport, cssvars, nested, autoprefixer]))
+    .pipe(gulp.dest('./app/temp/styles'));
+});
+
+gulp.task('watch', function() {
+
+  browserSync.init({
+    notify: false,
+    server: {
+      baseDir: "app"
+    }
+  });
+
+  watch('./app/index.html', function() {
+    <span style="color: red">browserSync.reload();</span>
+  });
+
+  watch('./app/assets/styles/**/*.css', function() {
+    <span style="color: red">gulp.start('cssInject');</span>
+  });
+
+});
+
+<span style="color: red">gulp.task('cssInject', ['styles'], function() {
+  return gulp.src('./app/temp/styles/styles.css')
+    .pipe(browserSync.stream());
+});</span>
+</pre>
+<p>这里有几个地方需要学习一下：</p>
+<ol>
+    <li>导入的时候是导入<code>require('browser-sync').create()</code>，不是直接导包。Node.js的导入包的设置与具体的包有关。</li>
+    <li>如果要更新HTML页面，在监听HTML文件的任务里需要使用<code>browserSync.reload();</code></li>
+    <li>监听CSS文件，这里使用到了任务以来，任务的链条是这样的
+        <ol>
+            <li>监听到CSS源文件发生变动</li>
+            <li>应该执行<code>cssInject</code>任务--》这个任务依赖于<code>'styles'</code>（作为第二个参数，任务数组的一个元素传入），所以会先执行<code>'styles'</code>任务</li>
+            <li>执行<code>cssInject</code>任务，将生成的style.css文件通过管道传递给browserSync的流，即去更新页面。</li>
+        </ol>
+    </li>
+</ol>
+<p>这里的新知识就是关于任务依赖的参数。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
