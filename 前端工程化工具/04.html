@@ -13,13 +13,13 @@
 
 <ol>
     <li><a href="#con1">安装Browsersync和修改Gulp任务</a></li>
-    <li><a href="#con2">分离CSS文件与导入CSS文件</a></li>
-    <li><a href="#con3">BEM理念与拼接类名</a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con2">WebStorm中配置项目</a></li>
+    <li><a href="#con3">结构化Gulp任务文件</a></li>
+    <li><a href="#con4">处理Gulp异常</a></li>
 </ol>
 
 
-<h1 id="con1" style="text-align: center;"><a href="#con1">安装Browsersync和修改Gulp任务</a></h1>
+<h1 id="con1" style="text-align: center;">安装Browsersync和修改Gulp任务</h1>
 <p>首先还是安装这个包，有点大，可能需要下载一会：</p>
 <pre>npm install browser-sync --save-def</pre>
 <p>之后需要修改gulpfile.js，来使用这个包(这里遇到了<code>.start is not a function</code>错误，由于还没有深入gulp，只好先改成3.9.1版。)，然后使用了例子的文件：</p>
@@ -50,7 +50,6 @@ gulp.task('styles', function() {
 gulp.task('watch', function() {
 
   browserSync.init({
-    notify: false,
     server: {
       baseDir: "app"
     }
@@ -83,7 +82,136 @@ gulp.task('watch', function() {
         </ol>
     </li>
 </ol>
-<p>这里的新知识就是关于任务依赖的参数。</p>
+<p>这里的新知识就是关于任务依赖的参数。被当做依赖传入的任务，会先得到执行，执行完毕之后，再执行当前任务。</p>
+<p><code>browserSync</code>需要先初始化，其中有个<code>server</code>参数是指的项目根目录，当前路径是运行<code>gulpfile.js</code>的路径，所以设置为相对路径<code>'app'</code>。</p>
+<p>然后启动watch任务，实际上<code>browserSync</code>是一个小的浏览器，采用推送方式自动更新，可以看到命令行中的提示：</p>
+<pre>
+>gulp watch
+[18:20:40] Using gulpfile D:\Coding\frontendworkflow\gulpfile.js
+[18:20:40] Starting 'watch'...
+[18:20:40] Finished 'watch' after 31 ms
+[Browsersync] Access URLs:
+ ---------------------------------------
+       Local: http://localhost:3000
+    External: http://192.168.100.85:3000
+ ---------------------------------------
+          UI: http://localhost:3001
+ UI External: http://localhost:3001
+ ---------------------------------------
+[Browsersync] Serving files from: app
+</pre>
+<p>此时无论修改index.html还是所有的css文件，保存后都会立刻反应在页面上。</p>
+<p>仔细观察的话，会发现每次页面刷新，右上角都会提示连接到browsersync，想关掉这个提示需要加一行配置：</p>
+<pre>
+  browserSync.init({
+    <span style="color: red">notify: false,</span>
+    server: {
+      baseDir: "app"
+    }
+  });
+</pre>
+<p>browsersync的功能很强大，比如如果另外开启一个浏览器，在地址栏输入<code>http://localhost:3000/</code>，滚动其中一个浏览器窗口，另外一个也会滚动。样式也会同步更新，便于看浏览器兼容性。</p>
+<p><code>http://localhost:3001/</code>则是browsersync的管理面板，有兴趣可以继续研究。</p>
+
+<h1 id="con2" style="text-align: center;">WebStorm中配置项目</h1>
+<p>这是我自己琢磨出来的，在WebStorm中配置普通的前端工程化项目按照如下步骤：</p>
+<ol>
+    <li>创建一个Node.js项目，或者普通的Web项目也可以。然后到<code>File | Settings | Languages & Frameworks | Node.js and NPM</code>
+        中设置本机Node.js和NPM的地址，之后可以在左侧的<code>External Libraries</code>中看到<code>Node.js Core</code>，说明配置成功。</li>
+    <li>遇到代码检测错误，可以在拼写错误的地方按Alt+Enter，在提示中选择启用Node.js拼写支持，即可写Node.js的特有代码。</li>
+    <li>右键在左侧项目目录中点击<code>gulpfile.js</code>，可以看到IDE认出了这是一个gulp任务文件，菜单中最下边有<code>Show Gulp Tasks</code>的选项，点击后可以打开Gulp面板，列出所有任务，可以启动任意任务，比从命令行启动或者terminal窗口启动占用一个窗口要方便。</li>
+    <li>从Git新下来项目的时候，IDE会提示检测到NPM，可以直接让其运行NPM来安装依赖。</li>
+</ol>
+
+<h1 id="con3" style="text-align: center;">结构化Gulp任务文件</h1>
+<p>现在的<code>gulpfile.js</code>文件已经有点多了，导入文件，监听html和监听css的任务都在一起。这个文件也是可以通过分成小文件来有效的实现结构化管理。</p>
+<p>在项目目录下新建<code>gulp</code>目录，然后在其中创建<code>tasks</code>目录。</p>
+<p>要将任务分离出去，创建一个与任务同名的js文件，比如<code>styles.js</code>，将在<code>gulpfile.js</code>中的以下部分剪切过去，另外还需要导入对应的包。<code>styles.js</code>的内容像这样：</p>
+<pre>
+let gulp = require('gulp'),
+    postcss = require('gulp-postcss'),
+    autoprefixer = require('autoprefixer'),
+    cssvars = require('postcss-simple-vars'),
+    nested = require('postcss-nested'),
+    cssImport = require('postcss-import');
+
+    gulp.task('styles', function() {
+    return gulp.src('./app/assets/styles/styles.css')
+        .pipe(postcss([cssImport, cssvars, nested, autoprefixer]))
+        .pipe(gulp.dest('./app/temp/styles'));
+});
+</pre>
+<p>再创建<code>watch.js</code>把<code>watch</code>任务分离出去：</p>
+<pre>
+var gulp = require('gulp'),
+    browserSync = require('browser-sync').create(),
+    watch = require('gulp-watch');
+
+gulp.task('watch', function () {
+
+    browserSync.init({
+        notify: false,
+        server: {
+            baseDir: "app"
+        }
+    });
+
+    watch('./app/index.html', function () {
+        browserSync.reload();
+    });
+
+    watch('./app/assets/styles/**/*.css', function () {
+        gulp.start('cssInject');
+    });
+
+});
+
+gulp.task('cssInject', ['styles'], function () {
+    return gulp.src('./app/temp/styles/styles.css')
+        .pipe(browserSync.stream());
+});
+</pre>
+<p>原来的文件里两个dummy 任务都可以删除，导入也没有什么用了，所以可以全部删除。很显然不能是一个空文件，其实像CSS文件一样，剩下要做的就是导入几个任务文件：</p>
+<pre>
+require('./gulp/tasks/styles');
+require('./gulp/tasks/watch');
+</pre>
+<p>这样就有效分离了gulp的各个任务文件。而运行的命令不变，依然是<code>gulp watch</code>。而且WebStorm依然可以解析该Gulp文件并启动任务。</p>
+
+<h1 id="con4" style="text-align: center;">处理Gulp异常</h1>
+<p>在学习的过程中，肯定会发现，如果CSS保存了错误的指令，postcss在编译的时候会报错，然后watch任务也停了下来，必须手工启动，browsersync也会失去连接，这显然比较麻烦。</p>
+<p>CSS语法错误是很常见的错误，如果不希望工作流被打断，很显然需要处理编译中的异常，以让程序不会停止。由于编译过程在<code>styles</code>任务中执行，所以来修改一下<code>styles.js</code>加入处理异常的功能：</p>
+<pre>
+gulp.task('styles', function () {
+    return gulp.src('./app/assets/styles/styles.css')
+        .pipe(postcss([cssImport, cssvars, nested, autoprefixer]))
+        <span style="color: red">.on('error', function (error) {
+            console.log(error);
+            this.emit('end');
+        })</span>
+        .pipe(gulp.dest('./app/temp/styles'));
+});
+</pre>
+<p>在完成编译工作的过程里，加上了一个<code>on</code>函数，第一个参数是类型，用字符串<code>'error'</code>表示出现异常，第二个参数是一个处理函数，参数可以传入错误对象，然后打印出来。</p>
+<p>函数不需要返回值，但是需要通过<code>this.emit('end')</code>抛出一个类似事件的东西，告诉流没有异常，而是正常结束。</p>
+<p>这样我们在编译CSS文件的过程里，遇到错误不会中止，同时又可以告诉我们哪里出了错误。比如我们故意使用一个不存在的CSS变量：</p>
+<pre>
+[20:37:24] Starting 'styles'...
+{ CssSyntaxError: D:\Coding\frontendworkflow\app\assets\styles\modules\_large-hero.css:5:5: Undefined variable $color
+    ......
+  fileName:
+   'D:\\Coding\\frontendworkflow\\app\\assets\\styles\\modules\\_large-hero.css',
+    lineNumber: 5 }
+[20:37:24] Finished 'styles' after 111 ms
+[20:37:24] Starting 'cssInject'...
+[Browsersync] 1 file changed (styles.css)
+[20:37:24] Finished 'cssInject' after 1.45 ms
+</pre>
+<p>会发现打印出了编译出错的地方，然而任务并没有结束，browsersync也一样更新正常。现在不会中断的，反应式的前端工具流就搭建完成了。</p>
+
+
+
+
 
 
 
