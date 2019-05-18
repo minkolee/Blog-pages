@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>前端工程化 05 - 移动端优先开发</title>
+
+</head>
+<body>
+<p>移动端优先开发在不同的语境下有着不同的含义，学习一下如何将这个例子按照移动优先开发的原则，编写移动端优先的CSS样式。</p>
+<p>移动端开发的核心就是，页面必须适合所浏览该页面的设备。在最早的时候可能是先开发PC端，然后是移动端，但随时开发实践经验的不断总结，以及移动端设备的发展，现在的开发，一般都是从小尺寸设备向大尺寸设备的页面来开发。</p>
+
+<ol>
+    <li><a href="#con1">移动端开发的理念</a></li>
+    <li><a href="#con2">使用Mixins处理media-query</a></li>
+    <li><a href="#con3">响应式图片</a></li>
+    <li><a href="#con4">为项目添加响应式图片</a></li>
+    <li><a href="#con5">测试响应式图片</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">移动端开发的理念</h1>
+<p>移动端开发可以从设计和开发两个方面来了解，两者实际上有着紧密联系，设计的思想最终要通过开发来落实：</p>
+<table>
+    <thead>
+    <tr>
+        <th>Design方面</th>
+        <th>Develop方面</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>围绕着小屏幕设计优先</td>
+        <td>设备无需下载多余的数据（根据页面大小下载对应数据）</td>
+    </tr>
+    <tr>
+        <td>集中展现最重要的内容</td>
+        <td>加载速度要快</td>
+    </tr>
+    <tr>
+        <td>由于屏幕物理面积小，常用触摸操作，必须预测用户最常用的动作来安排页面</td>
+        <td>基于最核心的部分编写代码，其他部分从此延伸</td>
+    </tr>
+    <tr>
+        <td>需要信息架构师，图像设计和用户行为专家共同设计</td>
+        <td>需要开发人员和设计人员等反复交流</td>
+    </tr>
+    </tbody>
+</table>
+<p>如何将移动优先的思想应用到当前的例子上。现在的页面如果缩小，可以看到图片和当中的文字已经非常不搭配，很显然，需要从小页面重新设计起。</p>
+
+<h1 id="con2" style="text-align: center;">Mixins</h1>
+<p>很显然，编写响应式布局的一大技术就是使用媒体查询，在页面很小的时候，标题的字依然太大，可以修改成：</p>
+<pre>
+&__title {
+    margin: 0;
+    font-weight: 300;
+    color:$mainBlue;
+    font-size: 1.1rem;
+
+    @media(min-width:530px){
+        font-size:4.8rem;
+    }
+}
+</pre>
+<p>不过相比直接在很多地方编写相同的<code>@media</code>语句，可以采用postcss-mixins处理组件来更方便的编写，先来安装mixins：</p>
+<pre>npm install postcss-mixins --save-dev</pre>
+<p>然后编辑<code>styles.js</code>这个任务文件，添加：</p>
+<pre>
+let ...,
+    <span style="color: red">mixins = require("postcss-mixins");</span>
+
+gulp.task('styles', function () {
+    return gulp.src('./app/assets/styles/styles.css')
+        .pipe(postcss([cssImport, <span style="color: red">mixins,</span> cssvars, nested, autoprefixer]))
+    ......
+});
+</pre>
+<p>Mixins本质上是一段可以重复使用的媒体查询代码，可以用自己定义的名称来更方便的包裹不同宽度下的CSS代码，不像@import只能导入一次，这段代码可以反复使用。之后重启watch任务，在base目录下创建<code>_mixins.css</code>文件，然后在<code>styles.css</code>中导入这个新的CSS文件。最后在这个新文件中编写媒体查询代码：</p>
+<pre>
+@define-mixin atSmall {
+    @media(min-width:530px){
+        @mixin-content;
+    }
+}
+
+@define-mixin atMedium {
+    @media(min-width:800px){
+    @mixin-content;
+    }
+}
+
+@define-mixin atLarge {
+    @media(min-width:1200px){
+    @mixin-content;
+    }
+}
+</pre>
+<p>这里定义了三个尺寸，名称分别是atSmall，atMedium，atLarge，分别对应屏幕宽度在530-799像素,800-1199像素，1200像素以上三个不同的屏幕尺寸。</p>
+<p>注意媒体查询中如果使用了min-width，宽度是依次向上覆盖的。CSS样式文件中不包含在媒体查询中的内容，则是所有时候都生效，比如按钮的样式等。</p>
+<p>有了三种定义，就可以先尝试使用一下：</p>
+<pre>
+&__title {
+        margin: 0;
+        font-weight: 300;
+        color:$mainBlue;
+        font-size: 1.1rem;
+
+        @mixin atSmall {
+            font-size:2rem;
+        }
+
+        @mixin atMedium {
+            font-size:3.2rem;
+        }
+
+        @mixin atLarge {
+            font-size:4.8rem;
+        }
+
+    }
+</pre>
+<p>修改之后，图片当中的标题文件文字大小，在宽度529px的屏幕以下只要1.1rem大，随着屏幕不断变宽，字体也越来越大，一共有四个阶段。</p>
+<p>使用了Mixins之后，媒体查询语句的代码语义更强，更容易解读和使用。</p>
+
+<h1 id="con3" style="text-align: center;">响应式图片 Resonsive Image</h1>
+<p>什么是响应式图片，就是针对不同大小的屏幕，需要考虑到不同尺寸的设备需要不同大小和分辨率的图片，在小屏幕设备上加载高分辨率图片 没有太大必要。</p>
+<p>此外一些过高过宽的图片，在移动设备上如果保持原有比例，看起来很奇怪，这个时候可能需要加载一张完全不同比例，但是依旧能够展示原图核心内容的图片。</p>
+<p>所以为了开发响应式图片，一般需要准备不同大小，比例，分辨率的图片，然后实现动态加载。</p>
+<p>在页面里则需要使用<a href="https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/picture" target="_blank">PICTURE元素</a>，这个元素包含<code>SOURCE</code>元素和<code>IMG</code>元素，来为不同的设备提供图像。举个例子：</p>
+
+<h3>根据尺寸加载不同分辨率的图片</h3>
+<pre>
+&lt;picture>
+    &lt;source media="(min-width:1200px)" srcset="app/assets/images/hero--large.jpg">
+    &lt;source media="(min-width:760px)" srcset="app/assets/images/hero--medium.jpg">
+    &lt;img src="app/assets/images/hero--small.jpg" alt="Small large hero">
+&lt;/picture>
+</pre>
+<p>使用这个元素要注意一点，source中的媒体查询顺序很重要，在设置为min-width的情况下，将1200px这行写在760px的下一行，则不起作用，因为760px的这一条把1200px的覆盖掉了。而<code>max-width</code>不大常用。</p>
+<p>而img中的元素，是在上述媒体查询都不适用的情况下，就会加载这个元素中的图片，在这个例子里，屏幕宽度小于760像素的时候就会加载小图片。</p>
+
+<h3>加载同一个图片的不同尺寸</h3>
+<p>这个时候就不使用<code>PICTURE</code>元素，而是直接使用<code>IMG</code>元素，在其中的<a href="https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/img">srcset</a>元素中列出所有的图片来源：</p>
+<pre>&lt;img srcset="http://placehold.it/1000 1000w,http://placehold.it/750 750w" alt="picture"></pre>
+<p>这是HTML 5.1的新增语法，这里表示，屏幕宽度为750像素的时候加载750*750的占位符图片，1000宽度的时候加载1000*1000宽度的占位符图片。</p>
+<p>如果先在小于750像素的设备上打开，则会先加载750*750的图片；之后将宽度扩大到750像素以上，会加载1000*1000的图片，因为浏览器按照要求，会加载更大尺寸图片以更精细的显示图像，此时再缩小到750像素宽度以内，也不会再浪费资源重新加载图片，因为大图片一样精细。</p>
+<p>如果直接在750宽度以上的设备打开，会加载1000*1000的图片，再缩小也不会再加载750*750的图片，因为浏览器知道对于小屏幕，大图片一样精细。</p>
+
+<h1 id="con4" style="text-align: center;">为项目添加响应式图片</h1>
+<p>在<code>index.html</code>里找到版图这部分的代码：</p>
+<pre>
+&lt;div class="large-hero">
+&lt;img src="assets/images/hero--large.jpg">
+    ......
+</pre>
+<p>看到现在写死了只使用hero--large.jpg图片，需要来把这个元素删除掉，换成PICTURE元素。再利用上一节的知识，同时使用不同分辨率的图片，和相同比例但是DPI不同的图片：</p>
+<pre>
+&lt;picture>
+  &lt;source media="(min-width: 1380px)" srcset="assets/images/hero--large.jpg 1920w, assets/images/hero--large-hi-dpi.jpg 3840w">
+  &lt;source media="(min-width: 990px)" srcset="assets/images/hero--medium.jpg 1380w,assets/images/hero--medium-hi-dpi.jpg 2760w">
+  &lt;source media="(min-width: 640px)" srcset="assets/images/hero--small.jpg 990w, assets/images/hero--small-hi-dpi.jpg 1980w">
+  &lt;img srcset="assets/images/hero--smaller.jpg 640w, assets/images/hero--smaller-hi-dpi.jpg 1280w" alt="Banner picture">
+&lt;/picture>
+</pre>
+<p>这里首先针对不同的宽度，选择不同尺寸大小的图片。再在一个宽度下，根据实际屏幕的尺寸，选择不同DPI的图片，这尤其适合现在的高分辨率设备在高DPI下依然显示传统不超过1920px宽度的内容，比如Mac OSX的HIDPI显示方式。</p>
+
+<h1 id="con5" style="text-align: center;">测试响应式图片</h1>
+<p>通过改变浏览器窗口大小可以肉眼看到图片确实有变化，然而是不是真的全部图片都生效了。</p>
+<p>在开发过程中，一般并不是直接就加载最终的图片，而是常常使用占位图片。有很多占位图片网站可以轻松的通过URL就获取指定大小的占位图片。</p>
+<p>常用的有：</p>
+<ol>
+    <li>
+        <a href="https://placeholder.com/" target="_blank">https://placeholder.com/</a>，老牌占位符网站，通过URL参数即可获取图片，比如
+        <ul>
+            <li><a href="">http://placehold.it/300x200</a>，获取300*200的灰色图片</li>
+            <li><a href="">http://placehold.it/300x200/09f/fff.png</a>，获取300*200，底色是#09f，文字是#fff的图片</li>
+            <li><a href="">http://placehold.it/300&text=CONYLI.CC</a>，获取300*300，文字是CONYLI.CC的图片</li>
+        </ul>
+    </li>
+    <li><a href="http://placekitten.com/">http://placekitten.com/</a>，猫图片</li>
+    <li><a href="https://fakeimg.pl/">https://fakeimg.pl/</a>，图片中的文字比较大</li>
+</ol>
+<p>可以在开发的时候，将图片设置为如下：</p>
+<pre>
+&lt;picture>
+  &lt;source media="(min-width: 1380px)" srcset="http://placehold.it/1920x654 1920w, http://placehold.it/3840x1280 3840w">
+  &lt;source media="(min-width: 990px)" srcset="http://placehold.it/1380x560 1380w,http://placehold.it/2760x920 2760w">
+  &lt;source media="(min-width: 640px)" srcset="http://placehold.it/990x530 990w, http://placehold.it/1980x660 1980w">
+  &lt;img srcset="http://placehold.it/640x500 640w, http://placehold.it/1280x1000 1280w" alt="Banner picture">
+&lt;/picture>
+</pre>
+<p>在我的4K显示器上（做Web开发，好显示器确实重要，买4K显示器请认准LG），放大缩小浏览器页面，不同分辨率和DPI的图片都可以看到实际加载图片的变化，确实很棒。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
