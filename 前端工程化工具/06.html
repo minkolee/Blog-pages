@@ -12,9 +12,10 @@
 <ol>
     <li><a href="#con1">页面两侧适当留白，不能太空</a></li>
     <li><a href="#con2">图片可以考虑显示为块级元素</a></li>
-    <li><a href="#con3">响应式图片</a></li>
+    <li><a href="#con3">各个大区域内留白</a></li>
     <li><a href="#con4">our-begging区域详细调整</a></li>
-    <li><a href="#con5">可复用的列显示</a></li>
+    <li><a href="#con5">两列浮动显示</a></li>
+    <li><a href="#con6">WebStorm支持PostCss格式文件</a></li>
 </ol>
 
 
@@ -26,7 +27,7 @@
 .wrapper {
     padding-left: 18px;
     padding-right: 18px;
-<!--控制页面的宽度-->
+    <!--控制页面的宽度-->
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
@@ -61,10 +62,12 @@
 }
 </pre>
 <p>这样图片就有了10像素的下边框，比较好看。</p>
-<p>再修改一下各个不同大小情况下的字体和按钮的大小样式，现在版图的部分就结束了。准备制作下一部分，也就是页面里<code>id</code>为<code>our-beginning</code>的<code>DIV</code>元素内部的样式。</p>
+<p>再修改一下各个不同大小情况下的字体和按钮的大小样式，现在版图的部分就结束了。准备制作下一部分，也就是页面里<code>id</code>为<code>our-beginning</code>的<code>DIV</code>元素内部的样式。
+</p>
 
 <h1 id="con3" style="text-align: center;">各个大区域内留白</h1>
-<p>观察目标页面，每个区域之间都有大段空白，这个类可以做为每个大区域的div元素的一个样式，可以单独开一个文件，方便调整，在<code>modules</code>目录下边创建<code>_page-section.css</code>，然后导入，在其中设置样式：</p>
+<p>观察目标页面，每个区域之间都有大段空白，这个类可以做为每个大区域的div元素的一个样式，可以单独开一个文件，方便调整，在<code>modules</code>目录下边创建<code>_page-section.css</code>，然后导入，在其中设置样式：
+</p>
 <pre>
 .page-section {
     padding: 4.5rem;
@@ -79,7 +82,7 @@
 <p>还有在wrapper内部还有wrapper类的时候，可以在CSS样式中嵌套，取消内部的wrapper类的padding，这样就内外一致了</p>
 <p>在编写CSS类的时候，合理拆分样式到媒体查询和modifier类中的代码也很重要。</p>
 
-<h1 id="con5" style="text-align: center;">our-begging区域详细调整</h1>
+<h1 id="con5" style="text-align: center;">两列浮动显示</h1>
 <p>这里先用了简单的浮动来实现，在浮动之后还要记得一定要清除浮动。：</p>
 <pre>
 .row {
@@ -107,38 +110,20 @@
 
 }
 </pre>
-
-
+<p>剩下的微调页面基本上不会再有问题，按照媒体查询来浮动即可。</p>
+<p>唯一还需要注意的是<code>img</code>元素上可以使用<code>size="960px"</code>来告诉浏览器这个图片实际要对应的尺寸，但是单独设置这个属性，会导致响应式图片只按这个尺寸加载，因此再搭配媒体查询就可以实现动态加载。
+</p>
 <p>在如今的响应式页面里，图文水平排列已经很少使用浮动了，而是使用更加响应式的列布局。这一部分要解决的就是页面中部图文和文字混排的这部分。</p>
 <p>先用一个<code>row</code>类包裹这一片区域，然后可以观察，图片应该是一栏，文字是一栏，在页面很小的时候，这两栏应该重叠。所以需要使用媒体查询结合设置宽度来实现。</p>
-<p>实际上这也是很多响应式UI布局的原理。</p>
+<p>实际上这也是很多响应式UI布局的原理，从浮动开始，现在逐渐使用CSS3的fluidbox模型，直到grid系统，也有很多UI开发了自己的grid系统。。</p>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<h1 id="con6" style="text-align: center;">Webstorm支持PostCss格式文件</h1>
+<p>如果不设置，默认的CSS解析是标准CSS格式，里边的各种嵌套，拼合和变量都会被提示错误。</p>
+<p>分为两步：
+<ol>
+    <li><code>File | Settings | Plugins</code>中下载安装PostCss插件</li>
+    <li>在<code>File | Settings | Editor | File Types</code>中将.css文件的解析类型设置为<code>PostCss Style Sheet</code></li>
+</ol>
 
 
 </body>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>前端工程化 08 - Webpack 初步配置</title>
+
+</head>
+<body>
+<p>在搞定了CSS工作流之后，前端三剑客还有一个重要的JavaScript也需要工作流。</p>
+<ol>
+    <li><a href="#con1">安装Webpack</a></li>
+    <li><a href="#con2">为项目配置Webpack</a></li>
+    <li><a href="#con3">export与import</a></li>
+    <li><a href="#con4">Webpack自动监听文件改变</a></li>
+    <li><a href="#con5">异常处理</a></li>
+</ol>
+
+<h1 id="con1" style="text-align: center;">安装Webpack</h1>
+<p>很久以来，JS都是像脚本一样随写随用，开发比较随意，因为没有很工程化的东西。</p>
+<p>现在有了Webpack，可以方便的打包很多东西，也包括之前说的CSS文件。但最重要的，还是Webpack作为JS工程化的重要工具。</p>
+<p>继续沿用这个项目，在<code>assets</code>目录下创建一个<code>scripts</code>目录用来存放开发中的JS文件，创建一个<code>app/assets/scripts/App.js</code>文件如下：</p>
+<pre>
+function Person(fullName, favColor) {
+    this.name = fullName;
+    this.favoriteColor = favColor;
+    this.greet = function () {
+        console.log(this.name + " likes " + this.favoriteColor);
+    }
+}
+
+var john = new Person("John Doe", "blue");
+john.greet();
+</pre>
+<p>很显然，这个文件定义了一个类，然后使用了类。不过一般定义和使用不放在同一个文件里，为了将类单独抽离，就像CSS一样，就需要工程化JS的编写方式。</p>
+<p>在<code>scripts</code>目录下创建<code>modules</code>目录，然后新建一个<code>Person.js</code>文件，把类的文件复制进来，然后在<code>App.js</code>中导入：</p>
+<pre>
+var Person = require("./modules/Person");
+
+var john = new Person("John Doe", "blue");
+john.greet();
+</pre>
+<p>看起来很像之前写Gulp任务文件，但实际上，这么做是无法运行这个文件的，使用Node.js也不行。这就需要前端工程化组件Webpack出场了。</p>
+<p>和之前的工具类似，我们安装Webpack，让其监视App.js，然后到里边把依赖的内容拼合成一个文件，重整之后生成最终的JS文件。</p>
+<p>先来安装，这里需要全局安装，因为Webpack现在的地位相当于像IDE一样的工具，所有项目都会用到。</p>
+<pre>npm install webpack -g</pre>
+<p>npm自动安装的版本是4.31版本。</p>
+
+
+<h1 id="con2" style="text-align: center;">为项目配置Webpack</h1>
+<p>为了在项目中使用Webpack，需要在项目根目录下创建一个文件，这个文件的名称必须是<code>webpack.config.js</code>，告诉Webpack当前目录是一个Webpack项目。</p>
+<p>先来在其中写一个JS对象：</p>
+<pre>
+var path = require("path");
+
+module.exports = {
+    entry: "./app/assets/scripts/App.js",
+    output: {
+        path: path.resolve(__dirname, "./app/temp/scripts"),
+        filename: "App.js"
+    }
+};
+</pre>
+<p>Webpack需要定义一个起点，类似于一个JS的根文件，或者说像很多编译型程序的main函数，从这个起点出发不断的把所有的依赖解析进来。</p>
+<p>之后配置一个输出的路径和文件名，这样就会把各种依赖都打包成为一个文件。Webpack的输出路径必须是绝对路径，这里使用了Node.js的内置库，解析当前目录然后拼合成绝对路径。</p>
+<p>至于<code>module.exports</code>之后再来学习。</p>
+<p>然后在项目根目录下直接运行<code>webpack</code>，webpack会自动检测这个配置文件然后打包JS代码。</p>
+<p>注意，Webpack 4.31在使用命令行之前，需要运行<code>npm i webpack webpack-cli --save-dev</code>在当前目录下安装命令行工具才行。</p>
+<p>运行之后有如下输出：</p>
+<pre>
+Hash: 6951834551b2fbe8c111
+Version: webpack 4.31.0
+Time: 369ms
+Built at: 2019-05-20 14:16:45
+ Asset       Size  Chunks             Chunk Names
+App.js  984 bytes       0  [emitted]  main
+Entrypoint main = App.js
+[0] ./app/assets/scripts/App.js 102 bytes {0} [built]
+[1] ./app/assets/scripts/modules/Person.js 208 bytes {0} [built]
+</pre>
+<p>还有一些Warning暂时不用看，因为还没有具体深入配置。通过输出可以看到，构建的文件里包括Person.js。此时看看目标目录，确实生成了一个<code>D:\Coding\frontendworkflow\app\temp\scripts\App.js</code>，打开看看代码确实看不懂，这是因为经过重新整理。</p>
+<p>看不懂没事，运行吧，咦，报错。。。。第一次使用Webpack就坑了么？</p>
+
+
+<h1 id="con3" style="text-align: center;">export与import</h1>
+<p>回到这条语句：<code>var Person = require("./modules/Person");</code>，实际上将Person作为一个包导入，然而要从这个包导入什么内容，没有明确的定义。</p>
+<p>Webpack通过export和import来导入内容。导入导出包，由于JS是面向对象的语言，实际导入的都是一个对象。</p>
+<p>Node.js执行的时候，如果导入包，会默认到包里寻找一个叫做<code>exports</code>的对象，<code>require</code>这个函数就会返回<code>exports</code>这个对象，通过这个对象来使用包中的代码。</p>
+<p>可以先在Person.js里写点代码测试一下：</p>
+<pre>
+function Person(fullName, favColor) {
+    this.name = fullName;
+    this.favoriteColor = favColor;
+    this.greet = function () {
+        console.log(this.name + " likes " + this.favoriteColor);
+    }
+}
+
+<span style="color: red">exports.exampleProperty = "Super";</span>
+<span style="color: red">exports.exampleFunction = function () {
+    console.log("THis is demo");
+};</span>
+</pre>
+<p>然后在App.js里注释掉生成Person对象的代码，加一行：</p>
+<pre>
+var Person = require("./modules/Person");
+
+// var john = new Person("John Doe", "blue");
+// john.greet();
+
+console.log(Person);
+</pre>
+<p>此时再通过Webpack打包，然后加载页面，可以看到浏览器控制台里：</p>
+<pre>
+{exampleProperty: "Sunper", exampleFunction: ƒ}
+exampleFunction: ƒ ()
+exampleProperty: "Sunper"
+__proto__: Object
+</pre>
+<p>说明为<code>exports</code>对象设置的属性都被导入了，此时可以在<code>App.js</code>里添加两行试试：</p>
+<pre>
+var Person = require("./modules/Person");
+
+// var john = new Person("John Doe", "blue");
+// john.greet();
+
+console.log(Person);
+<span style="color: red">Person.exampleFunction();</span>
+<span style="color: red">console.log(Person.exampleProperty);</span>
+</pre>
+<p>再打包后发现正常执行了。</p>
+<p>所以，我们在抽出一个JS文件的时候，一定要注意编写exports对象。以让Webpack可以正常打包。</p>
+<p>依据这个思路，我们的<code>Person.js</code>文件只有一个Person类需要让其他文件使用：</p>
+<pre>
+function Person(fullName, favColor) {
+    this.name = fullName;
+    this.favoriteColor = favColor;
+    this.greet = function () {
+        console.log(this.name + " likes " + this.favoriteColor);
+    }
+}
+
+<span style="color: red">module.exports = Person;</span>
+</pre>
+<p>这样导出后，导出的对象就是这个构造函数Person。</p>
+<p>然后把<code>App.js</code>还原成原来的状态，再打包，就一切正常了。</p>
+<p>凡是通过NPM安装的包，都为Webpack导入而编写好了对应的代码。比如还可以导入已经安装的<code>jQuery</code>。</p>
+<pre>
+var Person = require("./modules/Person");
+var $ = require('jquery');
+
+var john = new Person("John Doe", "blue");
+john.greet();
+
+$("h1").remove();
+</pre>
+<p>打包并且刷新页面后，所有的<code>H1</code>元素都不见了。</p>
+
+<h1 id="con4" style="text-align: center;">自动监听文件改变</h1>
+<p>现在我们每次修改JS文件，都去执行Webpack，还不够自动化，应该像Gulp那样，自动检测所有的JS文件变化并自动打包。之前安装了全局的Webpack，这里还必须安装当前项目的Webpack：</p>
+<pre>npm install webpack --save-def</pre>
+<p>我们给Webpack编写一个Gulp任务文件：<code>gulp/tasks/scripts.js</code>：</p>
+<pre>
+var gulp = require('gulp'),
+    webpack = require('webpack');
+
+gulp.task('scripts', function (done) {
+    webpack(require('../../webpack.config'),function () {
+        console.log("Mission Completed!");
+    });
+    done();
+});
+</pre>
+<p>webpack自己就是一个函数，第一个参数是当前JS文件路径去找到配置文件的相对路径，第二个参数是执行成功的回调函数。</p>
+<p>之后我们需要在watch里添加监视开发中的所有js文件的功能，然后调用这个任务来打包JS文件：</p>
+<pre>
+var gulp = require('gulp'),
+watch = require('gulp-watch'),
+browserSync = require('browser-sync').create();
+
+gulp.task('watch', function() {
+  ......
+
+<span style="color: red">  watch('./app/assets/scripts/**/*.js',function () {
+  gulp.start('scriptRefresh');
+  })</span>
+});
+
+<span style="color: red">gulp.task('scriptRefresh',['scripts'], function () {
+  browserSync.reload();
+});</span>
+</pre>
+<p>这里使用任务依赖，更新页面的任务会在重新打包完成后执行。每次监视JS文件有变化的时候，就自动让Webpack进行打包，然后重载页面。实验了发现运行良好，有任何修改都很方便的自动刷新。</p>
+
+<h1 id="con5" style="text-align: center;">异常处理</h1>
+<p>由于Webpack没有走styles任务的异常处理，所以必须自行编写一个。</p>
+<p>异常处理就在<code>scripts</code>任务的回调函数中，修改如下：</p>
+<pre>
+var gulp = require('gulp'),
+    webpack = require('webpack');
+
+gulp.task('scripts', function (done) {
+    webpack(require('../../webpack.config'), function (err, stats) {
+        if (err) {
+            console.log(err.toString());
+        }
+        console.log(stats.toString());
+        console.log("Mission completed!");
+    });
+    done();
+});
+</pre>
+<p>第一个参数就是错误对象，第二个是执行状态，都可以打印出来看一下。</p>
+<p>有了异常处理之后有错误也不会停止watch任务了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

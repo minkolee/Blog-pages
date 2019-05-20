@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>前端工程化 07 - Gulp自动加载Icon Sprites</title>
+
+</head>
+<body>
+
+<ol>
+    <li><a href="#con1">Icon Sprites</a></li>
+    <li><a href="#con2">Gulp配置字体精灵任务</a></li>
+    <li><a href="#con3">拼合字体精灵文件到样式文件中</a></li>
+    <li><a href="#con4">使用字体</a></li>
+    <li><a href="#con5">Gulp执行一系列任务</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">Icon Sprites</h1>
+<p>我们的页面里使用了很多图标文件，每个图标文件都是一个svg文件。页面在加载的时候，如果图标文件有很多，会一个个加载，比较慢，因为切换下载不同的文件也有开销。</p>
+<p>前端开发中经常使用一种叫做Sprites也就是精灵图的技术，就是把一堆小图片或者字体，打包成一个文件下载。如果是图片，就利用不同的定位和大小来显示不同的内容，这样一个文件就可以复用。</p>
+<p>字体也可以用类似的方式，一次性加载很多字体，这就是Icon Sprites。</p>
+
+
+<h1 id="con2" style="text-align: center;">Gulp配置字体精灵任务</h1>
+<p>Gulp的所有动作都要通过任务来实现，在<code>tasks</code>目录下创建<code>sprites.js</code>。</p>
+<p>编写任务之前，还需要装一个包来管理字体：</p>
+<pre>npm install gulp-svg-sprite --save-dev</pre>
+<p>安装完成之后，编写如下任务代码：</p>
+<pre>
+let gulp = require('gulp'),
+    svgSprite = require('gulp-svg-sprite');
+
+let config = {
+    mode:{
+        css:{
+        }
+    }
+};
+
+gulp.task('createSprite', function () {
+    return gulp.src('./app/assets/images/icons/**/*.svg')
+        .pipe(svgSprite(config))
+        .pipe(gulp.dest("./app/temp/sprite/"))
+        ;
+});
+</pre>
+<p>这段代码将所有的svg文件通过管道，配置插件的模式为css，然后在指定目录生成了一个CSS文件，里边包含所有的SVG信息。</p>
+<p>运行这个任务，然后可以看到生成了<code>app/temp/sprite/css/svg/sprite.css-d675eadb.svg</code>这个文件，点开可以看到类似精灵图的样子。</p>
+<p>要使用这个图，如果自己编写CSS代码，需要指定偏移坐标，比较麻烦。好在这个工具可以进一步配置，生成具体的CSS代码供引用。由于需要使用一个模板，在<code>gulp</code>目录下创建<code>templates</code>目录，在其中创建一个名称自定义的css文件作为css模板，比如<code>sprites.css</code>。</p>
+<p>这个模板采用胡子标签渲染，编写如下：</p>
+<pre>
+{{#shapes}}
+    .icon--{{base}} {
+        width:{{width.outer}}px;
+        height:  {{height.outer}}px;
+        background-image: url('/temp/sprite/css/{{{sprite}}}');
+        background-position: {{position.relative.xy}};
+    }
+{{/shapes}}
+</pre>
+<p>最外边表示遍历所有的svg对象，然后依次列出其名称对应的样式类，有外宽度，高度，背景图片的来源和相对位置。</p>
+<p>注意，由于index.html文件所在的app目录是项目目录，这里需要引用拼合后的文件，而其文件名有自动生成的后缀，所以这里的background-image的路径要注意，最后使用三个花括号表示不转义<code>\</code>，sprite变量表示拼合后的精灵字体文件。</p>
+<p>还需要修改任务文件，配置使用这个模板进行渲染：</p>
+<pre>
+let config = {
+    mode:{
+        css:{
+            render:{
+                css:{
+                    template:'./gulp/templates/sprites.css'
+                }
+            }
+        }
+    }
+};
+</pre>
+<p>再次运行任务，可以看到生成的CSS文件：</p>
+<pre>
+.icon--clear-view-escapes {
+    width:142.4px;
+    height:  59.53px;
+    background-image: url('/temp/sprite/css/svg/sprite.css-d675eadb.svg');
+    background-position: 0 0;
+}
+
+.icon--comment {
+    width:64px;
+    height:  64px;
+    background-image: url('/temp/sprite/css/svg/sprite.css-d675eadb.svg');
+    background-position: 99.70443349753694% 0;
+}
+
+.icon--facebook {
+    width:21.23px;
+    height:  42.01px;
+    background-image: url('/temp/sprite/css/svg/sprite.css-d675eadb.svg');
+    background-position: 26.040607071652357% 45.795830448496034%;
+}
+......
+</pre>
+<p>剩下要做的就是在页面内按照样式来引用了</p>
+
+<h1 id="con3" style="text-align: center;">拼合字体精灵文件到样式文件中</h1>
+<p>我们直接把字体文件也生成到了最终文件目录也就是temp目录下，因此需要在页面内引入该CSS文件。</p>
+<p>这里有两种思路，一是将该字体文件作为单独的文件引入，二是将该字体文件拼合到其他的CSS文件中。</p>
+<p>第一种比较简单，不多说。</p>
+<p>第二种我们可以在styles.css文件中直接导入生成后的文件，但是由于该文件位于目标目录下，直接导入会打破原来的环境。</p>
+<p>这里可以创建一个任务，将生成的css文件复制到工程目录下的某处，同时修改名称，再导入然后进行处理：</p>
+<p>需要先装一个插件，自动改名：</p>
+<pre>npm install gulp-rename --save-dev</pre>
+<p>然后在<code>sprites.js</code>里新建一个任务：</p>
+<pre>
+gulp.task('copySpriteCSS', function () {
+    return gulp.src('./app/temp/sprite/css/*.css')
+        .pipe(rename('_sprite.css'))
+        .pipe(gulp.dest('./app/assets/styles/modules/'));
+</pre>
+<p>只要运行这个任务，就自动复制过去然后改名了，之后在<code>styles.css</code>文件中导入，就完成了准备工作。</p>
+
+<h1 id="con4" style="text-align: center;">使用字体</h1>
+<p>拼合好之后，实际的CSS文件已经有了上述的类，现在就是要应用到原来以img形式存在的SVG图标元素上了。</p>
+<p>以这段为例：</p>
+<pre>
+&lt;h2 class="section-title">
+    &lt;img class="section-title__icon" src="assets/images/icons/star.svg">Our &lt;strong>Features&lt;/strong>
+&lt;/h2>
+</pre>
+<p>之后就像原来的图标一样使用了。我这里遇到的问题是使用<code>SPAN</code>标签无法正常显示SVG，不知道为什么。。。</p>
+
+<h1 id="con5" style="text-align: center;">Gulp执行一系列任务</h1>
+<pre>
+var gulp = require('gulp'),
+svgSprite = require('gulp-svg-sprite'),
+rename = require('gulp-rename'),
+del = require('del');
+
+var config = {
+  mode: {
+    css: {
+      sprite: 'sprite.svg',
+      render: {
+        css: {
+          template: './gulp/templates/sprite.css'
+        }
+      }
+    }
+  }
+};
+
+gulp.task('beginClean', function() {
+  return del(['./app/temp/sprite', './app/assets/images/sprites']);
+});
+
+gulp.task('createSprite', ['beginClean'], function() {
+  return gulp.src('./app/assets/images/icons/**/*.svg')
+    .pipe(svgSprite(config))
+    .pipe(gulp.dest('./app/temp/sprite/'));
+});
+
+gulp.task('copySpriteGraphic', ['createSprite'], function() {
+  return gulp.src('./app/temp/sprite/css/**/*.svg')
+    .pipe(gulp.dest('./app/assets/images/sprites'));
+});
+
+gulp.task('copySpriteCSS', ['createSprite'], function() {
+  return gulp.src('./app/temp/sprite/css/*.css')
+    .pipe(rename('_sprite.css'))
+    .pipe(gulp.dest('./app/assets/styles/modules'));
+});
+
+gulp.task('endClean', ['copySpriteGraphic', 'copySpriteCSS'], function() {
+  return del('./app/temp/sprite');
+});
+
+gulp.task('icons', ['beginClean', 'createSprite', 'copySpriteGraphic', 'copySpriteCSS', 'endClean']);
+</pre>
+<p>最后编写的任务文件如下，包含了创建新文件，清理原来文件，复制等一系列过程。</p>
+<p>Gulp可以使用第二个参数为一个数组，来传入需要依次执行的任务。</p>
+<p>自此就完全搭建好了CSS方面的工作流。在搭建CSS工作流的时候一定要注意项目的目录结构。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
