@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>前端工程化 09 - 基于Webpack工作流搭建前端工程化</title>
+
+</head>
+<body>
+<p>在上一章还是使用Gulp来启动Webpack的任务，在这一章发现这个教程的很多地方都过期了，尤其是Webpack+Babel的地方。</p>
+<p>而且Webpack现在越来越流行，因此这一章开始转向使用Webpack来构建工作流。</p>
+<p>Babel做的事情，就像PostCss对CSS做的事情，用一些浏览器并不能解析组织结构来编写JavaScript代码，以及自动解决浏览器兼容性问题。</p>
+<p>Webpack也支持各种组件，就像Gulp的插件一样，所以来试着全部用Webpack来搭建CSS+JS的工作流，目标就是搭建Webpack 4.0 + Vue2.x的开发环境。</p>
+<ol>
+    <li><a href="#con1">以Webpack作为前端工作流的基础</a></li>
+    <li><a href="#con2">为项目配置Webpack</a></li>
+    <li><a href="#con3">export与import</a></li>
+    <li><a href="#con4">Webpack自动监听文件改变</a></li>
+    <li><a href="#con5">异常处理</a></li>
+</ol>
+
+<h1 id="con1" style="text-align: center;">Babel是什么？</h1>
+<p>Babel是一个JS预处理。由于JS的特点，有些代码是和具体的DOM以及浏览器相关，有些则是浏览器无关的。Babel可以将JS文件有效的组织，区分这些部分，以保持浏览器兼容性。</p>
+<p>现在ES6使用的也非常广泛，Babel还能自动将ES6的代码解析成ES5的代码，以提高兼容性。</p>
+<p>Babel也是一个工具，先来安装：</p>
+<pre>npm install babel-core babel-loader babel-preset-es2015 --save-dev</pre>
+<p>由于已经使用了Webpack来打包JS文件，所以Babel的配置要写在Webpack里，让Webpack调用babel预处理，之后再生成JS文件。</p>
+<p>编辑<code>webpack.config.js</code>文件：</p>
+<pre>
+var path = require("path");
+
+module.exports = {
+    entry: "./app/assets/scripts/App.js",
+    output: {
+        path: path.resolve(__dirname, "./app/temp/scripts"),
+        filename: "App.js"
+    },
+    module: {
+        loaders:[
+            {
+                loader:'babel-loader',
+                query: {
+                    presets:['es2015']
+                },
+                test:/\.js$/,
+                exclude: /node_modules/
+            }
+        ]
+    }
+};
+</pre>
+<p>注意。Webpack 4.0已经更改了配置的方法，不能按照上边的内容写了。</p>
+<p>写到这里的时候发现变化太大，必须要转向基于Webpack的工作流搭建了。</p>
+<p>在Webpack的模块设置中新增了内容，加入了<code>babel-loader</code>模块，然后添加ES2015的支持，也有ES2016等更新的支持，可以按需安装和添加。<code>test</code>表示解析哪些文件，这里都是用正则表达式。<code>exclude</code>表示对于哪些文件不处理，这里设置了对于Node.js的库文件都不作处理。</p>
+<p>重新启动watch任务，来做点修改看看。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

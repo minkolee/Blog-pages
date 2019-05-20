@@ -156,6 +156,7 @@ john.greet();
 $("h1").remove();
 </pre>
 <p>打包并且刷新页面后，所有的<code>H1</code>元素都不见了。</p>
+<p>实际上，这种加载方式是<code>CommonJS2</code>规范。</p>
 
 <h1 id="con4" style="text-align: center;">自动监听文件改变</h1>
 <p>现在我们每次修改JS文件，都去执行Webpack，还不够自动化，应该像Gulp那样，自动检测所有的JS文件变化并自动打包。之前安装了全局的Webpack，这里还必须安装当前项目的Webpack：</p>
