@@ -4,33 +4,78 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>前端工程化 09 - 基于Webpack工作流搭建前端工程</title>
+    <title>前端工程化 10 - WebPack中使用Babel PostCSS和Vue</title>
 
 </head>
 <body>
-<p>在上一章还是使用Gulp来启动Webpack的任务，在这一章发现这个教程的很多地方都过期了，尤其是Webpack+Babel的地方。</p>
-<p>而且Webpack现在越来越流行，因此这一章开始转向使用Webpack来构建工作流。</p>
-<p>Babel做的事情，就像PostCss对CSS做的事情，用一些浏览器并不能解析组织结构来编写JavaScript代码，以及自动解决浏览器兼容性问题。</p>
-<p>Webpack也支持各种组件，就像Gulp的插件一样，所以来试着全部用Webpack来搭建CSS+JS的工作流，目标就是搭建Webpack 4.0 + Vue2.x的开发环境。</p>
+<p>这里基本上是抄<code>Babel官网的教程</code>，发现前端虽然能工程化，但是很多东西还是太乱了，到处是不兼容的东西。</p>
 <ol>
-    <li><a href="#con1">以Webpack作为前端工作流的基础</a></li>
-    <li><a href="#con2">入口起点</a></li>
-    <li><a href="#con3">Loader</a></li>
-    <li><a href="#con4">Plugin</a></li>
-    <li><a href="#con5">DevServer</a></li>
+    <li><a href="#con1">安装Babel 7与配置</a></li>
+    <li><a href="#con2">使用PostCSS</a></li>
+    <li><a href="#con3">使用Vue</a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
 </ol>
 
-<h1 id="con1" style="text-align: center;">Webpack</h1>
-<p>一步一步通过IDE来进行实验。WebStorm新建Node.js项目，自动选择Node.js和NPM版本，创建一个空项目。</p>
-<p>项目目录下会自动执行<code>npm init</code>，自动创建<code>package.json</code>。</p>
-<p>然后通过NPM安装，<code>npm i -D</code>表示<code>install --save-dev</code>：</p>
-<pre>npm i -D webpack</pre>
-<p>安装了4.32.0版本。Webpack 4.0以上版本分开了命令行工具和插件本身，所以还需要安装：</p>
-<pre>npm i -D webpack-cli</pre>
-<p>安装了webpack-cli 3.3.2版本。</p>
-<p>推荐将Webpack安装在本地项目，这样可以避免版本冲突。</p>
+<h1 id="con1" style="text-align: center;">安装Babel 7</h1>
+<p>一套东西：webpack 4.x | babel-loader 8.x | babel 7.x一起使用，先安装Babel全家桶：</p>
+<p><pre>npm install -D babel-loader @babel/core @babel/preset-env</pre></p>
+<p>然后需要使用babel-loader来处理<code>JS</code>文件，抄一下配置：</p>
+<pre>
+const path = require('path');
+const ExtractPlugin = require('mini-css-extract-plugin');
 
-<h1 id="con2" style="text-align: center;">入口起点与输出</h1>
+module.exports = {
+    //设置模式，可以是development或者production
+    mode: "development",
+
+    // 入口和输出部分
+    entry: './script/index.js',
+    output: {
+        path: path.resolve(__dirname, "dist/script"),
+        filename: "app.js"
+    },
+
+    //loader部分
+    module: {
+        rules: [
+            {
+                //匹配文件类型
+                test: /\.css$/,
+                //调用了新的插件的方法，这里使用了css-loader
+                use: [
+                    {
+                        loader: ExtractPlugin.loader,
+                    },
+                    'css-loader'
+                ]
+            },
+
+            {
+                test: /\.m?js$/,
+                exclude: /(node_modules|bower_components)/,
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        presets: ['@babel/preset-env']
+                    }
+                }
+            }
+        ]
+    },
+
+    //插件部分
+    plugins: [
+        new ExtractPlugin({
+            filename: "[name].css"
+        })
+    ]
+};
+</pre>
+<p>然后启动DevServer，发现Babel正常运作了，编译后的JS文件不再是原来Webpack打包的，而很明细是经过Babel处理的了，之后的JS文件就可以分别来写了。</p>
+
+
+<h1 id="con2" style="text-align: center;">使用PostCSS</h1>
 <p>所谓入口起点就是一个js文件，Webpack把这个文件当成起始的地方，逐步解析依赖。</p>
 <p>使用<code>webpack.config.js</code>文件进行配置。</p>
 <p>输入和输出如果不指定，都有默认位置：</p>
@@ -57,7 +102,7 @@ module.exports = {
     <li>导入的如果不是库，需要指定具体的js文件，比如<code>var show = require("./show.js");</code>不能写成<code>require("show")</code>，webpack无法解析。</li>
 </ul>
 
-<h1 id="con3" style="text-align: center;">Loader</h1>
+<h1 id="con3" style="text-align: center;">使用Vue</h1>
 <p>Loader就是让Webpack支持其他类型文件的工具。</p>
 <p>Webpack本身只支持JS文件，如果要处理其他，就必须要使用Loader。</p>
 <p>使用Loader的时候，必须要显式写配置。</p>
