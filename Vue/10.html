@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
+    <title>Vue 10 Vue工程项目</title>
+    <script src="vuejs实战/vue.js"></script>
+</head>
+<body>
+<p>前端工程化之后，如果写Vue，就要搭建Vue工程项目。目前搭建工程项目有两种方法，一是采用Webpack自行搭建环境然后引入Vue，二是使用Vue-cil。</p>
+<p>这里先用Webpack实验一下。</p>
+<ol>
+    <li><a href="#con1">Webpack基础环境+Vue相关Loader配置</a></li>
+    <li><a href="#con2">.vue单文件组件</a></li>
+    <li><a href="#con3">createElement</a></li>
+    <li><a href="#con4">事件修饰符和按键修饰符</a></li>
+</ol>
+
+<h1 id="con1">Webpack基础环境+Vue相关Loader配置</h1>
+<p>一般来说，我们的组件的模板都是写在template元素里的，当然也可以写在其他的元素里。不管什么元素，都会被Vue解析成Virtual Dom。</p>
+<p>更新DOM的操作要比执行JS代码开销大很多，所以Vue在更新页面的时候，实际上先对Virtual
+    Dom进行计算，看是否有变化，然后渲染有变化的DOM部分，而不是整个页面重绘，这样的单页面应用要比从服务器获取静态页面速度好很多。</p>
+<p>在自定义指令的例子里，打印vnode参数在控制台里看到VNode对象，这个就是Vue的虚拟DOM节点对象。这个对象用一些属性封装了DOM节点的一些内容</p>
+<p>其中的一堆属性里比较重要的有两个：</p>
+<ol>
+    <li><code>tag</code>，当前节点的标签名称，像例子里指令绑定的是div元素，就会是div字符串。</li>
+    <li><code>data</code>，当前节点的数据对象，Vue源码中对应的类叫做VNodeData类。</li>
+    <li><code>children</code>，子节点数组，其中元素也全部是VNode类型</li>
+    <li><code>text</code>，当前节点的文本，一般文本和注释节点有此属性</li>
+    <li><code>elm</code>，即element，当前虚拟节点对应的真实DOM节点</li>
+    <li><code>ns</code>，节点的命名空间</li>
+    <li><code>content</code>，编译作用域</li>
+    <li><code>functionalContext</code>，函数化组件的作用域</li>
+    <li><code>key</code>，节点的key属性，用于唯一标识，方便更新DOM</li>
+    <li><code>componentOptions</code>，创建组件实例用到的设置</li>
+    <li><code>child</code>，当前节点对应的组件实例</li>
+    <li><code>parent</code>，组件的占位节点</li>
+    <li><code>raw</code>，原始HTML</li>
+    <li><code>istatic</code>，是否是静态节点</li>
+    <li><code>isRootlnsert</code>，是否作为根节点插入</li>
+    <li><code>isComment</code>，是否是注释节点</li>
+    <li><code>isCloned</code>，是否是克隆节点</li>
+    <li><code>isOnce</code>，当前节点是否存在V-once指令</li>
+</ol>
+<p>例子里的data点开之后，由于这是一个指令，能看到其中有一个directives: Array(1)，其中存放着指令的参数，表达式等一系列内容。</p>
+<p>Vnode可以分为如下几类：</p>
+<ol>
+    <li><code>TextVNode</code>，文本节点</li>
+    <li><code>ElementVNode</code>，普通元素节点</li>
+    <li><code>ComponentVNode</code>，组件节点</li>
+    <li><code>EmptyVNode</code>，无内容的注释节点</li>
+    <li><code>CloneVNode</code>，克隆节点，可以是上边四种的任意一个，属性<code>isCloned</code>为true</li>
+</ol>
+<p>通过理论知识可以知道，Vue实际上是把被绑定的所有DOM节点，用自己的方式在后台写了一套对应的虚拟节点。通过操作虚拟节点来更新实际DOM页面，实现前端也有控制器和view的功能。</p>
+
+<h1 id="con2">Render函数的例子</h1>
+<p>render实际上也是Vue实例的一个属性，与用模板渲染不同，render就是进行渲染的函数，可以把要渲染的内容都使用这个函数来完成，先看一个例子。</p>
+<p>这个例子想编写一个组件，传入级别和标题，插槽插入显示的内容，自动生成对应级别的H元素包含的链接，点击之后可以自动添加锚点。</p>
+<p>标准的做法，就是编写一个组件，传入level参数用于控制显示哪个级别的标题，然后留个插槽供父组件插入内容，还需要一个文本属性控制锚点的内容：</p>
+<pre>
+&lt;div id="app">
+    &lt;anchor :level="2" title="自定义标题">标题&lt;/anchor>
+&lt;/div>
+
+&lt;script type="text/x-template" id="mytemp">
+    &lt;div>
+        &lt;h1 v-if="level === 1">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h1>
+        &lt;h2 v-if="level === 2">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h2>
+        &lt;h3 v-if="level === 3">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h3>
+        &lt;h4 v-if="level === 4">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h4>
+        &lt;h5 v-if="level === 5">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h5>
+        &lt;h6 v-if="level === 6">
+            &lt;a :href="'#' + title">&lt;slot>&lt;/slot>&lt;/a>
+        &lt;/h6>
+    &lt;/div>
+&lt;/script>
+&lt;script>
+    Vue.component('anchor',{
+        template:"#mytemp",
+        props:{
+            level:{
+                type:Number
+            },
+            title:{
+                type:String
+            }
+        }
+    });
+
+    var app = new Vue({
+        el: "#app"
+    })
+&lt;/script>
+</pre>
+<p>仔细观察一下，其实组件模板的大部分内容都相同，只是v-if控制的不同，如果能直接能拼出一段HTML字符串，那变量其实只有level和title，剩下的都是重复内容。这个时候就可以使用render函数，不再用模板。</p>
+<p>修改后的全部代码是：</p>
+<pre>
+&lt;div id="app">
+    &lt;anchor :level="4" title="saner">ttile&lt;/anchor>
+&lt;/div>
+
+&lt;script>
+    Vue.component('anchor',{
+        props:{
+            level:{
+                type:Number
+            },
+            title:{
+                type:String
+            }
+        },
+        render:function (createElement) {
+            return createElement(
+                'h' + this.level, [
+                    createElement(
+                        'a', {
+                            domProps: {
+                                href: '#' + this.title
+                            }
+                        },
+                        this.$slots.default
+                    )
+                ]
+            );
+        }
+    });
+
+    var app = new Vue({
+        el: "#app"
+    })
+&lt;/script>
+</pre>
+<p>
+    虽然还没有学，但是能看出来，Render函数内置的createElement参数是其中的关键，可以通过字符串和其他的createElement返回的结果进行嵌套，最后生成一段HTML代码。下边就来具体看createElement。</p>
+
+<h1 id="con3">createElement的参数</h1>
+<p>
+    在开始之前，首先要想一下，要渲染一个HTML元素，需要一些什么内容。很显然，首先必须要知道渲染一个什么元素，可能是标准的HTML元素，也可能是Vue的自定义组件的元素。之后很显然还需要渲染这个元素的属性，可能是HTML标准属性，也可能是指令。最后很显然，还需要渲染标签中的内容，内容可能是文本，可能是另外一个元素，可能是表达式。</p>
+<p>想了这些，再看createElement函数就会比较清晰了。由于这个方法最后是拼出来一段HTML模板，很显然必须知道上边的三个内容才能渲染出来模板。</p>
+<p>createElement有三个参数，依次是：</p>
+<ol>
+    <li><code>{String | Object | Function)</code>，一个HTML标签名称字符串，或者组件，或者一个函数。是必须传入的参数。</li>
+    <li><code>{AttrObject)</code>，属性数据对象，后边会详细解释，可选参数。</li>
+    <li><code>{String | Array)</code>，子节点数组，可选参数。</li>
+</ol>
+<p>很显然，这个就与上边一一对应。这里要解释一下第二个属性数据对象，里边其实就封装了渲染为元素属性的各个数据。来看一个渲染一个简单组件的例子：</p>
+<pre>
+&lt;div id="app">
+    &lt;comp>saner&lt;/comp>
+&lt;/div>
+
+&lt;script>
+    Vue.directive('mydir',{
+        inserted:function (el,binding) {
+            console.log("bind");
+            console.log("value的值是 " + binding.expression);
+        }
+    });
+
+    Vue.component('comp', {
+        render: function (createElement) {
+            return createElement(
+                'h1', {
+                    class: {
+                        title: true,
+                        ff: false
+                    },
+                    style: {
+                        fontSize: "30px",
+                        textAlign: "center"
+                    },
+                    attrs: {
+                        id: "test"
+                    },
+                    domProps: {
+
+                    },
+                    props:{
+                        value:
+                    },
+                    on:{
+                        click: this.clickHandler
+                    },
+                    nativeOn:{
+                        click: this.nativeClickHandler
+                    },
+                    directives:[
+                        {
+                            name:'mydir',
+                            value: 'true',
+                            expression:'true',
+                            arg:'foo',
+                            modifiers:{
+                                bar:true
+                            }
+                        }
+                    ],
+                    scopedSlots: {
+                        default: props => createElement('span', props.text)
+                    },
+                    slot: 'name-of-slot',
+                    key: 'myKey',
+                    ref: 'myRef',
+                    refInFor: true
+                },this.$slots.default
+            );
+        },
+        methods:{
+            clickHandler:function () {
+                console.log("clicked")
+            },
+            nativeClickHandler: function () {
+                console.log("native clicked")
+            }
+        }
+    });
+
+    var app = new Vue({
+        el: "#app"
+    })
+&lt;/script>
+</pre>
+<p>这里的第一个参数是<code>h1</code>，表示是一个<code>h1</code>标题元素，第二个参数就是属性对象，里边包含了所有可以作用在元素上的渲染内容：</p>
+<ol>
+    <li><code>class</code>，类似v-bind:class的属性写法，控制CSS类</li>
+    <li><code>style</code>，类似v-bind:style的属性写法，控制内联样式</li>
+    <li><code>attrs</code>，标准HTML属性</li>
+    <li><code>domProps</code>，DOM节点属性，比如可以设置innerHTML，不过这里要渲染插槽，所以没有插入具体内容。</li>
+    <li><code>props</code>，定义组件的props。不过这里我定义了，但是传入似乎没效果。不过由于是组件，可以直接在外边定义。现在还没搞清楚</li>
+    <li><code>on</code>，监听事件，可以监听$emit抛出的自定义事件。但是这里不支持直接使用修饰符，必须在事件处理方法里判断。</li>
+    <li><code>nativeOn</code>，监听原生事件</li>
+    <li><code>directives</code>，自定义指令的相关内容，写了这些就等于在元素上使用了自定义指令。</li>
+    <li><code>scopedSlots</code>，作用域插槽，先这么了解一下</li>
+    <li><code>slot</code>，如果当前组件还是其他组件的子组件，需要给插槽指定名称。</li>
+    <li><code>key</code>，元素的key值，用于唯一标识</li>
+    <li><code>ref</code>，元素的ref属性。如果多个元素都使用了同一个ref，$refs.myRef会成为一个数组。</li>
+    <li><code>refInFor</code>，这个官方文档也没解释，不知道了。</li>
+</ol>
+<p>这里还在第三个参数中写了一个标准的slot插槽元素，这个会成为h1元素的子元素。这个例子渲染完之后的HTML元素是：</p>
+<pre>
+&lt;div id="app">
+    &lt;h1 id="test" class="title" style="font-size: 30px; text-align: center;">saner&lt;/h1>、
+&lt;/div>
+</pre>
+<p>在控制台里则打印了自定义指令的内容，点击标题会发现事件也正常得到处理。</p>
+<p>所以creatElement的作用，就是渲染出一段像模板一样可以正常供Vue工作的页面。实际上creatElement返回的是一个Vnode对象，不是真正的DOM元素。Vue实例会完成实际渲染的工作。</p>
+<p>在组件树中，所有的组件都必须唯一，不能直接简单复用组件，那样只会渲染出一个组件。</p>
+<p>但是在<code>Vue的文档</code>里，提到如下的渲染函数不合法：</p>
+<pre>
+render: function (createElement) {
+  var myParagraphVNode = createElement('p', 'hi')
+  return createElement('div', [
+    // 错误 - 重复的 VNode
+    myParagraphVNode, myParagraphVNode
+  ])
+}
+</pre>
+<p>但是奇怪的是我竟然可以渲染出两个元素。。。。难道Vue 2.6.10有所改动？</p>
+<p>另外这里还展示了render函数可以不传第二个参数，直接传第一个和数组参数，也是可以的。</p>
+
+
+<h1 id="con4">事件修饰符和按键修饰符</h1>
+<p>在render里无法使用修饰符，所以必须要通过事件处理函数的event属性来调用。一些事件和按键修饰符对应关系如下：</p>
+<table>
+    <thead>
+    <tr>
+        <th>修饰符</th>
+        <th>调用方法</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>.stop</code></td>
+        <td><code>event.stopPropagation()</code></td>
+    </tr>
+    <tr>
+        <td><code>.prevent</code></td>
+        <td><code>event.preventDefault()</code></td>
+    </tr>
+    <tr>
+        <td><code>.self</code></td>
+        <td><code>if (event.target != event.currentTarget) return</code></td>
+    </tr>
+    <tr>
+        <td><code>.enter.13</code></td>
+        <td><code>if(event.keyCode != 13) return</code>，判断按钮</td>
+    </tr>
+    <tr>
+        <td><code>.ctrl 、.alt 、.shift 、.meta</code></td>
+        <td><code>if (!event.ctrlKey) return 根据需要替换ctrlKey 为altK、shiftKey 或metaKey</code>，也是用于判断按钮</td>
+    </tr>
+    </tbody>
+</table>
+<p>对于<code>.capture</code>，<code>.once</code>可以使用特殊前缀，写在on的事件名称字符串里即可：</p>
+<table>
+    <thead>
+    <tr>
+        <th>修饰符</th>
+        <th>前缀</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>.capture</code></td>
+        <td><code>!</code></td>
+    </tr>
+    <tr>
+        <td><code>.once</code></td>
+        <td><code>~</code></td>
+    </tr>
+    <tr>
+        <td><code>.capture.once 或.once.capture</code></td>
+        <td><code>~!</code></td>
+    </tr>
+    </tbody>
+</table>
+
+<p>现在基本上就把Vue的内容都学完了，后边是Webpack和Vue的其他生态了。想要做一个SPA，还真的没那么简单哦。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
