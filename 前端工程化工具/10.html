@@ -8,13 +8,11 @@
 
 </head>
 <body>
-<p>这里基本上是抄<code>Babel官网的教程</code>，发现前端虽然能工程化，但是很多东西还是太乱了，到处是不兼容的东西。</p>
+<p>发现虽然前端的东西比较杂乱，但是使用Webpack搭建项目，不写特定的很复杂的配置，只是创建一个单页面应用的开发环境，按照官方文档来，倒也很简单。</p>
 <ol>
-    <li><a href="#con1">安装Babel 7与配置</a></li>
-    <li><a href="#con2">使用PostCSS</a></li>
-    <li><a href="#con3">使用Vue</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
+    <li><a href="#con1">Babel 7 与配置</a></li>
+    <li><a href="#con2">PostCSS与配置</a></li>
+    <li><a href="#con3">总结Webpack配置</a></li>
 </ol>
 
 <h1 id="con1" style="text-align: center;">安装Babel 7</h1>
@@ -72,42 +70,21 @@ module.exports = {
     ]
 };
 </pre>
-<p>然后启动DevServer，发现Babel正常运作了，编译后的JS文件不再是原来Webpack打包的，而很明细是经过Babel处理的了，之后的JS文件就可以分别来写了。</p>
+<p>实验了一下箭头函数之类的，发现Babel正常工作了。</p>
+<p>如果是在命令行下直接编译文件，则Babel需要<code>.babelrc</code>文件，具体看<a href="https://blog.zfanw.com/babel-js/" target="_blank">Babel 7教程</a>。</p>
 
 
-<h1 id="con2" style="text-align: center;">使用PostCSS</h1>
-<p>所谓入口起点就是一个js文件，Webpack把这个文件当成起始的地方，逐步解析依赖。</p>
-<p>使用<code>webpack.config.js</code>文件进行配置。</p>
-<p>输入和输出如果不指定，都有默认位置：</p>
-<ol>
-    <li>默认到<code>./src/index.js</code>目录寻找入口</li>
-    <li>默认输出到<code>./dist/main.js</code>文件</li>
-</ol>
-<p>具体写配置：</p>
+<h1 id="con2" style="text-align: center;">配置PostCSS</h1>
+<p>PostCss和Babel很像，也是一个loader加上很多模块化的插件，用于支持不同的CSS处理方式。</p>
+<p>在之前必须要安装<code>css-loader</code>和<code>style-loader</code>两个插件，这也是其他CSS处理插件必备的。</p>
+<p>之后要安装<code>postcss-loader</code>，loader系列工具都是为了Webpack准备的，如果是命令行操作，需要安装<code>postcss</code>库：</p>
+<pre>npm i -D postcss-loader</pre>
+<p>然后根据官网来配置Webpack。这里需要注意的是几个loader的顺序，webpack里loader的处理顺序从下到上，即在modules中最下边的loader先执行。</p>
+<p>CSS相关处理模块的顺序是<code>postcss-loader -> css-loader -> style-loader</code>。这里还加了一个导出单个CSS的<code>mini-css-extract-plugin</code>在<code>css-loader</code>之后运行，由于是导出单独的CSS文件，所以也没有直接使用style-loader，所以postcss-loader要加在最下边。</p>
+<p>实际的顺序是：<code>postcss-loader -> css-loader -> mini-css-extract-plugin</code></p>
 <pre>
 const path = require('path');
-
-module.exports = {
-    entry: './script/index.js',
-    output: {
-        path: path.resolve(__dirname,"dist/script"),
-        filename: "app.js"
-    }
-};
-</pre>
-<p>这个表示入口在项目根目录的<code>script/index.js</code>，输出在拼接的项目目录<code>/dist/script</code>下，文件名叫做<code>app.js</code></p>
-<p>拼接字符串的时候一定要注意，不能写成<code>/dist/script</code>，别带最前边的反斜杠。</p>
-<p>随便建点入口和出口文件，试验了一下，有个坑：</p>
-<ul>
-    <li>导入的如果不是库，需要指定具体的js文件，比如<code>var show = require("./show.js");</code>不能写成<code>require("show")</code>，webpack无法解析。</li>
-</ul>
-
-<h1 id="con3" style="text-align: center;">使用Vue</h1>
-<p>Loader就是让Webpack支持其他类型文件的工具。</p>
-<p>Webpack本身只支持JS文件，如果要处理其他，就必须要使用Loader。</p>
-<p>使用Loader的时候，必须要显式写配置。</p>
-<pre>
-const path = require('path');
+const ExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
     //设置模式，可以是development或者production
@@ -126,88 +103,37 @@ module.exports = {
             {
                 //匹配文件类型
                 test: /\.css$/,
-                use: ['style-loader', 'css-loader']
-            }
-        ]
-    }
-};
-</pre>
-<p>这里使用了一个loader，用于让Webpack支持CSS文件打包。</p>
-<p>每个Loader对象放在module-rules，有两个属性，一个是遇到指定后缀名称的资源，一个是用哪个loader进行处理。</p>
-<p>处理的结果是CSS资源的样式，被包含在了JS文件里，动态生成了Head中的Style标签，所以样式依然生效。</p>
-<p>这样做感觉有点高度耦合和浪费资源，所以还可以使用Plugin来单独生成CSS文件。</p>
-
-<h1 id="con4" style="text-align: center;">Plugin</h1>
-<p>与Loader能打包多种文件不同，Plugin是用来扩展Webpack的功能。</p>
-<p>注意，看了<a href="https://github.com/webpack-contrib/extract-text-webpack-plugin">extract-text-webpack-plugin</a>官网： Since webpack v4 the extract-text-webpack-plugin should not be used for css. Use mini-css-extract-plugin instead.</p>
-<p>要么安装这个插件，要么按照下边的办法：</p>
-<p>需要安装<code>npm i -D extract-text-webpack-plugin@next</code>，注意一定要是next，然后使用loader加载，使用plugin处理：</p>
-<pre>
-const path = require('path');
-const ExtractTextPlugin = require('extract-text-webpack-plugin');
-
-module.exports = {
-    // 入口和输出部分
-    entry: './script/index.js',
-    output: {
-        path: path.resolve(__dirname, "dist/script"),
-        filename: "app.js"
-    },
-
-    //loader部分
-    module: {
-        rules: [
-            {
-                //匹配文件类型
-                test: /\.css$/,
-                //调用了新的插件的方法，这里使用了css-loader
-                loaders: ExtractTextPlugin.extract({
-                    use: ['css-loader']
-                })
-            }
-        ]
-    },
-
-    //插件部分
-    plugins: [
-        new ExtractTextPlugin({
-            filename: "[name].css"
-        })
-    ]
-};
-</pre>
-<p>plugins是一个数组，数组每一个元素都是一个插件的实例。发现不支持<code>[contenthash:8]</code>这种写法了，无奈就先直接用了名称。</p>
-<p>如果用 <code></code></p>
-<pre>
-const path = require('path');
-const ExtractPlugin = require('mini-css-extract-plugin');
-
-module.exports = {
-    // 入口和输出部分
-    entry: './script/index.js',
-    output: {
-        path: path.resolve(__dirname, "dist/script"),
-        filename: "app.js"
-    },
-
-    //loader部分
-    module: {
-        rules: [
-            {
-                //匹配文件类型
-                test: /\.css$/,
                 //调用了新的插件的方法，这里使用了css-loader
                 use: [
                     {
                         loader: ExtractPlugin.loader,
                     },
-                    'css-loader'
+                    <span style="color: red">{
+                        loader: 'css-loader',
+                        options: {
+                            importLoaders: 1,
+                        }
+                    },
+                    {
+                        loader: 'postcss-loader'
+                    }</span>
                 ]
+            },
+
+            {
+                test: /\.js$/,
+                exclude: /(node_modules|bower_components)/,
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        presets: ['@babel/preset-env']
+                    }
+                }
             }
         ]
     },
 
-    //插件部分
+    // 插件部分
     plugins: [
         new ExtractPlugin({
             filename: "[name].css"
@@ -215,31 +141,103 @@ module.exports = {
     ]
 };
 </pre>
-
-<h1 id="con5" style="text-align: center;">DevServer</h1>
-<p>Webpack也能做到实时预览加载，通过WebSocket刷新页面。来看一下如何配置。</p>
-<p>先要安装服务器：</p>
-<pre>npm i -D webpack-dev-server</pre>
-<p>然后在项目根目录执行：<code>webpack-dev-server</code>：</p>
+<p>这里的css-loader的importLoaders配置表示在之前运行的loader数量，这里就指定了仅运行postcss-loader。现在一共使用了三个Loader。</p>
+<p>不过还没完，由于PostCSS都是模块化形式存在的，单独这么配置没有什么用。还要再项目根目录下编写<code>postcss.config.js</code>文件：</p>
 <pre>
-i ｢wds｣: Project is running at http://localhost:8080/
-i ｢wds｣: webpack output is served from /
-i ｢wds｣: Content not from webpack is served from D:\Coding\sites\webpackworkflow
+module.exports = {
+  plugins: [
+    require('precss'),
+    require('autoprefixer')
+  ]
+}
 </pre>
-<p>服务器直接就启动了。但是会发现没有样式，打开console看，会发现404找不到JS文件。这是因为DevServer不会理会配置文件中的output-path路径，而是会把编译后的文件都放在内存中，对应的就是根目录。</p>
-<p>所以要把index.html中的js和css文件链接都修改成直接就在根目录下，比如：</p>
+<p>常用的插件也都需要安装：</p>
+<ul>
+    <li><a href="https://github.com/jonathantneal/precss">Precss</a>，支持类似Sass的变量，嵌套和mixins功能。类似之前Gulp中使用的。</li>
+    <li><a href="https://github.com/postcss/autoprefixer">Autoprefixer</a>，自动添加浏览器前缀。</li>
+</ul>
+<pre>npm install precss --save-dev</pre>
+<pre>npm install autoprefixer --save-dev</pre>
+<p>安装正确的话，在<code>postcss.config.js</code>文件中点击字符串格式的插件链接，可以连接到正确的mjs文件上。</p>
+<p>然后就可以来使用以下这些特性翻译CSS看看了。</p>
+<p>这里我在添加配置的过程中，DevServer没有关闭，编写了一些新的CSS文件，和加上导入之后，浏览器里可以看到给元素添加上了没有经过任何处理的样式，完全不生效。</p>
+<p>但是重新启动DevServer之后，样式就翻译正常了。</p>
+<p>这里和Gulp不同的是：Gulp只要把变量文件放到主文件最上边导入就行了，可见文件先连接在一起，再编译。</p>
+<p>而PostCSS在处理到变量的时候就必须知道变量的值，所以在要使用变量的文件顶上必须导入变量文件。写了三个简单的例子来测试，结果OK：</p>
 <pre>
-&lt;link rel="stylesheet" href="main.css">
-&lt;script src="app.js">&lt;/script>
+&lt;!--index.css-->
+@import "main.css";
+
+&lt;!--main.css-->
+@import "variable.css";
+
+#app {
+    text-align: center;
+    color: brown;
+    background-color: $mainBlack;
+    max-width: calc(4*$standardwidth);
+    margin-right: auto;
+    margin-left: auto;
+    transform: rotate(30deg);
+    margin-top: 40%;
+
+    p {
+        font-size: 2rem;
+        color: $mainColor;
+    }
+}
+
+&lt;!--variable.css-->
+$mainColor: orange;
+$mainBlack: black;
+$standardwidth: 100px;
 </pre>
-<p>这样就可以正常显示了。不过要注意的是，更新index.html并不能触发自动更新，这是因为Webpack监听的对象是以entry为起点的，不包含在相关依赖内的文件不会被监听。而且单页面应用基本上就加载一个外层框架元素，不大更改HTML。</p>
-<p>还可以使用<code>webpack-dev-server --hot</code>来启用模块热替换，刷新的效果更好。</p>
+<p>得到的输出是：</p>
+<pre>
+#app {
+    text-align: center;
+    color: brown;
+    background-color: black;
+    max-width: calc(4*100px);
+    margin-right: auto;
+    margin-left: auto;
+    -webkit-transform: rotate(30deg);
+            transform: rotate(30deg);
+    margin-top: 40%;
+}
 
-<h1 id="con6" style="text-align: center;">SourceMap</h1>
-<p>DevServer还有个功能非常方便调试，就是使用 <code>webpack-dev-server --devtool source-map</code>参数，之后在Chrome开发工具中就能查看Source，方便调试。</p>
-<p>这里自己试验了一下好像Sources中没有显示。</p>
-<p>不管怎么说，现在已经初步搭建好了一个CSS和JS直接处理的程序，剩下就是加上各种可以采取高级编写手段的插件，比如post-css和Babel等工具，来搭建一个基础的前端工具流了。另外架构师朋友说为了Vue的话还可以直接研究Vue-cli，先都记下来。</p>
+#app p {
+    font-size: 2rem;
+    color: orange;
+}
+</pre>
+<p>PreCSS特性和自动前缀特性都正常被编译了，在>PostCSS的<a href="https://github.com/postcss/postcss">Github页面</a>上可以看到很多推荐的插件。</p>
+<p>增加新插件的时候，只需要先安装该插件然后编辑<code>postcss.config.js</code>将插件加入到<code>plugins</code>对象中即可。</p>
 
+<h1 id="con3" style="text-align: center;">总结Webpack配置</h1>
+<p>Webpack本身其实相当复杂，尤其用于大型环境。不过对于个人开发，搭建好处理JS和CSS的环境还是不难的。相比Gulp，应该说还是Webpack更加方便一些。</p>
+<p>这里简要总结一下搭建环境的顺序：</p>
+<ol>
+    <li>在项目目录下执行<code>npm init</code>，变成一个项目目录。</li>
+    <li>局部安装<code>Webpack</code>和<code>Webpack-cli</code>
+        <pre>npm i -D webpack</pre>
+        <pre>npm i -D webpack-cli</pre>
+    </li>
+    <li>配置Webpack的入口和起点</li>
+    <li>常见是生成独立CSS文件，需要安装<code>mini-css-extract-plugin</code>和<code>css-loader</code></li>
+    <li>安装Babel全家桶：
+        <pre>npm install -D babel-loader @babel/core @babel/preset-env</pre>
+    </li>
+    <li>配置<code>Babel-loader</code></li>
+    <li>安装PostCss以及插件：
+        <pre>npm i -D postcss-loader</pre>
+        <pre>npm install precss --save-dev</pre>
+        <pre>npm install autoprefixer --save-dev</pre>
+    </li>
+    <li>创建<code>postcss.config.js</code>文件，加入插件内容。</li>
+    <li>在Webpack配置文件中配置PostCSS的Loader和之前生成独立CSS文件的插件。</li>
+    <li>安装和启动DevServer即可。</li>
+</ol>
 
 </body>
 </html>
