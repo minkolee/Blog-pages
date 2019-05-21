@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
-    <title>Vue 10 Vue工程项目</title>
+    <title>Vue 10 搭建Vue工程项目</title>
     <script src="vuejs实战/vue.js"></script>
 </head>
 <body>
@@ -14,18 +14,18 @@
 <ol>
     <li><a href="#con1">Webpack基础环境+Vue相关Loader配置</a></li>
     <li><a href="#con2">单文件组件</a></li>
-    <li><a href="#con3">createElement</a></li>
-    <li><a href="#con4">事件修饰符和按键修饰符</a></li>
+    <li><a href="#con3">Vue CLI搭建工程</a></li>
+    <li><a href="#con4">通过WebStorm创建Vue工程项目</a></li>
 </ol>
 
-<h1 id="con1">Webpack基础环境+Vue相关Loader配置</h1>
+<h1 id="con1" style="text-align: center;">Webpack基础环境+Vue相关Loader配置</h1>
 <p>在<a href="http://www.conyli.cc/archives/category/program/front-end/webpack" target="_blank">前端工程化</a>里搞定了Webpack的配置。现在需要配置Vue的工程文件了。
 </p>
 <p>一个Vue工程与普通Webpack工程的不同就是使用了<code>.vue</code>文件的单文件组件。所以需要一个对应的<a href="https://vue-loader.vuejs.org/zh/"
                                                                     target="_blank">vue-loader</a>来解析单文件组件。</p>
 <p>创建<code>Vue</code>工程之前，先按照普通创建好Webpack 4 + Babel 7 +
     PostCSS的环境，然后是一个仅带有一个<code>div#app</code>的<code>index.html</code>。为了突出结果，就直接使用默认的入口和出口。</p>
-<h3><code>vue-loader</code></h3>
+<h3 style="text-align: center;"><code>vue-loader</code></h3>
 <p>为了解析单文件组件，需要先安装<code>vue-loader</code>，：</p>
 <pre>npm install -D vue-loader vue-template-compiler</pre>
 <p>这是根据官网的v15版最新文档，升级Vue包就需要升级对应的<code>vue-template-compiler</code>。</p>
@@ -106,7 +106,7 @@ module.exports = {
 </pre>
 <p>其他配置先不改，写一个单文件组件来试试看能不能解析。</p>
 
-<h1 id="con2">单文件组件</h1>
+<h1 id="con2" style="text-align: center;">单文件组件</h1>
 <p>什么是<a href="https://cn.vuejs.org/v2/guide/single-file-components.html"
          target="_blank">单文件组件</a>，其实就是一个以<code>.vue</code>结尾的文件，类似于一个HTML文件。其中的结构如下：</p>
 <pre>
@@ -136,23 +136,152 @@ module.exports = {
     <li><code>style</code>元素是组件的样式。这里需要特别注意属性上的<code>scoped</code>，表示该样式仅对该组件生效。如果不写<code>scoped</code>，样式就是全局生效。</li>
 </ol>
 <p>在单页面应用中，一般页面上只有一个<code>div#app</code>，在项目的<code>main.js</code>文件中，一般会创建一个绑定到该div元素的Vue实例，作为项目的根实例，也就是入口。再通过这个根实例加载其他的组件使用。这样就像写后端一样，一个组件就是一个对象，通过props，slot和事件三种API进行交互，共同构成复杂的应用。</p>
-<p>来编写简单的组件来试验一下前边的配置是否成功：</p>
+<p>来编写<code>index.js</code>文件和一个组件来试验一下前边的配置是否成功。</p>
+<pre>
+//index.js
+
+import Vue from "vue";
+
+import App from "./app.vue";
 
 
+new Vue({
+    el: "#app",
+    render: function (createElement) {
+        return createElement(App);
+    }
+});
+</pre>
+<p>这个文件使用了ES6的import语法，从vue包中导入vue。这里查过，导入的vue是一个运行时的common.js，如果提示有错的话，可以直接从vue的发行版js文件里导入，此时要改写成：</p>
+<pre>import Vue from '../node_modules/vue/dist/vue';</pre>
+<p>可以看到里边导入了一个<code>app.vue</code>组件，来创建<code>app.vue</code>文件：</p>
+<pre>
+&lt;template>
+    &lt;div>
+        {{person}}
+&lt;/div>
+&lt;/template>
 
+&lt;script>
+    export default {
+        name: "app",
+        data() {
+            return {
+                person: "saner"
+            }
+        },
+    }
+&lt;/script>
 
+&lt;style scoped>
+    div {
+        background-color: orange;
+        color: #444444;
+        text-align: center;
+    }
+&lt;/style>
+</pre>
+<p>这个组件内容很简单，就显示一个变量值。结合上边的<code>index.js</code>来看，这个组件将会通过render函数，实际显示在绑定根实例的<code>div#app</code>元素的位置。</p>
+<p><code>index.html</code>的内容很简单，只需要注意引入的js和css文件的位置是根路径：</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html lang="en">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;meta http-equiv="X-UA-Compatible" content="IE=edge">
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1">
+    &lt;link rel="stylesheet" href="main.css">
+    &lt;title>Vue工程&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;div id="app">
+&lt;/div>
+&lt;script src="main.js">&lt;/script>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>然后启动DevServer，发现成功了，显示出了这个app组件的内容。通过浏览器开发工具可以发现，实际渲染出的组件内容是：</p>
+<pre>
+&lt;div data-v-5ef48958="">
+        saner
+&lt;/div>
+</pre>
+<p>而CSS样式文件是：</p>
+<pre>
+div[data-v-5ef48958] {
+    background-color: orange;
+    color: #444444;
+    text-align: center;
+}
+</pre>
+<p>可见8位数的hash值也对应上了，说明无论是JS文件还是CSS文件，都正确得到了解析。</p>
+<p>现在就发现，可以像组织后端工程一样，组织Vue的工程目录。按照组件而不是像原来一样写JS的面条代码。</p>
+<p>同时也可以发现，<code>index.js</code>中的写法，实际上是将根Vue实例的内容，显示为<code>app.vue</code>组件的内容。所以<code>app.vue</code>实际上可以当做真正的项目根组件，或者说项目入口，在其中引入其他组件。</p>
 
+<h1 id="con3" style="text-align: center;">Vue CLI搭建工程</h1>
+<p>Vue的官网推荐使用<a href="https://cli.vuejs.org/zh/guide/">Vue CLI</a>来快速构建Vue工程，而不是通过Webpack，但Vue CLI是基于Webpack的。</p>
+<p>先要安装Vue CLI，分为两部分，全局安装<code>@vue/cli</code>和局部安装<code>@vue/cli-service</code>。</p>
+<p>按照官网指导，先安装全局的<code>@vue/cli</code>：</p>
+<pre>npm install -g @vue/cli</pre>
+<p>这里先关掉Webpack配置的Vue，也无需使用WebStorm。就直接安装，然后新建一个任意目录作为项目目录，<code>npm init</code>之类的不要忘记：</p>
+<p>安装过程提示了<code>@hapi/joi</code>，<code>@hapi/hoek</code>，<code>@hapi/topo</code>需要安装，以覆盖老的不带命名空间的版本。</p>
+<p>可以再通过NPM安装一下这几个玩意：</p>
+<pre>npm i -D @hapi/joi @hapi/hoek @hapi/topo</pre>
+<p>之后准备创建项目。</p>
 
+<h3 style="text-align: center;">创建项目</h3>
+<p>有两种方式，一种是直接命令行，一种是图形化创建。</p>
+<p>命令行运行<code>vue create projectname</code>，然后有如下配置：</p>
+<ol>
+    <li>测试连接到NPM的速度，如果速度慢会提示连接到taobao的NPM镜像</li>
+    <li>选择preset，默认的是带有babel和eslint的版本。也可以手工选择需要的功能。我选了babel，css预处理和eslint。</li>
+    <li>之后就会开始创建项目目录，目录名称就是projectname实际输入的名称。还会为项目目录自动配置Git。</li>
+</ol>
+<p>如果是图形化配置，会更加方便，运行<code>vue ui</code>，就可以方便的进行创建，推荐把CSS预处理也一起选上，然后在下一步里选<code>Dart：css</code>实现，这样就非常方便了。</p>
+<p>两种安装方式安装完毕后，到项目的目录下边，执行<code>npm run serve</code>，就可以启动服务器了。</p>
+<p>之后访问默认的<code>http://localhost:8081/</code>，出现Vue的界面，就证明成功配置好了。</p>
+<p>到项目目录实际查看文件，可以看到有src目录，node_modules等目录。而这个服务器是基于Webpack-dev-server的。</p>
 
+<h1 id="con4" style="text-align: center;">通过WebStorm创建Vue工程项目</h1>
+<p>WebStorm可以直接创建Vue项目。选择<code>File | New | Project...</code>，在左侧选择<code>Vue.js</code>，右侧可以看到Node和Vue CLI的选项和项目模板。</p>
+<p>这里一定要安装好Vue CLI，模板我只有Webpack，就无法更改，然后就点击Next。</p>
+<p>然后会运行Vue CLI，之后会选择一个Preset，如果之前有保存自己的就可以选择。然后点击Next，立刻就会出现一个新工程。虽然其中暂时只有<code>package.json</code>文件，但是WebStorm在后台拼命安装各种NPM包。</p>
+<p>再耐心等待一会到后台任务全部结束，可以看到最终的项目目录：</p>
+<ol>
+    <li><code>public</code>目录，放入了项目的目标文件，<code>index.html</code>就在这里，会在解析的时候自动注入JS和CSS文件，所以并没有像我们自己的<code>index.html</code>加入了静态文件链接。</li>
+    <li><code>src</code>目录，放入了项目的源文件，其中的<code>assets</code>目录存放静态资源，<code>components</code>目录存放Vue的单文件组件。一般在<code>src</code>根目录下边还有<code>App.vue</code>和<code>main.js</code>，这两个文件的作用和上边Webpack配置Vue环境一样，共同构成项目入口。</li>
+    <li><code>node_modules</code>不用多说，查看其中可以发现，实际上安装了Webpack。</li>
+    <li>除此之外就是<code>package.json</code>，<code>.gitignore</code>等老朋友，以及一个<code>babel.config.js</code>的配置</li>
+</ol>
+<p>来实际实验一下，将Webpack配置的Vue工程中的三个组件复制到<code>components</code>目录下，然后修改<code>main.js</code>导入我们自己的<code>app.vue</code>。</p>
+<p>启动项目则无需输入命令，WebStorm右上角已经创建好了<code>npm server</code>，如果没有的话，可以通过<code>Run Configurations</code>自行添加，<code>package.json</code>中已经配置好了命令简化。</p>
+<p>启动项目，提示如下：</p>
+<pre>
+D:\Software\node\node.exe D:\Software\node\node_modules\npm\bin\npm-cli.js run serve --scripts-prepend-node-path=auto
 
+> vuestorm@0.1.0 serve D:\Coding\vuestorm
+> vue-cli-service serve
 
+ INFO  Starting development server...
+ 98% after emitting CopyPlugin
 
+ DONE  Compiled successfully in 5486ms
+ 23:58:54
 
+  App running at:
+  - Local:   http://localhost:8081/
+  - Network: http://192.168.100.85:8081/
 
+  Note that the development build is not optimized.
+  To create a production build, run npm run build.
+</pre>
+<p>打开链接，发现和Webpack配置的项目一样成功了。</p>
+<p>与Webpack不同的地方就是之前提到的不用配置静态文件引用。CSS文件没有单独导出，而是被插入到了<code>HEAD</code>标签中，在<code>BODY</code>元素的末尾则自动插入了<code>app.js</code>的链接。</p>
+<p>但是最终结果与之前是一样的，用Vue CLI也成功创建了项目。虽然还有一些配置现在还没有完全了解，但是来编写文件基本上没有问题了。</p>
+<p>不过又实验了一下，单独的CSS文件不会被编译，而且变量也没有生效。现在还没有Sass经验，估计以后会更了解如何开发，目前全局样式也只能写在组件文件里。</p>
+<p>JS方面倒是和Webpack差不多。</p>
 
-
-
-
+<p>至此会搭建Vue项目了，可以继续愉快的学习Vue开发了。</p>
 
 </body>
 </html>
