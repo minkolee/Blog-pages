@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
+    <title>Vue 11 Vue Router</title>
+    <script src="vuejs实战/vue.js"></script>
+</head>
+<body>
+<p>后端的路由就是URL与对应页面的映射关系，从用户的角度来说，就是不同的URL地址对应不同的页面展示。前端路由就是把这块工作放到前端来，不同的URL对应不同的前端渲染的页面。</p>
+<p>现在的前端路由一般都采用HTML5的History模式了，即可以真正的切换URL，而不向过去一样采用锚点。</p>
+<p>Vue官方提供了路由组件叫做<a href="https://router.vuejs.org/zh/" target="_blank">Vue Router</a>，由于这个路由是以插件的形式提供的，所以在模块化的开发，也就是前端工程里，必须在源码里启用路由功能，看一下具体操作吧。</p>
+<p>这里依然使用之前Webpack搭建的Vue环境。</p>
+<ol>
+    <li><a href="#con1">安装Vue Router</a></li>
+    <li><a href="#con2">初步使用路由</a></li>
+    <li><a href="#con3">路由应用</a></li>
+    <li><a href="#con4">高级应用</a></li>
+</ol>
+
+<h1 id="con1" style="text-align: center;">安装Vue Router</h1>
+<p>安装分为两步：</p>
+<ol>
+    <li>安装<code>Vue-router</code>本身：<code>npm i -D install vue-router</code></li>
+    <li>在<code>main.js</code>中启用路由插件：
+        <pre>
+import Vue from 'vue'
+import VueRouter from 'vue-router'
+
+Vue.use(VueRouter)</pre>
+    </li>
+</ol>
+<p>不管是前端路由还是后端路由，其本质没有改变，依然要匹配访问的URL和对应的组件。现在就来简单配置一下，做一个简单的例子。</p>
+
+<h1 id="con2" style="text-align: center;">初步使用路由</h1>
+<p>所谓展示不同的页面，在Vue中，其实就是挂载不同的组件。所以必须要设置一组规则，让URL和要挂载的组件建立映射关系。</p>
+<p>这里可以把原来试验性质的单文件组件都删除掉，只保留作为入口的<code>index.js</code>文件和<code>app.vue</code>，然后在<code>src</code>目录里创建两个新的组件<code>index.vue</code>和<code>about.vue</code>：</p>
+<pre>
+//index.vue
+&lt;template>
+    &lt;div>欢迎来到首页&lt;/div>
+&lt;/template>
+
+&lt;script>
+    export default {
+        name: "about"
+    }
+&lt;/script>
+
+&lt;style scoped>
+    div {
+        font-size: 2rem;
+        text-align: center;
+    }
+&lt;/style>
+
+//about.vue
+&lt;template>
+    &lt;div>关于本站&lt;/div>
+&lt;/template>
+
+&lt;script>
+    export default {
+        name: "about"
+    }
+&lt;/script>
+
+&lt;style scoped>
+    div {
+        font-size: 2rem;
+        text-align: center;
+    }
+&lt;/style>
+</pre>
+<p>其实是两个再简单不过的组件，只有一个标题，没有其他内容。</p>
+<p>然后需要在<code>index.js</code>设置路由，主要有以下步骤：</p>
+<ol>
+    <li>一般创建一个数组作为路由表，每一个元素是一个路由匹配规则对象。这个对象<code>path</code>属性对应<code>URL</code>，而<code>component</code>属性对应组件对象。</li>
+    <li>使用这个路由表数组，使用<code>new VueRouter({routes:路由表数组})</code>创建路由对象。</li>
+    <li>根实例渲染的组件需要编写特殊的渲染路由的标签</li>
+    <li>将路由对象设置为根实例<code>router</code>属性的值，然后挂载根实例。</li>
+    <li>如果要使用Webpack-dev-server，需要加上一个参数<code>--history-api-fallback</code>，所有的路由都会指向<code>index.html</code>。</li>
+</ol>
+<p>根据这个顺序，来编写一下<code>index.js</code>文件：</p>
+<pre>
+import Vue from "vue";
+import VueRouter from "vue-router"
+
+import App from "./app.vue";
+import Index from "./index.vue";
+import About from "./about.vue";
+
+Vue.use(VueRouter);
+
+//1 创建路由表数组
+const routes = [
+    {
+        path: "/index",
+        component: Index
+    },
+    {
+        path: "/about",
+        component: About
+    }
+];
+
+//2 使用路由表数组创建路由对象
+
+const router = new VueRouter({
+    <span style="color: red">mode: "history",</span>
+    routes
+});
+</pre>
+<p>注意标红的这一行，是指定路由模式为<code>HTML5</code>的<code>HISTORY</code>模式，如果不指定，会变成锚点。现代开发一般都是使用<code>HISTORY</code>模式。</p>
+<p>在挂载根实例之前还需要修改<code>app.vue</code>：</p>
+<pre>
+//3 根实例组件使用特殊的标签router-view，根据URL加载不同组件。
+&lt;template>
+    &lt;div>
+        &lt;router-view>&lt;/router-view>
+    &lt;/div>
+&lt;/template>
+
+&lt;script>
+    export default {
+        name: "app"
+    }
+&lt;/script>
+
+&lt;style scoped>
+&lt;/style>
+</pre>
+<p>之后需要挂载根实例，继续在<code>index.js</code>中编写：</p>
+<pre>
+//4 创建Vue根实例并挂载app，路由动态渲染的标签写在app.vue中。
+
+const app = new Vue({
+    router,
+    render: h => h(App)
+}).$mount("#app");
+</pre>
+<p>还有最后一步，前端路由需要所有的页面都要指向<code>index.html</code>，也就是让挂载的根实例发生作用才能解析，所以需要让<code>DevServer</code>把路由全部指向<code>index.html</code>，可以在<code>package.json</code>里加上一条命令：</p>
+<pre>
+//5 配置Webpack-dev-server
+"scripts": {
+    "dev": "webpack-dev-server --open --history-api-fallback"
+},
+</pre>
+<p>之后使用<code>npm run dev</code>就可以启动<code>DevServer</code>了。</p>
+<p>访问首页，然后在地址栏中输入<code>http://localhost:8080/index</code>和<code>http://localhost:8080/about</code>，可以看到在会根据不同的URL挂载不同的组件，页面显示出不同的文字和样式。</p>
+<p>这是因为<code>&lt;router-view&gt;</code>会根据当前路由动态渲染配置好的组件。网页上一些不需要每次重新加载和渲染的内容比如导航条，可以写在app.vue里与<code>&lt;router-view&gt;</code>同级，就比较好看了。</p>
+
+
+<h1 id="con3" style="text-align: center;">路由应用</h1>
+<p>来看一下路由的一些其他应用。</p>
+
+<h3>路径重定向</h3>
+<p>首先是在路由列表里可以增加通配符，如果找不到，就重定向到首页或者其他路径，有点像Django里最后找一个通配符路径接着其他所有路径，也可以增加具体的重定向：</p>
+<pre>
+const routes = [
+    {
+        path: "/index",
+        component: Index
+    },
+    {
+        path: "/about",
+        component: About
+    },
+<span style="color: red">    {
+        path: "/query",
+        redirect: "/about"
+    },
+    {
+        path: "*",
+        redirect: "/index"
+    }</span>
+];
+</pre>
+<p>一般在找不到页面的时候会返回一个自制的404页面。所以一般在匹配规则里列出所有可能的URL，然后使用通配符，匹配其他路径到自己编写的404组件中。</p>
+
+<h3>动态路由匹配</h3>
+<p>这个也是Web开发的重头戏，所谓动态路由匹配就是获取URL变量以便操作。这个需要两部分来配合：</p>
+<ol>
+    <li>路由对象中设置动态路由参数，类似<code>path: '/user/:id'</code></li>
+    <li>匹配的参数会被传递到<code>this.$route.params</code>，可以在每个组件中使用。在组件中访问<code>this.$route</code>得到的是当前这个组件的路由对象。</li>
+</ol>
+<p>注意，我们的项目里有一个路由器对象，使用<code>this.$router</code>访问，不同的组件内访问路由器，都是同一个路由器对象。</p>
+<p>而<code>this.$route</code>是每个组件不同的，是组件自己的路由对象，不是路由器对象，这个要区分开。</p>
+<p>此外还有<code>$route.query</code>，<code>hash</code>等用于获取URL查询和锚点的信息。</p>
+<p>用一个例子来说明，在路由表数组内添加一个新匹配规则：</p>
+<pre>
+{
+    path: "/user/:id",
+    component: User
+},
+</pre>
+<p>然后编写一个对应的<code>user.vue</code>组件：</p>
+<pre>
+&lt;template>
+    &lt;div>
+        &lt;p>当前用户的id是 {{$route.params.id}}&lt;/p>
+    &lt;/div>
+&lt;/template>
+
+&lt;script>
+    export default {
+        name: "user",
+        mounted() {
+            console.log("获取了用户ID");
+            console.log(this.$route.params.id);
+        }
+    }
+&lt;/script>
+
+&lt;style scoped>
+    div p {
+        color: brown;
+        font-size: 1.5rem;
+    }
+&lt;/style>
+</pre>
+<p>URL中的<code>id</code>匹配到的值就会存储在<code>this.$route.params.id</code>同名的属性中，取出来就可以进行操作，比如在加载组件的时候根据用户ID发送AJAX请求获取用户信息等。</p>
+<p>还可以使用多个参数匹配，比如：</p>
+<pre>
+{
+    path: "/post/:year/:month",
+    component: Post
+},
+</pre>
+<p>Vue的路由匹配规则使用了<a href="https://github.com/pillarjs/path-to-regexp" target="_blank">path-to-regexp</a>插件，使用正则也可以，进一步学习可以看这里。</p>
+<p>还需要注意的是这个很类似Django的规则，写在前边的路由先匹配，匹配成功就不会继续匹配后边的路由，所以路由表数组的顺序很重要。</p>
+
+<h3>导航</h3>
+<p>所谓导航，就是点击链接跳转。一般有两种方式：</p>
+<ol>
+    <li>使用<code>router-link</code>标签生成链接</li>
+    <li>使用JavaScript来捕获点击事件然后处理</li>
+</ol>
+<p>先来看<code>router-link</code>标签，这个标签实际上会默认生成<code>A标签</code>，依照标签的属性生成对应的链接和文字。</p>
+<p>修改<code>app.vue</code>的模板部分和绑定一个<code>v-model</code>用来拼接URL：</p>
+<pre>
+&lt;template>
+    &lt;div>
+        &lt;h1>柚子小站&lt;/h1>
+        &lt;p>
+            &lt;router-link to="/index">Go to index&lt;/router-link>
+            &lt;router-link to="/about">Go to about&lt;/router-link>
+            &lt;label>输入用户ID
+                &lt;input type="number" v-model="url">&lt;router-link :to="'/user/'+url">跳转到用户ID界面&lt;/router-link>
+            &lt;/label>
+        &lt;/p>
+        &lt;div>
+            &lt;router-view>&lt;/router-view>
+        &lt;/div>
+    &lt;/div>
+&lt;/template>
+
+&lt;script>
+    export default {
+        name: "app",
+        data:function () {
+            return {
+                url: ""
+            }
+        }
+    }
+&lt;/script>
+
+&lt;style>
+    h1 {
+        text-align: center;
+        background-color: black;
+        color: orange;
+        margin-top: 0;
+    }
+
+    a {
+        display: block;
+    }
+
+    body{
+        margin: 0;
+        padding: 0;
+    }
+&lt;/style>
+</pre>
+<p>浏览器中三个<code>router-link</code>被渲染成了：</p>
+<pre>
+&lt;a href="/index" class="router-link-exact-active router-link-active">Go to index&lt;/a>
+&lt;a href="/about" class="">Go to about&lt;/a>
+&lt;a href="/user/" class="">跳转到用户ID界面&lt;/a>
+</pre>
+<p>其中第三个链接没有输入，就不会拼接字符串。在input中输入用户id，再点击链接就可以跳转到对应的URL了。</p>
+<p><code>router-link</code>有很多属性，默认情况下会被渲染为<code>A标签</code>，其他常用的有：</p>
+<ol>
+    <li><code>tag</code>，指定渲染为什么标签，比如tag="li"就会渲染成LI标签</li>
+    <li><code>replace</code>，一个属性，加上就可以生效，不会在HISTORY里留下记录，所以无法回退</li>
+    <li><code>active-class</code>，如果点击的链接的路由匹配成功，会自动给当前对应的这个标签添加一个<code>router-link-active</code>，如果精确匹配，还会添加一个<code>router-link-exact-active</code>。可以修改这个样式名称，但一般不推荐修改。</li>
+</ol>
+<p>A标签浏览器默认就有跳转功能，再来看看使用JavaScript跳转，这种方式经常使用在<code>BUTTON</code>元素上，用于自定义需要跳转的内容。</p>
+<p>给about.vue添加一个按钮跳转到66号用户：</p>
+<pre>
+&lt;template>
+    &lt;div>
+        &lt;p>关于本站&lt;/p>
+        &lt;button @click="handleClick">跳转到66号用户&lt;/button>
+    &lt;/div>
+&lt;/template>
+
+&lt;script>
+    export default {
+        name: "about",
+        methods: {
+            handleClick() {
+                this.$router.push("/user/66");
+            }
+        }
+    }
+&lt;/script>
+
+&lt;style scoped>
+    div {
+        font-size: 2rem;
+        text-align: center;
+    }
+&lt;/style>
+</pre>
+<p>这里使用了路由器对象：<code>this.$router.push("/user/66");</code>，调用其<code>push</code>方法，就会“推动”路由器转到其中的路径。</p>
+<p>这个<code>push()</code>方法。实际上是向HISTORY栈里加入一条数据，所以页面会转向最新的URL，还可以使用回退来返回上一个路径。实际上<code>&lt;router-link to="/about">Go to about&lt;/router-link></code>内部就是调用这个方法。</p>
+<p><code>$router</code>路由器对象还有其他功能：</p>
+<ol>
+    <li><code>replace</code>，与路由对象的<code>replace</code>方法类似，不在HISTORY中留下记录。</li>
+    <li><code>go(Number)</code>，和<code>window.history.go()</code>类似，指定回退的步数。</li>
+</ol>
+
+<h3>嵌套路由</h3>
+<p>一个URL实际上可以认为是一个目录，所以可能会有嵌套的路由用于结构化配置路由。类似<code>/users/admin/team1/66</code>这种URL，直接写成一个单独的路由，不如使用嵌套路由更加方便修改和扩展。</p>
+<p>嵌套的路由使用起来其实很简单，就是在组件中再嵌入&lt;router-view>&lt;/router-view>，然后在路由表数组中给对应的一级路由对象使用<code>children</code>配置。<code>children</code>属性的内容，也是一个路由表数组。</p>
+<p>举个简单的例子，现在想匹配<code>/index/home</code>，采用嵌套路由的方式：</p>
+<pre>
+const routes = [
+    {
+        path: "/index",
+        component: Index,
+<span style="color: red">        children: [
+            {
+                path: "home",
+                component: Home
+            }
+        ]</span>
+    },
+</pre>
+<p>然后在<code>index</code>组件内增加一个路由出口，创建<code>home.vue</code>组件：</p>
+<pre>
+// index.vue
+&lt;template>
+    &lt;div>
+        &lt;p>首页内容&lt;/p>
+        &lt;router-view>&lt;/router-view>
+    &lt;/div>
+&lt;/template>
+
+&lt;script>
+    export default {
+        name: "about"
+    }
+&lt;/script>
+
+&lt;style scoped>
+    div {
+        font-size: 3rem;
+        text-align: center;
+    }
+&lt;/style>
+
+//home.vue
+&lt;template>
+    &lt;div>HOME组件的内容&lt;/div>
+&lt;/template>
+
+&lt;script>
+    export default {
+        name: "home"
+    }
+&lt;/script>
+
+&lt;style scoped>
+
+&lt;/style>
+</pre>
+<p>这样配置之后，访问<code>/index</code>，不会渲染出<code>home.vue</code>组件，访问<code>/index/home</code>，就可以渲染出<code>home.vue</code>组件。</p>
+
+<h3>命名路由和命名视图</h3>
+<p>这两个提供了一些使用的便利，直接可以看<a href="https://router.vuejs.org/zh/guide/essentials/named-routes.html" target="_blank">官方文档</a>，提供了命名的一大好处就是可以动态的解析导航的链接。</p>
+
+<h1 id="con4" style="text-align: center;">高级应用</h1>
+<p>在页面中跳转，由于我们实际上并没有在HTML文件中跳转，所以页面的HEAD结构始终是同一个，那么如何改变标题呢。</p>
+<p>可以在每个组件加载的时候调用<code>mounted</code>方法来修改，但是组件多了需要反复写这个方法。</p>
+<p><code>vue-router</code>提供了<a href="https://router.vuejs.org/zh/guide/advanced/navigation-guards.html" target="_blank">导航守卫</a>的功能，就是路由发生变化的时候，执行的功能，这种功能很方便对页面进行一些预处理。</p>
+<p>导航守卫何时出发，分为全局的，路由级别的和组件级别的，先来看全局的。</p>
+
+<h3>全局导航守卫</h3>
+<p>全局导航守卫需要在<code>index.js</code>中注册，需要先生成router对象，然后在router对象上注册：</p>
+<p>这里还需要了解元数据，也是每个路由规则对象可以添加的属性之一，把标题内容存到每个路由规则对象的meta中，然后进行注册。</p>
+<p><code>Vue-router</code>提供了<code>beforeEach</code>和<code>afterEach</code>，它们会在路由即将改变前和改变后触发。先来实际注册一个前置的钩子：</p>
+<pre>
+// index.js
+......
+const routes = [
+    {
+        path: "/index",
+        component: Index,
+        children: [
+            {
+                path: "home",
+                component: Home
+            }
+        ],
+        meta:{
+            title: "网站首页"
+        }
+    },
+    {
+        path: "/about",
+        component: About,
+        meta:{
+            title: "关于本站"
+        }
+    },
+    {
+        path: "/user/:id",
+        component: User,
+        meta:{
+            title: "用户信息"
+        }
+    },
+    {
+        path: "/post/:year/:month",
+        component: Post,
+        meta:{
+            title: "文章信息"
+        }
+    },
+    {
+        path: "*",
+        redirect: "index",
+        meta:{
+            title: "无法匹配URL"
+        }
+    },
+];
+
+......
+
+// 注册全局前置守卫
+router.beforeEach(function(to, from, next){
+    window.document.title = to.meta.title;
+    next();
+});
+</pre>
+<p>每个前置守卫方法都接受3个参数，<code>to</code>是即将要进入的目标路由对象（就是路由表数组里的一个元素），<code>from</code>是即将要离开的路由对象，<code>next</code>调用之后，才能完成这个钩子，进入下一个钩子。类似于Gulp里边任务函数的的<code>done()</code>。</p>
+<p><code>next</code>还可以加一些参数：</p>
+<ol>
+    <li><code>next(false)</code>，中止导航，即跳转不生效。如果用户手动按了后退，会变成<code>from</code>参数的地址</li>
+    <li><code>next(URL)</code>，可以跳转到具体的地址，这个地址可以是写死的，也可以是路由的名称，此时需要传入一个对象：<code>{ path: '/' }</code>，凡是用在router-link中的属性都可以使用。</li>
+    <li><code>next(error)</code>，抛出一个错误给<code>router.onError()</code>注册过的回调函数。</li>
+</ol>
+<p>设置好之后就会发现页面的标题已经正常变化了。后置守卫<code>afterEach</code>方法只有<code>to</code>和<code>from</code>两个参数，没有<code>next</code>参数。</p>
+<p>这两个钩子的用处非常多。比如每次跳转都默认回到页面顶端：</p>
+<pre>
+router.beforeEach(function(to, from, next){
+    window.document.title = to.meta.title;
+    window.scrollTo(0, 0);
+    next();
+});
+</pre>
+<p>还有重要的应用就是跳转页面的时候，通过后端鉴权，如果成功再跳转，不成功就跳转到指定页面，现在由于没有后端支持，先用伪代码看个意思：</p>
+<pre>
+router.beforeEach(function (to, from, next) {
+    var token = sendajax(username, password);
+    if (validate(token)) {
+        next();
+    }else{
+        next('/login');
+    }
+});
+</pre>
+<p>大概就是每次跳转的时候，都去鉴权，成功的话就继续，否则就跳转到登录页。</p>
+
+<h3>全局导航顺序</h3>
+<p>可以注册多个全局守卫：</p>
+<pre>
+router.beforeEach(function(to, from, next){
+    console.log("第一个守卫");
+    window.document.title = to.meta.title;
+    next();
+});
+
+router.beforeEach(function(to, from, next){
+    console.log("第二个守卫");
+    window.scrollTo(0, 0);
+    next();
+});
+
+router.beforeEach(function (to, from, next) {
+    console.log("第三个守卫");
+    next();
+});
+</pre>
+<p>在执行的时候，是按照注册的顺序进行执行的，在上一个守卫执行完<code>next()</code>正常resolve后，下一个才会执行。如果某一个<code>next(false)</code>或者跳转走了，其后的守卫也不会被执行。</p>
+
+<h3>路由级别的导航守卫</h3>
+<p>路由的守卫直接写在路由对象里即可：</p>
+<pre>
+const router = new VueRouter({
+  routes: [
+    {
+      path: '/foo',
+      component: Foo,
+      beforeEnter: (to, from, next) => {
+        // ...
+      }
+    }
+  ]
+})
+</pre>
+
+
+<h3>组件级别的导航守卫</h3>
+<p>组件内的守卫可以直接写在组件的属性里，可以看<a href="https://router.vuejs.org/zh/guide/advanced/navigation-guards.html#%E7%BB%84%E4%BB%B6%E5%86%85%E7%9A%84%E5%AE%88%E5%8D%AB" target="_blank">官方文档</a>：</p>
+<pre>
+const Foo = {
+  template: `...`,
+  beforeRouteEnter (to, from, next) {
+    // 在渲染该组件的对应路由被 confirm 前调用
+    // 不！能！获取组件实例 `this`
+    // 因为当守卫执行前，组件实例还没被创建
+  },
+  beforeRouteUpdate (to, from, next) {
+    // 在当前路由改变，但是该组件被复用时调用
+    // 举例来说，对于一个带有动态参数的路径 /foo/:id，在 /foo/1 和 /foo/2 之间跳转的时候，
+    // 由于会渲染同样的 Foo 组件，因此组件实例会被复用。而这个钩子就会在这个情况下被调用。
+    // 可以访问组件实例 `this`
+  },
+  beforeRouteLeave (to, from, next) {
+    // 导航离开该组件的对应路由时调用
+    // 可以访问组件实例 `this`
+  }
+}
+</pre>
+<p>官网还有一个<a href="https://router.vuejs.org/zh/guide/advanced/navigation-guards.html#%E5%AE%8C%E6%95%B4%E7%9A%84%E5%AF%BC%E8%88%AA%E8%A7%A3%E6%9E%90%E6%B5%81%E7%A8%8B" target="_blank">完整的导航解析流程</a>可以参考。</p>
+
+<p>感叹一下技术确实在进步，在一年前刚开始学编程和Web开发的时候，IDE里都是单独的HTML，JS，CSS文件，一个一个学着用。到了现在自学了一圈基础技术，使用了前端工程化，打开的就是一个一个Vue文件了。变化确实快。</p>
+
+
+
+
+
+</body>
+</html>

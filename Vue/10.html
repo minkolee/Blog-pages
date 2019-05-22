@@ -152,8 +152,10 @@ new Vue({
     }
 });
 </pre>
-<p>这个文件使用了ES6的import语法，从vue包中导入vue。这里查过，导入的vue是一个运行时的common.js，如果提示有错的话，可以直接从vue的发行版js文件里导入，此时要改写成：</p>
-<pre>import Vue from '../node_modules/vue/dist/vue';</pre>
+<p>这个文件使用了ES6的import语法，从vue包中导入vue。这里查过，导入的vue是一个运行时的common.js。</p>
+<p>这里有一点要注意，就是不要在根实例挂载的<code>DIV</code>标签内直接使用<code>template</code>模板的内容，比如胡子渲染格式。因为导入的Vue只具备运行时功能，不能直接解析HTML文件中的template，只能解析组件。所以都要采取将<code>DIV</code>元素渲染为<code>app.vue</code>组件内容的方式挂载。</p>
+<p>如果在<code>index.html</code>里写了<code>&lt;div id="app">{{name}}&lt;div></code>就会看到这个警告。</p>
+<p>不要直接从Node安装包中导入Vue的发行版文件，因为后边的路由的<code>use</code>方法会无法解析。而且将挂载的元素渲染为<code>app.vue</code>，实际上是将<code>app.vue</code>作为项目的实际入口，符合一般开发的规范，否则项目入口就变成了<code>index.js</code>。</p>
 <p>可以看到里边导入了一个<code>app.vue</code>组件，来创建<code>app.vue</code>文件：</p>
 <pre>
 &lt;template>
@@ -190,13 +192,13 @@ new Vue({
     &lt;meta charset="UTF-8">
     &lt;meta http-equiv="X-UA-Compatible" content="IE=edge">
     &lt;meta name="viewport" content="width=device-width, initial-scale=1">
-    &lt;link rel="stylesheet" href="main.css">
+    &lt;link rel="stylesheet" href="/main.css">
     &lt;title>Vue工程&lt;/title>
 &lt;/head>
 &lt;body>
 &lt;div id="app">
 &lt;/div>
-&lt;script src="main.js">&lt;/script>
+&lt;script src="/main.js">&lt;/script>
 &lt;/body>
 &lt;/html>
 </pre>
