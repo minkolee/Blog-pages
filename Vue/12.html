@@ -16,7 +16,7 @@
     <li><a href="#con1">安装Vuex和导入</a></li>
     <li><a href="#con2">初步配置Vuex和使用数据</a></li>
     <li><a href="#con3">Vuex对象</a></li>
-    <li><a href="#con4">高级应用</a></li>
+    <li><a href="#con4">Vuex使用注意事项</a></li>
 </ol>
 
 <h1 id="con1" style="text-align: center;">安装Vuex和导入</h1>
@@ -643,8 +643,13 @@ const store = new Vuex.Store({
 </pre>
 
 
-
-
+<h1 id="con4" style="text-align: center;">Vuex使用注意事项</h1>
+<p>官网在<a href="https://vuex.vuejs.org/zh/guide/structure.html" target="_blank">这里</a>有对项目结构的介绍，很不错，复制过来加点自己的想法：</p>
+<ol>
+    <li>应用层级的状态应该集中到单个<code>store</code>对象中。所谓应用层级，就是全局的状态，集中到一个store对象中，对于各个组件自己保存的状态，则无需都写入到store对象中。</li>
+    <li>提交<code>mutation</code>是更改状态的唯一方法，并且这个过程是同步的。凡是要同步修改数据，一定要通过mutation方法，不要采取其他的hack方法。我自己试了在<code>mutation</code>中也可以强行写异步的方法，但是估计会导致阻塞吧。</li>
+    <li>异步逻辑都应该封装到<code>action</code>里面。凡是需要异步修改状态的，必须要全部写在<code>action</code>中，不要写到外边来。</li>
+</ol>
 
 
 
