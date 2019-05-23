@@ -9,22 +9,25 @@
     <script src="vuejs实战/vue.js"></script>
 </head>
 <body>
-<p>在之前组件间通信的时候提到过，可以用一个类似中介一样的东西收集和保存所有状态，让所有的组件通用。如果在Vue之外定义一个对象，然后在Vue中引用对象，这个对象也会变成响应式的。</p>
-<p>在简单的应用中，一般就使用简单的一个对象集中存储一下数据即可，比如一个全局变量。但是在复杂的应用里，就需要用一个东西来集中保存状态。其实可以把Vuex认为是一个数据库，可以向其中写入数据，获取数据（自动的而且是响应式的），Vuex帮你把状态和改变都记录下来。</p>
-<p>Vuex和Vue Router一样都是由官方维护的库，<a href="https://vuex.vuejs.org/" target="_blank">文档地址</a>。</p>
+<p>Vue的基础部分学完了，但是还缺少几个例子来实际看看到底基于SPA的页面是怎么组织的。不过在之前还有一个要看看，就是<code>axios</code>库，用来发送AJAX请求给后端。</p>
+<p>Vue官网的cookbook中有一部分是关于<a href="https://cn.vuejs.org/v2/cookbook/using-axios-to-consume-apis.html" target="_blank">axios</a>如何使用的，结合这个和之前Udemy的视频一起来自学一下。</p>
+<p></p>
 <ol>
-    <li><a href="#con1">安装Vuex和导入</a></li>
-    <li><a href="#con2">初步配置Vuex和使用数据</a></li>
+    <li><a href="#con1">安装Axios和导入</a></li>
+    <li><a href="#con2">初步使用axios</a></li>
     <li><a href="#con3">Vuex对象</a></li>
     <li><a href="#con4">高级应用</a></li>
 </ol>
 
-<h1 id="con1" style="text-align: center;">安装Vuex和导入</h1>
+<h1 id="con1" style="text-align: center;">安装Axios和导入</h1>
+<p>安装很简单：</p>
+<pre>npm install axios --save</pre>
+<p>之后导入也很容易，在需要使用的代码块之前导入即可：</p>
+<pre>
+import axios from 'axios';
+</pre>
 
-
-
-
-
+<h1 id="con2" style="text-align: center;">初步使用axios</h1>
 
 
 
