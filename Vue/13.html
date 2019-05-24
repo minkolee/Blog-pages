@@ -15,8 +15,10 @@
 <ol>
     <li><a href="#con1">安装Axios和导入</a></li>
     <li><a href="#con2">初步使用axios</a></li>
-    <li><a href="#con3">Vuex对象</a></li>
-    <li><a href="#con4">高级应用</a></li>
+    <li><a href="#con3">使用axios发送请求</a></li>
+    <li><a href="#con4">全局配置axios</a></li>
+    <li><a href="#con5">interceptor</a></li>
+    <li><a href="#con6">axios实例</a></li>
 </ol>
 
 <h1 id="con1" style="text-align: center;">安装Axios和导入</h1>
@@ -26,10 +28,194 @@
 <pre>
 import axios from 'axios';
 </pre>
+<p>axios官方文档在<a href="https://github.com/axios/axios" target="_blank">这里</a>。</p>
 
-<h1 id="con2" style="text-align: center;">初步使用axios</h1>
+<h1 id="con2" style="text-align: center;">配置axios的后端</h1>
+<p>这里采用了Udemy的课程中的例子，学到了一个新东西，就是google的<a href="https://console.firebase.google.com"target="_blank">firebase</a>数据库，创建应用之后，创建实时数据库，然后修改所有允许读写的配置为true即可。</p>
+<p>然后就可以使用<code>https://myaxios-66666.firebaseio.com/users.json</code>这样的格式来向其发送请求，其中的<code>myaxios-66666</code>是自己起的应用名称，而<code><span style="color: red;">users</span>.json</code>中的user表示自定义的文档名称。</p>
+<p>然后就可以使用教程里的用户例子来进行AJAX请求发送了。</p>
 
+<h1 id="con3" style="text-align: center;">使用axios发送请求</h1>
+<ol>
+    <li><a href="#con31">POST</a>请求</li>
+    <li><a href="#con32">GET</a>请求</li>
+    <li><a href="#con33">其他</a>请求</li>
+</ol>
 
+<h3 id="con31" style="text-align: center;">POST请求</h3>
+<p>在<code>src/components/auth/signup.vue</code>中，点击按钮的事件代码片段中，先导入<code>axios</code>，然后编写发送请求的代码：</p>
+<pre>
+import axios from 'axios';
+onSubmit () {
+        const formData = {
+          email: this.email,
+          age: this.age,
+          password: this.password,
+          confirmPassword: this.confirmPassword,
+          country: this.country,
+          hobbies: this.hobbyInputs.map(hobby => hobby.value),
+          terms: this.terms
+        };
+        <span style="color: red">axios.post('https://myaxios-66666.firebaseio.com/user-admin.json', formData)
+            .then(response => {
+              console.log(response);
+            })
+            .catch(error=> {
+              console.log(error);
+            });</span>
+      }
+    }
+  }
+</pre>
+<p><code>post</code>方法返回的是一个<code>Premise</code>对象，所以可以用<code>then</code>和<code>catch</code>来进行成功和错误处理。<code>post</code>函数的第一个参数是路径，第二个参数是要发送的数据。还可以传递第三个参数作为配置参数。</p>
+<p>填好表单然后点击按钮，可以看到打印出了返回的请求对象，其中的<code>status: 200</code>表示操作成功。返回的对象中的<code>data-name</code>属性是当前这个对象在<code>user</code>文档中的键或者说是id，到Firebase的面板可以很容易的看到结构。</p>
+<p>可以多POST几个对象，一会来遍历使用。</p>
+
+<h3 id="con32" style="text-align: center;">GET请求</h3>
+<p>从Firebase里获取一个User中的对象来看看，写在<code>Dashboard.vue</code>里：</p>
+<pre>
+&lt;script>
+  import axios from 'axios';
+  export default {
+      created() {
+          axios.get('https://myaxios-66666.firebaseio.com/user-admin.json')
+              .then(res => console.log(res))
+              .catch(err => console.log(err));
+      }
+  }
+&lt;/script>
+</pre>
+<p>刷新页面然后查看控制台，发现收到了响应，其中的<code>data</code>就是用户数据，其中每一个键对应一个JSON数据。</p>
+<p>注意，与原生的AJAX请求不同，收到的<code>res.data</code>中，存放的是已经经过JSON编译后形成的JS对象，无需再使用<code>JSON.parse</code></p>
+<p>然后可以遍历出其中的所有USER对象：</p>
+<pre>
+&lt;template>
+  &lt;div id="dashboard">
+    &lt;h1>That's the dashboard!&lt;/h1>
+    &lt;p>You should only get here if you're authenticated!&lt;/p>
+    &lt;ol>
+    &lt;li v-for="user in info">{{user}}&lt;/li>
+    &lt;/ol>
+  &lt;/div>
+&lt;/template>
+
+&lt;script>
+  import axios from 'axios';
+  export default {
+      data: function () {
+          return {
+              info: ""
+          }
+      },
+      created() {
+          axios.get('https://myaxios-66666.firebaseio.com/user-admin.json')
+              .then(res => {
+                  console.log(res);
+                  this.info = res.data;
+              })
+              .catch(err => console.log(err));
+      }
+  }
+&lt;/script>
+
+&lt;style scoped>
+  h1, p {
+      text-align: center;
+  }
+
+  p {
+      color: red;
+  }
+&lt;/style>
+</pre>
+
+<h3 id="con33" style="text-align: center;">其他请求</h3>
+<p>其他请求的操作和GET以及POST请求类似，官方文档列出了简单的操作方法：
+<pre>
+axios.request(config)
+axios.get(url[, config])
+axios.delete(url[, config])
+axios.head(url[, config])
+axios.options(url[, config])
+axios.post(url[, data[, config]])
+axios.put(url[, data[, config]])
+axios.patch(url[, data[, config]])
+</pre>
+<p><code>config</code>对象在官方文档查看<code>config</code>对象的配置了，用于更精细粒度的控制。</p>
+
+<h1 id="con4" style="text-align: center;">全局配置axios</h1>
+<p>现在我们的应用有一个问题，就是每次都在需要的代码前导入<code>axios</code>，一般在Web开发中，发送请求的URL基本固定，只有后边的具体URL路径不同，因此可以设置AXIOS的<a href="https://github.com/axios/axios#config-defaults" target="_blank">默认配置</a>：</p>
+<p>在main.js中编写如下代码：</p>
+<pre>
+import axios from 'axios';
+
+axios.defaults.baseURL = 'https://myaxios-66666.firebaseio.com';
+</pre>
+<p>之后在刚才的<code>POST</code>和<code>GET</code>>请求的地方，就可以修改成：</p>
+<pre>axios.get('/user-admin.json')</pre>
+<pre>axios.post('/user-admin.json')</pre>
+<p>除此之外常见的配置还有头部信息：</p>
+<pre>
+axios.defaults.headers.common['Authorization'] = AUTH_TOKEN;
+axios.defaults.headers.<span style="color: red">post</span>['Content-Type'] = 'application/json';
+</pre>
+<p>第一个常用于发送TOKEN，第二个常用于设置具体的MIME类型，其中红字的部分可以替换成不同的请求类型。</p>
+
+<h1 id="con5" style="text-align: center;">interceptor 拦截器</h1>
+<p><code>interceptor</code>需要注册使用，是一个会在发送请求前和得到响应后自动执行的内容。如果很多东西批量操作，都建议写在<code>interceptor</code>中，这些代码也写在<code>main.js</code>中，因为是最早执行的代码：</p>
+<pre>
+axios.interceptors.request.use(
+    config => {
+      console.log(config);
+      config.headers['SOMETHING'] = "GUGUU";
+      return config;
+    }
+);
+
+axios.interceptors.response.use(
+    config => {
+      console.log(config);
+      return config;
+    }
+);
+</pre>
+<p>通过查看对象，可以发现更改和HEADER信息，使用这个比较方便。</p>
+<p>还可以通过把拦截器放到变量里，然后通过<code>eject</code>方法决定是否使用：</p>
+<pre>
+//放到一个变量里并不会影响拦截器生效，因为右边已经先求值过了
+const inter1 =  axios.interceptors.request.use(
+    config => {
+      console.log(config);
+      config.headers['1'] = "1";
+      return config;
+    }
+);
+
+const inter2 =  axios.interceptors.request.use(
+    config => {
+      console.log(config);
+      config.headers['2'] = "2";
+      return config;
+    }
+);
+
+const inter3 =  axios.interceptors.request.use(
+    config => {
+      console.log(config);
+      config.headers['3'] = "3";
+      return config;
+    }
+);
+
+//被eject弹出，就不会生效，这里只为HEADER附加上了 2：2 这个键值对
+axios.interceptors.request.eject(inter1);
+axios.interceptors.request.eject(inter3);
+</pre>
+
+<h1 id="con6" style="text-align: center;">axios实例</h1>
+<p>有的时候需要向不同地址发请求，统一全局配置比较麻烦，这个时候可以设置axios实例。</p>
+<p>实例最好是单独写在JS文件中进行导入，然后使用即可。</p>
+<p>具体就看<a href="https://github.com/axios/axios#creating-an-instance" target="_blank">文档</a>吧，实例也是可以进行<code>.defaults</code>默认设置的</p>
 
 
 
