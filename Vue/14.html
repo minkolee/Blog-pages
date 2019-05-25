@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
+    <title>Vue 14 前后端分离用户鉴权</title>
+    <script src="vuejs实战/vue.js"></script>
+</head>
+<body>
+<p>这里的用户鉴权是前端的版本，正好这个视频还有关于前端用户鉴权的教程，就来先学习一下。由于后端可以使用Firebase，所以很方便。</p>
+<p>到了Java的时候，再详细来试验Shiro框架和JWT鉴权的部分。</p>
+<ol>
+    <li><a href="#con1">前后端分离用户鉴权的理论</a></li>
+    <li><a href="#con2">配置firebase</a></li>
+    <li><a href="#con3">使用Firebase API和鉴权</a></li>
+    <li><a href="#con4">全局配置axios</a></li>
+    <li><a href="#con5">interceptor</a></li>
+    <li><a href="#con6">axios实例</a></li>
+</ol>
+
+<h1 id="con1" style="text-align: center;">前后端分离用户鉴权的理论</h1>
+<p>在原始的后端渲染网页的Web应用中，前后端通过Session来确认用户状态。而纯粹的前后端分离只通过JSON数据进行交流，所以一般的方式是登录的时候将用户名和密码发送之后，服务端返回一个token，之后每次都需要将token发送到后端。token一定时间之后还会变化。根据每次发送token的响应，决定用户是否具有相关权利。</p>
+<p>一般用户数据都是一个全局的状态，所以存放在Vuex中。</p>
+<img src="http://img.conyli.cc/spring/atuhinspa.jpg" alt="authenticate in SPA">
+
+<h1 id="con2" style="text-align: center;">配置firebase</h1>
+<p>Firebase可以很容易的充当后端来做实验。</p>
+<p>在左侧的<code>开发-Authentication</code>中选择<code>设置登录方法</code>，然后会列出一堆验证方式，选择<code>电子邮件地址/密码</code>认证，然后启用。到<code>Database</code>中的<code>规则/Rules</code>中，修改为如下内容：</p>
+<pre>
+{
+  "rules": {
+    ".read": <span style="color: red">"auth != null"</span>,
+    ".write": true
+  }
+}
+</pre>
+<p>这么修改意味着如果想要访问数据库，必须登录才行，否则无法访问。启动刚才的AXIOS项目，访问<code>/dashboard</code>，浏览器控制台中提示：</p>
+<pre>Failed to load resource: the server responded with a status of 401 (Unauthorized)</pre>
+<p>说明我们设置的验证功能生效了。</p>
+<p>在鉴权之前，可以到<a href="https://firebase.google.com/docs/reference/rest/database" target="_blank">Firebase DataBase REST API文档</a>看一下要使用API。</p>
+
+<h1 id="con3" style="text-align: center;">使用Firebase API和鉴权</h1>
+<p>使用Firebase API不外乎注册用户和鉴权两大功能：</p>
+<ol>
+    <li><a href="#con31">注册用户</a></li>
+    <li><a href="#con32">验证用户身份</a></li>
+</ol>
+
+<h3 style="text-align: center;" id="con31">注册用户</h3>
+
+<p>文档的<a href="https://firebase.google.com/docs/reference/rest/auth" target="_blank">用户鉴权文档</a>里列出了如何注册新用户：</p>
+<pre>
+Sign up with email / password
+You can create a new email and password user by issuing an HTTP POST request to the Auth signupNewUser endpoint.
+
+Method: POST
+
+Content-Type: application/json
+
+Endpoint
+https://www.googleapis.com/identitytoolkit/v3/relyingparty/signupNewUser?key=[API_KEY]
+</pre>
+<p>这个URL前边的部分，也就是<code>https://www.googleapis.com/identitytoolkit/v3/relyingparty</code>是固定的，后边的<code>/signupNewUser?key=[API_KEY]</code>是要获取我们自己创建的API KEY才能够使用。</p>
+<p>所以在我们的项目里，设置如下：</p>
+<pre>
+//main.js
+axios.defaults.baseURL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/';
+
+//signup.vue
+axios.post('/signupNewUser?key=[API_KEY]', formData)
+</pre>
+<p>现在还没有<code>API_KEY</code>，按照文档提示到<a href="https://console.firebase.google.com/u/0/project/_/settings/general/" target="_blank">项目设置</a>中，在<code>常规</code>选项卡中能看到网络API密钥，然后拼合到代码里。</p>
+<p>继续看文档，下边列出了请求体的载荷，即POST到指定地址的JSON的属性：</p>
+<ol>
+    <li><code>email</code>，字符串，用户邮件地址</li>
+    <li><code>password</code>，字符串，密码</li>
+    <li><code>returnSecureToken</code>，布尔值，是否返回用户的ID和Token，必须设置为true。</li>
+</ol>
+<p>继续修改axios要发送的数据：</p>
+<pre>
+axios.post('/signupNewUser?key=AIzaSyAtwQ-RL7GKu0T1h4kOy32JRXmbmQPqiHM', {
+    email: formData.email,
+    password: formData.password,
+    returnSecureToken: true
+})
+</pre>
+<p>JSON对象中设置好了文档要求的三个属性。然后回到Sign Up页面，这次填入用户名和密码来试试新增用户。</p>
+<p>在Sign up页面中填写数据，然后发送，看控制台中出现了响应，尤其注意其中的data部分：</p>
+<pre>
+data:
+    email: "xxxx@xxxx.com"
+    expiresIn: "3600"
+    idToken: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjY2NDNkZDM5ZDM4ZGI4NWU1NjAxN2E2OGE3NWMyZjM4YmUxMGM1MzkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbXlheGlvcy02NjY2NiIsImF1ZCI6Im15YXhpb3MtNjY2NjYiLCJhdXRoX3RpbWUiOjE1NTg3NTMyMDYsInVzZXJfaWQiOiIwS2x0NWRiOE5RWHpJYkR2YlVtZzVyd2FqcHoyIiwic3ViIjoiMEtsdDVkYjhOUVh6SWJEdmJVbWc1cndhanB6MiIsImlhdCI6MTU1ODc1MzIwNiwiZXhwIjoxNTU4NzU2ODA2LCJlbWFpbCI6ImxlZTA3MDlAdmlwLnNpbmEuY29tIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7ImVtYWlsIjpbImxlZTA3MDlAdmlwLnNpbmEuY29tIl19LCJzaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQifX0.pwejTv7Aa1CwM95f527MF26p0BOb3cKE4f2fP06p349Y48eeMwxwz3hD0697iT3fzjha3YWyzUzbQt13FDxNQe0kWqTv890EnCBMwWBI_IWN-B6LoQ37BwtJhkx2StJEYnaa6mDwe-4tenyEJQ-FAFK-Tmb2wk4dHBKppgW6pMwwLfnAhtwXaF_2o8b2SxC-O5Kug__NmuPSrQLbgx2n1lFdPAdp42ojo_zWPNshnzerUwODeeYpQlyAf1wcjTieRifqF4wgbTss1SNk8CO8-k0o8gOQZzB-HyopmnW2m--XQtg9LmrQYxBv5MHqirwaCq4WRZ5EJiocO2SZevEUQA"
+    kind: "identitytoolkit#SignupNewUserResponse"
+    localId: "0Klt5db8NQXzIbDvbUmg5rwajpz2"
+    refreshToken: "AEu4IL2z8XuB9f4_fs_MQdoTxwMFvmzgEBwyaG5MLpUOnl9Jq7iXSX4g9KG7Q5EEN_ryEF8OYRB7AabbrdGi1NtrKS5wIUu7oyxfMBuUb28gVVGZZ88celYUnHyZKxece3mNvS5u2ZMmuJCTE_Piburs3qU3Jr79rZJIelf0dOf1RA4TkfEDgp5gNpuc23cRFpTaNOkQSvScxo_Dz_AUELnbzL8jiOimKw"
+</pre>
+<p>其中的主要字段是：</p>
+<ol>
+    <li><code>expiresIn</code>表示到期的秒数</li>
+    <li><code>idToken</code>为当前用户的鉴权TOKEN</li>
+    <li><code>refreshToken</code>用来刷新用户的鉴权TOKEN</li>
+    <li><code>localId</code>，存储在Firebase数据库的UID，到控制面板即可看到。</li>
+</ol>
+<p>这个时候对于我们来说，就获得了刚注册的用户的身份鉴权的数据。到Firebase的控制面板，也能够发现成功注册的用户的信息。</p>
+
+<h3 style="text-align: center;" id="con32">验证用户身份</h3>
+<p>这是最重要的一个章节，即如何使用获取到的用户ID。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
