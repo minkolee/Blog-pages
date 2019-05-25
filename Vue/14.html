@@ -15,9 +15,7 @@
     <li><a href="#con1">前后端分离用户鉴权的理论</a></li>
     <li><a href="#con2">配置firebase</a></li>
     <li><a href="#con3">使用Firebase API和鉴权</a></li>
-    <li><a href="#con4">全局配置axios</a></li>
-    <li><a href="#con5">interceptor</a></li>
-    <li><a href="#con6">axios实例</a></li>
+    <li><a href="#con4">鉴权的其他应用</a></li>
 </ol>
 
 <h1 id="con1" style="text-align: center;">前后端分离用户鉴权的理论</h1>
@@ -45,7 +43,9 @@
 <p>使用Firebase API不外乎注册用户和鉴权两大功能：</p>
 <ol>
     <li><a href="#con31">注册用户</a></li>
-    <li><a href="#con32">验证用户身份</a></li>
+    <li><a href="#con32">获取TOKEN</a></li>
+    <li><a href="#con33">使用Vuex存储TOKEN</a></li>
+    <li><a href="#con34">验证TOKEN</a></li>
 </ol>
 
 <h3 style="text-align: center;" id="con31">注册用户</h3>
@@ -106,12 +106,256 @@ data:
 </ol>
 <p>这个时候对于我们来说，就获得了刚注册的用户的身份鉴权的数据。到Firebase的控制面板，也能够发现成功注册的用户的信息。</p>
 
-<h3 style="text-align: center;" id="con32">验证用户身份</h3>
-<p>这是最重要的一个章节，即如何使用获取到的用户ID。</p>
+<h3 style="text-align: center;" id="con32">获取TOKEN</h3>
+<p>这是最重要的用户鉴权部分的第一步，也就是获取TOKEN，即如何使用获取到的用户ID。</p>
+<p>首先来看用户登录，也就是获取到TOKEN，先找到文档中的API解说：</p>
+<pre>
+Sign in with email / password
+You can sign in a user with an email and password by issuing an HTTP POST request to the Auth verifyPassword endpoint.
 
+Method: POST
 
+Content-Type: application/json
 
+Endpoint
+https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword?key=[API_KEY]
+</pre>
+<p>发现需要将用户名和密码POST到另外一个地址，载荷的属性和注册的时候是一样的。</p>
+<p>现在到<code>signin.vue</code>中来编写代码：</p>
+<pre>
+import axios from 'axios';
 
+methods: {
+  onSubmit () {
+    const formData = {
+      email: this.email,
+      password: this.password,
+    };
+   <span style="color: red"> axios.post('/verifyPassword?key=AIzaSyAtwQ-RL7GKu0T1h4kOy32JRXmbmQPqiHM', {
+     email: this.email,
+     password: this.password,
+     returnSecureToken: true
+   }).then(response => console.log(response));</span>
+  }
+}
+</pre>
+<p>然后到登录页面，输入已经存在数据库的邮件和密码，成功获得200响应，查看控制台的响应对象中的<code>data</code>属性：</p>
+<pre>
+displayName: ""
+email: "xxxx@xxxx.com"
+expiresIn: "3600"
+idToken: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjY2NDNkZDM5ZDM4ZGI4NWU1NjAxN2E2OGE3NWMyZjM4YmUxMGM1MzkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vbXlheGlvcy02NjY2NiIsImF1ZCI6Im15YXhpb3MtNjY2NjYiLCJhdXRoX3RpbWUiOjE1NTg3NjU3MTEsInVzZXJfaWQiOiIwS2x0NWRiOE5RWHpJYkR2YlVtZzVyd2FqcHoyIiwic3ViIjoiMEtsdDVkYjhOUVh6SWJEdmJVbWc1cndhanB6MiIsImlhdCI6MTU1ODc2NTcxMSwiZXhwIjoxNTU4NzY5MzExLCJlbWFpbCI6ImxlZTA3MDlAdmlwLnNpbmEuY29tIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7ImVtYWlsIjpbImxlZTA3MDlAdmlwLnNpbmEuY29tIl19LCJzaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQifX0.LkbsMqGnuT9vGlhSPT8rR17B6XFRwyAtHoThvxBqBOtQRJQskvh8qTSueBdIhZ5Vp5a0TTG6p-CE9WKl__tcgylldz2M8wBzRiBnUUV9irY3vFzS53_MNdmPdMJIzBXIDozCxgjiQPfkzU-pxpsmQ2iwHeNFlsKWT44z_yaTYjrbZR5LwhYSirQsQJJ5TFyJDOobqJ9Dsp-xJ-f__1Cz5barn0rUt0O_tIlYJmUlGqMv6a3cP3cXT6IGN3WTNUBDYJhBOtCWpKZhH-damQt5pYUjutNmZUDxJhYxoplYTGnHwaNb4MmtIyIMXooBiHsR4gmq1pIIUMsxzsWk9P3O3g"
+kind: "identitytoolkit#VerifyPasswordResponse"
+localId: "0Klt5db8NQXzIbDvbUmg5rwajpz2"
+refreshToken: "AEu4IL0b-fsqF8n1HPgOR9pjPOaIwryeO65C08BVB2uAl-ti_FBTVURRRps8gWaPYkzVUAJ9DZQU2RUPn6eWFYp-k1FyNGL1_4idFA-PibxB5G1StN0gQMkmeXeePgEq07WXhJ2MaVgDsezsiKCr-HBhL8WO1wA-uBuMY-5_JA8NAYD5PxGSEgfnxaELXCtxinwnaEJm_hcWQDcXP6N0yiGogfSAXqyRdw"
+registered: true
+</pre>
+<p>和注册时候返回的内容基本一样，多了一个<code>regiestered</code>表示是已经注册的用户。而新注册则没有这个属性。</p>
+<p>由于是无状态，我们只是获取了一个TOKEN而已，如果此时访问<code>/dashboard</code>页面，由于我们还没有使用TOKEN去鉴权，但已经在Firebase了启用了访问数据库需要鉴权，控制台里依然会显示401错误。</p>
+<p>注意由于修改了默认前缀，最好把<code>/dashboard</code>里访问路径改成绝对路径：<code>https://myaxios-66666.firebaseio.com/user-admin.json</code>。</p>
+
+<h3 style="text-align: center;" id="con33">使用Vuex存储TOKEN</h3>
+<p>现在要做的一步，就是想办法使用获取到的TOKEN来通过服务器的验证，让<code>/dashboard</code>页面读出信息来。</p>
+<p>首先要解决的问题是，我们获取到的TOKEN存放在哪里。这个TOKEN因为需要反复使用，而用户一般登录是一个全局状态，所以我们一般将其放在Vuex中。</p>
+<p>为了存放上一步获取到的TOKEN等信息，新创建一个store：</p>
+<pre>
+import Vue from 'vue'
+import Vuex from 'vuex'
+import axios from 'axios'
+
+Vue.use(Vuex)
+
+export default new Vuex.Store({
+    state: {
+        idToken: null,
+        userId: null
+    },
+    mutations: {
+        authUser: function (state, userData) {
+            console.log("AuthUser执行了");
+            state.idToken = userData.token;
+            state.userId = userData.userId;
+        }
+    },
+    actions: {
+        signup({commit}, authData) {
+            axios.post('/signupNewUser?key=AIzaSyAtwQ-RL7GKu0T1h4kOy32JRXmbmQPqiHM', {
+                email: authData.email,
+                password: authData.password,
+                returnSecureToken: true
+            })
+                .then(res => {
+                    console.log(res);
+                    commit('authUser', {
+                        token: res.data.idToken,
+                        userId: res.data.localId
+                    })
+                })
+                .catch(err => console.log(err));
+        },
+        login({commit}, authData) {
+            axios.post('/verifyPassword?key=AIzaSyAtwQ-RL7GKu0T1h4kOy32JRXmbmQPqiHM', {
+                email: authData.email,
+                password: authData.password,
+                returnSecureToken: true
+            })
+                .then(res => {
+                console.log(res);
+                commit('authUser', {
+                    token: res.data.idToken,
+                    userId: res.data.localId
+                })
+            })
+                .catch(err => console.log(err));
+        }
+    },
+    getters: {}
+})
+
+</pre>
+<p>然后在<code>signin.vue</code>和<code>signup.vue</code>去掉发送异步请求的代码，换成启动<code>store</code>的<code>action</code>的代码：</p>
+<pre>
+//signup.vue
+this.$store.dispatch('signup', {
+    email: formData.email,
+    password: formData.password,
+    returnSecureToken: true
+}).then(() => console.log("action-signup执行完成"));
+
+//signin.vue
+this.$store.dispatch("login", {
+    email: formData.email,
+    password: formData.password,
+    returnSecureToken: true
+}).then(() => console.log("action-login执行完毕"));
+</pre>
+<p>虽然代码多但是逻辑很简单。登录或者注册后用表单数据提交给actions执行--actions发送请求至后端进行验证--验证成功就commit到store中。</p>
+<p>在其中除了设置好保存用户TOKEN等相关信息之外，我们还直接给action设置上异步去获取TOKEN的方法，包括新注册和登录两个方法。只要新注册或者登录，都会更新用户状态。</p>
+<p>实际实验一下，发现注册和登录之后，store中已经有了对应的内容。那么现在就需要使用这个TOKEN来通过服务器的验证，查询用户信息了。</p>
+
+<h3 style="text-align: center;" id="con34">验证TOKEN</h3>
+<p>注意我们保存在Vuex中的是用户的UID和TOKEN两个信息，很显然，验证身份就需要这两个信息。为了方便，把获取信息的代码也放到store中来：</p>
+<pre>
+import Vue from 'vue'
+import Vuex from 'vuex'
+import axios from 'axios'
+
+Vue.use(Vuex)
+
+export default new Vuex.Store({
+    state: {
+        idToken: null,
+        userId: null,
+        <span style="color: red">userdata: null</span>
+    },
+    mutations: {
+        authUser: function (state, userData) {
+            console.log("AuthUser执行了");
+            state.idToken = userData.token;
+            state.userId = userData.userId;
+        },
+<span style="color: red">        storeUser: function (state, userData) {
+            state.userdata = userData.userdata;
+        }</span>
+    },
+    actions: {
+        signup({commit}, authData) {
+            axios.post('/signupNewUser?key=AIzaSyAtwQ-RL7GKu0T1h4kOy32JRXmbmQPqiHM', {
+                email: authData.email,
+                password: authData.password,
+                returnSecureToken: true
+            })
+                .then(res => {
+                    console.log(res);
+                    commit('authUser', {
+                        token: res.data.idToken,
+                        userId: res.data.localId
+                    })
+                })
+                .catch(err => console.log(err));
+        },
+        login({commit}, authData) {
+            axios.post('/verifyPassword?key=AIzaSyAtwQ-RL7GKu0T1h4kOy32JRXmbmQPqiHM', {
+                email: authData.email,
+                password: authData.password,
+                returnSecureToken: true
+            })
+                .then(res => {
+                console.log(res);
+                commit('authUser', {
+                    token: res.data.idToken,
+                    userId: res.data.localId
+                })
+            })
+                .catch(err => console.log(err));
+        },
+<span style="color: red">        fetchData(context) {
+            if (context.state.idToken && context.state.userId) {
+                axios.get('https://myaxios-66666.firebaseio.com/user-admin.json' + '?auth=' + context.state.idToken)
+                    .then(res => {
+                        console.log("fetchUser执行了");
+                        context.commit('storeUser', {
+                            userdata: res.data
+                        });
+                    })
+                    .catch(err => console.log(err));
+            }
+        }</span>
+    },
+    getters: {}
+})
+</pre>
+<p>此时<code>dashboard.vue</code>的代码就是启动action：</p>
+<pre>
+&lt;template>
+  &lt;div id="dashboard">
+    &lt;h1>That's the dashboard!&lt;/h1>
+    &lt;p v-if="!userdata">You should only get here if you're authenticated!&lt;/p>
+    &lt;p v-if="userdata" v-for="user in userdata">{{user}}&lt;/p>
+  &lt;/div>
+&lt;/template>
+
+&lt;script>
+  export default {
+      computed:{
+          userdata: function () {
+              return this.$store.state.userdata;
+          }
+      },
+      created() {
+          <span style="color: red">this.$store.dispatch('fetchData').then(()=>console.log("getUser执行完毕"));</span>
+      }
+  }
+&lt;/script>
+
+&lt;style scoped>
+  h1, p {
+      text-align: center;
+  }
+
+  p {
+      color: red;
+  }
+&lt;/style>
+</pre>
+<p>新加的红色部分的逻辑是：进入<code>dashboard</code>--触发执行<code>action-fetchData</code>--异步发送带有验证TOKEN的请求到后端--把后端返回的数据commit到Vuex中--Dashboard渲染出结果。</p>
+<p>其中的关键，就是：</p>
+<pre>axios.get('https://myaxios-66666.firebaseio.com/user-admin.json' + <span style="color: red">'?auth=' + context.state.idToken</span>)</pre>
+<p>中的红色部分，即使用<code>?auth=idToken</code>来附加在请求后边通过验证。</p>
+<p>运行程序，先去注册或者登录，然后转到Dashboard界面，就会发现列出来所有要查找的数据，说明鉴权成功了。</p>
+<p>在Firebase里此时我们只设置了读取数据库需要鉴权，如果将写入数据库也设置为需要鉴权，则拼接POST请求的时候，也加上<code>?auth=idToken</code>即可。</p>
+
+<h1 id="con4" style="text-align: center;">鉴权的其他应用</h1>
+<p>在上一节读取数据库，实际上是鉴定某项操作有没有权限。常用的还有如下操作：</p>
+<ol>
+    <li>保护访问路径：通过设置导航守卫的beforeEach来实现，如果鉴权成功就进入，不成功就跳转登录界面。</li>
+    <li>自动注销。自动注销的功能要和后端搭配使用。在<code>data</code>中返回的<code>idToken</code>会过期。由于一刷新页面，Vuex中的数据会消失，所以常和本地存储结合起来。</li>
+    <li>自动登录，也必须和本地存储结合起来，有可能后端还需要额外的信息验证主机，这个需要和后端一起协作了。</li>
+</ol>
+<p>页面刷新的时候，按照vue的生命周期，会调用mount函数，如果在mount里面再次给vuex的变量赋值，也就是再次commit，那就不会出现刷新的时候数据丢失，具体做法是先用localstorage存起来，在mount里面commit的时候就是把localstorage里面的值赋值给vuex变量即可。</p>
+<p>如果项目不大，也可以在页面刷新的时候每次都去鉴权然后进行操作。</p>
+
+<p>剩下就是学习编写支持JWT验证的后端，以及好好的写一个SPA看看了。</p>
 
 
 
