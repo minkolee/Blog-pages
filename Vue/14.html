@@ -350,21 +350,70 @@ export default new Vuex.Store({
 <ol>
     <li>保护访问路径：通过设置导航守卫的beforeEach来实现，如果鉴权成功就进入，不成功就跳转登录界面。</li>
     <li>自动注销。自动注销的功能要和后端搭配使用。在<code>data</code>中返回的<code>idToken</code>会过期。由于一刷新页面，Vuex中的数据会消失，所以常和本地存储结合起来。</li>
-    <li>自动登录，也必须和本地存储结合起来，有可能后端还需要额外的信息验证主机，这个需要和后端一起协作了。</li>
+    <li>保持登录状态，也必须和本地存储结合起来，可能还需要针对具体客户端附加其他信息。</li>
 </ol>
-<p>页面刷新的时候，按照vue的生命周期，会调用mount函数，如果在mount里面再次给vuex的变量赋值，也就是再次commit，那就不会出现刷新的时候数据丢失，具体做法是先用localstorage存起来，在mount里面commit的时候就是把localstorage里面的值赋值给vuex变量即可。</p>
-<p>如果项目不大，也可以在页面刷新的时候每次都去鉴权然后进行操作。</p>
+<p>注销和保护访问路径都不难，关键要看一下保持登录状态，也就是使用本地存储的方法。</p>
+<p>业务逻辑上来说，就是每次注册和登录成功的时候，向本地存储内放入TOKEN。而刷新页面的时候，整个Vue实例包括Vuex都会重新创建，创建的时候尝试从本地存储中读入数据并使用即可。</p>
 
-<p>剩下就是学习编写支持JWT验证的后端，以及好好的写一个SPA看看了。</p>
+<h3 style="text-align: center;">保存TOKEN</h3>
+<p>先来在登录逻辑中编写一下向本地存储中存入当前TOKEN的代码，修改store中的login方法：</p>
+<pre>
+login({commit}, authData) {
+    axios.post('/verifyPassword?key=AIzaSyAtwQ-RL7GKu0T1h4kOy32JRXmbmQPqiHM', {
+        email: authData.email,
+        password: authData.password,
+        returnSecureToken: true
+    })
+        .then(res => {
+            console.log(res);
+            commit('authUser', {
+                token: res.data.idToken,
+                userId: res.data.localId
+            });
+<span style="color: red">            const now = new Date().getTime();
+            const expirationDate = now + res.data.expiresIn * 1000;
+            localStorage.setItem('token', res.data.idToken);
+            localStorage.setItem('expiresDate', expirationDate);</span>
+        })
+        .catch(err => console.log(err));
+},
+</pre>
+<p>在登录成功并且获取到TOKEN之后，计算出登录的过期时间，然后把过期时间和TOKEN同时保存到本地存储中。之后在页面中登录，然后打开Chrome开发工具-Application-Local Storage中可以看到保存的键值对。</p>
+<p>浏览器本地存储的东西还要再简单了解一下。</p>
 
-
-
-
-
-
-
-
-
+<h3 style="text-align: center;">读取登录状态</h3>
+<p>由于我们是单页面应用，页面刷新的时候意味着整个应用都被重置到新的状态，只有本地存储不会变化。</p>
+<p>所以我们要在一个合适的时点将本地存储的内容读回来。由于一般的业务逻辑，我们都是创建好了Vuex对象和路由对象并且注入到根实例之后，最后挂载根Vue实例。</p>
+<p>所以业务逻辑可以写在根实例创建或者挂在的生命周期函数中，只要页面刷新就尝试去读取一下。</p>
+<p>所以我们先给Vuex再添加一个action函数，让其装载对应的本地存储内容。然后在根实例的创建过程中，执行这个action：</p>
+<pre>
+//store.js 中的 actions部分
+tryAutoLogin(context) {
+    const token = localStorage.getItem('token');
+    const expireDate = localStorage.getItem('expiresDate');
+    const now = (new Date()).getTime();
+    if ((now <= expireDate) && token) {
+        console.log("提交commit");
+        context.commit("authUser", {
+            token: token,
+            userId: null
+        });
+    }
+}
+</pre>
+<p>在这个函数中，尝试从本地存储读出TOKEN和过期日期，然后获取当前时间。仅当当前时间小于过期日期，并且TOKEN不为空的情况下，向store中装载TOKEN。</p>
+<p>之后在<code>main.js</code>中，在Vue根实例创建的过程中dispatch一下：</p>
+<pre>
+new Vue({
+  el: '#app',
+  router,
+  store,
+  render: h => h(App),
+  <span style="color: red">created: function () {
+      store.dispatch("tryAutoLogin").then(() => console.log("成功装载信息"));</span>
+  }
+</pre>
+<p>这样就实现了保存状态。这是最基础的，还可以在Vue实例创建的时候去检测本地存储是否过期，过期就删除本地存储等操作。</p>
 
 
 
