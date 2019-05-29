@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>开始写项目</title>
+
+</head>
+<body>
+<h1 style="text-align: center;">项目的架构</h1>
+<p>项目的后端暴露两个端点，一个是用于登录和获取TOKEN，一个是用于POST投票结果。</p>
+<p>用户的流程先登录获取TOKEN，然后可以进行投票。</p>
+<p>如果投过票，则不展示投票按钮，仅展示投票结果。如果未投过票，则只展示选项，不展示投票结果。</p>
+
+<p>后端首先有一个默认端点，用于返回HTML页面。</p>
+<p>然后用户登录需要有一个端点，发送投票请求需要有一个端点。</p>
+<p>如果要添加倒计时功能，可以考虑添加在后端或者前端。这样每次返回的JSON字符串需要好好设计一下。每次要连时间加其他内容一起返回。也可以在前端进行倒计时。</p>
+
+<p>后端的通过MySQL拿用户名和权限，通过Redis缓存投票信息以及用户名是否已经投过票的内容（未来可以实现定期删除，24小时候才投票）。</p>
+<p>Spring Security 用来进行JWT验证。POST请求的时候需要附带字符串，可以放在Authorization或者像Firebase一样的头部信息里。</p>
+
+<h1 style="text-align: center;">先从后端开始</h1>
+
+
+
+
+
+
+</body>
+</html>
