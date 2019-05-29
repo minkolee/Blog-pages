@@ -4,23 +4,437 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>开始写项目</title>
-
+    <title>JWT鉴权学习</title>
 </head>
 <body>
-<h1 style="text-align: center;">项目的架构</h1>
-<p>项目的后端暴露两个端点，一个是用于登录和获取TOKEN，一个是用于POST投票结果。</p>
-<p>用户的流程先登录获取TOKEN，然后可以进行投票。</p>
-<p>如果投过票，则不展示投票按钮，仅展示投票结果。如果未投过票，则只展示选项，不展示投票结果。</p>
 
-<p>后端首先有一个默认端点，用于返回HTML页面。</p>
-<p>然后用户登录需要有一个端点，发送投票请求需要有一个端点。</p>
-<p>如果要添加倒计时功能，可以考虑添加在后端或者前端。这样每次返回的JSON字符串需要好好设计一下。每次要连时间加其他内容一起返回。也可以在前端进行倒计时。</p>
+<p>试验过了Vue中的Firebase鉴权，现在需要来学习编制自己的后端服务了。</p>
+<p>这里的学习资料来自于：<a href="https://zhuanlan.zhihu.com/p/30155904" target="_blank">前后端分离下的用户认证和鉴权实践</a>以及<a href="https://github.com/waylau/apache-shiro-1.2.x-reference" target="_blank">Shiro中文手册</a>。</p>
+<ol>
+    <li><a href="#con1">创建用户、角色和权限表</a></li>
+    <li><a href="#con2">JJWT库</a></li>
+</ol>
 
-<p>后端的通过MySQL拿用户名和权限，通过Redis缓存投票信息以及用户名是否已经投过票的内容（未来可以实现定期删除，24小时候才投票）。</p>
-<p>Spring Security 用来进行JWT验证。POST请求的时候需要附带字符串，可以放在Authorization或者像Firebase一样的头部信息里。</p>
+<h1 id="con1" style="text-align: center;">表设计</h1>
+<p>用户设计这里，在之前的项目中已经知道了，User--Role--Permission之间的联系。用户对应角色，角色对应具体权限设计。这样可以有效分离解耦。具体权限的设计则需要根据具体业务来进行。</p>
+<p>由于原作者只是提供思路和讲解，在启动项目的时候，我还是选用了SpringBoot，其中就简单配置了LOMBOK，Spring Web MVC和REST，以及JPA，一个简单的REST服务器。</p>
+<ol>
+    <li><a href="#con11">Permission类的设计</a></li>
+    <li><a href="#con12">创建User类</a></li>
+    <li><a href="#con13">创建Role类</a></li>
+    <li><a href="#con14">创建Permission类</a></li>
+    <li><a href="#con15">创建数据表</a></li>
+</ol>
+<p>首先是设计用户表，这里放一下设计图：</p>
+<img src="http://img.conyli.cc/spring/role.jpg" alt="权限表">
+<ol>简单说一下：
+    <li>三个类都要实现序列化接口，并且对应到具体的数据表</li>
+    <li>三个类互相之间都是多对多关系</li>
+</ol>
 
-<h1 style="text-align: center;">先从后端开始</h1>
+<h3 style="text-align: center;" id="con11">Permission类的设计</h3>
+<p>对我来说，新的类实际上是Permission类，User类和Role类的都知道，但是Permission该如何设计。</p>
+<p>原文作者给出的建议是：</p>
+<img src="http://img.conyli.cc/spring/permission.jpg" alt="permission">
+<p>除了id之外，字段如下：</p>
+<ol>
+    <li><code>type</code>：资源的类型</li>
+    <li><code>id</code>：特定资源的id</li>
+    <li><code>action</code>：操作类型（GET，DELETE，PUT，POST）</li>
+    <li><code>resource</code>：拼合字符串type:id，比如Project:1</li>
+    <li><code>name</code>：resource字段与action的拼合，比如Project:1:GET。</li>
+</ol>
+<p>这里看懂了作者命名的意思，就像命名空间一样，比如<code>Project:1:GET</code>表示对于Project类的id为1的对象的GET请求。<code>Job:Post</code>表示对于Job对象的POST请求。</p>
+<p>如果是我的话，还可以把id设置为-1，这样就是全部操作。</p>
+
+<h3 style="text-align: center;" id="con12">创建User类</h3>
+<p>User类由于作者没有给出具体的数据格式，只给出了多对多字段，所以我就简单一点，就用户名和密码：</p>
+<pre>
+package conyli.cc.jwtbackend.domain;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import javax.persistence.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+@Table
+@Entity
+@JsonIgnoreProperties({"roles","permissions"})
+public class User implements Serializable {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
+
+    @Column(name = "username")
+    private String username;
+
+    @Column(name = "password")
+    private String password;
+
+    @ManyToMany(cascade = CascadeType.MERGE, fetch = FetchType.LAZY)
+    @JoinTable(name = "user_role", joinColumns = {@JoinColumn(name = "userId", referencedColumnName = "id")},
+            inverseJoinColumns = {@JoinColumn(name = "roleId", referencedColumnName = "id")})
+    private List&lt;Role> roles = new ArrayList&lt;>();
+
+    @ManyToMany(cascade = CascadeType.MERGE, fetch = FetchType.LAZY)
+    @JoinTable(name = "user_permission", joinColumns = {@JoinColumn(name = "userId", referencedColumnName = "id")},
+            inverseJoinColumns = {@JoinColumn(name = "permissionId", referencedColumnName = "id")})
+    private List&lt;Permission> permissions = new ArrayList&lt;>();
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id=" + id +
+                ", username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                '}';
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public List&lt;Role> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(List&lt;Role> roles) {
+        this.roles = roles;
+    }
+
+    public List&lt;Permission> getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(List&lt;Permission> permissions) {
+        this.permissions = permissions;
+    }
+}
+</pre>
+<p>由于数据库要到最后一起创建，所以这里先记录下来User表的内容：</p>
+<ol>
+    <li><code>id</code>，LONG类型</li>
+    <li><code>username</code>，字符串类型</li>
+    <li><code>password</code>，字符串类型</li>
+    <li><code>roles</code>，与Role类的多对多字段，中间表名称叫做<code>user_role</code>，两个外键名称是<code>userId</code>和<code>roleId</code>。</li>
+    <li><code>permissions</code>，与Permission类的多对多字段，中间表名称叫做<code>user_permission</code>，两个外键名称是<code>userId</code>和<code>permissionId</code>。</li>
+</ol>
+
+<h3 style="text-align: center;" id="con13">创建Role类</h3>
+<p>Role类其实就是一个角色的名称，没有其他具体的配置：</p>
+<pre>
+package conyli.cc.jwtbackend.domain;
+
+import org.hibernate.annotations.CollectionId;
+import org.hibernate.annotations.Type;
+
+import javax.persistence.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+@Table
+@Entity
+public class Role implements Serializable {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
+
+    private String name;
+
+    //设置过了User_Role的多对多关系，直接使用mappedBy即可
+    @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY)
+    private List&lt;User> users = new ArrayList&lt;>();
+
+    @ManyToMany(cascade = CascadeType.MERGE,fetch = FetchType.LAZY)
+    @JoinTable(name = "role_permission",
+            joinColumns = {@JoinColumn(name = "roleId",referencedColumnName = "id")},
+            inverseJoinColumns = {@JoinColumn(name = "permissionId",referencedColumnName = "id")})
+    //CollectionId是什么意思，需要看一下，感觉就是直接创建一个id的集合。Hibernate没那么容易
+    @CollectionId(columns = @Column(name = "id"),
+            type = @Type(type = "long"),
+            generator = "identity")
+    private List&lt;Permission> permissions = new ArrayList&lt;>();
+
+    @Override
+    public String toString() {
+        return "Role{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                '}';
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public List&lt;User> getUsers() {
+        return users;
+    }
+
+    public void setUsers(List&lt;User> users) {
+        this.users = users;
+    }
+
+    public List&lt;Permission> getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(List&lt;Permission> permissions) {
+        this.permissions = permissions;
+    }
+}
+</pre>
+
+<h3 style="text-align: center;" id="con14">创建Permission类</h3>
+<p>这个类除了两个多对多外键之外，就是刚才说的要配置的属性：</p>
+<pre>
+package conyli.cc.jwtbackend.domain;
+
+
+import javax.persistence.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+@Table
+@Entity
+public class Permission implements Serializable {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
+
+    private String name;
+
+    //这个是ResourceType，我估计可能要通过判断资源的.getClass().getSimpleName()的名称来确定
+    private String type;
+
+    private String resource;
+
+    //这里是ACTION TYPE，可以用ENUM，我简单用了字符串
+    private String action;
+
+    @ManyToMany(mappedBy = "permissions",fetch = FetchType.LAZY)
+    private List&lt;Role> roles = new ArrayList&lt;>();
+
+    @ManyToMany(mappedBy = "permissions",fetch = FetchType.LAZY)
+    private List&lt;User> users = new ArrayList&lt;>();
+
+    @Override
+    public String toString() {
+        return "Permission{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", type='" + type + '\'' +
+                ", resource='" + resource + '\'' +
+                ", action='" + action + '\'' +
+                '}';
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getResource() {
+        return resource;
+    }
+
+    public void setResource(String resource) {
+        this.resource = resource;
+    }
+
+    public String getAction() {
+        return action;
+    }
+
+    public void setAction(String action) {
+        this.action = action;
+    }
+
+    public List&lt;Role> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(List&lt;Role> roles) {
+        this.roles = roles;
+    }
+
+    public List&lt;User> getUsers() {
+        return users;
+    }
+
+    public void setUsers(List&lt;User> users) {
+        this.users = users;
+    }
+}
+</pre>
+
+<h3 style="text-align: center;" id="con15">创建数据表</h3>
+<p>数据库的结构在这里：</p>
+<pre>
+/*
+Navicat MySQL Data Transfer
+
+Source Server         : springstudent
+Source Server Version : 50722
+Source Host           : localhost:3306
+Source Database       : jwt
+
+Target Server Type    : MYSQL
+Target Server Version : 50722
+File Encoding         : 65001
+
+Date: 2019-05-27 13:24:16
+*/
+
+SET FOREIGN_KEY_CHECKS=0;
+
+-- ----------------------------
+-- Table structure for permission
+-- ----------------------------
+DROP TABLE IF EXISTS `permission`;
+CREATE TABLE `permission` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) DEFAULT NULL,
+  `type` varchar(255) DEFAULT NULL,
+  `resource` varchar(255) DEFAULT NULL,
+  `action` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Table structure for role
+-- ----------------------------
+DROP TABLE IF EXISTS `role`;
+CREATE TABLE `role` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Table structure for role_permission
+-- ----------------------------
+DROP TABLE IF EXISTS `role_permission`;
+CREATE TABLE `role_permission` (
+  `role_id` bigint(20) NOT NULL,
+  `permission_id` bigint(20) NOT NULL,
+  KEY `role_fk_1` (`role_id`),
+  KEY `permission_fk_1` (`permission_id`),
+  CONSTRAINT `permission_fk_1` FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `role_fk_1` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Table structure for user
+-- ----------------------------
+DROP TABLE IF EXISTS `user`;
+CREATE TABLE `user` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `username` varchar(255) NOT NULL,
+  `password` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Table structure for user_permission
+-- ----------------------------
+DROP TABLE IF EXISTS `user_permission`;
+CREATE TABLE `user_permission` (
+  `user_id` bigint(20) NOT NULL,
+  `permission_id` bigint(20) NOT NULL,
+  KEY `user_fk_2` (`user_id`),
+  KEY `permisson_fk_2` (`permission_id`),
+  CONSTRAINT `permisson_fk_2` FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `user_fk_2` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------
+-- Table structure for user_role
+-- ----------------------------
+DROP TABLE IF EXISTS `user_role`;
+CREATE TABLE `user_role` (
+  `user_id` bigint(20) NOT NULL,
+  `role_id` bigint(20) NOT NULL,
+  KEY `user_fk` (`user_id`),
+  KEY `role_fk` (`role_id`),
+  CONSTRAINT `role_fk` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `user_fk` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+</pre>
+<p>之后创建三个类对应的<code>JPARepository</code>接口，然后就可以启动项目，输入一些数据后，在<code>/rest/users</code>等路径下查看，测试表和配置是否正确。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
