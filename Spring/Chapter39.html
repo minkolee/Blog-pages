@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spring Boot 异常处理</title>
+    <link rel="stylesheet" href="base.css">
+</head>
+<body>
+<p>Spring Boot处理异常的时候有两种办法：</p>
+<ol>
+    <li><a href="#con1">根据状态码创建对应错误页面</a></li>
+    <li><a href="#con2">自定义错误类型返回具体JSON</a></li>
+</ol>
+<p>在编写REST风格的API的时候，如果通过浏览器访问不存在的地址，会得到一个HTML格式的错误。如果用非浏览器比如POSTMAN朝不存在的地址发一个响应，得到的是一个：</p>
+<pre>
+{
+    "timestamp": "2019-06-01T11:09:59.938+0000",
+    "status": 404,
+    "error": "Not Found",
+    "message": "No message available",
+    "path": "/userf"
+}
+</pre>
+<p>包含错误信息的JSON对象。这是怎么做到的呢。</p>
+
+<h1 style="text-align: center;">同一个路径根据不同响应头返回不同内容</h1>
+<p>Spring 的错误处理的一个基础类叫做<code>BasicErrorController</code>，简要代码如下：</p>
+<pre>
+package org.springframework.boot.autoconfigure.web.servlet.error;
+
+@Controller
+@RequestMapping({"${server.error.path:${error.path:/error}}"})
+public class BasicErrorController extends AbstractErrorController {
+
+    @RequestMapping(
+    produces = {"text/html"}
+    )
+    public ModelAndView errorHtml(HttpServletRequest request, HttpServletResponse response) {
+        HttpStatus status = this.getStatus(request);
+        Map&lt;String, Object> model = Collections.unmodifiableMap(this.getErrorAttributes(request, this.isIncludeStackTrace(request, MediaType.TEXT_HTML)));
+        response.setStatus(status.value());
+        ModelAndView modelAndView = this.resolveErrorView(request, response, status, model);
+        return modelAndView != null ? modelAndView : new ModelAndView("error", model);
+    }
+
+
+    @RequestMapping
+    public ResponseEntity&lt;Map&lt;String, Object>> error(HttpServletRequest request) {
+        Map&lt;String, Object> body = this.getErrorAttributes(request, this.isIncludeStackTrace(request, MediaType.ALL));
+        HttpStatus status = this.getStatus(request);
+        return new ResponseEntity(body, status);
+    }
+}
+</pre>
+<p>这个类实际上也是一个控制器，可以看到类的标注，响应/error这个路径。</p>
+<p>这里有两个RequestMapping，一个说明了请求头里如果有Accept:text/html，就会返回后边的errorHtml对象。如果没有，就返回一个Map对象转换成的JSON对象。</p>
+<p>这里实际上是要学习，如何使用同一个路径针对不同的请求头作出不同的响应。在Spring Security相关的开发中使用的比较广泛。</p>
+
+<h1 style="text-align: center;">Spring Boot框架的默认错误处理</h1>
+<p>在POST请求中使用了BindingResult来捕捉错误。如果没有捕捉，直接POST一个密码为空的JSON过去，（关闭认证和CSRF），能看到错误的JSON字符串：</p>
+<pre>
+{
+    "timestamp": "2019-06-01T12:07:53.277+0000",
+    "status": 400,
+    "error": "Bad Request",
+    "errors":[
+        {
+            "codes":["NotBlank.user.password", "NotBlank.password", "NotBlank.java.lang.String", "NotBlank"],
+            "arguments":[{"codes":["user.password", "password" ], "arguments": null, "defaultMessage": "password",…],
+            "defaultMessage": "密码不能为空白",
+            "objectName": "user",
+            "field": "password",
+            "rejectedValue": "",
+            "bindingFailure": false,
+            "code": "NotBlank"
+        }
+    ],
+    "message": "Validation failed for object='user'. Error count: 1",
+    "path": "/user"
+}
+</pre>
+<p>这实际上是框架捕捉了响应的错误信息，然后组装成了JSON进行返回。实际上这个异常被框架拦截了，说明框架有一个异常拦截器。</p>
+<p>如果我们自己的控制器里要捕捉异常怎么做呢。</p>
+<p>在GET方法里自己抛一个运行时错误：</p>
+<pre>
+@GetMapping("/{id:\\d+}")
+@JsonView(User.UserDetailView.class)
+public User queryDetail(@PathVariable String id) {
+
+    throw new RuntimeException("故意抛出的错误");
+}
+</pre>
+<p>用网页访问还可以看到错误页面，用REST访问也能拿到JSON，可以看到，前端只要了解了Spring Boot默认的错误机制，也可以处理错误。</p>
+
+<h1 style="text-align: center;" id="con1">自定义错误页面</h1>
+<p>Spring Boot会自动到resources/resources/error/下边寻找与错误码名称相同的HTML页面，比如404.html，作为浏览器出错的时候对应的返回页面。</p>
+<p>而用REST访问的时候，该返回错误对象依然是错误对象。</p>
+<p>这是一个比较简单的通过默认HTML页面处理错误处理。</p>
+
+<h1 style="text-align: center;" id="con2">自定义错误类来控制REST返回的JSON内容</h1>
+<p>要自定义的话，先要自定义一个错误类型：</p>
+<pre>
+package com.imooc.security.exhandler;
+
+public class UserNotExistException extends RuntimeException {
+
+    private static final long serialVersionUID = -21378921789984L;
+
+    public UserNotExistException(String id) {
+        super("用户不存在，自定义的错误类, id是 " + id);
+        this.id = id;
+    }
+
+
+    //自定义的部分
+    private String id;
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+}
+</pre>
+<p>我们想返回id的内容，如果此时只是抛出自定义错误，Spring Boot打包之后的错误信息里不会包含id的内容，必须自己编写一个处理错误的类：</p>
+<pre>
+package com.imooc.security.exhandler;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+//这个注解表示该控制器用于处理其他控制器中出现的异常
+@ControllerAdvice
+public class ControllerExceptionHandler {
+
+
+    //这个注解用于处理对应的异常，这里就是针对UserNotExistException异常
+    @ExceptionHandler(UserNotExistException.class)
+    //加上了注解之后，这个方法的参数就是对应的异常对象
+    // @ResponseBody 表示将Controller返回的结果写入响应体，而不是像普通视图一样进行视图解析
+    //一般用在这种特殊的控制类中，因为不能直接标记上RestController
+    @ResponseBody
+    //可以自行设置一个响应码，该错误还是得抛出错误
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public Map&lt;String, Object> handleUserNotExistException(UserNotExistException ex) {
+        Map&lt;String, Object> result = new HashMap&lt;>();
+        result.put("id", ex.getId());
+        result.put("message", ex.getMessage());
+        return result;
+    }
+}
+</pre>
+<p>使用了@ControllerAdvice及对应注解之后，遇到这种错误就会返回此种JSON，而不是Spring Boot默认的JSON。</p>
+<p>这样在编写REST客户端的时候，就可以灵活的定义错误，可以给前端传递更多的信息，这样就方便获取具体的内容。</p>
+<p>如果愿意的话，在后端验证出现错误的时候，也可以抛出一个自定义的异常，把所有异常的字段和错误信息都返回给前端用于处理。</p>
+
+
+</body>
+</html>
