@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>开始写项目</title>
+
+</head>
+<body>
+<h1 style="text-align: center;">项目的架构</h1>
+<p>项目的后端暴露两个端点，一个是用于登录和获取TOKEN，一个是用于POST投票结果。</p>
+<p>用户的流程先登录获取TOKEN，然后可以进行投票。</p>
+<p>如果投过票，则不展示投票按钮，仅展示投票结果。如果未投过票，则只展示选项，不展示投票结果。</p>
+
+<p>后端首先有一个默认端点，用于返回HTML页面。</p>
+<p>然后用户登录需要有一个端点，发送投票请求需要有一个端点。</p>
+<p>如果要添加倒计时功能，可以考虑添加在后端或者前端。这样每次返回的JSON字符串需要好好设计一下。每次要连时间加其他内容一起返回。也可以在前端进行倒计时。</p>
+
+<p>后端的通过MySQL拿用户名和权限，通过Redis缓存投票信息以及用户名是否已经投过票的内容（未来可以实现定期删除，24小时候才投票）。</p>
+<p>Spring Security 用来进行JWT验证。POST请求的时候需要附带字符串，可以放在Authorization或者像Firebase一样的头部信息里。</p>
+
+<h1 style="text-align: center;">渐进式项目设计</h1>
+<p>先不来编写反应式的网站。但是要实现前后端分离才行。到<a href="https://start.spring.io/" target="_blank">https://start.spring.io/</a>使用如下依赖：</p>
+<ol>
+    <li><code>Aspects [Core] Create your own Aspects using Spring AOP and AspectJ</code></li>
+    <li><code>Web [Web] Servlet web application with Spring MVC and Tomcat</code></li>
+    <li><code>Security [Security] Secure your application via spring-security</code></li>
+    <li><code>JPA [SQL] Persist data in SQL stores with Java Persistence API using Spring Data and Hibernate</code></li>
+    <li><code>MySQL [SQL] MySQL JDBC driver</code></li>
+    <li><code>Redis [NoSQL] Access Redis key-value data stores with Spring Data Redis</code></li>
+    <li><code>Actuator [Ops] Production ready features to help you monitor and manage your application</code></li>
+</ol>
+<p>主要的考虑是：</p>
+<ol>
+    <li>切面要有，记录日志。</li>
+    <li>Spring MVC肯定要有</li>
+    <li>Spring Security，用来做前后端的JWT认证</li>
+    <li>JPA用来快速查数据</li>
+    <li>MySQL用来存放用户</li>
+    <li>Redis，用来存储投票的有序集合和用户是否投过票的缓存</li>
+    <li>Actuator，方便调试</li>
+</ol>
+
+<h1 style="text-align: center;">开始设计</h1>
+<p>先是后端部分：</p>
+<p>暴露如下几个端点：</p>
+<ol>
+    <li>项目根目录，返回静态资源，访问其他页面也一律返回HTML。</li>
+    <li>REST端口，用于获取用户JWT，这个是公开的。路径叫做/auth</li>
+    <li>REST端口，用于接受POST进来的投票和请求当前的投票结果，路径叫做/vote</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

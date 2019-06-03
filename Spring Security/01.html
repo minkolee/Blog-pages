@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="base.css">
+    <title>Spring Security 01</title>
+</head>
+<body>
+<p>Spring Security的核心功能:</p>
+<ol>
+    <li>认证:你是谁</li>
+    <li>授权:能做什么</li>
+    <li>攻击防护:防止伪造身份</li>
+</ol>
+
+<ol>
+    <li><a href="#con1">原理</a></li>
+    <li><a href="#con2">用户认证基础</a></li>
+    <li><a href="#con3">用户校验逻辑</a></li>
+    <li><a href="#con4">处理加密解密</a></li>
+    <li><a href="#con5">自定义登录页面</a></li>
+    <li><a href="#con6"></a></li>
+    <li><a href="#con7">自定义登录页面</a></li>
+</ol>
+
+<h1 id="con1" style="text-align: center;">原理</h1>
+<p>SS 原理是一个过滤器链,每个过滤器处理一种认证方式.比如<code>AuthenticationFilter</code>处理表单登录,<code>BasicAuthenticationFilter</code>处理HTTPBASIC认证.</p>
+<p>类似的有很多过滤器,功能都是检查当前的请求里是不是有认证的信息.</p>
+<p>任何一个过滤器成功之后,会在请求上做一个标记,表示认证成功.</p>
+<p>所有的过滤器结束之后,最后会有一个<code>FilterSecurityInterceptor</code>类作为最后一道守门人,会依据写在配置类中的配置来决定请求是否可以访问API.也就是说配置类里配置的实际上就是这个守门人对象.</p>
+<p>守门人在按照配置检查失败的时候,会抛出不同的异常.</p>
+<p>在守门人之前有一个<code>ExceptionTranslationFilter</code>,会捕捉从<code>FilterSecurityInterceptor</code>抛出的异常进行对应的处理.比如登录失败就重定向到登录页面,就是这个类的工作.</p>
+<p>在实际中自己开发的时候,主要的工作就是在过滤器链中添加自己的过滤器,然后在配置中去使用自己的过滤器配置.</p>
+<p>绿色的部分配置哪个,哪个就生效,并不是全部生效,但是守门人和抓异常的过滤器是去不了的.</p>
+
+<h1 id="con2" style="text-align: center;">用户认证基础</h1>
+<p>自定义认证开发的一个主要问题是,如何去获取用户对象.</p>
+<p>SS提供了一个接口,用于获取用户对象,叫做<code>UserDetailService</code>,只有一个方法,接受用户名,返回<code>UserDetails</code>对象.</p>
+<p>这个接口的作用就是拿到用户名然后把用户信息获取<code>UserDetails</code>实现类中,之后SS就会使用<code>UserDetails</code>来进行认证功能.</p>
+<pre>
+package com.imooc.security.service;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Component;
+
+@Component
+public class MyUserDetailsService implements UserDetailsService {
+
+    private Logger logger = LoggerFactory.getLogger(getClass());
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        logger.info("登录用户名是:" + username);
+        //注意这里的User是SS自带的User对象,已经实现了UserDetails接口
+        //第三个表示用户的权限,这个是关联到SS配置里的auth开头的那些方法需要的权限
+        //调用了SS自己提供的工具方法把字符串转成需要的对象
+        //实际开发的时候换成数据库
+        return new User("jenny", "{noop}cony", AuthorityUtils.commaSeparatedStringToAuthorityList("admin"));
+    }
+}
+</pre>
+<p>这段样板代码是不管什么用户,密码对了就能登录...当然现实中是不行的.</p>
+<p>这段样板代码可以在没有数据库的时候简单使用.如此配置之后,在启动的时候SS检测到这个Bean,就不会再使用自动生成的密码,而是转而使用这个Service进行认证.</p>
+<p>此外要注意,Spring 5.0之后凡是密码一定要加验证种类的信息,这里如果不写<code>{noop}</code>就会报错.</p>
+<p>有了这个<code>UserDetailsService</code>和<code>UserDetails</code>之后,就可以任意编写我们需要的用户身份认证了.</p>
+
+
+<h1 id="con3" style="text-align: center;">用户校验逻辑</h1>
+<p>校验的内容都在UserDetails中,会有账户过期,密码过期,账户锁定,账户无效等boolean字段.</p>
+<p>这里要用自己的方式去实现,如果要采用内置User对象,就使用7个参数的构造器.任意一个返回false就会被判断校验不通过.</p>
+<pre>
+package com.imooc.security.service;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Component;
+
+@Component
+public class MyUserDetailsService implements UserDetailsService {
+
+    private Logger logger = LoggerFactory.getLogger(getClass());
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        logger.info("登录用户名是:" + username);
+        //需要验证逻辑的时候,要换构造函数,加了四个boolean对应四个验证逻辑
+        //这里不管什么逻辑,最后把UserDetails对象给弄成任意一个验证逻辑无效,就无法通过认证
+        User targetUser = new User("jenny",
+                "{noop}cony",
+                true,
+                true,
+                true,
+                false, AuthorityUtils.commaSeparatedStringToAuthorityList("admin")
+        );
+        return targetUser;
+    }
+}
+</pre>
+<p>改成这样,认证就会不通过,还会在表单登录页面显示出具体的错误.</p>
+
+<h1 id="con4" style="text-align: center;">处理加密解密</h1>
+<p>SS 5.0的现在,对于凡是字符串形式的密码参数,前边都要带一个解密的标志字符串.</p>
+<p>加密解密器需要用<code>import org.springframework.security.crypto.password.PasswordEncoder;</code>中的类,而不是另外一个包中的类.</p>
+<p>这个接口里有两个方法,一个<code>encode</code>,用来加密.一个<code>matches</code>,用来判断明文和密文是否相同.</p>
+<p><code>encode</code>是供程序员调用的,把注册时候的密码加密之后存到数据库中.<code>matches</code>是SS来调用的,去进行对比.</p>
+<pre>
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+</pre>
+<p>在配置类中写一个Bean,就可以配置一个类,<code>BCryptPasswordEncoder</code>是<code>PasswordEncoder</code>的实现类,这样配置之后,当前认证就成为了BCrypt认证.字符串之前的<code>{noop}</code>也不需要了.</p>
+<p>为了测试可以写如下代码,直接把密码加密出来看看:</p>
+<pre>
+package com.imooc.security.service;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Bean;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+
+@Component
+public class MyUserDetailsService implements UserDetailsService {
+
+    private Logger logger = LoggerFactory.getLogger(getClass());
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        logger.info("登录用户名是:" + username);
+        //注意这里的User是SS自带的User对象,已经实现了UserDetails接口
+        //第三个表示用户的权限,这个是关联到SS配置里的auth开头的那些方法需要的权限
+        //调用了SS自己提供的工具方法把字符串转成需要的对象
+        //实际开发的时候换成数据库
+
+        System.out.println(passwordEncoder().encode("cony"));
+        //需要验证逻辑的时候,要换构造函数,加了四个boolean对应四个验证逻辑
+        //这里不管什么逻辑,最后把UserDetails对象给弄成任意一个验证逻辑无效,就无法通过认证
+        User targetUser = new User(username,
+                passwordEncoder().encode("cony"),
+                true,
+                true,
+                true,
+                true, AuthorityUtils.commaSeparatedStringToAuthorityList("admin")
+        );
+        return targetUser;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+}
+
+</pre>
+<p>可见两种情况:要么配置解码器,然后写具体加密后的密码;要么不配置解码器,前边加声明.</p>
+
+<h1 id="con5" style="text-align: center;">自定义用户认证页面</h1>
+<p>首先是可以更换自定义的页面,但是页面中post到的地址不能更换(当然也能更换,只是暂时的)</p>
+<pre>
+@Override
+    protected void configure(HttpSecurity http) throws Exception {
+        //默认表单登录
+        http.formLogin()
+                //自定义验证页面
+                .loginPage("/imooc-signin.html")
+                //自定义验证路径
+                .loginProcessingUrl("/authentication/form")
+
+                // 简单认证,浏览器里直接使用弹出框
+//        http.httpBasic()
+                .and()
+                .authorizeRequests()
+                .antMatchers("/imooc-signin.html").permitAll()
+                .anyRequest()
+                .authenticated();
+    }
+</pre>
+<p>这里的静态文件必须在resources/recourses/目录下才可以.然后让登录页面是全部都可以访问.</p>
+
+
+
+
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
