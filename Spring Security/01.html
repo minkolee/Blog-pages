@@ -8,195 +8,336 @@
     <title>Spring Security 01</title>
 </head>
 <body>
-<p>Spring Security的核心功能:</p>
-<ol>
-    <li>认证:你是谁</li>
-    <li>授权:能做什么</li>
-    <li>攻击防护:防止伪造身份</li>
-</ol>
+<p>为了能够早日攻克JWT验证，要好好学一下Spring Security。</p>
+
 
 <ol>
-    <li><a href="#con1">原理</a></li>
-    <li><a href="#con2">用户认证基础</a></li>
-    <li><a href="#con3">用户校验逻辑</a></li>
-    <li><a href="#con4">处理加密解密</a></li>
-    <li><a href="#con5">自定义登录页面</a></li>
-    <li><a href="#con6"></a></li>
-    <li><a href="#con7">自定义登录页面</a></li>
+    <li><a href="#con1">Spring Security认证原理</a></li>
+    <li><a href="#con2">Authentication</a></li>
+    <li><a href="#con3">如何验证用户身份</a></li>
+    <li><a href="#con4">AuthenticationManager</a></li>
+    <li><a href="#con5">DaoAuthenticationProvider</a></li>
+    <li><a href="#con6">UserDetails</a></li>
 </ol>
 
-<h1 id="con1" style="text-align: center;">原理</h1>
-<p>SS 原理是一个过滤器链,每个过滤器处理一种认证方式.比如<code>AuthenticationFilter</code>处理表单登录,<code>BasicAuthenticationFilter</code>处理HTTPBASIC认证.</p>
-<p>类似的有很多过滤器,功能都是检查当前的请求里是不是有认证的信息.</p>
-<p>任何一个过滤器成功之后,会在请求上做一个标记,表示认证成功.</p>
-<p>所有的过滤器结束之后,最后会有一个<code>FilterSecurityInterceptor</code>类作为最后一道守门人,会依据写在配置类中的配置来决定请求是否可以访问API.也就是说配置类里配置的实际上就是这个守门人对象.</p>
-<p>守门人在按照配置检查失败的时候,会抛出不同的异常.</p>
-<p>在守门人之前有一个<code>ExceptionTranslationFilter</code>,会捕捉从<code>FilterSecurityInterceptor</code>抛出的异常进行对应的处理.比如登录失败就重定向到登录页面,就是这个类的工作.</p>
-<p>在实际中自己开发的时候,主要的工作就是在过滤器链中添加自己的过滤器,然后在配置中去使用自己的过滤器配置.</p>
-<p>绿色的部分配置哪个,哪个就生效,并不是全部生效,但是守门人和抓异常的过滤器是去不了的.</p>
-
-<h1 id="con2" style="text-align: center;">用户认证基础</h1>
-<p>自定义认证开发的一个主要问题是,如何去获取用户对象.</p>
-<p>SS提供了一个接口,用于获取用户对象,叫做<code>UserDetailService</code>,只有一个方法,接受用户名,返回<code>UserDetails</code>对象.</p>
-<p>这个接口的作用就是拿到用户名然后把用户信息获取<code>UserDetails</code>实现类中,之后SS就会使用<code>UserDetails</code>来进行认证功能.</p>
+<h1 id="con1" style="text-align: center;">Spring Security认证原理</h1>
+<p>已经打算要通读文档的我突然发现了一篇介绍<a href="https://www.cnkirito.moe/spring-security-1/" target="_blank">Spring Security结构的博客</a>，顿感柳暗花明，赶快打开IDE来对着做一番。</p>
+<p>无论是之前的Spring in Aciton 4还是5，对于Spring Security真的是非常实战的讲法，直接上代码告诉你如何使用，对于结构讲的很少。</p>
+<p>所以现在需要自己实现JWT认证的我，如果看两本书就远远不够了，必须更深入的了解Spring Security才能来编写属于自己的认证。</p>
+<h2 style="text-align: center;">核心组件</h2>
+<h3><code>SecurityContextHolder</code></h3>
+<p><code>SecurityContextHolder</code>，这个可以理解成类似Spring IOC容器一样的安全容器。这个容器使用ThreadLocal来保存信息，一个线程一个，从其中可以取出所有的安全相关的内容，比如用户信息，权限等。</p>
+<p>在所有Spring内部代码，类似获取容器上下文，也可以获取这个安全上下文来取得其中的内容：</p>
 <pre>
-package com.imooc.security.service;
+SecurityContextHolder.getContext().getAuthentication().getPrincipal()
+</pre>
+<p><code>.getContext()</code>拿到上下文，之后的<code>Authentication</code>和<code>Principal</code>是什么</p>
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.stereotype.Component;
+<h3 id="con2"><code>Authentication</code></h3>
+<p>这是一个接口：</p>
+<pre>
+package org.springframework.security.core;
 
-@Component
-public class MyUserDetailsService implements UserDetailsService {
+import java.io.Serializable;
+import java.security.Principal;
+import java.util.Collection;
 
-    private Logger logger = LoggerFactory.getLogger(getClass());
+public interface Authentication extends Principal, Serializable {
+    //获取权限
+    Collection&lt;? extends GrantedAuthority> getAuthorities();
+    //获取密码，一般在认证后会被移除
+    Object getCredentials();
+    //得到WebAuthenticationDetails的实现，记录了访问者的ip地址和sessionid，如果是JWT，其中的内容就无用了
+    Object getDetails();
+    //非常关键的一个方法，返回Principal，什么是Principal已经知道了，在Spring Security里就是Authenticate的实现类
+    Object getPrincipal();
+    //判断当前身份已经通过认证了吗？
+    boolean isAuthenticated();
+    //设置当前身份为已经通过认证
+    void setAuthenticated(boolean var1) throws IllegalArgumentException;
+}
+</pre>
+<p>可以看到继承了<code>Principal</code>，点进去<code>java.security.Principal</code>看源码的解释：</p>
+<pre>
+This interface represents the abstract notion of a principal, which
+can be used to represent any entity, such as an individual, a
+corporation, and a login id.
+</pre>
+<p>很显然，这表示一个认证的实体，可以对应一个用户，一个公司，一个登陆ID等，实际上就是一个身份。</p>
+<p>所以<code>Authentication</code>是一个身份的抽象。</p>
+<p>这个接口是Spring Security提供的，所以实现了这个接口的类，都相当于一个身份。</p>
+<p>现在可以开始创建一个只带有Web和Spring Security依赖的Spring Boot项目来尝试一下了。先配置好所有URL都可以任意访问。</p>
+<p>在任何一个REST控制器内输出这个对象：</p>
+<pre>
+@RestController
+@RequestMapping("/objects")
+public class BaseController {
 
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        logger.info("登录用户名是:" + username);
-        //注意这里的User是SS自带的User对象,已经实现了UserDetails接口
-        //第三个表示用户的权限,这个是关联到SS配置里的auth开头的那些方法需要的权限
-        //调用了SS自己提供的工具方法把字符串转成需要的对象
-        //实际开发的时候换成数据库
-        return new User("jenny", "{noop}cony", AuthorityUtils.commaSeparatedStringToAuthorityList("admin"));
+    @GetMapping("/authentication")
+    public Authentication getMessage() {
+
+        return SecurityContextHolder.getContext().getAuthentication();
     }
 }
 </pre>
-<p>这段样板代码是不管什么用户,密码对了就能登录...当然现实中是不行的.</p>
-<p>这段样板代码可以在没有数据库的时候简单使用.如此配置之后,在启动的时候SS检测到这个Bean,就不会再使用自动生成的密码,而是转而使用这个Service进行认证.</p>
-<p>此外要注意,Spring 5.0之后凡是密码一定要加验证种类的信息,这里如果不写<code>{noop}</code>就会报错.</p>
-<p>有了这个<code>UserDetailsService</code>和<code>UserDetails</code>之后,就可以任意编写我们需要的用户身份认证了.</p>
-
-
-<h1 id="con3" style="text-align: center;">用户校验逻辑</h1>
-<p>校验的内容都在UserDetails中,会有账户过期,密码过期,账户锁定,账户无效等boolean字段.</p>
-<p>这里要用自己的方式去实现,如果要采用内置User对象,就使用7个参数的构造器.任意一个返回false就会被判断校验不通过.</p>
+<p>可以看到结果是：</p>
 <pre>
-package com.imooc.security.service;
+{
+    "authorities": [
+        {
+            "authority": "ROLE_ANONYMOUS"
+        }
+    ],
+    "details": {
+        "remoteAddress": "0:0:0:0:0:0:0:1",
+        "sessionId": null
+    },
+    "authenticated": true,
+    "principal": "anonymousUser",
+    "keyHash": -2031280993,
+    "credentials": "",
+    "name": "anonymousUser"
+}
+</pre>
+<p>能看到其中的一些属性，其中的角色是一个匿名用户。</p>
+<p>接口中还有一个方法：</p>
+<pre>
+    void setAuthenticated(boolean var1) throws IllegalArgumentException;
+</pre>
+<p>这个方法很重要，是设置这个身份对象，是否通过认证。Spring Security对于通过认证的身份对象，才会放行。</p>
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.stereotype.Component;
+<h3 id="con3"><code>如何验证用户身份</code></h3>
+<p>在继续看其他类之前，就有必要看一下完整的流程了，这里我就根据博客上的内容改了一下：</p>
+<ol>
+    <li>过滤器<code>UsernamePasswordAuthenticationFilter</code>拿到POST请求中的用户名和密码，然后把用户名和密码封到<code>Authentication</code>的实现类中，这个实现类一般是<code>UsernamePasswordAuthenticationToken</code>。</li>
+    <li>把<code>Authentication</code>交给<code>AuthenticationManager</code>进行验证</li>
+    <li><code>AuthenticationManager</code>会调用其中的各种<code>AuthenticationProvider</code>去进行验证，只要验证通过，就会新建一个带有Authority的<code>Authentication</code>对象，之后最关键的是会进行<code>super.setAuthenticated(true);</code>，表示认证通过。</li>
+    <li>过滤器检查是否认证通过，如果通过，就调用安全上下文容器的<code>.getContext().setAuthentication(…)</code>方法，把<code>Authentication</code>设置到其中。（这个是在）<code>AbstractAuthenticationProcessingFilter</code>的<code>successfulAuthentication</code>方法中。</li>
+    <li>所有过滤器都会检查安全上下文中的<code>Authentication</code>对象，如果检测到<code>isAuthenticated()==true</code>，就放行（当然还有权限的问题，这里先简化）。验证不通过，就会抛出各种异常然后返回。</li>
+    <li>返回异常则没有通过验证。如果<code>Authentication</code>一路被放行到控制器，控制器就成功接受响应，这样就完成了一次成功的安全验证。</li>
+</ol>
+<p>可以看到，<code>AuthenticationManager</code>也是一个很关键的类。其他的主要就是过滤器了。</p>
 
-@Component
-public class MyUserDetailsService implements UserDetailsService {
+<h3 id="con4"><code>AuthenticationManager</code></h3>
+<p>这个就是一个提供认证服务的接口，即我把用户身份给你，你来告诉我是否通过认证，怎么告诉我，就是调用用户身份上的<code>setAuthenticated(true)</code>。</p>
+<p>接口的源码很简单：</p>
+<pre>
+public interface AuthenticationManager {
+    Authentication authenticate(Authentication var1) throws AuthenticationException;
+}
+</pre>
+<p>只有一个方法，接收一个<code>Authentication</code>对象，返回一个<code>Authentication</code>对象。</p>
+<p>抛的这个异常也是一个根异常，有一堆各种验证异常继承这个异常。</p>
+<p>既然是接口，常用的实现类就很重要了，其实Spring Security自己只有一个实现类，就是<code>ProviderManager</code>，部分源码：</p>
+<pre>
+public class ProviderManager implements AuthenticationManager, MessageSourceAware, InitializingBean {
+    private List&lt;AuthenticationProvider> providers;
 
-    private Logger logger = LoggerFactory.getLogger(getClass());
+    public ProviderManager(List&lt;AuthenticationProvider> providers, AuthenticationManager parent) {
+        this.eventPublisher = new ProviderManager.NullEventPublisher();
+        this.providers = Collections.emptyList();
+        this.messages = SpringSecurityMessageSource.getAccessor();
+        this.eraseCredentialsAfterAuthentication = true;
+        Assert.notNull(providers, "providers list cannot be null");
+        this.providers = providers;
+        this.parent = parent;
+        this.checkState();
+    }
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        logger.info("登录用户名是:" + username);
-        //需要验证逻辑的时候,要换构造函数,加了四个boolean对应四个验证逻辑
-        //这里不管什么逻辑,最后把UserDetails对象给弄成任意一个验证逻辑无效,就无法通过认证
-        User targetUser = new User("jenny",
-                "{noop}cony",
-                true,
-                true,
-                true,
-                false, AuthorityUtils.commaSeparatedStringToAuthorityList("admin")
-        );
-        return targetUser;
+    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+        Class&lt;? extends Authentication> toTest = authentication.getClass();
+        AuthenticationException lastException = null;
+        AuthenticationException parentException = null;
+        Authentication result = null;
+        Authentication parentResult = null;
+        boolean debug = logger.isDebugEnabled();
+        Iterator var8 = this.getProviders().iterator();
+
+        while(var8.hasNext()) {
+            AuthenticationProvider provider = (AuthenticationProvider)var8.next();
+            if (provider.supports(toTest)) {
+                if (debug) {
+                    logger.debug("Authentication attempt using " + provider.getClass().getName());
+                }
+
+                try {
+                    result = provider.authenticate(authentication);
+                    if (result != null) {
+                        this.copyDetails(authentication, result);
+                        break;
+                    }
+                } catch (AccountStatusException var13) {
+                    this.prepareException(var13, authentication);
+                    throw var13;
+                } catch (InternalAuthenticationServiceException var14) {
+                    this.prepareException(var14, authentication);
+                    throw var14;
+                } catch (AuthenticationException var15) {
+                    lastException = var15;
+                }
+            }
+        }
+
+        ......
     }
 }
 </pre>
-<p>改成这样,认证就会不通过,还会在表单登录页面显示出具体的错误.</p>
-
-<h1 id="con4" style="text-align: center;">处理加密解密</h1>
-<p>SS 5.0的现在,对于凡是字符串形式的密码参数,前边都要带一个解密的标志字符串.</p>
-<p>加密解密器需要用<code>import org.springframework.security.crypto.password.PasswordEncoder;</code>中的类,而不是另外一个包中的类.</p>
-<p>这个接口里有两个方法,一个<code>encode</code>,用来加密.一个<code>matches</code>,用来判断明文和密文是否相同.</p>
-<p><code>encode</code>是供程序员调用的,把注册时候的密码加密之后存到数据库中.<code>matches</code>是SS来调用的,去进行对比.</p>
+<p>首先可以看到这个类继承了<code>AuthenticationManager</code>和<code>InitializingBean</code>，说明这个Bean会在SpringBoot启动的时候被组装。</p>
+<p>从源码里可以看到，这其中有一个属性是一个认证提供器的列表：<code>List&lt;AuthenticationProvider></code>。</p>
+<p>使用这个列表进行构造之后，重写了接口的认证方法，其中var8代表着所有认证提供器的迭代器，然后尝试一个一个的拿出来先检测是否能够认证<code>Authentication</code>对象，如果不能认证就继续，能认证就调用认证提供器的方法进行认证。如果结果不是null，表名认证通过，就把结果复制到<code>Authentication</code>对象上，认证不通过，认证器会抛异常，抓住异常然后返回。</p>
+<p>这里为什么要有这么多认证提供器，是因为对应的<code>Authentication</code>对象的实现类也很多，在官网查看API文档可以发现其实现类有好多：</p>
 <pre>
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+AbstractAuthenticationToken, AbstractOAuth2TokenAuthenticationToken, AnonymousAuthenticationToken,
+BearerTokenAuthenticationToken, CasAssertionAuthenticationToken, CasAuthenticationToken,
+JaasAuthenticationToken, JwtAuthenticationToken, OAuth2AuthenticationToken,
+OAuth2AuthorizationCodeAuthenticationToken, OAuth2LoginAuthenticationToken,
+OpenIDAuthenticationToken, PreAuthenticatedAuthenticationToken, RememberMeAuthenticationToken,
+RunAsUserToken, TestingAuthenticationToken, UsernamePasswordAuthenticationToken
 </pre>
-<p>在配置类中写一个Bean,就可以配置一个类,<code>BCryptPasswordEncoder</code>是<code>PasswordEncoder</code>的实现类,这样配置之后,当前认证就成为了BCrypt认证.字符串之前的<code>{noop}</code>也不需要了.</p>
-<p>为了测试可以写如下代码,直接把密码加密出来看看:</p>
+<p>这里的每一个实现类内部都不同，所以需要不同的<code>AuthenticationProvider</code>。</p>
+
+<h3 id="con5"><code>AuthenticationProvider</code></h3>
+<p>再去看看<code>AuthenticationProvider</code>实现类，有这么一大批：</p>
 <pre>
-package com.imooc.security.service;
+AbstractJaasAuthenticationProvider, AbstractLdapAuthenticationProvider, AbstractUserDetailsAuthenticationProvider,
+ActiveDirectoryLdapAuthenticationProvider, AnonymousAuthenticationProvider,
+AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider, CasAuthenticationProvider,
+DaoAuthenticationProvider, DefaultJaasAuthenticationProvider, JaasAuthenticationProvider,
+JwtAuthenticationProvider, LdapAuthenticationProvider, OAuth2AuthorizationCodeAuthenticationProvider,
+OAuth2LoginAuthenticationProvider, OidcAuthorizationCodeAuthenticationProvider, OpenIDAuthenticationProvider,
+PreAuthenticatedAuthenticationProvider, RememberMeAuthenticationProvider, RemoteAuthenticationProvider,
+RunAsImplAuthenticationProvider, TestingAuthenticationProvider
+</pre>
+<p>在初始化的时候，Spring会根据配置，自动给<code>ProviderManager</code>放入不同的<code>AuthenticationProvider</code>的实现类列表。</p>
+<p>比如我们默认情况或者在配置文件中使用<code>.formLogin()</code>的时候，认证提供器中就会有一个<code>DaoAuthenticationProvider</code>来验证用户名和密码。</p>
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Bean;
-import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
+<p>实际上我们在一层层深入：过滤器--->调用<code>AuthenticationManager</code>实现类--》调用<code>AuthenticationProvider</code>的实现类验证，这个过程中全部都是在操作<code>Authentication</code>对象，最后将其返回给过滤器。</p>
+<p>现在只差最后一层了，就是具体怎么验证的，这里就挑一个只要是用户名和密码就会进行验证的<code>DaoAuthenticationProvider</code>类来看看怎么工作的：</p>
+<pre>
+public class DaoAuthenticationProvider extends AbstractUserDetailsAuthenticationProvider {
+    private static final String USER_NOT_FOUND_PASSWORD = "userNotFoundPassword";
+    //密码编码器
+    private PasswordEncoder passwordEncoder;
+    private volatile String userNotFoundEncodedPassword;
+    //UserDetailsService对象，关键
+    private UserDetailsService userDetailsService;
+    private UserDetailsPasswordService userDetailsPasswordService;
 
-@Component
-public class MyUserDetailsService implements UserDetailsService {
 
-    private Logger logger = LoggerFactory.getLogger(getClass());
+    protected final UserDetails retrieveUser(String username, UsernamePasswordAuthenticationToken authentication) throws AuthenticationException {
+        this.prepareTimingAttackProtection();
 
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        logger.info("登录用户名是:" + username);
-        //注意这里的User是SS自带的User对象,已经实现了UserDetails接口
-        //第三个表示用户的权限,这个是关联到SS配置里的auth开头的那些方法需要的权限
-        //调用了SS自己提供的工具方法把字符串转成需要的对象
-        //实际开发的时候换成数据库
-
-        System.out.println(passwordEncoder().encode("cony"));
-        //需要验证逻辑的时候,要换构造函数,加了四个boolean对应四个验证逻辑
-        //这里不管什么逻辑,最后把UserDetails对象给弄成任意一个验证逻辑无效,就无法通过认证
-        User targetUser = new User(username,
-                passwordEncoder().encode("cony"),
-                true,
-                true,
-                true,
-                true, AuthorityUtils.commaSeparatedStringToAuthorityList("admin")
-        );
-        return targetUser;
+        try {
+            UserDetails loadedUser = this.getUserDetailsService().loadUserByUsername(username);
+            if (loadedUser == null) {
+                throw new InternalAuthenticationServiceException("UserDetailsService returned null, which is an interface contract violation");
+            } else {
+                return loadedUser;
+            }
+        } catch (UsernameNotFoundException var4) {
+            this.mitigateAgainstTimingAttack(authentication);
+            throw var4;
+        } catch (InternalAuthenticationServiceException var5) {
+            throw var5;
+        } catch (Exception var6) {
+            throw new InternalAuthenticationServiceException(var6.getMessage(), var6);
+        }
     }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    protected Authentication createSuccessAuthentication(Object principal, Authentication authentication, UserDetails user) {
+        boolean upgradeEncoding = this.userDetailsPasswordService != null && this.passwordEncoder.upgradeEncoding(user.getPassword());
+        if (upgradeEncoding) {
+            String presentedPassword = authentication.getCredentials().toString();
+            String newPassword = this.passwordEncoder.encode(presentedPassword);
+            user = this.userDetailsPasswordService.updatePassword(user, newPassword);
+        }
+
+        return super.createSuccessAuthentication(principal, authentication, user);
     }
 
+    public void setUserDetailsService(UserDetailsService userDetailsService) {
+        this.userDetailsService = userDetailsService;
+    }
+
+    protected UserDetailsService getUserDetailsService() {
+        return this.userDetailsService;
+    }
+
+    public void setUserDetailsPasswordService(UserDetailsPasswordService userDetailsPasswordService) {
+        this.userDetailsPasswordService = userDetailsPasswordService;
+    }
+}
+</pre>
+<p>这个DAO验证器其实名字已经暗含了，就是要通过DAO去拿用户信息。先是这个方法：</p>
+<pre>protected final UserDetails retrieveUser(String username, UsernamePasswordAuthenticationToken authentication)</pre>
+<p>拿着<code>Authentication</code>对象和用户名，到里边通过<code>UserDetails loadedUser = this.getUserDetailsService().loadUserByUsername(username)</code>获取一个<code>UserDetails</code>对象，然后通过<code>additionalAuthenticationChecks</code>去校验密码。</p>
+<p>之后通过<code>protected Authentication createSuccessAuthentication(Object principal, Authentication authentication, UserDetails user)</code>来创建一个成功验证后的<code>Authentication</code>对象。</p>
+<p>这其中提供了类似DAO服务的就是<code>UserDetailsService</code>类。</p>
+<p>验证器的整体流程是-->得到用户名和密码-->数据库里取出用户对象-->比较密码是否相同-->相同，创建成功认证的对象，返回去。</p>
+
+<h3 id="con6"><code>UserDetails</code></h3>
+<p>这也是一个接口：</p>
+<pre>
+public interface UserDetails extends Serializable {
+    Collection&lt;? extends GrantedAuthority> getAuthorities();
+
+    String getPassword();
+
+    String getUsername();
+
+    boolean isAccountNonExpired();
+
+    boolean isAccountNonLocked();
+
+    boolean isCredentialsNonExpired();
+
+    boolean isEnabled();
 }
 
 </pre>
-<p>可见两种情况:要么配置解码器,然后写具体加密后的密码;要么不配置解码器,前边加声明.</p>
+<p>这其实就代表一个从数据库取出来的用户对象，除了用户名和密码之外，还有四个布尔值表示四种验证，可以自行设置true或者false。还有权限。</p>
+<p>可能看上去，其中的内容不是和<code>Authentication</code>对象一样么，其实不然，这里一定要注意：</p>
+<ol>
+    <li><code>Authentication</code>对象是用户POST进来的数据外加其他逻辑组成</li>
+    <li><code>UserDetails</code>对象是由数据库取出来的对象外加其他逻辑组成</li>
+</ol>
+<p>两者的联系是，如果验证成功，<code>UserDetails</code>的权限属性也就是<code>getAuthorities()</code>的结果，会被复制到<code>Authentication</code>对象上。</p>
+<p>每次请求进来，过滤器使用<code>Authentication</code>对象，而<code>UserDetails</code>只在校验的时候使用，使用完了就结束了。</p>
+<p>在配置SS的时候，<code>configure(AuthenticationManagerBuilder auth)</code>这个配置方法现在就应该明白了，实际上是创建不同类型的<code>AuthenticationManager</code>。</p>
+<p>如果写了<code>inMemoryAuthentication()</code>，那么<code>DaoAuthenticationProvider</code>就不会出现在认证器的列表里，出现的是其他实现。</p>
+<p>看到原作者有图，我也手绘一张：</p>
+<img src="http://img.conyli.cc/spring/sslearn1.png" alt="Spring认证流程">
+<p>把架构搞清楚了，写JWT验证就心里有数了。看来主要就是基于过滤器来展开代码了。</p>
 
-<h1 id="con5" style="text-align: center;">自定义用户认证页面</h1>
-<p>首先是可以更换自定义的页面,但是页面中post到的地址不能更换(当然也能更换,只是暂时的)</p>
-<pre>
-@Override
-    protected void configure(HttpSecurity http) throws Exception {
-        //默认表单登录
-        http.formLogin()
-                //自定义验证页面
-                .loginPage("/imooc-signin.html")
-                //自定义验证路径
-                .loginProcessingUrl("/authentication/form")
 
-                // 简单认证,浏览器里直接使用弹出框
-//        http.httpBasic()
-                .and()
-                .authorizeRequests()
-                .antMatchers("/imooc-signin.html").permitAll()
-                .anyRequest()
-                .authenticated();
-    }
-</pre>
-<p>这里的静态文件必须在resources/recourses/目录下才可以.然后让登录页面是全部都可以访问.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
