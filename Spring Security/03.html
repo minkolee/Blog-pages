@@ -5,28 +5,47 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="base.css">
-    <title>Spring Security 01</title>
+    <title>Spring Security JWT实现</title>
 </head>
 <body>
-<p>为了能够早日攻克JWT验证，要好好学一下Spring Security。</p>
-
+<p>看了认证流程，终于可以知道如何来修改Spring Security实现自己的JWT认证方式了。</p>
+<p>粗看了一下，由于JWT的前提是用户名和密码需要通过认证，因此有很多种办法，比如：</p>
 <ol>
-    <li><a href="#con1">Spring Security认证原理</a></li>
-    <li><a href="#con2">Authentication</a></li>
-    <li><a href="#con3">如何验证用户身份</a></li>
-    <li><a href="#con4">AuthenticationManager</a></li>
-    <li><a href="#con5">DaoAuthenticationProvider</a></li>
-    <li><a href="#con6">UserDetails</a></li>
-    <li><a href="#con7">认证流程图</a></li>
+    <li>
+        由于返回JWT的前提是用户名和密码通过验证，就继承<code>UsernamePasswordAuthenticationFilter</code>，但是仅针对登录URL，尝试验证的逻辑不变，在成功验证的执行中直接返回带有TOKEN响应头的响应。然后另外启动一个filter，就用于从头部信息中解码，之后根据解码的结果获取用户和权限，放到安全上下文中，设置成认证通过即可。
+        这种方法查看了日志，会覆盖掉默认的<code>UsernamePasswordAuthenticationFilter</code>的过滤器。
+    </li>
+    <li>不通过filter拦截登录请求，而是直接送到控制器，由控制器返回JSON字符串或者响应头。其他路径则全部用自定义的Filter保护。</li>
 </ol>
+<p>两种办法相比之下，其实是第二种办法比较灵活一些，如果愿意的话，可以在响应头中设置好TOKEN之后，通过JSON返回额外数据，方便前端获取。</p>
+<p>不过还是两种方法都先来看看。</p>
+
+<ul>
+    <li>
+        <ol>
+            <a href="#con1">继承Filter方式</a>
+            <li><a href="">继承<code>UsernamePasswordAuthenticationFilter</code></a></li>
+            <li><a href="">检查所有请求头部的过滤器</a></li>
+
+        </ol>
+    </li>
+    <li>
+        <ol>
+            <a href="#con2">控制器返回方式</a>
+            <li><a href=""></a></li>
+        </ol>
+    </li>
+</ul>
 
 <h1 id="con1" style="text-align: center;">Spring Security认证原理</h1>
-<p>已经打算要通读文档的我突然发现了一篇介绍<a href="https://www.cnkirito.moe/spring-security-1/" target="_blank">Spring Security结构的博客</a>，顿感柳暗花明，赶快打开IDE来对着做一番。</p>
+<p>已经打算要通读文档的我突然发现了一篇介绍<a href="https://www.cnkirito.moe/spring-security-1/" target="_blank">Spring Security结构的博客</a>，顿感柳暗花明，赶快打开IDE来对着做一番。
+</p>
 <p>无论是之前的Spring in Aciton 4还是5，对于Spring Security真的是非常实战的讲法，直接上代码告诉你如何使用，对于结构讲的很少。</p>
 <p>所以现在需要自己实现JWT认证的我，如果看两本书就远远不够了，必须更深入的了解Spring Security才能来编写属于自己的认证。</p>
 <h2 style="text-align: center;">核心组件</h2>
 <h3><code>SecurityContextHolder</code></h3>
-<p><code>SecurityContextHolder</code>，这个可以理解成类似Spring IOC容器一样的安全容器。这个容器使用ThreadLocal来保存信息，一个线程一个，从其中可以取出所有的安全相关的内容，比如用户信息，权限等。</p>
+<p><code>SecurityContextHolder</code>，这个可以理解成类似Spring
+    IOC容器一样的安全容器。这个容器使用ThreadLocal来保存信息，一个线程一个，从其中可以取出所有的安全相关的内容，比如用户信息，权限等。</p>
 <p>在所有Spring内部代码，类似获取容器上下文，也可以获取这个安全上下文来取得其中的内容：</p>
 <pre>
 SecurityContextHolder.getContext().getAuthentication().getPrincipal()
@@ -109,11 +128,16 @@ public class BaseController {
 <h3 id="con3"><code>如何验证用户身份</code></h3>
 <p>在继续看其他类之前，就有必要看一下完整的流程了，这里我就根据博客上的内容改了一下：</p>
 <ol>
-    <li>过滤器<code>UsernamePasswordAuthenticationFilter</code>拿到POST请求中的用户名和密码，然后把用户名和密码封到<code>Authentication</code>的实现类中，这个实现类一般是<code>UsernamePasswordAuthenticationToken</code>。</li>
+    <li>过滤器<code>UsernamePasswordAuthenticationFilter</code>拿到POST请求中的用户名和密码，然后把用户名和密码封到<code>Authentication</code>的实现类中，这个实现类一般是<code>UsernamePasswordAuthenticationToken</code>。
+    </li>
     <li>把<code>Authentication</code>交给<code>AuthenticationManager</code>进行验证</li>
-    <li><code>AuthenticationManager</code>会调用其中的各种<code>AuthenticationProvider</code>去进行验证，只要验证通过，就会新建一个带有Authority的<code>Authentication</code>对象，之后最关键的是会进行<code>super.setAuthenticated(true);</code>，表示认证通过。</li>
-    <li>过滤器检查是否认证通过，如果通过，就调用安全上下文容器的<code>.getContext().setAuthentication(…)</code>方法，把<code>Authentication</code>设置到其中。（这个是在）<code>AbstractAuthenticationProcessingFilter</code>的<code>successfulAuthentication</code>方法中。</li>
-    <li>所有过滤器都会检查安全上下文中的<code>Authentication</code>对象，如果检测到<code>isAuthenticated()==true</code>，就放行（当然还有权限的问题，这里先简化）。验证不通过，就会抛出各种异常然后返回。</li>
+    <li>
+        <code>AuthenticationManager</code>会调用其中的各种<code>AuthenticationProvider</code>去进行验证，只要验证通过，就会新建一个带有Authority的<code>Authentication</code>对象，之后最关键的是会进行<code>super.setAuthenticated(true);</code>，表示认证通过。
+    </li>
+    <li>过滤器检查是否认证通过，如果通过，就调用安全上下文容器的<code>.getContext().setAuthentication(…)</code>方法，把<code>Authentication</code>设置到其中。（这个是在）<code>AbstractAuthenticationProcessingFilter</code>的<code>successfulAuthentication</code>方法中。
+    </li>
+    <li>所有过滤器都会检查安全上下文中的<code>Authentication</code>对象，如果检测到<code>isAuthenticated()==true</code>，就放行（当然还有权限的问题，这里先简化）。验证不通过，就会抛出各种异常然后返回。
+    </li>
     <li>返回异常则没有通过验证。如果<code>Authentication</code>一路被放行到控制器，控制器就成功接受响应，这样就完成了一次成功的安全验证。</li>
 </ol>
 <p>可以看到，<code>AuthenticationManager</code>也是一个很关键的类。其他的主要就是过滤器了。</p>
@@ -185,7 +209,8 @@ public class ProviderManager implements AuthenticationManager, MessageSourceAwar
 </pre>
 <p>首先可以看到这个类继承了<code>AuthenticationManager</code>和<code>InitializingBean</code>，说明这个Bean会在SpringBoot启动的时候被组装。</p>
 <p>从源码里可以看到，这其中有一个属性是一个认证提供器的列表：<code>List&lt;AuthenticationProvider></code>。</p>
-<p>使用这个列表进行构造之后，重写了接口的认证方法，其中var8代表着所有认证提供器的迭代器，然后尝试一个一个的拿出来先检测是否能够认证<code>Authentication</code>对象，如果不能认证就继续，能认证就调用认证提供器的方法进行认证。如果结果不是null，表名认证通过，就把结果复制到<code>Authentication</code>对象上，认证不通过，认证器会抛异常，抓住异常然后返回。</p>
+<p>使用这个列表进行构造之后，重写了接口的认证方法，其中var8代表着所有认证提供器的迭代器，然后尝试一个一个的拿出来先检测是否能够认证<code>Authentication</code>对象，如果不能认证就继续，能认证就调用认证提供器的方法进行认证。如果结果不是null，表名认证通过，就把结果复制到<code>Authentication</code>对象上，认证不通过，认证器会抛异常，抓住异常然后返回。
+</p>
 <p>这里为什么要有这么多认证提供器，是因为对应的<code>Authentication</code>对象的实现类也很多，在官网查看API文档可以发现其实现类有好多：</p>
 <pre>
 AbstractAuthenticationToken, AbstractOAuth2TokenAuthenticationToken, AnonymousAuthenticationToken,
@@ -212,7 +237,8 @@ RunAsImplAuthenticationProvider, TestingAuthenticationProvider
 <p>在初始化的时候，Spring会根据配置，自动给<code>ProviderManager</code>放入不同的<code>AuthenticationProvider</code>的实现类列表。</p>
 <p>比如我们默认情况或者在配置文件中使用<code>.formLogin()</code>的时候，认证提供器中就会有一个<code>DaoAuthenticationProvider</code>来验证用户名和密码。</p>
 
-<p>实际上我们在一层层深入：过滤器--->调用<code>AuthenticationManager</code>实现类--》调用<code>AuthenticationProvider</code>的实现类验证，这个过程中全部都是在操作<code>Authentication</code>对象，最后将其返回给过滤器。</p>
+<p>实际上我们在一层层深入：过滤器--->调用<code>AuthenticationManager</code>实现类--》调用<code>AuthenticationProvider</code>的实现类验证，这个过程中全部都是在操作<code>Authentication</code>对象，最后将其返回给过滤器。
+</p>
 <p>现在只差最后一层了，就是具体怎么验证的，这里就挑一个只要是用户名和密码就会进行验证的<code>DaoAuthenticationProvider</code>类来看看怎么工作的：</p>
 <pre>
 public class DaoAuthenticationProvider extends AbstractUserDetailsAuthenticationProvider {
@@ -271,8 +297,11 @@ public class DaoAuthenticationProvider extends AbstractUserDetailsAuthentication
 </pre>
 <p>这个DAO验证器其实名字已经暗含了，就是要通过DAO去拿用户信息。先是这个方法：</p>
 <pre>protected final UserDetails retrieveUser(String username, UsernamePasswordAuthenticationToken authentication)</pre>
-<p>拿着<code>Authentication</code>对象和用户名，到里边通过<code>UserDetails loadedUser = this.getUserDetailsService().loadUserByUsername(username)</code>获取一个<code>UserDetails</code>对象，然后通过<code>additionalAuthenticationChecks</code>去校验密码。</p>
-<p>之后通过<code>protected Authentication createSuccessAuthentication(Object principal, Authentication authentication, UserDetails user)</code>来创建一个成功验证后的<code>Authentication</code>对象。</p>
+<p>拿着<code>Authentication</code>对象和用户名，到里边通过<code>UserDetails loadedUser =
+    this.getUserDetailsService().loadUserByUsername(username)</code>获取一个<code>UserDetails</code>对象，然后通过<code>additionalAuthenticationChecks</code>去校验密码。
+</p>
+<p>之后通过<code>protected Authentication createSuccessAuthentication(Object principal, Authentication authentication,
+    UserDetails user)</code>来创建一个成功验证后的<code>Authentication</code>对象。</p>
 <p>这其中提供了类似DAO服务的就是<code>UserDetailsService</code>类。</p>
 <p>验证器的整体流程是-->得到用户名和密码-->数据库里取出用户对象-->比较密码是否相同-->相同，创建成功认证的对象，返回去。</p>
 
@@ -302,9 +331,11 @@ public interface UserDetails extends Serializable {
     <li><code>Authentication</code>对象是用户POST进来的数据外加其他逻辑组成</li>
     <li><code>UserDetails</code>对象是由数据库取出来的对象外加其他逻辑组成</li>
 </ol>
-<p>两者的联系是，如果验证成功，<code>UserDetails</code>的权限属性也就是<code>getAuthorities()</code>的结果，会被复制到<code>Authentication</code>对象上。</p>
+<p>两者的联系是，如果验证成功，<code>UserDetails</code>的权限属性也就是<code>getAuthorities()</code>的结果，会被复制到<code>Authentication</code>对象上。
+</p>
 <p>每次请求进来，过滤器使用<code>Authentication</code>对象，而<code>UserDetails</code>只在校验的时候使用，使用完了就结束了。</p>
-<p>在配置SS的时候，<code>configure(AuthenticationManagerBuilder auth)</code>这个配置方法现在就应该明白了，实际上是创建不同类型的<code>AuthenticationManager</code>。</p>
+<p>在配置SS的时候，<code>configure(AuthenticationManagerBuilder auth)</code>这个配置方法现在就应该明白了，实际上是创建不同类型的<code>AuthenticationManager</code>。
+</p>
 <p>如果写了<code>inMemoryAuthentication()</code>，那么<code>DaoAuthenticationProvider</code>就不会出现在认证器的列表里，出现的是其他实现。</p>
 
 <h3 id="con7"><code>认证流程图</code></h3>
@@ -312,38 +343,6 @@ public interface UserDetails extends Serializable {
 <p>看到原作者有图，我也手绘一张：</p>
 <img src="http://img.conyli.cc/spring/sslearn1.png" alt="Spring认证流程">
 <p>把架构搞清楚了，写JWT验证就心里有数了。看来主要就是基于过滤器中的两个方法：尝试验证和验证成功，来编写具体代码了。</p>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 </body>
