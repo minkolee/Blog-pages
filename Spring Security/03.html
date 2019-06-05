@@ -19,330 +19,553 @@
 </ol>
 <p>两种办法相比之下，其实是第二种办法比较灵活一些，如果愿意的话，可以在响应头中设置好TOKEN之后，通过JSON返回额外数据，方便前端获取。</p>
 <p>不过还是两种方法都先来看看。</p>
-
 <ul>
-    <li>
-        <ol>
-            <a href="#con1">继承Filter方式</a>
-            <li><a href="">继承<code>UsernamePasswordAuthenticationFilter</code></a></li>
-            <li><a href="">检查所有请求头部的过滤器</a></li>
-
-        </ol>
-    </li>
-    <li>
-        <ol>
-            <a href="#con2">控制器返回方式</a>
-            <li><a href=""></a></li>
-        </ol>
-    </li>
+    <li><a href="#con1">1 整体思路</a></li>
+    <li><a href="#con2">2 继承内置过滤器的编写</a></li>
+    <li><a href="#con21">2.1 准备工作</a></li>
+    <li><a href="#con22">2.2 过滤器1-继承的过滤器</a></li>
+    <li><a href="#con23">2.3 配置Spring Security</a></li>
+    <li><a href="#con24">2.4 验证过滤器的工作</a></li>
+    <li><a href="#con3">3 全局验证TOKEN过滤器的编写</a></li>
+    <li><a href="#con31">3.1 配置Spring Security</a></li>
+    <li><a href="#con32">3.2 简单的UserDetailsService和角色设置</a></li>
+    <li><a href="#con1">4 完成</a></li>
 </ul>
 
-<h1 id="con1" style="text-align: center;">Spring Security认证原理</h1>
-<p>已经打算要通读文档的我突然发现了一篇介绍<a href="https://www.cnkirito.moe/spring-security-1/" target="_blank">Spring Security结构的博客</a>，顿感柳暗花明，赶快打开IDE来对着做一番。
-</p>
-<p>无论是之前的Spring in Aciton 4还是5，对于Spring Security真的是非常实战的讲法，直接上代码告诉你如何使用，对于结构讲的很少。</p>
-<p>所以现在需要自己实现JWT认证的我，如果看两本书就远远不够了，必须更深入的了解Spring Security才能来编写属于自己的认证。</p>
-<h2 style="text-align: center;">核心组件</h2>
-<h3><code>SecurityContextHolder</code></h3>
-<p><code>SecurityContextHolder</code>，这个可以理解成类似Spring
-    IOC容器一样的安全容器。这个容器使用ThreadLocal来保存信息，一个线程一个，从其中可以取出所有的安全相关的内容，比如用户信息，权限等。</p>
-<p>在所有Spring内部代码，类似获取容器上下文，也可以获取这个安全上下文来取得其中的内容：</p>
+
+<h1 id="con1" style="text-align: center;">1 整体思路</h1>
+<p>在Spring Boot启动的时候，通过启动日志中可以查看全部的过滤器，我这里启动了一个只包含web和security组件的Spring Boot项目，然后查看日志：</p>
 <pre>
-SecurityContextHolder.getContext().getAuthentication().getPrincipal()
+2019-06-05 12:53:46.432  INFO 44468 --- [           main] o.s.s.web.DefaultSecurityFilterChain     :
+Creating filter chain: any request, [
+org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@4f8d86e4,
+//向ThreadLocal和Session中写入和读取Authentication并组装安全上下文的过滤器
+org.springframework.security.web.context.SecurityContextPersistenceFilter@493ac8d3,
+//给头部加上x-开头的头部信息的过滤器
+org.springframework.security.web.header.HeaderWriterFilter@41da3aee,
+//CSRF过滤器
+org.springframework.security.web.csrf.CsrfFilter@12f49ca8,
+//实现logout的过滤器
+org.springframework.security.web.authentication.logout.LogoutFilter@7978e022,
+//验证用户名密码的过滤器
+org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter@60dd0587,
+//生成默认登录页面
+org.springframework.security.web.authentication.ui.DefaultLoginPageGeneratingFilter@45aca496,
+//生成默认登出页面
+org.springframework.security.web.authentication.ui.DefaultLogoutPageGeneratingFilter@5f631ca0,
+//针对BasicAuth认证的过滤器
+org.springframework.security.web.authentication.www.BasicAuthenticationFilter@3b7eac14,
+//这个类的作用主要是用于用户登录成功后，重新恢复因为登录被打断的请求
+org.springframework.security.web.savedrequest.RequestCacheAwareFilter@67531e3a,
+//包装request，实现servlet api的一些接口方法isUserInRole、getRemoteUser
+org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@1945113f,
+//匿名过滤器，前边都认证没成功，添加一个匿名用户
+org.springframework.security.web.authentication.AnonymousAuthenticationFilter@1697f2b3,
+org.springframework.security.web.session.SessionManagementFilter@64920dc2,
+//捕获异常进行跳转
+org.springframework.security.web.access.ExceptionTranslationFilter@443faa85,
+//验证权限，也就是Authorities，对应ROLE，也是最后一道关口
+org.springframework.security.web.access.intercept.FilterSecurityInterceptor@56928e17
+]
 </pre>
-<p><code>.getContext()</code>拿到上下文，之后的<code>Authentication</code>和<code>Principal</code>是什么</p>
+<p>如果和只添加了web组件的SpringBoot项目对比，可以看到Spring Security其实就是启动了一堆过滤器。</p>
+<p>现在我们要实现的事情是两个：</p>
+<ol>
+    <li>向一个指定的地址post用户名和密码，获取200响应带有TOKEN的请求，或者401错误。</li>
+    <li>其他所有地址，都必须携带TOKEN访问，否则返回401错误。</li>
+</ol>
+<p>于是整体的思路也有两个：</p>
+<ol>
+    <li>全部的逻辑都在过滤器中完成，因为<code>UsernamePasswordAuthenticationFilter</code>本身就有校验用户名和密码的功能，因此就利用（继承）这个过滤器。</li>
+    <li>将指定的请求放行到控制器中，在控制器中进行验证和返回JSON。</li>
+</ol>
+<p>无论哪种方法，都需要要求访问其他地址必须携带TOKEN。</p>
+<p>先来看第一种方法，既然有两个功能，就要求有两个过滤器：</p>
+<ol>
+    <li>过滤器1：仅针对<code>/api/auth</code>，POST进来用户名和密码，返回一个响应带有TOKEN</li>
+    <li>过滤器2：放行根目录，对于其他路径验证TOKEN</li>
+</ol>
 
-<h3 id="con2"><code>Authentication</code></h3>
-<p>这是一个接口：</p>
+<h1 id="con2" style="text-align: center;">2 继承内置过滤器的编写</h1>
+<p>这个方式参考了<a href="https://dev.to/keysh/spring-security-with-jwt-3j76" target="_blank">https://dev.to/keysh/spring-security-with-jwt-3j76</a>这篇指导。</p>
+<p>首先来简单设计一下，提交验证的路径是<code>/api/auth</code>。这个路径只能接收POST请求来返回TOKEN。然后根目录可以被直接放行。其他任何路径，包括<code>/api/auth</code>的GET请求，都需要被保护。</p>
+<p>过滤器1的实现可以继承<code>UsernamePasswordAuthenticationFilter</code>，因为这个过滤器是Spring Security提供，有一个方法可以设置接收POST验证的地址，所以可以很方便的依靠继承这个类来进行操作。</p>
+<p>不过继承之后，是不能直接使用<code>AbstractAuthenticationProcessingFilter</code>提供的方法获取<code>AuthenticationManager</code>，必须自己写一个变量覆盖父类的私有变量。</p>
+<p>那么到哪里去获取<code>AuthenticationManager</code>的实现呢？</p>
+<p>好在<code>WebSecurityConfig</code>继承的<code>WebSecurityConfigurerAdapter</code>有一个方法：</p>
 <pre>
-package org.springframework.security.core;
-
-import java.io.Serializable;
-import java.security.Principal;
-import java.util.Collection;
-
-public interface Authentication extends Principal, Serializable {
-    //获取权限
-    Collection&lt;? extends GrantedAuthority> getAuthorities();
-    //获取密码，一般在认证后会被移除
-    Object getCredentials();
-    //得到WebAuthenticationDetails的实现，记录了访问者的ip地址和sessionid，如果是JWT，其中的内容就无用了
-    Object getDetails();
-    //非常关键的一个方法，返回Principal，什么是Principal已经知道了，在Spring Security里就是Authenticate的实现类
-    Object getPrincipal();
-    //判断当前身份已经通过认证了吗？
-    boolean isAuthenticated();
-    //设置当前身份为已经通过认证
-    void setAuthenticated(boolean var1) throws IllegalArgumentException;
+public AuthenticationManager authenticationManagerBean() throws Exception {
+    return new WebSecurityConfigurerAdapter.AuthenticationManagerDelegator(this.authenticationBuilder, this.context);
 }
 </pre>
-<p>可以看到继承了<code>Principal</code>，点进去<code>java.security.Principal</code>看源码的解释：</p>
+<p>只要在构造器中设置好一个<code>AuthenticationManager</code>参数，在配置文件中添加过滤器的时候，直接依靠<code>WebSecurityConfigurerAdapter</code>的这个方法就可以了。</p>
+<p>这样我们的逻辑是：</p>
+<ol>
+    <li>过滤器1对用户名和密码进行验证</li>
+    <li>验证之后在成功进行验证的方法中，设置上TOKEN和响应码，让过滤器1直接返回响应（不继续进行其他的过滤器）</li>
+    <li>客户端得到响应，将TOKEN保存，在请求的时候附带上TOKEN</li>
+    <li>过滤器2过滤剩下所有地址</li>
+</ol>
+
+<h3 id="con21" style="text-align: center;">2.1 准备工作</h3>
+<p>创建一个新的Spring Boot项目，选上Web，Security和Thymeleaf即可，再添加上JWT的依赖。</p>
+<p>然后编写一个简单的控制器来返回页面，让页面上可以显示出用户名。</p>
 <pre>
-This interface represents the abstract notion of a principal, which
-can be used to represent any entity, such as an individual, a
-corporation, and a login id.
-</pre>
-<p>很显然，这表示一个认证的实体，可以对应一个用户，一个公司，一个登陆ID等，实际上就是一个身份。</p>
-<p>所以<code>Authentication</code>是一个身份的抽象。</p>
-<p>这个接口是Spring Security提供的，所以实现了这个接口的类，都相当于一个身份。</p>
-<p>现在可以开始创建一个只带有Web和Spring Security依赖的Spring Boot项目来尝试一下了。先配置好所有URL都可以任意访问。</p>
-<p>在任何一个REST控制器内输出这个对象：</p>
-<pre>
-@RestController
-@RequestMapping("/objects")
+package cc.conyli.jwtfilter.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+@RequestMapping("/")
 public class BaseController {
 
-    @GetMapping("/authentication")
-    public Authentication getMessage() {
-
-        return SecurityContextHolder.getContext().getAuthentication();
+    @GetMapping
+    private String homePage() {
+        return "home";
     }
 }
 </pre>
-<p>可以看到结果是：</p>
+<p>然后是一个简单的首页：</p>
 <pre>
-{
-    "authorities": [
-        {
-            "authority": "ROLE_ANONYMOUS"
-        }
-    ],
-    "details": {
-        "remoteAddress": "0:0:0:0:0:0:0:1",
-        "sessionId": null
-    },
-    "authenticated": true,
-    "principal": "anonymousUser",
-    "keyHash": -2031280993,
-    "credentials": "",
-    "name": "anonymousUser"
+&lt;!DOCTYPE html>
+&lt;html xmlns="http://www.w3.org/1999/xhtml"
+    xmlns:th="https://www.thymeleaf.org"
+    xmlns:sec="https://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
+&lt;head>
+    &lt;title>Spring Security Example&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;h1>Welcome!&lt;/h1>
+&lt;h1 th:inline="text">Hello [[${#httpServletRequest.remoteUser}]]!&lt;/h1>
+
+&lt;/body>
+&lt;/html>
+</pre>
+<p>由于要使用JWT，根据之前的学习，有一系列内容比如KEY之类的需要生成。把相关的内容都写在<code>一个配置类</code>，实际上，可以写一个工具类用于提供JWT的服务。</p>
+<pre>
+package cc.conyli.jwtfilter.jwt;
+
+import io.jsonwebtoken.security.Keys;
+import org.springframework.stereotype.Component;
+
+import java.security.Key;
+import java.util.Base64;
+
+@Component
+public class JWTUtils {
+
+    private static String BASE_SECRET_STRING = "dSF*F*()SD)(*()9032190898gfsd980*(F*(DS(*()*#@*(*#()!@*()#*(!)@";
+
+    private static final Key KEY = Keys.hmacShaKeyFor(BASE_SECRET_STRING.getBytes());
+
+    public static String AUTH_LOGIN_URL = "/api/auth";
+
+    public static String TOKEN_HEADER = "Authorization";
+
+    public static String TOKEN_ISSUER = "conyli.cc";
+
+    public Key getKey() {
+        return JWTUtils.KEY;
+    }
+
+    public String getKeyString() {
+        return Base64.getEncoder().encodeToString(KEY.getEncoded());
+    }
 }
 </pre>
-<p>能看到其中的一些属性，其中的角色是一个匿名用户。</p>
-<p>接口中还有一个方法：</p>
-<pre>
-    void setAuthenticated(boolean var1) throws IllegalArgumentException;
-</pre>
-<p>这个方法很重要，是设置这个身份对象，是否通过认证。Spring Security对于通过认证的身份对象，才会放行。</p>
+<p>这里简单写了一个类，用于放置一些配置属性，比如POST用户的地址，头部名称，一些需要设置给TOKEN的信息，以及最关键的，提供一个固定的根据字符串生成的KEY。这样在使用到KEY的时候就可以使用这个工具类。</p>
+<p>之后就可以来编写过滤器1了。</p>
 
-<h3 id="con3"><code>如何验证用户身份</code></h3>
-<p>在继续看其他类之前，就有必要看一下完整的流程了，这里我就根据博客上的内容改了一下：</p>
+<h3 id="con22" style="text-align: center;">2.2 过滤器1-继承的过滤器</h3>
+<p>了解了认证流程后，其实这个过滤器1也不难。要做的事情有三个：</p>
 <ol>
-    <li>过滤器<code>UsernamePasswordAuthenticationFilter</code>拿到POST请求中的用户名和密码，然后把用户名和密码封到<code>Authentication</code>的实现类中，这个实现类一般是<code>UsernamePasswordAuthenticationToken</code>。
-    </li>
-    <li>把<code>Authentication</code>交给<code>AuthenticationManager</code>进行验证</li>
-    <li>
-        <code>AuthenticationManager</code>会调用其中的各种<code>AuthenticationProvider</code>去进行验证，只要验证通过，就会新建一个带有Authority的<code>Authentication</code>对象，之后最关键的是会进行<code>super.setAuthenticated(true);</code>，表示认证通过。
-    </li>
-    <li>过滤器检查是否认证通过，如果通过，就调用安全上下文容器的<code>.getContext().setAuthentication(…)</code>方法，把<code>Authentication</code>设置到其中。（这个是在）<code>AbstractAuthenticationProcessingFilter</code>的<code>successfulAuthentication</code>方法中。
-    </li>
-    <li>所有过滤器都会检查安全上下文中的<code>Authentication</code>对象，如果检测到<code>isAuthenticated()==true</code>，就放行（当然还有权限的问题，这里先简化）。验证不通过，就会抛出各种异常然后返回。
-    </li>
-    <li>返回异常则没有通过验证。如果<code>Authentication</code>一路被放行到控制器，控制器就成功接受响应，这样就完成了一次成功的安全验证。</li>
+    <li>需要自定义<code>AuthenticationManager</code>域和构造器，以便将来传入</li>
+    <li>重写<code>attemptAuthentication</code>方法，逻辑不变，只是使用过滤器1覆盖的<code>AuthenticationManager</code>域</li>
+    <li>重写<code>successfulAuthentication</code>方法，这个方法的逻辑改变很大，不再是添加<code>Authentication</code>对象并放行了。下边具体解释。</li>
 </ol>
-<p>可以看到，<code>AuthenticationManager</code>也是一个很关键的类。其他的主要就是过滤器了。</p>
-
-<h3 id="con4"><code>AuthenticationManager</code></h3>
-<p>这个就是一个提供认证服务的接口，即我把用户身份给你，你来告诉我是否通过认证，怎么告诉我，就是调用用户身份上的<code>setAuthenticated(true)</code>。</p>
-<p>接口的源码很简单：</p>
+<p>按照上边的步骤逐步编写，先是第一步：</p>
 <pre>
-public interface AuthenticationManager {
-    Authentication authenticate(Authentication var1) throws AuthenticationException;
+package cc.conyli.jwtfilter.filter;
+
+import cc.conyli.jwtfilter.jwt.JWTUtils;
+import io.jsonwebtoken.Jwts;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class JWTAuthenticationFilter extends UsernamePasswordAuthenticationFilter {
+
+    // 第一步，创建域，这里无法使用Spring框架的@Autowired自动注入，因为过滤器的请求还没有到框架里边，也就没有进到IOC容器
+    private AuthenticationManager authenticationManager;
+    // 依然是第一步，创建构造器
+    public JWTAuthenticationFilter(AuthenticationManager authenticationManager) {
+        this.authenticationManager = authenticationManager;
+        //这条代码是这个种类的过滤器特有的，限制了这个过滤器过滤的URL。当然，这个逻辑也可以自行编写或者进行具体配置。
+        //这里就将其限定为"/api/auth"
+        setFilterProcessesUrl(JWTUtils.AUTH_LOGIN_URL);
+    }
 }
 </pre>
-<p>只有一个方法，接收一个<code>Authentication</code>对象，返回一个<code>Authentication</code>对象。</p>
-<p>抛的这个异常也是一个根异常，有一堆各种验证异常继承这个异常。</p>
-<p>既然是接口，常用的实现类就很重要了，其实Spring Security自己只有一个实现类，就是<code>ProviderManager</code>，部分源码：</p>
+<p>这一步主要是为了能够正常使用<code>AuthenticationManager</code>对象，以及监听<code>/api/auth</code>路径。</p>
+<p>然后第二步，重写<code>attemptAuthentication</code>方法：</p>
 <pre>
-public class ProviderManager implements AuthenticationManager, MessageSourceAware, InitializingBean {
-    private List&lt;AuthenticationProvider> providers;
+@Override
+public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException {
+    //抽象类提供了两个方法用户获取用户名和密码，其实内部就是request.getParameter方法
+    String username = this.obtainUsername(request);
+    String password = this.obtainPassword(request);
 
-    public ProviderManager(List&lt;AuthenticationProvider> providers, AuthenticationManager parent) {
-        this.eventPublisher = new ProviderManager.NullEventPublisher();
-        this.providers = Collections.emptyList();
-        this.messages = SpringSecurityMessageSource.getAccessor();
-        this.eraseCredentialsAfterAuthentication = true;
-        Assert.notNull(providers, "providers list cannot be null");
-        this.providers = providers;
-        this.parent = parent;
-        this.checkState();
-    }
+    //和原来方法的逻辑一样，创建UsernamePasswordAuthenticationToken对象
+    //注意这里是两参数构造器，构造器其中是this.setAuthenticated(false)，说明该身份未通过认证
+    UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, password);
+
+    //和原来方法的逻辑一样，但是必须要换成自己的域，而不是原来方法的this.getAuthenticationManager().authenticate(authRequest)语句
+    return authenticationManager.authenticate(authenticationToken);
+}
+</pre>
+<p>第二步重写的这个方法，内部的机制和原来是一样的。要去调用<code>AuthenticationManager</code>去实际进行验证，之后的验证流程就是之前说过的，会找到<code>Provider</code>验证，<code>Provider</code>验证通过之后会创建一个新的<code>Authentication</code>对象，然后<code>AbstractAuthenticationProcessingFilter</code>会通过<code>successfulAuthentication</code>方法设置认证后的对象到安全上下文中。</p>
+<p>所以第三步，就是来重写这个<code>successfulAuthentication</code>方法：</p>
+<pre>
+@Override
+protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authResult) throws IOException, ServletException {
+    //从Authentication对象中取出User信息
+    User user = ((User) authResult.getPrincipal());
+
+    //将权限列表转换为一个数组列表，方便转换成JSON
+    //user.getAuthorities()返回的是user对象中的Collection&lt;GrantedAuthority>，authority.getAuthority()则返回权限字符串名称，最后得到一个字符串列表
+    List&lt;String> roles = user.getAuthorities().stream().map(authority -> authority.getAuthority()).collect(Collectors.toList());
+    //把用户名，TOKEN发行者，过期日期，权限列表字符串写入到claims中，然后使用唯一的Key进行签名，最后生成JWT字符串
+    String JWTTOken = Jwts.builder()
+            .setSubject(user.getUsername())
+            .setIssuer(JWTUtils.TOKEN_ISSUER)
+            .setExpiration(new Date(System.currentTimeMillis() + 3600*1000))
+            .claim("role", roles)
+            .signWith(JWTUtils.getKey())
+            .compact();
+    //故意设置一个特殊的状态码看看
+    response.setStatus(255);
+    //响应头设置上Authorization信息
+    response.setHeader(JWTUtils.TOKEN_HEADER, JWTTOken);
+
+    //在原始的代码中，这里还去调用了成功之后的handler，从而继续向下验证或者跳转到刚才登录成功的URL。
+    //由于我们的目的是返回token，这里不调用任何东西。则最终不会调用filterChain.doFilter(httpServletRequest, httpServletResponse);
+}
+</pre>
+<p>注意这里的User对象，是<code>org.springframework.security.core.userdetails.User</code>对象，因为需要从<code>Authentication</code>中取出，将其转换成实现了UserDetails接口的User对象。</p>
+<p>这个过滤器的逻辑很简单，先去认证，认证成功后，生成TOKEN附加在请求上直接返回。而用户名和密码验证，走的还是Spring原来相同的逻辑。</p>
+
+<h3 id="con23" style="text-align: center;">2.3 配置Spring Security</h3>
+<p>现在还需要配置一下Spring Security，引入这个过滤器，关闭csrf和允许跨域：</p>
+<pre>
+package cc.conyli.jwtfilter.config;
+
+import cc.conyli.jwtfilter.filter.JWTAuthenticationFilter;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Override
-    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-        Class&lt;? extends Authentication> toTest = authentication.getClass();
-        AuthenticationException lastException = null;
-        AuthenticationException parentException = null;
-        Authentication result = null;
-        Authentication parentResult = null;
-        boolean debug = logger.isDebugEnabled();
-        Iterator var8 = this.getProviders().iterator();
-
-        while(var8.hasNext()) {
-            AuthenticationProvider provider = (AuthenticationProvider)var8.next();
-            if (provider.supports(toTest)) {
-                if (debug) {
-                    logger.debug("Authentication attempt using " + provider.getClass().getName());
-                }
-
-                try {
-                    result = provider.authenticate(authentication);
-                    if (result != null) {
-                        this.copyDetails(authentication, result);
-                        break;
-                    }
-                } catch (AccountStatusException var13) {
-                    this.prepareException(var13, authentication);
-                    throw var13;
-                } catch (InternalAuthenticationServiceException var14) {
-                    this.prepareException(var14, authentication);
-                    throw var14;
-                } catch (AuthenticationException var15) {
-                    lastException = var15;
-                }
-            }
-        }
-
-        ......
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+            .cors()
+            .and()
+            .csrf().disable()
+            .authorizeRequests()
+            .antMatchers("/api/auth").permitAll()
+            .anyRequest().authenticated()
+            .and()
+            <span style="color: red">.addFilter(new JWTAuthenticationFilter(authenticationManager()))</span>
+            .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
     }
 }
 </pre>
-<p>首先可以看到这个类继承了<code>AuthenticationManager</code>和<code>InitializingBean</code>，说明这个Bean会在SpringBoot启动的时候被组装。</p>
-<p>从源码里可以看到，这其中有一个属性是一个认证提供器的列表：<code>List&lt;AuthenticationProvider></code>。</p>
-<p>使用这个列表进行构造之后，重写了接口的认证方法，其中var8代表着所有认证提供器的迭代器，然后尝试一个一个的拿出来先检测是否能够认证<code>Authentication</code>对象，如果不能认证就继续，能认证就调用认证提供器的方法进行认证。如果结果不是null，表名认证通过，就把结果复制到<code>Authentication</code>对象上，认证不通过，认证器会抛异常，抓住异常然后返回。
-</p>
-<p>这里为什么要有这么多认证提供器，是因为对应的<code>Authentication</code>对象的实现类也很多，在官网查看API文档可以发现其实现类有好多：</p>
+<p>前边允许跨域，关闭CSRF，然后指定<code>"/api/auth"</code>允许任何访问（实际上针对这个路径的访问不会进入到控制器，即使验证成功也是立刻返回）。</p>
+<p>之后的红字比较关键，是给过滤器传入了一个<code>authenticationManager()</code>，这就是自定义过滤器无法获得<code>AuthenticationManager</code>对象的解决方案。</p>
+<p>最后是关闭session。</p>
+
+<h3 id="con24" style="text-align: center;">2.4 验证过滤器的工作</h3>
+<p>现在就可以来启动项目了。</p>
+<p>在启动的过程中，注意观察此时的过滤器：</p>
 <pre>
-AbstractAuthenticationToken, AbstractOAuth2TokenAuthenticationToken, AnonymousAuthenticationToken,
-BearerTokenAuthenticationToken, CasAssertionAuthenticationToken, CasAuthenticationToken,
-JaasAuthenticationToken, JwtAuthenticationToken, OAuth2AuthenticationToken,
-OAuth2AuthorizationCodeAuthenticationToken, OAuth2LoginAuthenticationToken,
-OpenIDAuthenticationToken, PreAuthenticatedAuthenticationToken, RememberMeAuthenticationToken,
-RunAsUserToken, TestingAuthenticationToken, UsernamePasswordAuthenticationToken
+2019-06-05 19:47:45.836  INFO 40768 --- [           main] o.s.s.web.DefaultSecurityFilterChain     :
+Creating filter chain: any request, [
+org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@38f77cd9,
+org.springframework.security.web.context.SecurityContextPersistenceFilter@367f0121,
+org.springframework.security.web.header.HeaderWriterFilter@6f76c2cc,
+org.springframework.web.filter.CorsFilter@4a8e6e89,
+org.springframework.security.web.authentication.logout.LogoutFilter@600f5704,
+cc.conyli.jwtfilter.filter.JWTAuthenticationFilter@6fbb4061,
+org.springframework.security.web.savedrequest.RequestCacheAwareFilter@441b8382,
+org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@77114efe,
+org.springframework.security.web.authentication.AnonymousAuthenticationFilter@63d5874f,
+org.springframework.security.web.session.SessionManagementFilter@7d7cac8,
+org.springframework.security.web.access.ExceptionTranslationFilter@77681ce4,
+org.springframework.security.web.access.intercept.FilterSecurityInterceptor@11e355ca]
 </pre>
-<p>这里的每一个实现类内部都不同，所以需要不同的<code>AuthenticationProvider</code>。</p>
-
-<h3 id="con5"><code>AuthenticationProvider</code></h3>
-<p>再去看看<code>AuthenticationProvider</code>实现类，有这么一大批：</p>
+<p>可以看到，相比一开始空的项目，CSRF过滤器，自定义登录登出页面过滤器都不见了。新增加了一个<code>CorsFilter</code>。还有一个显著的变化就是自己写的<code>JWTAuthenticationFilter</code>替代了原来的<code>UsernamePasswordAuthenticationFilter</code>。</p>
+<p>现在我们没有写自己的<code>UserDetailsService</code>，所以Spring Security在控制台里打印了一个随机的密码。</p>
+<p>现在可以尝试来获取JWT了，启动POSTMAN或者其他工具，向<code>http://localhost:8080/api/auth</code>发送POST请求，设置Body为form-data或者x-www-form-urlencoded都可以，然后填写username的值是user，password的值是随机密码，之后点击发送。</p>
+<p>如果用户名和密码都正确，可以看到响应中出现：</p>
 <pre>
-AbstractJaasAuthenticationProvider, AbstractLdapAuthenticationProvider, AbstractUserDetailsAuthenticationProvider,
-ActiveDirectoryLdapAuthenticationProvider, AnonymousAuthenticationProvider,
-AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider, CasAuthenticationProvider,
-DaoAuthenticationProvider, DefaultJaasAuthenticationProvider, JaasAuthenticationProvider,
-JwtAuthenticationProvider, LdapAuthenticationProvider, OAuth2AuthorizationCodeAuthenticationProvider,
-OAuth2LoginAuthenticationProvider, OidcAuthorizationCodeAuthenticationProvider, OpenIDAuthenticationProvider,
-PreAuthenticatedAuthenticationProvider, RememberMeAuthenticationProvider, RemoteAuthenticationProvider,
-RunAsImplAuthenticationProvider, TestingAuthenticationProvider
+Authorization →eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ1c2VyIiwiaXNzIjoiY29ueWxpLmNjIiwiZXhwIjoxNTU5NzM5MzE3LCJyb2xlIjpbXX0.Yi-abfa787KLFDGpXYAtyy-IN8IWYV8Y0qc8cVUz_540ZWc0Kr0aPXSxlMY2xdC-
 </pre>
-<p>在初始化的时候，Spring会根据配置，自动给<code>ProviderManager</code>放入不同的<code>AuthenticationProvider</code>的实现类列表。</p>
-<p>比如我们默认情况或者在配置文件中使用<code>.formLogin()</code>的时候，认证提供器中就会有一个<code>DaoAuthenticationProvider</code>来验证用户名和密码。</p>
-
-<p>实际上我们在一层层深入：过滤器--->调用<code>AuthenticationManager</code>实现类--》调用<code>AuthenticationProvider</code>的实现类验证，这个过程中全部都是在操作<code>Authentication</code>对象，最后将其返回给过滤器。
-</p>
-<p>现在只差最后一层了，就是具体怎么验证的，这里就挑一个只要是用户名和密码就会进行验证的<code>DaoAuthenticationProvider</code>类来看看怎么工作的：</p>
-<pre>
-public class DaoAuthenticationProvider extends AbstractUserDetailsAuthenticationProvider {
-    private static final String USER_NOT_FOUND_PASSWORD = "userNotFoundPassword";
-    //密码编码器
-    private PasswordEncoder passwordEncoder;
-    private volatile String userNotFoundEncodedPassword;
-    //UserDetailsService对象，关键
-    private UserDetailsService userDetailsService;
-    private UserDetailsPasswordService userDetailsPasswordService;
+<p>说明已经成功拿到了TOKEN。此外还可以看到状态码是刚才设置的255。如果发送AJAX的是Vue，此时就可以从Header中取出这个KEY然后放到Vuex中。</p>
 
 
-    protected final UserDetails retrieveUser(String username, UsernamePasswordAuthenticationToken authentication) throws AuthenticationException {
-        this.prepareTimingAttackProtection();
-
-        try {
-            UserDetails loadedUser = this.getUserDetailsService().loadUserByUsername(username);
-            if (loadedUser == null) {
-                throw new InternalAuthenticationServiceException("UserDetailsService returned null, which is an interface contract violation");
-            } else {
-                return loadedUser;
-            }
-        } catch (UsernameNotFoundException var4) {
-            this.mitigateAgainstTimingAttack(authentication);
-            throw var4;
-        } catch (InternalAuthenticationServiceException var5) {
-            throw var5;
-        } catch (Exception var6) {
-            throw new InternalAuthenticationServiceException(var6.getMessage(), var6);
-        }
-    }
-
-    protected Authentication createSuccessAuthentication(Object principal, Authentication authentication, UserDetails user) {
-        boolean upgradeEncoding = this.userDetailsPasswordService != null && this.passwordEncoder.upgradeEncoding(user.getPassword());
-        if (upgradeEncoding) {
-            String presentedPassword = authentication.getCredentials().toString();
-            String newPassword = this.passwordEncoder.encode(presentedPassword);
-            user = this.userDetailsPasswordService.updatePassword(user, newPassword);
-        }
-
-        return super.createSuccessAuthentication(principal, authentication, user);
-    }
-
-    public void setUserDetailsService(UserDetailsService userDetailsService) {
-        this.userDetailsService = userDetailsService;
-    }
-
-    protected UserDetailsService getUserDetailsService() {
-        return this.userDetailsService;
-    }
-
-    public void setUserDetailsPasswordService(UserDetailsPasswordService userDetailsPasswordService) {
-        this.userDetailsPasswordService = userDetailsPasswordService;
-    }
-}
-</pre>
-<p>这个DAO验证器其实名字已经暗含了，就是要通过DAO去拿用户信息。先是这个方法：</p>
-<pre>protected final UserDetails retrieveUser(String username, UsernamePasswordAuthenticationToken authentication)</pre>
-<p>拿着<code>Authentication</code>对象和用户名，到里边通过<code>UserDetails loadedUser =
-    this.getUserDetailsService().loadUserByUsername(username)</code>获取一个<code>UserDetails</code>对象，然后通过<code>additionalAuthenticationChecks</code>去校验密码。
-</p>
-<p>之后通过<code>protected Authentication createSuccessAuthentication(Object principal, Authentication authentication,
-    UserDetails user)</code>来创建一个成功验证后的<code>Authentication</code>对象。</p>
-<p>这其中提供了类似DAO服务的就是<code>UserDetailsService</code>类。</p>
-<p>验证器的整体流程是-->得到用户名和密码-->数据库里取出用户对象-->比较密码是否相同-->相同，创建成功认证的对象，返回去。</p>
-
-<h3 id="con6"><code>UserDetails</code></h3>
-<p>这也是一个接口：</p>
-<pre>
-public interface UserDetails extends Serializable {
-    Collection&lt;? extends GrantedAuthority> getAuthorities();
-
-    String getPassword();
-
-    String getUsername();
-
-    boolean isAccountNonExpired();
-
-    boolean isAccountNonLocked();
-
-    boolean isCredentialsNonExpired();
-
-    boolean isEnabled();
-}
-
-</pre>
-<p>这其实就代表一个从数据库取出来的用户对象，除了用户名和密码之外，还有四个布尔值表示四种验证，可以自行设置true或者false。还有权限。</p>
-<p>可能看上去，其中的内容不是和<code>Authentication</code>对象一样么，其实不然，这里一定要注意：</p>
+<h1 id="con3" style="text-align: center;">3 全局验证TOKEN过滤器的编写</h1>
+<p>现在要编写的过滤器就是总体思路里边提到的过滤器2，也就是全局验证TOKEN的过滤器，细化起来，这个过滤器要做的事情是：</p>
 <ol>
-    <li><code>Authentication</code>对象是用户POST进来的数据外加其他逻辑组成</li>
-    <li><code>UserDetails</code>对象是由数据库取出来的对象外加其他逻辑组成</li>
+    <li>对于根路径，直接放行，由于单页面应用一般根路由用来返回HTML页面和加载JS代码，有没有TOKEN都无所谓，因为访问根路径无需验证身份。</li>
+    <li>对于其他任意路径（前后端分离的情况下主要是一些REST API），都要检查请求头中的TOKEN，TOKEN有效才放行。</li>
+    <li>所谓放行，是指从JWT中解析出用户名和权限，然后组装一个通过验证的<code>UsernamePasswordAuthenticationToken</code>，并且设置在上下文中，让请求可以继续通过后边的用户密码验证。（至于权限也就是ROLE，那就看具体访问策略也就是最后一道守门的权限过滤器了）。</li>
 </ol>
-<p>两者的联系是，如果验证成功，<code>UserDetails</code>的权限属性也就是<code>getAuthorities()</code>的结果，会被复制到<code>Authentication</code>对象上。
-</p>
-<p>每次请求进来，过滤器使用<code>Authentication</code>对象，而<code>UserDetails</code>只在校验的时候使用，使用完了就结束了。</p>
-<p>在配置SS的时候，<code>configure(AuthenticationManagerBuilder auth)</code>这个配置方法现在就应该明白了，实际上是创建不同类型的<code>AuthenticationManager</code>。
-</p>
-<p>如果写了<code>inMemoryAuthentication()</code>，那么<code>DaoAuthenticationProvider</code>就不会出现在认证器的列表里，出现的是其他实现。</p>
+<p>这个验证器的逻辑也就很清晰了，主要业务逻辑如下：</p>
+<ol>
+    <li>获取请求的目标URL地址</li>
+    <li>检查URL地址如果是根路径，直接<code>filterChain.doFilter</code>放行</li>
+    <li>如果URL地址不是根路径，尝试从请求头中获取TOKEN，然后进行TOKEN验证</li>
+    <li>TOKEN不为空并且通过验证的情况下，设置<code>UsernamePasswordAuthenticationToken</code>并放行</li>
+</ol>
+<p>来编写具体代码，这里Spring提供了一个类叫做<code>OncePerRequestFilter</code>，顾名思义，就是每个请求执行一次的Filter。这个类继承<code>GenericFilterBean</code>，<code>GenericFilterBean</code>又实现<code>Filter</code>。可以看到最终也是一个Filter。</p>
+<p>点进<code>OncePerRequestFilter</code>的源码可以看到其<code>doFilter</code>的内部是执行的<code>doFilterInternal</code>方法，这个<code>doFilterInternal</code>方法是一个抽象方法。</p>
+<p>我们自己的类就继承<code>OncePerRequestFilter</code>，然后实现<code>doFilterInternal</code>方法，直接来看完整的类：</p>
+<pre>
+package cc.conyli.jwtfilter.filter;
 
-<h3 id="con7"><code>认证流程图</code></h3>
+import cc.conyli.jwtfilter.jwt.JWTUtils;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.Jwts;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.filter.OncePerRequestFilter;
 
-<p>看到原作者有图，我也手绘一张：</p>
-<img src="http://img.conyli.cc/spring/sslearn1.png" alt="Spring认证流程">
-<p>把架构搞清楚了，写JWT验证就心里有数了。看来主要就是基于过滤器中的两个方法：尝试验证和验证成功，来编写具体代码了。</p>
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class JWTTokenFilter extends OncePerRequestFilter {
+
+    //重写实际进行过滤操作的doFilterInternal抽象方法
+    @Override
+    protected void doFilterInternal(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, FilterChain filterChain) throws ServletException, IOException {
+
+        //获取URL
+        String targetPath = httpServletRequest.getRequestURI();
+        //如果访问的是根路径，直接放行
+        if (targetPath.equals("/")) {
+            filterChain.doFilter(httpServletRequest, httpServletResponse);
+        }
+
+        //尝试获取TOKEN
+        String JWTToken = httpServletRequest.getHeader("Authorization");
+        //如果TOKEN不为空，尝试解析JWTToken并且组装Authentication实现对象即UsernamePasswordAuthenticationToken
+        if (JWTToken != null) {
+            Authentication authentication = null;
+            //尝试解析的过程中如果出错，就设置一个特殊的响应码，然后直接返回，不再执行后续操作
+            try {
+                authentication = getAuthenticationFromToken(JWTToken);
+            } catch (Exception ex) {
+                logger.info(ex.toString());
+                httpServletResponse.setStatus(468);
+                return;
+            }
+            //如果成功拿到UsernamePasswordAuthenticationToken，设置到安全上下文上，然后放行
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            filterChain.doFilter(httpServletRequest, httpServletResponse);
+
+        } else {
+            //如果TOKEN不存在，直接返回401错误，表示未认证
+            httpServletResponse.setStatus(401);
+        }
+
+    }
+
+    private Authentication getAuthenticationFromToken(String token) throws Exception {
+        //尝试验证JWT
+        //解析第一部，获取解析后的前两部分的拼合对象
+        Jws&lt;Claims> jws = Jwts.parser().setSigningKey(JWTUtils.getKey()).parseClaimsJws(token);
+        //从claims中获取放入的用户名
+        String username = jws.getBody().getSubject();
+        //从role字符串数组转换成权限对象
+        ArrayList&lt;String> roleStrings = (ArrayList&lt;String>)jws.getBody().get("role");
+        List&lt;GrantedAuthority> authorities = roleStrings.stream().map(role -> new SimpleGrantedAuthority(role)).collect(Collectors.toList());
+        //组装UsernamePasswordAuthenticationToken并返回这个认证对象，是三参数构造器，说明认证通过
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, null, authorities);
+        return authenticationToken;
+        }
+}
+</pre>
+<p>这个类的整体业务逻辑就是刚才所说的业务逻辑，将从token解析出一个<code>UsernamePasswordAuthenticationToken</code>的过程封装到了一个方法中，向外抛异常。</p>
+<p>为了方便检测，抓住异常的时候给了一个特殊的468响应码，如果是不携带TOKEN则返回401未认证错误。</p>
+
+<h3 id="con31" style="text-align: center;">3.1 配置Spring Security</h3>
+<p>过滤器写好了，还必须将其配置到Spring Security中，由于我们有了两个自定义的过滤器，需要规定顺序，所以配置如下：</p>
+<pre>
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http
+            .cors()
+            .and()
+            .csrf().disable()
+            .authorizeRequests()
+            .antMatchers("/").permitAll()
+            .antMatchers("/api/auth").permitAll()
+            .anyRequest().authenticated()
+            .and()
+            .addFilter(new JWTAuthenticationFilter(authenticationManager()))
+            .<span style="color: red">addFilterAfter(new JWTTokenFilter(),JWTAuthenticationFilter.class)</span>
+            .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+}
+</pre>
+<p>这里注意，这个过滤器是针对全部路径的，如果把这个过滤器放在<code>JWTAuthenticationFilter</code>的前边，那么TOKEN将无法获取，所以将其配置在其后发挥作用。</p>
+
+<h3 id="con32" style="text-align: center;">3.2 简单的UserDetailsService和角色设置</h3>
+<p>为了方便测试，可以简单的写一个每次都会产生一个变化的用户名的<code>UserDetailsService</code>来替代随机生成密码，还赋予一个权限，然后编写一个简单的控制器，来验证一下TOKEN不会影响权限：</p>
+<p>控制器如下，根据用户权限显示不同的信息：</p>
+<pre>
+package cc.conyli.jwtfilter.controller;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@org.springframework.web.bind.annotation.RestController
+@RequestMapping("/rest")
+public class RestController {
+
+    @GetMapping("/superuser")
+    public String helloSuperUser() {
+        return "Hello authenticated superuser";
+    }
+
+    @GetMapping("/user")
+    public String helloUser() {
+        return "Hello authenticated user";
+    }
+
+    @GetMapping("/admin")
+    public String helloAdmin() {
+        return "Hello authenticated admin";
+    }
+}
+</pre>
+<p><code>UserDetailsService</code>如下：</p>
+<pre>
+package cc.conyli.jwtfilter.filter;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+@Component
+public class UserService implements UserDetailsService {
+
+    private Logger logger = LoggerFactory.getLogger(getClass());
+
+    @Override
+    public UserDetails loadUserByUsername(String s) throws UsernameNotFoundException {
+        //生成一个包含三个字符串的列表，注意这里需要加ROLE_前缀
+        List&lt;String> roles = new ArrayList&lt;>();
+        roles.add("ROLE_USER");
+        roles.add("ROLE_ADMIN");
+        roles.add("ROLE_SUPERUSER");
+
+        //随机挑选列表中的一个字符串生成权限对象
+        Random random = new Random();
+        int index = random.nextInt(3);
+        String role = roles.get(index);
+        List&lt;SimpleGrantedAuthority> authorities = new ArrayList&lt;>();
+        authorities.add(new SimpleGrantedAuthority(role));
+
+        //把用户输入的用户名，空的密码和随机选出的权限对象，包装成一个User对象并返回
+        //密码这里是Spring Security 5的新写法，表示明文密码123
+        User user = new User(s, "{noop}123", authorities);
+
+        logger.info("UserDetailsService返回的对象是：" + user.toString());
+
+        return user;
+    }
+}
+</pre>
+<p>最后再修改一下Spring Security配置：</p>
+<pre>
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http
+            .cors()
+            .and()
+            .csrf().disable()
+            .authorizeRequests()
+            .antMatchers("/").permitAll()
+            .antMatchers("/api/auth").permitAll()
+            <span style="color: red">.antMatchers("/rest/admin").hasRole("ADMIN")
+            .antMatchers("/rest/superuser").hasRole("SUPERUSER")
+            .antMatchers("/rest/user").hasRole("USER")</span>
+            .anyRequest().authenticated()
+            .and()
+            .addFilter(new JWTAuthenticationFilter(authenticationManager()))
+            .addFilterAfter(new JWTTokenFilter(),JWTAuthenticationFilter.class)
+            .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+}
+</pre>
+
+<h1 id="con4" style="text-align: center;">4 完成</h1>
+<p>再次启动服务，现在可以通过POSTMAN向<code>/api/auth</code>发请求，用户名可以任意起，密码只要是123，就可以得到一段密钥。</p>
+<p>同时可以在控制台查看<code>UserDetailsService</code>返回的用户的权限。</p>
+<p>然后在POSTMAN里，向具有不同权限的URL带着TOKEN发送GET请求来试验一下，就会发现JWT服务生效了，而用户权限也得到了正常使用。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 </body>
