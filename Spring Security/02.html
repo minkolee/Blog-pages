@@ -8,54 +8,225 @@
     <title>Spring Security JWT</title>
 </head>
 <body>
-<p>在开始做JWT之前，先要来学习一下JWT库的用法。</p>
+<p>在开始做JWT认证之前，先要来学习一下JWT库的用法。</p>
+<h3><a href="#con1">一 JWT库</a></h3>
+<a href="#con11">Header</a>
+<a href="#con12">Claims</a>
+<a href="#con13">签名部分</a>
+<a href="#con14">jjwt依赖</a>
+<h3 ><a href="#con2">二 生成JWT</a></h3>
+<a href="#con21">添加header信息</a>
+<a href="#con22">添加Claims信息</a>
+<a href="#con23">使用密钥进行签名</a>
+<h3><a href="#con3">三 解析JWT</a></h3>
+<a href="#con31">捕捉解析异常</a>
+
+
+<h1 id="con1" style="text-align: center;">一 JWT库</h1>
+<p>常用的JWT库是<a href="https://github.com/jwtk/jjwt" target="_blank">JJWT</a>，这一章的主要内容也就是JJWT库的文档。</p>
+<p><code>JSON Web Token</code>样子如下：</p>
+<pre>
+<span style="color: red">eyJhbGciOiJIUzI1NiJ9</span>.<span style="color:greenyellow ">eyJzdWIiOiJKb2UifQ</span>.<span style="color: #207EBF">ipevRNuRP6HflG8cFKnmUPtypruRC4fb1DWtoLL62SY</span>
+</pre>
+<p>JWT是用<code>.</code>分割的一个三部分的字符串。</p>
+<p>这其中红色的部分叫做<code>header</code>头部信息，绿色的部分叫做<code>claims</code>，可以认为是body，蓝色的部分是签名信息，由<code>header</code>和<code>claim</code>加上一段密钥和指定的算法计算所得。</p>
+<p><code>header</code>和<code>claims</code>都是JSON字符串，里边装有数据，所以叫做JSON Web Token。</p>
+<h3 id="con11"><code>Header</code></h3>
+<p>Header其中的内容主要有两个键值对，一般都固定，无需设置，jjwt也会自动设置：</p>
+<pre>
+{
+  "typ": "JWT",
+  "alg": "HS512"
+}
+</pre>
+<p>typ表示类型，alg表示算法。这个一般无需设置，jjwt在生成JWT的时候会自动设置对应的头部信息。</p>
+
+<h3 id="con12"><code>Claims</code></h3>
+<p>Claims可以认为是实际携带有效信息的部分。这其中根据<a href="https://tools.ietf.org/html/rfc7519#section-4.1" target="_blank">RFC7519规范</a>，有一些规定好名称的键，叫做<code>Registered Claim</code>。除了<code>Registered Claim</code>之外，可以添加自定义的键值对。</p>
+<p>在JWT验证中，经常使用Claims来携带用户名，权限和过期时间这几个比较重要的内容，用于验证的时候确定身份，比如：</p>
+<pre>
+{
+  "iss": "secure-api",
+  "aud": "secure-app",
+  "sub": "user",
+  "exp": 1548242589,
+<span style="color: red">  "role": [
+    "ROLE_USER"
+  ]</span>
+}
+</pre>
+<p>这其中除了红色的部分是自定义的键值对之外，剩下的是四个规范里的<code>Registered Claim</code>。</p>
+
+<h3 id="con13"><code>签名部分</code></h3>
+<p>签名部分是由前两部分根据密钥和算法计算得来。具体的方法是先将header和claims用Base64URL-encode计算得出两个字符串，然后用<code>.</code>拼接，再用密钥对这串字符串进行计算得到结果。</p>
+<p>最终再把签名字符串也通过Base64URL-encode编码后，最后拼上去得到JWT。</p>
+<p>jjwt的文档里详细讲了算法和需求的密钥的长度。一般使用的HS512需要64字节长的串。不过库里可以直接去生成一个符合需求的key。</p>
+<p>下边就来使用一下jjwt库，jjwt库的两个核心功能，一个是依据JSON信息和密钥生成JWT，一个是将JWT解析，从其中取得claims部分的数据。</p>
+
+<h3 id="con14"><code>jjwt依赖</code></h3>
+<p>最新0.10.6版本的依赖如下：</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>io.jsonwebtoken&lt;/groupId>
+    &lt;artifactId>jjwt-api&lt;/artifactId>
+    &lt;version>0.10.5&lt;/version>
+&lt;/dependency>
+&lt;dependency>
+    &lt;groupId>io.jsonwebtoken&lt;/groupId>
+    &lt;artifactId>jjwt-impl&lt;/artifactId>
+    &lt;version>0.10.5&lt;/version>
+    &lt;scope>runtime&lt;/scope>
+&lt;/dependency>
+&lt;dependency>
+    &lt;groupId>io.jsonwebtoken&lt;/groupId>
+    &lt;artifactId>jjwt-jackson&lt;/artifactId>
+    &lt;version>0.10.5&lt;/version>
+    &lt;scope>runtime&lt;/scope>
+&lt;/dependency>
+&lt;!-- Uncomment this next dependency if you want to use RSASSA-PSS (PS256, PS384, PS512) algorithms:
+&lt;dependency>
+    &lt;groupId>org.bouncycastle&lt;/groupId>
+    &lt;artifactId>bcprov-jdk15on&lt;/artifactId>
+    &lt;version>1.60&lt;/version>
+    &lt;scope>runtime&lt;/scope>
+&lt;/dependency>
+-->
+</pre>
+<p>这里要注意的是，如果使用最下边的几种算法，需要JDK 11的支持，否则需要引入一些第三方库。这里不展开了。</p>
+
+
+<h1 id="con2" style="text-align: center;">二 生成JWT</h1>
+<p>jjwt采用了建造者模式。生成一个JWT的方法如下：</p>
 <ol>
-    <li><a href="#con1">JWT库</a></li>
-    <li><a href="#con2">生成JWT</a></li>
-    <li><a href="#con3">验证JWT</a></li>
+    <li>调用<code>Jwts.builder()</code>获得一个建造者实例</li>
+    <li>调用建造者的各个方法添加header和claims</li>
+    <li>调用<code>.signWith(key)</code>进行签名/li>
+    <li>调用<code>.compact()</code>生成JWT字符串</li>
 </ol>
 
-<h1 id="con1" style="text-align: center;">JWT库</h1>
+<h3 id="con21"><code>添加header信息</code></h3>
+<p>添加header信息主要有三种方法：</p>
+<ol>
+    <li>逐个添加：反复调用建造者实例的<code>.setHeaderParam("kid", "myKeyId")</code>方法，每次调用都会加上一个header键值对。</li>
+    <li>一次性添加：先创建一个Header实例，再设置上，这个用的不多。</li>
+    <li>一次性添加：创建一个<code>Map&lt;String, Object></code>对象，然后调用建造者的<code>.setHeader(Map)</code>直接把所有的键值对一次性设置上去。</li>
+</ol>
+<p>注意，在两个一次性添加的方法中，会覆盖所有同名的已经添加过的键值对，另外jjwt还会强行覆盖<code>alg</code>和<code>zip</code>这两个键。</p>
+<p>如果数据量少一般逐个添加，如果数据量大，就是用一次性添加比较好。</p>
+<p>这里还需要注意的是，一次性添加的对象是Object，jjwt会默认去寻找对应的JSON转换包来将Object转换为JSON，一般默认会先搜索Jackson，对于Spring开发来讲，这个过程无需配置。在添加Claims的时候也是如此。</p>
+
+<h3 id="con22"><code>添加Claims信息</code></h3>
+<p>添加Claims信息和添加Header很相似，也可以逐个添加和一次性添加。</p>
+<p>不过由于claims里有几个标准规定的<code>Registered Claim</code>，所以jjwt为这些键写好了添加方法，与普通添加自定义键值对的方法区分开来。</p>
+<p>添加<code>Registered Claim</code>的方法如下：</p>
+<ol>
+    <li><code>setIssuer</code></li>
+    <li><code>setSubject</code></li>
+    <li><code>setAudience</code></li>
+    <li><code>setExpiration</code></li>
+    <li><code>setNotBefore</code></li>
+    <li><code>setIssuedAt</code></li>
+    <li><code>setId</code></li>
+</ol>
+<p>一般来说，使用<code>setIssuer</code>设置签发者和<code>setExpiration</code>设置过期时间就已经足够了。</p>
+<p>添加自定义claims的方法和header类似也有三种：</p>
+<ol>
+    <li>逐个添加：反复调用建造者的<code>.claim("hello", "world")</code>方法来添加自定义键值对。</li>
+    <li>一次性添加：创建<code>claim</code>对象然后设置，这个用的比较少。</li>
+    <li>一次性添加：创建一个<code>Map&lt;String, Object></code>对象，然后调用建造者的<code>setClaims(Map)</code>直接把所有的键值对一次性设置上去。</li>
+</ol>
+
+<h3 id="con23"><code>使用密钥进行签名</code></h3>
+<p>签名的方法<code>.signWith(key)</code>还有一个重载<code>.signWith(key, alg)</code>。</p>
+<p>两者的区别是：</p>
+<ol>
+    <li><code>.signWith(key)</code>会让jjwt自动根据key的长度选择算法，在计算出签名的同时，会在header中写入<code>alg</code>键值对。</li>
+    <li><code>.signWith(key, SignatureAlgorithm.RS512)</code>可以自行指定算法。</li>
+</ol>
+<p>这里还需要提一下的是key如何获取。<code>.signWith(key)</code>及重载方法需要一个<code>java.security.Key</code>对象作为参数，可以随机生成或者通过指定的方法生成。</p>
+<pre>
+package cc.conyli.vote.jwt;
+
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
+
+import javax.crypto.SecretKey;
+import java.security.Key;
+import java.util.Base64;
+
+public class Testjjwt {
+
+    private SecretKey secretKey;
+
+    public static void main(String[] args) {
+
+        //随机生成Key
+        Key key = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+        System.out.println(key.toString());
+
+        //用Base64解码可以获取Key对应的字符串
+        String encodedKey = Base64.getEncoder().encodeToString(key.getEncoded());
+        System.out.println(encodedKey);
+
+        //根据指定字符串生成Key，指定字符串生成的Key是一样的，这个字符串至少要有256bit长，推荐长一些，生成的密钥也会变长。
+        //推荐这种做法，每次都会生成同样的一串Key来使用
+        String secretString = "dsfa&*)#@)908v9109)V)(DS))(*FDS9082139889fds7v&78df8732";
+        byte[] bytes = secretString.getBytes();
+        //生成SHA密钥
+        Key key2 = Keys.hmacShaKeyFor(bytes);
+        String encodedKey2 = Base64.getEncoder().encodeToString(key2.getEncoded());
+        System.out.println(encodedKey2);
+    }
+}
+
+</pre>
 
 
+<h1 id="con3" style="text-align: center;">三 解析JWT</h1>
+<p>除了生成JWT之外，jjwt另外一大功能就是根据指定的密钥解析JWT，然后从中可以获取内容。</p>
+<p>解析JWT的主要流程是：</p>
+<ol>
+    <li>使用<code>Jwts.parser()</code>获取一个解析器对象</li>
+    <li>调用解析器的<code>.setSigningKey(key)</code>传入使用的<code>SecretKey</code>对象</li>
+    <li>调用<code>.parseClaimsJws(jwsString)</code>，jwsString是需要解析的JWT字符串.</li>
+    <li>上一步得到的是一个<code>Jws&lt;Claims></code>对象，具体操作看下边：</li>
+</ol>
+<p>前三步基本上是固定的。</p>
+<p>比如使用上一个例子中生成的key2生成一段JWT再解析：</p>
+<pre>
+//生成JWT
+String token = Jwts.builder()
+                .setHeaderParam("saner", "gugug")
+                .setIssuer("cc.conyli")
+                .setSubject("username")
+                .claim("saner", "gugugugu")
+                .signWith(key2)
+                .compact();
+//对应上边的1-3步，解析JWT
+Jws&lt;Claims> claims = Jwts.parser().setSigningKey(key2).parseClaimsJws(token);
 
+//得到的是一个Jws&lt;Claims>对象
+//getBody()和.getHeader()得到的都是生成JWT时候传入的泛型，其实就可以当成Map&lt;String,Object>
+System.out.println(claims.getBody());
+//取出Registered claim有特殊的方法
+System.out.println(claims.getBody().getIssuer());
+//取出自定义的键值就用.get()方法
+System.out.println(claims.getBody().get("saner"));
+System.out.println(claims.getHeader().get("saner"));
+</pre>
+<p>可见解析成功之后，可以分别获得header和claims其中的信息。这样就方便处理，在JWT相关的认证中，就可以通过JWT来携带用户信息。</p>
 
-
-
-
-
-
-
-
-
-
-
-<h1 id="con2" style="text-align: center;">生成JWT</h1>
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h1 id="con3" style="text-align: center;">生成JWT</h1>
-
-
-
-
-
-
-
-
-
-
-
+<h3 id="con31" style="text-align: center;">捕捉异常</h3>
+<p>如果只是解析出数据，逻辑还需要我们自行处理，还是比较麻烦，实际上在解析的过程中，jjwt已经可以做过期检测等操作，如果不符合要求就抛出异常：</p>
+<p>所以一般在解析语句中try-catch一下，就可以知道是否能通过验证。常见的异常有：</p>
+<ol>
+    <li><code>ExpiredJwtException</code>，这个非常常用，说明TOKEN解析成功，但是时间已经超过过期日，这个时候就可以引导用户去登录页。</li>
+    <li><code>UnsupportedJwtException</code>，不是有效的JWT字符串</li>
+    <li><code>SignatureException</code>，key错误</li>
+    <li><code>UnsupportedJwtException</code>，不支持的JWT</li>
+    <li><code>IllegalArgumentException</code>，JWT为空</li>
+</ol>
+<p>一般情况下重点关注JWT的过期问题就可以了。</p>
 
 
 
