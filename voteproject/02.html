@@ -4,101 +4,391 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>JWT鉴权学习</title>
+    <title>开始写项目</title>
+
 </head>
 <body>
 
-<p>试验过了Vue中的Firebase鉴权，现在需要来学习编制自己的后端服务了。</p>
-<p>这里的学习资料来自于：<a href="https://zhuanlan.zhihu.com/p/30155904" target="_blank">前后端分离下的用户认证和鉴权实践</a>以及<a href="https://github.com/waylau/apache-shiro-1.2.x-reference" target="_blank">Shiro中文手册</a>。</p>
+<h1 style="text-align: center;">后端设计</h1>
+<p>先是后端部分：</p>
+<p>暴露如下两个端点：</p>
 <ol>
-    <li><a href="#con1">创建用户、角色和权限表</a></li>
-    <li><a href="#con2">JJWT库</a></li>
+    <li>REST端口，用于获取用户JWT，这个是公开的。路径叫做<code>/auth</code></li>
+    <li>REST端口，用于接受POST进来的投票和请求当前的投票结果，路径叫做<code>/vote</code></li>
 </ol>
-
-<h1 id="con1" style="text-align: center;">表设计</h1>
-<p>用户设计这里，在之前的项目中已经知道了，User--Role--Permission之间的联系。用户对应角色，角色对应具体权限设计。这样可以有效分离解耦。具体权限的设计则需要根据具体业务来进行。</p>
-<p>由于原作者只是提供思路和讲解，在启动项目的时候，我还是选用了SpringBoot，其中就简单配置了LOMBOK，Spring Web MVC和REST，以及JPA，一个简单的REST服务器。</p>
-<ol>
-    <li><a href="#con11">Permission类的设计</a></li>
-    <li><a href="#con12">创建User类</a></li>
-    <li><a href="#con13">创建Role类</a></li>
-    <li><a href="#con14">创建Permission类</a></li>
-    <li><a href="#con15">创建数据表</a></li>
-</ol>
-<p>首先是设计用户表，这里放一下设计图：</p>
-<img src="http://img.conyli.cc/spring/role.jpg" alt="权限表">
-<ol>简单说一下：
-    <li>三个类都要实现序列化接口，并且对应到具体的数据表</li>
-    <li>三个类互相之间都是多对多关系</li>
-</ol>
-
-<h3 style="text-align: center;" id="con11">Permission类的设计</h3>
-<p>对我来说，新的类实际上是Permission类，User类和Role类的都知道，但是Permission该如何设计。</p>
-<p>原文作者给出的建议是：</p>
-<img src="http://img.conyli.cc/spring/permission.jpg" alt="permission">
-<p>除了id之外，字段如下：</p>
-<ol>
-    <li><code>type</code>：资源的类型</li>
-    <li><code>id</code>：特定资源的id</li>
-    <li><code>action</code>：操作类型（GET，DELETE，PUT，POST）</li>
-    <li><code>resource</code>：拼合字符串type:id，比如Project:1</li>
-    <li><code>name</code>：resource字段与action的拼合，比如Project:1:GET。</li>
-</ol>
-<p>这里看懂了作者命名的意思，就像命名空间一样，比如<code>Project:1:GET</code>表示对于Project类的id为1的对象的GET请求。<code>Job:Post</code>表示对于Job对象的POST请求。</p>
-<p>如果是我的话，还可以把id设置为-1，这样就是全部操作。</p>
-
-<h3 style="text-align: center;" id="con12">创建User类</h3>
-<p>User类由于作者没有给出具体的数据格式，只给出了多对多字段，所以我就简单一点，就用户名和密码：</p>
+<p>经过一下午奋战，现在已经编写完成。</p>
+<p><code>/auth</code>接受x-www-formdata的POST请求，如果用户名和密码正确，则会返回一个200响应，并且将TOKEN附带在响应头的<code>Authorization</code>键中返回。</p>
+<p><code>/vote</code>接受GET和PUT请求。</p>
+<p>如果返回403错误，说明TOKEN已经过期，需要重新登录并生成TOKEN。</p>
+<p>携带正确的TOKEN向<code>/vote</code>发起GET请求的时候，如果该用户已经投过票，就会返回包含投票列表的JSON：</p>
 <pre>
-package conyli.cc.jwtbackend.domain;
+{
+    "votes": [
+        {
+            "name": "vote1",
+            "score": 2
+        },
+        {
+            "name": "vote2",
+            "score": 2
+        },
+        {
+            "name": "vote3",
+            "score": 0
+        },
+        {
+            "name": "vote4",
+            "score": 0
+        }
+    ],
+    "username": "jenny2",
+    "voted": true,
+    "expireTimeMilli": 1571500800000
+}
+</pre>
+<p>同时也会包含该用户的<code>voted</code>字段。如果该用户没有投过票，则会返回不带有投票信息的JSON：</p>
+<pre>
+{
+    "votes": [],
+    "username": "jenny12",
+    "voted": false,
+    "expireTimeMilli": 1571500800000
+}
+</pre>
+<p>投票页面所需要的信息基本都在这里了。前端的逻辑是进入首页先检查是否有TOKEN，有TOKEN则去请求页面，没有TOKEN则跳转登录页面，登录成功后自动也进入首页。</p>
+<p>这样显示投票页面的所有数据基本都在这里了。</p>
+<p>写到这里的时候发现现在的设计是前端向后端也发送同样的JSON字符串，但其中的"voted"字段和用户名其实是不需要的，只需要发送投票内容和过期日即可，因为用户名在TOKEN阶段就验证掉了。</p>
+<p>所以这里重构了一下从前端接受的代码，变成先检测过期时间是否正确，检测通过之后再写入Redis。</p>
+<p>前端POST过来的JSON长这个样子：</p>
+<pre>
+{
+    "votes": [
+        {
+            "name": "vote1",
+            "score": 0
+        },
+        {
+            "name": "vote2",
+            "score": 0
+        }
+    ],
+    "currentTime": 1571500800000
+}
+</pre>
+<p>总结一下<code>/vote</code>的响应：</p>
+<ol>
+    <li><code>GET</code>请求返回<code>403</code>表示TOKEN认证失败。</li>
+    <li><code>GET</code>请求返回<code>200</code>表示身份认证成功，未投票用户不返回投票结果，投票用户返回投票结果；必定返回当前用户用户名和过期毫秒数。</li>
+    <li><code>POST</code>请求返回<code>201</code>表示成功投票</li>
+    <li><code>POST</code>请求返回<code>403</code>表示用户尚在冷却时间中，无法投票</li>
+    <li><code>POST</code>请求返回<code>400</code>表示超过过期时间，投票无效</li>
+</ol>
+<p>后端基本上就是这个思路了，感觉API设计的还可以；Redis的使用没有去进行复杂的对象映射，就是通过字符串和有序集合直接搞定了。</p>
+<p>用户注册的部分还没有写。</p>
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+<h1 style="text-align: center;">后端主要代码</h1>
+<p>JWT相关的认证基本上是沿用了上一节自己编写的内容，考虑到未来把前端直接部署在nginx的话，外加设置服务为允许跨域，应该根路径也无需放行了。就更加简化了一些。</p>
+<p>重写的UserDetailsService的实现类，采用MongoDB查询用户：</p>
+<pre>
+package cc.conyli.vote.jwt;
 
-import javax.persistence.*;
+import cc.conyli.vote.dao.UserMongoRepo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import cc.conyli.vote.domain.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Component;
+
+@Component
+public class UserService implements UserDetailsService {
+
+    private Logger logger = LoggerFactory.getLogger(getClass());
+
+    //注入MongoDBRepo
+    private UserMongoRepo userMongoRepo;
+
+    @Autowired
+    public UserService(UserMongoRepo userMongoRepo) {
+        this.userMongoRepo = userMongoRepo;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String s) throws UsernameNotFoundException {
+        //从MongoDb中加载用户，找不到此时就是null
+        User user = userMongoRepo.findByUsername(s);
+
+        //找不到用户直接抛异常导致验证不通过即可
+        if (user == null) {
+            System.out.println("Not found username: " + s);
+            throw new UsernameNotFoundException("Not found username: " + s);
+        }
+        logger.info("UserDetailsService返回的对象是：" + user.toString());
+
+        return user;
+    }
+}
+
+</pre>
+<p>核心的控制器的实现：</p>
+<pre>
+package cc.conyli.vote.controller;
+
+import cc.conyli.vote.config.VoteConfig;
+import cc.conyli.vote.dao.UserMongoRepo;
+import cc.conyli.vote.domain.PostedVote;
+import cc.conyli.vote.domain.User;
+import cc.conyli.vote.domain.Vote;
+import cc.conyli.vote.domain.VoteItem;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Random;
+
+import static org.springframework.data.mongodb.core.query.Criteria.where;
+import static org.springframework.data.mongodb.core.query.Update.update;
+
+/**
+ * /vote路径GET控制器主要作用：
+ * 返回Redis中的投票集合。如果没有，就在Redis中默认创建一个，实际投票的内容，在前端确定，或者后端也可以。这个需要配置在属性文件中。
+ */
+
+@RestController
+@RequestMapping("/vote")
+public class VoteController {
+
+    //注入MongoDB，MongoRepo和mongoTemplate
+    //其实MongoRepo和MongoTemplate用的同一个连接
+    private UserMongoRepo userMongoRepo;
+    private MongoTemplate mongoTemplate;
+    private RedisTemplate&lt;String, String> redisTemplate;
+
+    @Autowired
+    public VoteController(UserMongoRepo userMongoRepo,
+                          MongoTemplate mongoTemplate,
+                          RedisTemplate&lt;String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+        this.userMongoRepo = userMongoRepo;
+        this.mongoTemplate = mongoTemplate;
+    }
+
+    @GetMapping
+    public Vote getVotes(HttpServletRequest request) {
+        //到这里的请求已经是成功取得TOKEN的了，但是还没有投过票，所以需要先投票
+        //判断当前用户是否已经投过票，没有则返回空的投票列表，前端可以去判断不显示投票结果
+        String username = request.getRemoteUser();
+        //获取数据库中该用户是否已经投过票
+        boolean voted = mongoTemplate.findOne(Query.query(where("username").is(username)), User.class).isVoted();
+        //创建一个新Vote对象，只有用户名和是否已经投过票
+        Vote vote = new Vote(username, voted);
+        //如果投过票，给Vote对象设置上Redis查询的结果。如果没有投过票，就不显示Redis查询的投票结果
+        if (voted) {
+           //从REDIS中逐个取出投票的内容，装到Vote对象中
+           VoteConfig.NAMELIST.forEach(name->{
+               double score = redisTemplate.opsForZSet().score(VoteConfig.REDIS_VOTE_KEY, name);
+
+                   int count = (int) score;
+                   VoteItem voteItem = new VoteItem(name, count);
+                   vote.addVoteItem(voteItem);
+           });
+        }
+        return vote;
+    }
+
+    @PostMapping
+    public void postVotes(@RequestBody PostedVote postedVote, HttpServletRequest request, HttpServletResponse response) {
+        //获取当前登录的用户名
+        String username = request.getRemoteUser();
+        //检测是否过期，大于过期时间则返回400错误,小于过期时间则按正常逻辑操作
+        long currentTime = postedVote.getCurrentTime();
+        if (currentTime &lt;= VoteConfig.getExpireTime()) {
+            //检查用户是否已经在冷却中，如果不在，可以投票；如果在冷却，返回403响应，表示投票失败。
+            if (redisTemplate.opsForValue().get(username) != null) {
+                response.setStatus(HttpStatus.FORBIDDEN.value());
+                //前端在收到400响应的时候弹出东西提醒用户投票失败
+                //前端可以考虑解析TOKEN然后在指定的时间后让投票按钮可用
+            } else {
+                //解析Vote中的数据，然后写入Redis中
+                postedVote.getVotes().forEach(voteItem -> {
+                    redisTemplate.opsForZSet().incrementScore(VoteConfig.REDIS_VOTE_KEY, voteItem.getName(), 1);
+                });
+                //将用户名作为键写入Redis，在指定的时间后删除，这样用户可以再行投票
+                redisTemplate.opsForValue().set(username, "1", Duration.ofHours(VoteConfig.cooldownHour));
+                //将用户的voted属性设置为true
+                mongoTemplate.updateFirst(Query.query(where("username").is(username)),update("voted",true), User.class);
+                //返回CREATED 201响应，表示成功投票
+                response.setStatus(HttpStatus.CREATED.value());
+            }
+        } else {
+            //抛出400错误表示过期
+            response.setStatus(HttpStatus.BAD_REQUEST.value());
+        }
+    }
+}
+</pre>
+<p>为了能无缝结合，继承<code>UserDetails</code>的自行实现类<code>User</code>：</p>
+<pre>
+package cc.conyli.vote.domain;
+
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
 
-@Table
-@Entity
-@JsonIgnoreProperties({"roles","permissions"})
-public class User implements Serializable {
+/**
+ * User继承UserDetails，作为自定义的UserDetailsService取出来的User对象
+ * 在验证通过的时候，将这个User对象的信息设置到Authentication对象上
+ * 添加一个voted属性，用来表示该用户是否已经投过票，如果投过票，则可以显示投票结果，否则不返回投票结果，投票的时候则将其设置为true
+ */
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
+@Document
+public class User implements UserDetails, Serializable {
 
-    @Column(name = "username")
+    //标识唯一字段用户名
+    @Indexed(unique = true)
     private String username;
 
-    @Column(name = "password")
     private String password;
 
-    @ManyToMany(cascade = CascadeType.MERGE, fetch = FetchType.LAZY)
-    @JoinTable(name = "user_role", joinColumns = {@JoinColumn(name = "userId", referencedColumnName = "id")},
-            inverseJoinColumns = {@JoinColumn(name = "roleId", referencedColumnName = "id")})
-    private List&lt;Role> roles = new ArrayList&lt;>();
+    private boolean voted;
 
-    @ManyToMany(cascade = CascadeType.MERGE, fetch = FetchType.LAZY)
-    @JoinTable(name = "user_permission", joinColumns = {@JoinColumn(name = "userId", referencedColumnName = "id")},
-            inverseJoinColumns = {@JoinColumn(name = "permissionId", referencedColumnName = "id")})
-    private List&lt;Permission> permissions = new ArrayList&lt;>();
+    private Collection&lt;? extends GrantedAuthority> authorities;
+
+    //这里简单一点，先返回一个权限列表，其中只有ROLE_USER权限
+    @Override
+    public Collection&lt;? extends GrantedAuthority> getAuthorities() {
+        String role = "ROLE_USER";
+        Collection&lt;GrantedAuthority> authorities = new ArrayList&lt;>();
+        authorities.add(new SimpleGrantedAuthority(role));
+        return authorities;
+    }
+
+    public User(String username, String password, Collection&lt;? extends GrantedAuthority> authorities) {
+        this.username = username;
+        this.password = password;
+        this.authorities = authorities;
+        this.voted = false;
+    }
+
+    public void setAuthorities(Collection&lt;? extends GrantedAuthority> authorities) {
+        this.authorities = authorities;
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+
+    @Override
+    public String getUsername() {
+        return username;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
 
     @Override
     public String toString() {
         return "User{" +
-                "id=" + id +
-                ", username='" + username + '\'' +
-                ", password='" + password + '\'' +
+                "username='" + username + '\'' +
+                ", voted=" + voted +
+                ", authorities=" + authorities +
                 '}';
     }
 
-    public long getId() {
-        return id;
+    public boolean isVoted() {
+        return voted;
     }
 
-    public void setId(long id) {
-        this.id = id;
+    public void setVoted(boolean voted) {
+        this.voted = voted;
+    }
+}
+</pre>
+<p>剩下的主要是两个在前后端传递数据的类，<code>Vote</code>用于后端向前端返回投票情况，<code>PostedVote</code>用于接受前端的投票POST请求：</p>
+<pre>
+package cc.conyli.vote.domain;
+
+import cc.conyli.vote.config.VoteConfig;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Vote类，用于向前端返回投票情况和附加信息
+ * votes表示一个列表，用于保存被投票的项目和票数
+ * username用为用户名
+ * expireTimeMilli为投票截止时间的毫秒
+ * voted表示该用户是否投过票，所有用户默认都是未投票状态，在成功投票之后改为true
+ */
+
+public class Vote {
+
+    private List&lt;VoteItem> votes = new ArrayList&lt;>();
+
+    private String username;
+
+    private boolean voted;
+
+    private long expireTimeMilli = VoteConfig.getExpireTime();
+
+    public Vote(String username, boolean voted) {
+        this.username = username;
+        this.voted = voted;
+    }
+
+    public List&lt;VoteItem> getVotes() {
+        return votes;
+    }
+
+    public void setVotes(List&lt;VoteItem> votes) {
+        this.votes = votes;
     }
 
     public String getUsername() {
@@ -109,90 +399,78 @@ public class User implements Serializable {
         this.username = username;
     }
 
-    public String getPassword() {
-        return password;
+    public boolean isVoted() {
+        return voted;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    public void setVoted(boolean voted) {
+        this.voted = voted;
     }
 
-    public List&lt;Role> getRoles() {
-        return roles;
+    public void addVoteItem(VoteItem voteItem) {
+        this.votes.add(voteItem);
     }
 
-    public void setRoles(List&lt;Role> roles) {
-        this.roles = roles;
+    public long getExpireTimeMilli() {
+        return expireTimeMilli;
     }
 
-    public List&lt;Permission> getPermissions() {
-        return permissions;
-    }
-
-    public void setPermissions(List&lt;Permission> permissions) {
-        this.permissions = permissions;
+    public void setExpireTimeMilli(long expireTimeMilli) {
+        this.expireTimeMilli = expireTimeMilli;
     }
 }
 </pre>
-<p>由于数据库要到最后一起创建，所以这里先记录下来User表的内容：</p>
-<ol>
-    <li><code>id</code>，LONG类型</li>
-    <li><code>username</code>，字符串类型</li>
-    <li><code>password</code>，字符串类型</li>
-    <li><code>roles</code>，与Role类的多对多字段，中间表名称叫做<code>user_role</code>，两个外键名称是<code>userId</code>和<code>roleId</code>。</li>
-    <li><code>permissions</code>，与Permission类的多对多字段，中间表名称叫做<code>user_permission</code>，两个外键名称是<code>userId</code>和<code>permissionId</code>。</li>
-</ol>
-
-<h3 style="text-align: center;" id="con13">创建Role类</h3>
-<p>Role类其实就是一个角色的名称，没有其他具体的配置：</p>
 <pre>
-package conyli.cc.jwtbackend.domain;
+package cc.conyli.vote.domain;
 
-import org.hibernate.annotations.CollectionId;
-import org.hibernate.annotations.Type;
-
-import javax.persistence.*;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-@Table
-@Entity
-public class Role implements Serializable {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
+/**
+ * PostedVote类，用于对应从前端POST进来的JSON对象
+ * votes表示一个列表，用于保存被投票的项目
+ * currentTime 前端传递进来的实际投票时间的毫秒数
+ */
+
+public class PostedVote {
+
+    private List&lt;VoteItem> votes = new ArrayList&lt;>();
+
+    private long currentTime;
+
+    public List&lt;VoteItem> getVotes() {
+        return votes;
+    }
+
+    public void setVotes(List&lt;VoteItem> votes) {
+        this.votes = votes;
+    }
+
+    public long getCurrentTime() {
+        return currentTime;
+    }
+
+    public void setCurrentTime(long currentTime) {
+        this.currentTime = currentTime;
+    }
+}
+</pre>
+<p>以及一个很简单，存放投票名称和票数的<code>VoteItem</code>类：</p>
+<pre>
+package cc.conyli.vote.domain;
+
+public class VoteItem {
 
     private String name;
 
-    //设置过了User_Role的多对多关系，直接使用mappedBy即可
-    @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY)
-    private List&lt;User> users = new ArrayList&lt;>();
+    private int score;
 
-    @ManyToMany(cascade = CascadeType.MERGE,fetch = FetchType.LAZY)
-    @JoinTable(name = "role_permission",
-            joinColumns = {@JoinColumn(name = "roleId",referencedColumnName = "id")},
-            inverseJoinColumns = {@JoinColumn(name = "permissionId",referencedColumnName = "id")})
-    //CollectionId是什么意思，需要看一下，感觉就是直接创建一个id的集合。Hibernate没那么容易
-    @CollectionId(columns = @Column(name = "id"),
-            type = @Type(type = "long"),
-            generator = "identity")
-    private List&lt;Permission> permissions = new ArrayList&lt;>();
-
-    @Override
-    public String toString() {
-        return "Role{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                '}';
+    public VoteItem(String name, int score) {
+        this.name = name;
+        this.score = score;
     }
 
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
+    public VoteItem() {
     }
 
     public String getName() {
@@ -203,241 +481,93 @@ public class Role implements Serializable {
         this.name = name;
     }
 
-    public List&lt;User> getUsers() {
-        return users;
+    public int getScore() {
+        return score;
     }
 
-    public void setUsers(List&lt;User> users) {
-        this.users = users;
+    public void setScore(int score) {
+        this.score = score;
     }
-
-    public List&lt;Permission> getPermissions() {
-        return permissions;
-    }
-
-    public void setPermissions(List&lt;Permission> permissions) {
-        this.permissions = permissions;
-    }
-}
-</pre>
-
-<h3 style="text-align: center;" id="con14">创建Permission类</h3>
-<p>这个类除了两个多对多外键之外，就是刚才说的要配置的属性：</p>
-<pre>
-package conyli.cc.jwtbackend.domain;
-
-
-import javax.persistence.*;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-
-@Table
-@Entity
-public class Permission implements Serializable {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
-
-    private String name;
-
-    //这个是ResourceType，我估计可能要通过判断资源的.getClass().getSimpleName()的名称来确定
-    private String type;
-
-    private String resource;
-
-    //这里是ACTION TYPE，可以用ENUM，我简单用了字符串
-    private String action;
-
-    @ManyToMany(mappedBy = "permissions",fetch = FetchType.LAZY)
-    private List&lt;Role> roles = new ArrayList&lt;>();
-
-    @ManyToMany(mappedBy = "permissions",fetch = FetchType.LAZY)
-    private List&lt;User> users = new ArrayList&lt;>();
 
     @Override
     public String toString() {
-        return "Permission{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", type='" + type + '\'' +
-                ", resource='" + resource + '\'' +
-                ", action='" + action + '\'' +
+        return "VoteItem{" +
+                "name='" + name + '\'' +
+                ", score=" + score +
                 '}';
-    }
-
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public String getResource() {
-        return resource;
-    }
-
-    public void setResource(String resource) {
-        this.resource = resource;
-    }
-
-    public String getAction() {
-        return action;
-    }
-
-    public void setAction(String action) {
-        this.action = action;
-    }
-
-    public List&lt;Role> getRoles() {
-        return roles;
-    }
-
-    public void setRoles(List&lt;Role> roles) {
-        this.roles = roles;
-    }
-
-    public List&lt;User> getUsers() {
-        return users;
-    }
-
-    public void setUsers(List&lt;User> users) {
-        this.users = users;
     }
 }
 </pre>
-
-<h3 style="text-align: center;" id="con15">创建数据表</h3>
-<p>数据库的结构在这里：</p>
+<p>用<code>VoteItem</code>再封装一下，没有直接用一个<code>Map</code>数据对象，也是考虑到前端拿到以后可以方便的排序，既可以保持原状按照后端投票项目的顺序，也可以自行按照投票数量排序。</p>
+<p>最后是一个配置类，用来保存一些配置，以及初始化投票情况：</p>
 <pre>
-/*
-Navicat MySQL Data Transfer
+package cc.conyli.vote.config;
 
-Source Server         : springstudent
-Source Server Version : 50722
-Source Host           : localhost:3306
-Source Database       : jwt
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.RedisTemplate;
 
-Target Server Type    : MYSQL
-Target Server Version : 50722
-File Encoding         : 65001
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 
-Date: 2019-05-27 13:24:16
-*/
+/**
+ * 存放投票项目的基础配置
+ */
+@Configuration
+public class VoteConfig {
+    //用户TOKEN的有效期
+    public static final long EXPIRETIME = 1200000L;
 
-SET FOREIGN_KEY_CHECKS=0;
+    //用户再次投票的冷却小时
+    public static final int cooldownHour = 24;
 
--- ----------------------------
--- Table structure for permission
--- ----------------------------
-DROP TABLE IF EXISTS `permission`;
-CREATE TABLE `permission` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) DEFAULT NULL,
-  `type` varchar(255) DEFAULT NULL,
-  `resource` varchar(255) DEFAULT NULL,
-  `action` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4;
+    //投票截至时间的年月日时分数值
+    private static int EXPIRE_YEAR = 2019;
+    private static int EXPIRE_MONTH = 10;
+    private static int EXPIRE_DAYOFMONTH = 20;
+    private static int EXPIRE_HOUR = 0;
+    private static int EXPIRE_MINUTE = 0;
 
--- ----------------------------
--- Table structure for role
--- ----------------------------
-DROP TABLE IF EXISTS `role`;
-CREATE TABLE `role` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4;
+    //REDIS存放投票集合的键名
+    public static final String REDIS_VOTE_KEY = "vote";
 
--- ----------------------------
--- Table structure for role_permission
--- ----------------------------
-DROP TABLE IF EXISTS `role_permission`;
-CREATE TABLE `role_permission` (
-  `role_id` bigint(20) NOT NULL,
-  `permission_id` bigint(20) NOT NULL,
-  KEY `role_fk_1` (`role_id`),
-  KEY `permission_fk_1` (`permission_id`),
-  CONSTRAINT `permission_fk_1` FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-  CONSTRAINT `role_fk_1` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    //MongoDB的数据库名称
+    public static final String MONGO_DATABASE_NAME = "vote";
 
--- ----------------------------
--- Table structure for user
--- ----------------------------
-DROP TABLE IF EXISTS `user`;
-CREATE TABLE `user` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `username` varchar(255) NOT NULL,
-  `password` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4;
+    //MongoDB的主机地址
+    public static final String MONGO_HOST_ADDRESS = "localhost";
 
--- ----------------------------
--- Table structure for user_permission
--- ----------------------------
-DROP TABLE IF EXISTS `user_permission`;
-CREATE TABLE `user_permission` (
-  `user_id` bigint(20) NOT NULL,
-  `permission_id` bigint(20) NOT NULL,
-  KEY `user_fk_2` (`user_id`),
-  KEY `permisson_fk_2` (`permission_id`),
-  CONSTRAINT `permisson_fk_2` FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-  CONSTRAINT `user_fk_2` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    //各个投票项目的名称列表
+    public static List&lt;String> NAMELIST = new ArrayList&lt;>();
 
--- ----------------------------
--- Table structure for user_role
--- ----------------------------
-DROP TABLE IF EXISTS `user_role`;
-CREATE TABLE `user_role` (
-  `user_id` bigint(20) NOT NULL,
-  `role_id` bigint(20) NOT NULL,
-  KEY `user_fk` (`user_id`),
-  KEY `role_fk` (`role_id`),
-  CONSTRAINT `role_fk` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-  CONSTRAINT `user_fk` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    //返回到期日的毫秒数，用于传递给前端
+    public static long getExpireTime() {
+        return LocalDateTime.of(EXPIRE_YEAR, EXPIRE_MONTH, EXPIRE_DAYOFMONTH, EXPIRE_HOUR, EXPIRE_MINUTE).toInstant(ZoneOffset.of("+8")).toEpochMilli();
+    }
 
+    //注入redisTemplate
+    private RedisTemplate&lt;String, String> redisTemplate;
+
+    //启动项目如果Redis中有数据，清空这个键对应的全部数据；然后设置所有的投票项目票数为0，
+    @Autowired
+    public VoteConfig(RedisTemplate&lt;String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+
+        NAMELIST.add("vote1");
+        NAMELIST.add("vote2");
+        NAMELIST.add("vote3");
+        NAMELIST.add("vote4");
+        redisTemplate.opsForZSet().removeRange(VoteConfig.REDIS_VOTE_KEY, 0, -1);
+        NAMELIST.forEach(name -> this.redisTemplate.opsForZSet().add(VoteConfig.REDIS_VOTE_KEY, name, 0));
+    }
+}
 </pre>
-<p>之后创建三个类对应的<code>JPARepository</code>接口，然后就可以启动项目，输入一些数据后，在<code>/rest/users</code>等路径下查看，测试表和配置是否正确。</p>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<p>剩下都是一些小的辅助类，就不放了。</p>
+<p>前后端分离的情况下，感觉后端一点工作也没有变少，对于业务和前后端交互的方式，都映射到对象上的等各种考虑就更加多了。还要仔细编写控制器来返回不同的状态码交给前端。</p>
+<p>我这里还没有自定义一些异常类进行返回。不过写出来这样一个后端，感觉还算可以。</p>
+<p>现在后端基本上OK了，开始写前端，突然发现用Vue写前端对我的挑战好像比后端还大一些，因为从来还没有用Vue正式的写过项目，战斗吧！</p>
 
 
 
