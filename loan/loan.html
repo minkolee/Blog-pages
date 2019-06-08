@@ -6,67 +6,84 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.bootcss.com/twitter-bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
     <title>贷款主要条款</title>
-
 </head>
 <body>
 <div class="container">
-<table class="table table-striped table-bordered">
-    <thead>
-    <tr>
-        <th>批复内容</th>
-        <th>我方现状</th>
-        <th>批复修改需求</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-        <td>授信50亿， 一级29.5亿+ 二级20.5亿</td>
-        <td>一级目前银团放款28.3457亿，估计还要支付1.6亿动迁款，可能在二级之前还有两个季度利息大概7200万，估计了一下一级总的需要30.64亿左右</td>
-        <td>一级额度提到31亿元</td>
-    </tr>
-    <tr>
-        <td>利率在批复里写的较模糊</td>
-        <td>我在问综合成本</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>担保：<ol>
-            <li>新湖地产集团有限公司和新湖中宝股份有限公司提供连带责任保证担保</li>
-            <li>由黄伟、李萍夫妇提供个人连带责任保证担保</li>
-            <li>二级阶段土地证，在建工程抵押</li>
-        </ol></td>
-        <td>
-            最好能不让新湖中宝提供担保
-        </td>
-        <td>不让中宝提供担保</td>
-    </tr>
+    <table class="table table-striped table-bordered">
+        <thead>
+        <tr>
+            <th>批复内容</th>
+            <th>我方现状</th>
+            <th>批复修改需求</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>授信50亿， 一级29.5亿+ 二级20.5亿</td>
+            <td>一级目前银团放款28.3457亿，估计还要支付1.6亿动迁款，可能在二级之前还有两个季度利息大概7200万，估计了一下一级总的需要30.64亿左右</td>
+            <td>一级额度提到31亿元</td>
+        </tr>
+        <tr>
+            <td>利率在批复里写的较模糊</td>
+            <td>我在问综合成本</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>担保：
+                <ol>
+                    <li>新湖地产集团有限公司和新湖中宝股份有限公司提供连带责任保证担保</li>
+                    <li>由黄伟、李萍夫妇提供个人连带责任保证担保</li>
+                    <li>二级阶段土地证，在建工程抵押</li>
+                </ol>
+            </td>
+            <td>
+                最好能不让新湖中宝提供担保
+            </td>
+            <td>不让中宝提供担保</td>
+        </tr>
 
-    <tr>
-        <td>开发阶段的资本金比例不低于开发阶段总投资的25%，且资本金先于银团贷款到位并投入项目使用</td>
-        <td>二级资本金比例20%，同比例到位。</td>
-        <td>同比例到位是关键，还得协商。</td>
-    </tr>
-    <tr>
-        <td>我行贷款未全部清偿前,不得归还工银瑞信投资管理有限公司提供的2.8亿元委托贷款及支付委托贷款利息</td>
-        <td>是不是可以想办法置换</td>
-        <td>这个需要再谈</td>
-    </tr>
+        <tr>
+            <td>开发阶段的资本金比例不低于开发阶段总投资的25%，且资本金先于银团贷款到位并投入项目使用</td>
+            <td>二级资本金比例20%，同比例到位。</td>
+            <td>同比例到位是关键，还得协商。</td>
+        </tr>
+        <tr>
+            <td>我行贷款未全部清偿前,不得归还工银瑞信投资管理有限公司提供的2.8亿元委托贷款及支付委托贷款利息</td>
+            <td>是不是可以想办法置换</td>
+            <td>这个需要再谈</td>
+        </tr>
 
-    <tr>
-        <td>项目按揭贷款全部由我行续作（我行主动放弃的除外）；</td>
-        <td>这个条件我觉得有点太强势</td>
-        <td>可以作为与招行谈判的条件</td>
-    </tr>
-    </tbody>
+        <tr>
+            <td>项目按揭贷款全部由我行续作（我行主动放弃的除外）；</td>
+            <td>这个条件我觉得有点太强势</td>
+            <td>可以作为与招行谈判的条件</td>
+        </tr>
+        </tbody>
 
-</table>
+    </table>
 </div>
 
+<button onclick="clickHandler()">发送异步请求测试</button>
 
 
-
-
-
-
+<script src="https://cdn.bootcss.com/axios/0.19.0/axios.min.js"></script>
+<script>
+    function clickHandler() {
+        axios.post('http://localhost:8082/api/token',{
+            username: 'jenny657',
+            password: "saner"
+        },{
+            headers :{
+                "Content-type": "application/json"
+            }
+        })
+            .then(response => {
+                console.log(response);
+            })
+            .catch(error => {
+                console.log(error);
+            });
+    }
+</script>
 </body>
 </html>

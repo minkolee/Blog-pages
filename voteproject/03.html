@@ -4,13 +4,19 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>投票项目前端</title>
+    <title>继续开发</title>
 </head>
 <body>
 <p>一上来其实我前端是有点懵逼的，压根没想好怎么写。</p>
 <p>倒不是懵逼在项目的样式怎么配，好看不好看这种问题，而是Vue才刚刚看完，还没有写过什么实际项目，这次就要直接上了，逻辑有点混乱，不过确实刺激。</p>
 <p>想了一下，既然逻辑还不是很清晰，就先从最简单的入手，想象一下页面进来以后会发生什么事情，然后一点一点实现就可以了。</p>
-<h1>项目初始化</h1>
+<ol>
+    <li><a href="#con1">前端设计</a></li>
+    <li><a href="#con2">后端重构</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">前端设计</h1>
 <p>麻雀虽小，五脏俱全，通过Vue-CLI 3直接创建项目，然后导入bootstrap 和依赖的jquery和popper.js库：</p>
 <pre>
 npm install bootstrap --save
@@ -64,6 +70,38 @@ import "popper.js/dist/popper.min"
         </ol>
     </li>
 </ol>
+<p>这样设计之后，Vue开发的过程在我脑子里基本形成了URL--》视图逻辑--》载入数据--》分发给组件。仔细想了一下，其实和后端有异曲同工之妙，因为前端切换视图在传统后端里等于访问不同的URL，自然就是加载数据的过程，然后把数据放到页面上渲染出来的过程，就是载入数据然后分发给组件进行渲染的过程。</p>
+<p>一对比，前端的逻辑就清晰好多了。</p>
+<p>不过实际编写的时候，发现跨域的问题还是比较麻烦，所以决定重构一下后端，将所有的请求放行到控制器中来进行处理，这样可以比较方便的处理跨域问题，同时使用Spring Security来简单允许跨域。</p>
+
+<h1 id="con2" style="text-align: center;">重构后端</h1>
+<p>这一次决定采用在控制器中返回REST的方法，主要有如下考虑：</p>
+<ol>
+    <li>现在返回的错误信息太不标准化，不利用前端渲染数据</li>
+    <li>原来的后端，登录请求需要发送POST的x-www-formdata数据，如果改用控制器，就可以接受JSON字符串，比较方便</li>
+    <li>登录成功之后返回给前端的内容，除了TOKEN和用户名，投票与否，再加上上次投票的时间</li>
+    <li>错误信息原来依靠各种自行设计的响应码，不是很好，这次正好一并设计自己的异常对象并带有错误信息返回，让前端可以方便渲染。</li>
+</ol>
+<p>这次还发现Spring Security的跨域似乎有问题，开了之后就连不上，可能是因为还有其他的过滤器在发挥作用。</p>
+<p>这次既然前后端分离，就不弄Spring Security了，还是都写到控制器里去。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
