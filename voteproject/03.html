@@ -13,6 +13,9 @@
 <ol>
     <li><a href="#con1">前端设计</a></li>
     <li><a href="#con2">后端重构</a></li>
+    <li><a href="#con21">重构用户和TOKEN部分</a></li>
+    <li><a href="#con22">重构获取投票结果部分</a></li>
+    <li><a href="#con23">重构进行投票的部分</a></li>
 </ol>
 
 
@@ -72,7 +75,9 @@ import "popper.js/dist/popper.min"
 </ol>
 <p>这样设计之后，Vue开发的过程在我脑子里基本形成了URL--》视图逻辑--》载入数据--》分发给组件。仔细想了一下，其实和后端有异曲同工之妙，因为前端切换视图在传统后端里等于访问不同的URL，自然就是加载数据的过程，然后把数据放到页面上渲染出来的过程，就是载入数据然后分发给组件进行渲染的过程。</p>
 <p>一对比，前端的逻辑就清晰好多了。</p>
-<p>不过实际编写的时候，发现跨域的问题还是比较麻烦，所以决定重构一下后端，将所有的请求放行到控制器中来进行处理，这样可以比较方便的处理跨域问题，同时使用Spring Security来简单允许跨域。</p>
+<p>不过实际编写的时候，发现细节问题还是很多，所以决定重构一下后端，将所有的请求放行到控制器中来进行处理，这样可以比较方便的处理跨域问题，同时使用Spring Security来简单允许跨域。</p>
+<p>另外看了刘架构分享的<a href="https://mp.weixin.qq.com/s/7_M6RonRpE7vTErIua3nvQ" target="_blank">尤雨溪 6 月 4 日的 Vue 技术分享</a>，然后简单看了一下其中提到的<code>Vuetify</code>库，发现风格是扁平化的，很对我口味。真的不像再对着BootStrap那套玩意了。决定借写前端的机会也用一下这个库。</p>
+
 
 <h1 id="con2" style="text-align: center;">重构后端</h1>
 <p>这一次决定采用在控制器中返回REST的方法，主要有如下考虑：</p>
@@ -82,31 +87,480 @@ import "popper.js/dist/popper.min"
     <li>登录成功之后返回给前端的内容，除了TOKEN和用户名，投票与否，再加上上次投票的时间</li>
     <li>错误信息原来依靠各种自行设计的响应码，不是很好，这次正好一并设计自己的异常对象并带有错误信息返回，让前端可以方便渲染。</li>
 </ol>
-<p>这次还发现Spring Security的跨域似乎有问题，开了之后就连不上，可能是因为还有其他的过滤器在发挥作用。</p>
-<p>这次既然前后端分离，就不弄Spring Security了，还是都写到控制器里去。</p>
+<p>这次发现后端设置Spring Security的时候，无需配置跨域，只需要设置<code>http.cors()</code>即可，这样会将跨域请求交给Spring MVC处理，这样在控制器上就可以用<code>@CrossOrigin</code>来方便灵活的控制跨域。</p>
+
+<h3 id="con21" style="text-align: center;">重构用户和TOKEN部分</h3>
+<p>首先是将用户请求放行到控制器里来，那么就取消了Spring Security的验证，针对需要放行的api单独设置好，然后禁止其他所有请求。</p>
+<pre>
+package cc.conyli.votebackend.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .cors()
+                .and()
+                .csrf().disable()
+                .authorizeRequests()
+                .antMatchers("/api/token").permitAll()
+                .antMatchers("/api/add").permitAll()
+                .anyRequest().denyAll()
+                .and()
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+    }
+
+//如果设置了http.cors()，跨域就会交给SpringMVC来控制，没有必要写下边的CORS配置
+//    @Bean
+//    CorsConfigurationSource corsConfigurationSource()
+//    {
+//        CorsConfiguration configuration = new CorsConfiguration();
+//        configuration.setAllowedOrigins(Arrays.asList("*"));
+//        configuration.setAllowedMethods(Arrays.asList("GET","POST", "OPTIONS"));
+//        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+//        source.registerCorsConfiguration("/**", configuration);
+//        return source;
+//    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+</pre>
+<p>这里注释掉的部分，根据<a href="https://docs.spring.io/spring-security/site/docs/5.1.5.RELEASE/reference/htmlsingle/#cors" target="_blank">Spring官网文档上允许Spring Security支持跨域请求的设置</a>，但是不能加上去，否则会导致Spring Security拦截跨域请求，会造成奇怪的错误。具体可以看文档这句：</p>
+<code>If you are using Spring MVC’s CORS support, you can omit specifying the CorsConfigurationSource and Spring Security will leverage the CORS configuration provided to Spring MVC.</code>
+<pre>
+@EnableWebSecurity
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+            // if Spring MVC is on classpath and no CorsConfigurationSource is provided,
+            // Spring Security will use CORS configuration provided to Spring MVC
+            .cors().and()
+            ...
+    }
+}
+</pre>
+<p>之后重新编写JWTUtils类，将生成TOKEN和设置响应头的部分都放进来：</p>
+<pre>
+package cc.conyli.votebackend.support;
+
+import cc.conyli.votebackend.config.VoteConfig;
+import cc.conyli.votebackend.domain.User;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+
+import javax.servlet.http.HttpServletResponse;
+import java.security.Key;
+import java.util.Base64;
+import java.util.Date;
+
+@Component
+public class JWTUtils {
+
+    private static final Key KEY = Keys.hmacShaKeyFor(VoteConfig.JWT_SECRET_RAW_STRING.getBytes());
+
+    static Key getKey() {
+        return JWTUtils.KEY;
+    }
+
+    public String getKeyString() {
+        return Base64.getEncoder().encodeToString(KEY.getEncoded());
+    }
+
+    public static String getToken(User user) {
+        return Jwts.builder()
+                .setSubject(user.getUsername())
+                .setIssuer(VoteConfig.TOKEN_ISSUER)
+                .setExpiration(new Date(System.currentTimeMillis() + VoteConfig.TOKEN_EXPIRE_TIME))
+                .signWith(JWTUtils.getKey())
+                .compact();
+    }
+
+    public static void setJWTHeader(String token, HttpServletResponse response) {
+        <span style="color: red">response.setHeader("Access-Control-Expose-Headers","Authorization");</span>
+        response.setHeader(VoteConfig.TOKEN_HEADER, token);
+        response.setStatus(HttpStatus.OK.value());
+    }
+}
+</pre>
+<p>其中要特别注意红色这行，由于跨域请求的标准限值，服务器不加上这个设置的话，axios发送的请求就收不到Authorization头部信息。</p>
+<p>关于验证JWT TOKEN的代码属于投票业务的逻辑，待之后来补充。</p>
+<p>然后是重写了<code>User</code>类，以及一个专门用于接受前端数据的<code>UserPostedIn</code>类，本来想搞一下继承，后来发现复杂度不高，没有这个必要，就没搞。两个类如下：</p>
+<pre>
+package cc.conyli.votebackend.domain;
+
+import com.fasterxml.jackson.annotation.JsonView;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import javax.validation.constraints.NotBlank;
+
+@Document
+public class User {
+
+    public interface userSimpleView {}
+
+    public interface userDetailView extends userSimpleView {}
+
+    @JsonView(userSimpleView.class)
+    @NotBlank(message = "用户名不能为空")
+    @Indexed(unique = true)
+    private String username;
+
+    @NotBlank(message = "密码不能为空")
+    @JsonView(userDetailView.class)
+    private String password;
+
+    @JsonView(userSimpleView.class)
+    private boolean voted = false;
+
+    @JsonView(userSimpleView.class)
+    private long lastVotedAt = 0;
 
 
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public boolean isVoted() {
+        return voted;
+    }
+
+    public void setVoted(boolean voted) {
+        this.voted = voted;
+    }
+
+    public long getLastVotedAt() {
+        return lastVotedAt;
+    }
+
+    public void setLastVotedAt(long lastVotedAt) {
+        this.lastVotedAt = lastVotedAt;
+    }
+
+    public User() {
+    }
+
+    public User(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
+
+    public User(String username, String password, long lastVotedAt) {
+        this(username, password);
+        this.lastVotedAt = lastVotedAt;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "username='" + username + '\'' +
+                ", voted=" + voted +
+                ", lastVotedAt=" + lastVotedAt +
+                '}';
+    }
+}
+</pre>
+<pre>
+package cc.conyli.votebackend.domain;
+
+import javax.validation.constraints.NotBlank;
+
+public class UserPostedIn {
+
+    private String username;
+
+    private String password;
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public UserPostedIn() {
+    }
+
+    public UserPostedIn(@NotBlank(message = "用户名不能为空") String username, @NotBlank(message = "密码不能为空") String password) {
+        this.username = username;
+        this.password = password;
+    }
+
+    @Override
+    public String toString() {
+        return "UserPostedIn{" +
+                "username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>最后是控制器，配置<code>mongoTemplate</code>和<code>redisConnectionFactory</code>两个<code>Bean</code>的类就省略了。</p>
+<pre>
+@RestController
+@RequestMapping("/api")
+public class VoteController {
+
+    private Logger logger = LoggerFactory.getLogger(getClass());
+
+    private MongoTemplate mongoTemplate;
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    public VoteController(MongoTemplate mongoTemplate, PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
+        this.mongoTemplate = mongoTemplate;
+    }
+
+    @CrossOrigin(allowCredentials = "true")
+    @PostMapping(value = "/token", consumes = "application/json")
+    @JsonView(User.userSimpleView.class)
+    public User getToken(@RequestBody UserPostedIn userPostedIn, HttpServletRequest request, HttpServletResponse response) {
+
+        User user = mongoTemplate.findOne(Query.query(where("username").is(userPostedIn.getUsername())), User.class);
+        if (user == null) {
+            response.setStatus(HttpStatus.NOT_FOUND.value());
+            return null;
+        } else {
+            if (passwordEncoder.matches(userPostedIn.getPassword(), user.getPassword())) {
+                JWTUtils.setJWTHeader(JWTUtils.getToken(user), response);
+                return user;
+            } else {
+                response.setStatus(HttpStatus.NOT_FOUND.value());
+                return null;
+            }
+        }
+    }
+}
+</pre>
+
+<h3 id="con22" style="text-align: center;">重构获取投票结果部分</h3>
+<p>这里主要是重新编写控制器方法，确定精简返回投票结果的对象。</p>
+<p>首先是解析JWT的方法，写在JWTUtils类中：</p>
+<pre>
+    public static Map&lt;String, String> parseToken(String token) {
+        Jws&lt;Claims> jws = Jwts.parser().setSigningKey(JWTUtils.getKey()).parseClaimsJws(token);
+        Map&lt;String, String> tokenMap = new HashMap&lt;>();
+        tokenMap.put("username", jws.getBody().getSubject());
+        tokenMap.put("issuer", jws.getBody().getIssuer());
+        tokenMap.put("expire",((Long)jws.getBody().getExpiration().getTime()).toString());
+        return tokenMap;
+    }
+</pre>
+<p>这个方法很简单，想了一下就用一个Map对象把解析出来的东西封装一下。除了username之外，其他两个数据暂时还没什么用处。</p>
+<p>有了解析JWT的方法，就可以编写控制器方法了：</p>
+<pre>
+@CrossOrigin(allowCredentials = "true")
+@GetMapping("/vote")
+public Vote getVote(HttpServletRequest request, HttpServletResponse response) {
+
+    //1 尝试从Header中取得JWT TOKEN，如果没有，返回401错误
+    String token = request.getHeader("Authorization");
+    if (token == null) {
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        return null;
+    }
+
+    //2 解析JWT并取得一个Map对象。如果解析出错，返回401错误和空响应
+    Map&lt;String, String> tokenMap;
+    //解析TOKEN 不成功就返回401错误和空响应
+    try {
+        tokenMap = JWTUtils.parseToken(token);
+    } catch (Exception ex) {
+        logger.info(ex.toString());
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        return null;
+    }
+
+    //3 检测用户的.isVoted。 false返回空的VoteItem，true返回带有数据的VoteItem
+    //3-1检测用户是不是存在，不存在则返回401错误+空响应
+    User user = mongoTemplate.findOne(Query.query(where("username").is(tokenMap.get("username"))), User.class);
+
+    if (user == null) {
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        return null;
+    }
+
+    //4 如果用户已经投过票，组装Vote对象并返回
+    if (user.isVoted()) {
+        Vote vote = new Vote();
+        //组装Vote对象的List&lt;VoteItem> votes属性
+        VoteConfig.NAMELIST.forEach(name -> {
+            Object score = redisTemplate.opsForZSet().score(VoteConfig.REDIS_VOTE_KEY, name);
+            double count = 0;
+            if (score != null) {
+                count = Math.floor((double)score);
+            }
+            VoteItem voteItem = new VoteItem(name, count);
+            vote.addVoteItem(voteItem);
+        });
+        //统计投票的合计数并设置在VoteItem上
+        double totalScore = 0;
+        for (VoteItem voteItem : vote.getVotes()) {
+            totalScore += voteItem.getScore();
+        }
+        vote.setTotalVotes(totalScore);
+        return vote;
+    } else {
+        //用户没有投过票，返回404响应,响应体为空
+        response.setStatus(HttpStatus.NOT_FOUND.value());
+        return null;
+    }
+}
+</pre>
+<p>然后是几个domain类：</p>
+<pre>
+package cc.conyli.votebackend.domain;
+
+import cc.conyli.votebackend.config.VoteConfig;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
+public class Vote {
+
+    private List&lt;VoteItem> votes = new ArrayList&lt;>();
+
+    private long expireTime = VoteConfig.getVoteEndTime();
+
+    private double totalVotes = 0;
 
 
+    public List&lt;VoteItem> getVotes() {
+        return votes;
+    }
+
+    public void setVotes(List&lt;VoteItem> votes) {
+        this.votes = votes;
+    }
+
+    public void addVoteItem(VoteItem voteItem) {
+        this.votes.add(voteItem);
+    }
 
 
+    public double getTotalVotes() {
+        return totalVotes;
+    }
+
+    public void setTotalVotes(double totalVotes) {
+        this.totalVotes = totalVotes;
+    }
+}
+</pre>
+<pre>
+package cc.conyli.votebackend.domain;
+
+public class VoteItem {
+
+    private String name;
+
+    private double score;
+
+    public VoteItem(String name, double score) {
+        this.name = name;
+        this.score = score;
+    }
+
+    public VoteItem() {
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public double getScore() {
+        return score;
+    }
+
+    public void setScore(double score) {
+        this.score = score;
+    }
+
+    @Override
+    public String toString() {
+        return "VoteItem{" +
+                "name='" + name + '\'' +
+                ", score=" + score +
+                '}';
+    }
+}
+</pre>
+<pre>
+package cc.conyli.votebackend.domain;
+
+import cc.conyli.votebackend.config.VoteConfig;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
+public class VotePostedIn {
 
+    private List&lt;VoteItem> votes = new ArrayList&lt;>();
 
+    public List&lt;VoteItem> getVotes() {
+        return votes;
+    }
 
+    public void setVotes(List&lt;VoteItem> votes) {
+        this.votes = votes;
+    }
 
+    public void addVoteItem(VoteItem voteItem) {
+        this.votes.add(voteItem);
+    }
+}
+</pre>
+<p><code>VotePostedIn</code>是给前端投票时所用，由于每个用户每项只能投一票，所以其中的<code>VoteItem</code>的<code>score</code>属性是冗余的，暂时先留着了。</p>
 
-
-
-
-
-
-
+<h3 id="con23" style="text-align: center;">重构进行投票的部分</h3>
+<p>明天再写了。果然代码就是越写越好啊。外加设计也越来越重要了。</p>
 
 
 </body>
