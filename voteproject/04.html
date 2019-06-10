@@ -7,9 +7,11 @@
     <title>继续开发</title>
 </head>
 <body>
-<p>学编程到最后就是学设计果然如此，在脑子了构思了很多次前端的流程，发现上一版代码写的比较烂，代码还可以写的更好一点，还是需要重构一下。</p>
-<p>经过考虑还是没有继续分业务层和DAO层，因为毕竟业务逻辑比较简单，直接在控制器内完成全部操作。</p>
+<p>一上来其实我前端是有点懵逼的，压根没想好怎么写。</p>
+<p>倒不是懵逼在项目的样式怎么配，好看不好看这种问题，而是Vue才刚刚看完，还没有写过什么实际项目，这次就要直接上了，逻辑有点混乱，不过确实刺激。</p>
+<p>想了一下，既然逻辑还不是很清晰，就先从最简单的入手，想象一下页面进来以后会发生什么事情，然后一点一点实现就可以了。</p>
 <ol>
+    <li><a href="#con1">前端设计</a></li>
     <li><a href="#con2">后端重构</a></li>
     <li><a href="#con21">重构用户和TOKEN部分</a></li>
     <li><a href="#con22">重构获取投票结果部分</a></li>
@@ -18,10 +20,67 @@
 </ol>
 
 
+<h1 id="con1" style="text-align: center;">前端设计</h1>
+<p>麻雀虽小，五脏俱全，通过Vue-CLI 3直接创建项目，然后导入bootstrap 和依赖的jquery和popper.js库：</p>
+<pre>
+npm install bootstrap --save
+npm install jquery --save
+npm install --save popper.js
+</pre>
+<p>然后在main.js里导入这三个东西：</p>
+<pre>
+import "bootstrap/dist/css/bootstrap.min.css"
+import "jquery/dist/jquery.min"
+import "popper.js/dist/popper.min"
+</pre>
+<p>不过这里只是为了方便开发之用，以让IDE可以认出来CSS类和不影响本地工作，在完成开发之后，应该在index.html中加入上述三个类的链接。</p>
+<p>当然愿意的话，也可以直接用dist中的文件。</p>
+
+<h1>简单的View和组件设计</h1>
+<p>简单想了一下流程，分开两个视图，一个是登录视图（路径为<code>/login</code>)，组件为登录表单；一个是展示投票页面的视图(路径为是根路径)，组件是投票表单+登录展示。</p>
+<p>主要业务逻辑如下：</p>
+<ol>
+    <li>项目初始化
+        <ol>
+            <li>vuex从本地加载TOKEN和用户名</li>
+        </ol>
+    </li>
+    <li>用户访问首页
+        <ol>
+            <li>before导航守卫判断vuex中是否有TOKEN，没有则转至登录视图
+            <li>如果有TOKEN，向后端发送TOKEN获取投票信息
+                <ol>
+                    <li>正常获得响应--正常进入投票视图</li>
+                    <li>出现任何错误，表示TOKEN认证失败--转至登录视图</li>
+                </ol>
+            </li>
+        </ol>
+    </li>
+    <li>用户访问登录视图
+        <ol>
+            <li>导航守卫不做任何验证-->所有用户都可以访问登录视图</li>
+            <li>用户发送登录请求-->成功取得200响应且响应头内有TOKEN-->将TOKEN和用户名，是否投票，到期时间等信息加载至Vuex并存储到本地存储中，然后转至首页。</li>
+            <li>用户发送登录请求-->返回任何错误代码-->依然返回登录视图，但是需要通过SLOT插入错误信息。</li>
+        </ol>
+    </li>
+    <li>用户选择了组件之后点击发送按钮
+        <ol>
+            <li>如果获取201响应，则表示成功进行投票。</li>
+            <li>如果获取406响应，表示用户还在冷却中，弹出提示每24小时只能投一次票，什么也不做。</li>
+            <li>如果获取403响应，表示TOKEN出现问题，将用户转至登录页面。</li>
+        </ol>
+    </li>
+</ol>
+<p>这样设计之后，Vue开发的过程在我脑子里基本形成了URL--》视图逻辑--》载入数据--》分发给组件。仔细想了一下，其实和后端有异曲同工之妙，因为前端切换视图在传统后端里等于访问不同的URL，自然就是加载数据的过程，然后把数据放到页面上渲染出来的过程，就是载入数据然后分发给组件进行渲染的过程。</p>
+<p>一对比，前端的逻辑就清晰好多了。</p>
+<p>不过实际编写的时候，发现细节问题还是很多，所以决定重构一下后端，将所有的请求放行到控制器中来进行处理，这样可以比较方便的处理跨域问题，同时使用Spring Security来简单允许跨域。</p>
+<p>另外看了刘架构分享的<a href="https://mp.weixin.qq.com/s/7_M6RonRpE7vTErIua3nvQ" target="_blank">尤雨溪 6 月 4 日的 Vue 技术分享</a>，然后简单看了一下其中提到的<a href="https://vuetifyjs.com" target="_blank">Vuetify</a>库，发现风格是扁平化的，很对我口味。真的不想再对着BootStrap那套玩意了。决定借写前端的机会也用一下这个库。</p>
+
+
 <h1 id="con2" style="text-align: center;">重构后端</h1>
 <p>这一次决定采用在控制器中返回REST的方法，主要有如下考虑：</p>
 <ol>
-    <li>现在返回的错误信息太不标准化，不利于前端渲染数据。需要减少响应码的种类</li>
+    <li>现在返回的错误信息太不标准化，不利用前端渲染数据</li>
     <li>原来的后端，登录请求需要发送POST的x-www-formdata数据，如果改用控制器，就可以接受JSON字符串，比较方便</li>
     <li>登录成功之后返回给前端的内容，除了TOKEN和用户名，投票与否，再加上上次投票的时间</li>
     <li>错误信息原来依靠各种自行设计的响应码，不是很好，这次正好一并设计自己的异常对象并带有错误信息返回，让前端可以方便渲染。</li>
@@ -532,13 +591,9 @@ public void vote(@RequestBody VotePostedIn votePostedIn, HttpServletRequest requ
         return;
     }
 
-    //获取之后需要反复使用的用户对象和用户名字符串。如果找不到用户，返回401错误和空响应
+    //获取之后需要反复使用的用户对象和用户名字符串
     String username = tokenMap.get("username");
     User user = mongoTemplate.findOne(Query.query(where("username").is(username)), User.class);
-    if (user == null) {
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
-        return;
-    }
 
     //3 检查用户是否在冷却中，如果在冷却中，不进行投票，直接返回406错误。如果正确则处理投票，根据名称对有序集合中的键增加1
     if (redisTemplate.opsForValue().get(username) != null) {
@@ -648,9 +703,8 @@ public class VoteConfig {
 </pre>
 
 <h1 id="con3" style="text-align: center;">API的响应码一览</h1>
-<p>最后还是没有上自定义的错误对象，等功力再深厚一点吧。在控制器中用响应码区分了不同情况下的响应码，列下来，在前端开发的时候用得到：</p>
-<p>凡是4XX的代码，都不返回响应体。</p>
-<table border="1">
+<p>最后还是没有上自定义的错误对象，估计要等功力再深厚一点就行了。在控制器中用响应码区分了不同情况下的响应码，列下来，在前端开发的时候用得到：</p>
+<table>
     <caption>API响应码一览</caption>
     <thead>
     <tr>
@@ -669,8 +723,8 @@ public class VoteConfig {
         <td>用户名和密码匹配出现任意错误都返回404</td>
     </tr>
     <tr>
-        <td rowspan="3">/api/vote</td>
-        <td rowspan="3">GET</td>
+        <td rowspan="2">/api/vote</td>
+        <td rowspan="2">GET</td>
         <td>401</td>
         <td>身份验证出现问题，包括请求头不包含TOKEN，TOKEN验证失败，TOKEN验证成功但找不到用户</td>
     </tr>
@@ -678,25 +732,7 @@ public class VoteConfig {
         <td>404</td>
         <td>用户没有投过票</td>
     </tr>
-    <tr>
-        <td>200</td>
-        <td>用户投过票，成功返回带响应体的响应</td>
-    </tr>
     </tbody>
-    <tr>
-        <td rowspan="2">/api/vote</td>
-        <td rowspan="2">POST</td>
-        <td>401</td>
-        <td>身份验证出现问题，包括请求头不包含TOKEN，TOKEN验证失败，TOKEN验证成功但找不到用户</td>
-    </tr>
-    <tr>
-        <td>406</td>
-        <td>用户已经投过票，还在冷却时间中</td>
-    </tr>
-    <tr>
-        <td>201</td>
-        <td>用户成功投票，不返回任何响应体</td>
-    </tr>
 </table>
 
 
