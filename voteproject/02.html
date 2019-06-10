@@ -4,34 +4,570 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>投票项目后端</title>
+    <title>开始写项目</title>
+
 </head>
 <body>
-<h1 id="con1">开始编写后端</h1>
-<p>5月中旬写了一个项目的技术准备，现在20天过去了，看了一下当时列出的技术栈储备：</p>
+
+<h1 style="text-align: center;">后端设计</h1>
+<p>先是后端部分：</p>
+<p>暴露如下两个端点：</p>
 <ol>
-    <li>Vue的路由等内容还需继续学习</li>
-    <li>前后端分离情况下的用户鉴权</li>
-    <li>Spring 与 Redis的响应式整合</li>
-    <li>前端工程化与单页面应用开发的实践</li>
+    <li>REST端口，用于获取用户JWT，这个是公开的。路径叫做<code>/auth</code></li>
+    <li>REST端口，用于接受POST进来的投票和请求当前的投票结果，路径叫做<code>/vote</code></li>
 </ol>
-<p>1,2,4都搞定了哈哈，Redis的响应式我现在暂时决定先不用，先把后端开发出来。</p>
-
-<h3 id="con11">后端的端点</h3>
-
-<p>后端目前来看，只需要暴露两个端点：</p>
+<p>经过一下午奋战，现在已经编写完成。</p>
+<p><code>/auth</code>接受x-www-formdata的POST请求，如果用户名和密码正确，则会返回一个200响应，并且将TOKEN附带在响应头的<code>Authorization</code>键中返回。</p>
+<p><code>/vote</code>接受GET和PUT请求。</p>
+<p>如果返回403错误，说明TOKEN已经过期，需要重新登录并生成TOKEN。</p>
+<p>携带正确的TOKEN向<code>/vote</code>发起GET请求的时候，如果该用户已经投过票，就会返回包含投票列表的JSON：</p>
+<pre>
+{
+    "votes": [
+        {
+            "name": "vote1",
+            "score": 2
+        },
+        {
+            "name": "vote2",
+            "score": 2
+        },
+        {
+            "name": "vote3",
+            "score": 0
+        },
+        {
+            "name": "vote4",
+            "score": 0
+        }
+    ],
+    "username": "jenny2",
+    "voted": true,
+    "expireTimeMilli": 1571500800000
+}
+</pre>
+<p>同时也会包含该用户的<code>voted</code>字段。如果该用户没有投过票，则会返回不带有投票信息的JSON：</p>
+<pre>
+{
+    "votes": [],
+    "username": "jenny12",
+    "voted": false,
+    "expireTimeMilli": 1571500800000
+}
+</pre>
+<p>投票页面所需要的信息基本都在这里了。前端的逻辑是进入首页先检查是否有TOKEN，有TOKEN则去请求页面，没有TOKEN则跳转登录页面，登录成功后自动也进入首页。</p>
+<p>这样显示投票页面的所有数据基本都在这里了。</p>
+<p>写到这里的时候发现现在的设计是前端向后端也发送同样的JSON字符串，但其中的"voted"字段和用户名其实是不需要的，只需要发送投票内容和过期日即可，因为用户名在TOKEN阶段就验证掉了。</p>
+<p>所以这里重构了一下从前端接受的代码，变成先检测过期时间是否正确，检测通过之后再写入Redis。</p>
+<p>前端POST过来的JSON长这个样子：</p>
+<pre>
+{
+    "votes": [
+        {
+            "name": "vote1",
+            "score": 0
+        },
+        {
+            "name": "vote2",
+            "score": 0
+        }
+    ],
+    "currentTime": 1571500800000
+}
+</pre>
+<p>总结一下<code>/vote</code>的响应：</p>
 <ol>
-    <li>获取TOKEN的端点，用于生成JWT TOKEN给前端，定为<code>/auth</code></li>
-    <li>投票的端点，用于获取投票情况和POST投票信息，访问这两个端点必须都要登陆，其中还必须先投票才能查看结果，就定为<code>/vote</code>。</li>
+    <li><code>GET</code>请求返回<code>403</code>表示TOKEN认证失败。</li>
+    <li><code>GET</code>请求返回<code>200</code>表示身份认证成功，未投票用户不返回投票结果，投票用户返回投票结果；必定返回当前用户用户名和过期毫秒数。</li>
+    <li><code>POST</code>请求返回<code>201</code>表示成功投票</li>
+    <li><code>POST</code>请求返回<code>403</code>表示用户尚在冷却时间中，无法投票</li>
+    <li><code>POST</code>请求返回<code>400</code>表示超过过期时间，投票无效</li>
 </ol>
+<p>后端基本上就是这个思路了，感觉API设计的还可以；Redis的使用没有去进行复杂的对象映射，就是通过字符串和有序集合直接搞定了。</p>
+<p>用户注册的部分还没有写。</p>
 
+<h1 style="text-align: center;">后端主要代码</h1>
+<p>JWT相关的认证基本上是沿用了上一节自己编写的内容，考虑到未来把前端直接部署在nginx的话，外加设置服务为允许跨域，应该根路径也无需放行了。就更加简化了一些。</p>
+<p>重写的UserDetailsService的实现类，采用MongoDB查询用户：</p>
+<pre>
+package cc.conyli.vote.jwt;
 
+import cc.conyli.vote.dao.UserMongoRepo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import cc.conyli.vote.domain.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Component;
 
+@Component
+public class UserService implements UserDetailsService {
 
+    private Logger logger = LoggerFactory.getLogger(getClass());
 
+    //注入MongoDBRepo
+    private UserMongoRepo userMongoRepo;
 
+    @Autowired
+    public UserService(UserMongoRepo userMongoRepo) {
+        this.userMongoRepo = userMongoRepo;
+    }
 
+    @Override
+    public UserDetails loadUserByUsername(String s) throws UsernameNotFoundException {
+        //从MongoDb中加载用户，找不到此时就是null
+        User user = userMongoRepo.findByUsername(s);
 
+        //找不到用户直接抛异常导致验证不通过即可
+        if (user == null) {
+            System.out.println("Not found username: " + s);
+            throw new UsernameNotFoundException("Not found username: " + s);
+        }
+        logger.info("UserDetailsService返回的对象是：" + user.toString());
+
+        return user;
+    }
+}
+
+</pre>
+<p>核心的控制器的实现：</p>
+<pre>
+package cc.conyli.vote.controller;
+
+import cc.conyli.vote.config.VoteConfig;
+import cc.conyli.vote.dao.UserMongoRepo;
+import cc.conyli.vote.domain.PostedVote;
+import cc.conyli.vote.domain.User;
+import cc.conyli.vote.domain.Vote;
+import cc.conyli.vote.domain.VoteItem;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Random;
+
+import static org.springframework.data.mongodb.core.query.Criteria.where;
+import static org.springframework.data.mongodb.core.query.Update.update;
+
+/**
+ * /vote路径GET控制器主要作用：
+ * 返回Redis中的投票集合。如果没有，就在Redis中默认创建一个，实际投票的内容，在前端确定，或者后端也可以。这个需要配置在属性文件中。
+ */
+
+@RestController
+@RequestMapping("/vote")
+public class VoteController {
+
+    //注入MongoDB，MongoRepo和mongoTemplate
+    //其实MongoRepo和MongoTemplate用的同一个连接
+    private UserMongoRepo userMongoRepo;
+    private MongoTemplate mongoTemplate;
+    private RedisTemplate&lt;String, String> redisTemplate;
+
+    @Autowired
+    public VoteController(UserMongoRepo userMongoRepo,
+                          MongoTemplate mongoTemplate,
+                          RedisTemplate&lt;String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+        this.userMongoRepo = userMongoRepo;
+        this.mongoTemplate = mongoTemplate;
+    }
+
+    @GetMapping
+    public Vote getVotes(HttpServletRequest request) {
+        //到这里的请求已经是成功取得TOKEN的了，但是还没有投过票，所以需要先投票
+        //判断当前用户是否已经投过票，没有则返回空的投票列表，前端可以去判断不显示投票结果
+        String username = request.getRemoteUser();
+        //获取数据库中该用户是否已经投过票
+        boolean voted = mongoTemplate.findOne(Query.query(where("username").is(username)), User.class).isVoted();
+        //创建一个新Vote对象，只有用户名和是否已经投过票
+        Vote vote = new Vote(username, voted);
+        //如果投过票，给Vote对象设置上Redis查询的结果。如果没有投过票，就不显示Redis查询的投票结果
+        if (voted) {
+           //从REDIS中逐个取出投票的内容，装到Vote对象中
+           VoteConfig.NAMELIST.forEach(name->{
+               double score = redisTemplate.opsForZSet().score(VoteConfig.REDIS_VOTE_KEY, name);
+
+                   int count = (int) score;
+                   VoteItem voteItem = new VoteItem(name, count);
+                   vote.addVoteItem(voteItem);
+           });
+        }
+        return vote;
+    }
+
+    @PostMapping
+    public void postVotes(@RequestBody PostedVote postedVote, HttpServletRequest request, HttpServletResponse response) {
+        //获取当前登录的用户名
+        String username = request.getRemoteUser();
+        //检测是否过期，大于过期时间则返回400错误,小于过期时间则按正常逻辑操作
+        long currentTime = postedVote.getCurrentTime();
+        if (currentTime &lt;= VoteConfig.getExpireTime()) {
+            //检查用户是否已经在冷却中，如果不在，可以投票；如果在冷却，返回403响应，表示投票失败。
+            if (redisTemplate.opsForValue().get(username) != null) {
+                response.setStatus(HttpStatus.FORBIDDEN.value());
+                //前端在收到400响应的时候弹出东西提醒用户投票失败
+                //前端可以考虑解析TOKEN然后在指定的时间后让投票按钮可用
+            } else {
+                //解析Vote中的数据，然后写入Redis中
+                postedVote.getVotes().forEach(voteItem -> {
+                    redisTemplate.opsForZSet().incrementScore(VoteConfig.REDIS_VOTE_KEY, voteItem.getName(), 1);
+                });
+                //将用户名作为键写入Redis，在指定的时间后删除，这样用户可以再行投票
+                redisTemplate.opsForValue().set(username, "1", Duration.ofHours(VoteConfig.cooldownHour));
+                //将用户的voted属性设置为true
+                mongoTemplate.updateFirst(Query.query(where("username").is(username)),update("voted",true), User.class);
+                //返回CREATED 201响应，表示成功投票
+                response.setStatus(HttpStatus.CREATED.value());
+            }
+        } else {
+            //抛出400错误表示过期
+            response.setStatus(HttpStatus.BAD_REQUEST.value());
+        }
+    }
+}
+</pre>
+<p>为了能无缝结合，继承<code>UserDetails</code>的自行实现类<code>User</code>：</p>
+<pre>
+package cc.conyli.vote.domain;
+
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+
+/**
+ * User继承UserDetails，作为自定义的UserDetailsService取出来的User对象
+ * 在验证通过的时候，将这个User对象的信息设置到Authentication对象上
+ * 添加一个voted属性，用来表示该用户是否已经投过票，如果投过票，则可以显示投票结果，否则不返回投票结果，投票的时候则将其设置为true
+ */
+
+@Document
+public class User implements UserDetails, Serializable {
+
+    //标识唯一字段用户名
+    @Indexed(unique = true)
+    private String username;
+
+    private String password;
+
+    private boolean voted;
+
+    private Collection&lt;? extends GrantedAuthority> authorities;
+
+    //这里简单一点，先返回一个权限列表，其中只有ROLE_USER权限
+    @Override
+    public Collection&lt;? extends GrantedAuthority> getAuthorities() {
+        String role = "ROLE_USER";
+        Collection&lt;GrantedAuthority> authorities = new ArrayList&lt;>();
+        authorities.add(new SimpleGrantedAuthority(role));
+        return authorities;
+    }
+
+    public User(String username, String password, Collection&lt;? extends GrantedAuthority> authorities) {
+        this.username = username;
+        this.password = password;
+        this.authorities = authorities;
+        this.voted = false;
+    }
+
+    public void setAuthorities(Collection&lt;? extends GrantedAuthority> authorities) {
+        this.authorities = authorities;
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+
+    @Override
+    public String getUsername() {
+        return username;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "username='" + username + '\'' +
+                ", voted=" + voted +
+                ", authorities=" + authorities +
+                '}';
+    }
+
+    public boolean isVoted() {
+        return voted;
+    }
+
+    public void setVoted(boolean voted) {
+        this.voted = voted;
+    }
+}
+</pre>
+<p>剩下的主要是两个在前后端传递数据的类，<code>Vote</code>用于后端向前端返回投票情况，<code>PostedVote</code>用于接受前端的投票POST请求：</p>
+<pre>
+package cc.conyli.vote.domain;
+
+import cc.conyli.vote.config.VoteConfig;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Vote类，用于向前端返回投票情况和附加信息
+ * votes表示一个列表，用于保存被投票的项目和票数
+ * username用为用户名
+ * expireTimeMilli为投票截止时间的毫秒
+ * voted表示该用户是否投过票，所有用户默认都是未投票状态，在成功投票之后改为true
+ */
+
+public class Vote {
+
+    private List&lt;VoteItem> votes = new ArrayList&lt;>();
+
+    private String username;
+
+    private boolean voted;
+
+    private long expireTimeMilli = VoteConfig.getExpireTime();
+
+    public Vote(String username, boolean voted) {
+        this.username = username;
+        this.voted = voted;
+    }
+
+    public List&lt;VoteItem> getVotes() {
+        return votes;
+    }
+
+    public void setVotes(List&lt;VoteItem> votes) {
+        this.votes = votes;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public boolean isVoted() {
+        return voted;
+    }
+
+    public void setVoted(boolean voted) {
+        this.voted = voted;
+    }
+
+    public void addVoteItem(VoteItem voteItem) {
+        this.votes.add(voteItem);
+    }
+
+    public long getExpireTimeMilli() {
+        return expireTimeMilli;
+    }
+
+    public void setExpireTimeMilli(long expireTimeMilli) {
+        this.expireTimeMilli = expireTimeMilli;
+    }
+}
+</pre>
+<pre>
+package cc.conyli.vote.domain;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * PostedVote类，用于对应从前端POST进来的JSON对象
+ * votes表示一个列表，用于保存被投票的项目
+ * currentTime 前端传递进来的实际投票时间的毫秒数
+ */
+
+public class PostedVote {
+
+    private List&lt;VoteItem> votes = new ArrayList&lt;>();
+
+    private long currentTime;
+
+    public List&lt;VoteItem> getVotes() {
+        return votes;
+    }
+
+    public void setVotes(List&lt;VoteItem> votes) {
+        this.votes = votes;
+    }
+
+    public long getCurrentTime() {
+        return currentTime;
+    }
+
+    public void setCurrentTime(long currentTime) {
+        this.currentTime = currentTime;
+    }
+}
+</pre>
+<p>以及一个很简单，存放投票名称和票数的<code>VoteItem</code>类：</p>
+<pre>
+package cc.conyli.vote.domain;
+
+public class VoteItem {
+
+    private String name;
+
+    private int score;
+
+    public VoteItem(String name, int score) {
+        this.name = name;
+        this.score = score;
+    }
+
+    public VoteItem() {
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getScore() {
+        return score;
+    }
+
+    public void setScore(int score) {
+        this.score = score;
+    }
+
+    @Override
+    public String toString() {
+        return "VoteItem{" +
+                "name='" + name + '\'' +
+                ", score=" + score +
+                '}';
+    }
+}
+</pre>
+<p>用<code>VoteItem</code>再封装一下，没有直接用一个<code>Map</code>数据对象，也是考虑到前端拿到以后可以方便的排序，既可以保持原状按照后端投票项目的顺序，也可以自行按照投票数量排序。</p>
+<p>最后是一个配置类，用来保存一些配置，以及初始化投票情况：</p>
+<pre>
+package cc.conyli.vote.config;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.RedisTemplate;
+
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 存放投票项目的基础配置
+ */
+@Configuration
+public class VoteConfig {
+    //用户TOKEN的有效期
+    public static final long EXPIRETIME = 1200000L;
+
+    //用户再次投票的冷却小时
+    public static final int cooldownHour = 24;
+
+    //投票截至时间的年月日时分数值
+    private static int EXPIRE_YEAR = 2019;
+    private static int EXPIRE_MONTH = 10;
+    private static int EXPIRE_DAYOFMONTH = 20;
+    private static int EXPIRE_HOUR = 0;
+    private static int EXPIRE_MINUTE = 0;
+
+    //REDIS存放投票集合的键名
+    public static final String REDIS_VOTE_KEY = "vote";
+
+    //MongoDB的数据库名称
+    public static final String MONGO_DATABASE_NAME = "vote";
+
+    //MongoDB的主机地址
+    public static final String MONGO_HOST_ADDRESS = "localhost";
+
+    //各个投票项目的名称列表
+    public static List&lt;String> NAMELIST = new ArrayList&lt;>();
+
+    //返回到期日的毫秒数，用于传递给前端
+    public static long getExpireTime() {
+        return LocalDateTime.of(EXPIRE_YEAR, EXPIRE_MONTH, EXPIRE_DAYOFMONTH, EXPIRE_HOUR, EXPIRE_MINUTE).toInstant(ZoneOffset.of("+8")).toEpochMilli();
+    }
+
+    //注入redisTemplate
+    private RedisTemplate&lt;String, String> redisTemplate;
+
+    //启动项目如果Redis中有数据，清空这个键对应的全部数据；然后设置所有的投票项目票数为0，
+    @Autowired
+    public VoteConfig(RedisTemplate&lt;String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+
+        NAMELIST.add("vote1");
+        NAMELIST.add("vote2");
+        NAMELIST.add("vote3");
+        NAMELIST.add("vote4");
+        redisTemplate.opsForZSet().removeRange(VoteConfig.REDIS_VOTE_KEY, 0, -1);
+        NAMELIST.forEach(name -> this.redisTemplate.opsForZSet().add(VoteConfig.REDIS_VOTE_KEY, name, 0));
+    }
+}
+</pre>
+<p>剩下都是一些小的辅助类，就不放了。</p>
+<p>前后端分离的情况下，感觉后端一点工作也没有变少，对于业务和前后端交互的方式，都映射到对象上的等各种考虑就更加多了。还要仔细编写控制器来返回不同的状态码交给前端。</p>
+<p>我这里还没有自定义一些异常类进行返回。不过写出来这样一个后端，感觉还算可以。</p>
+<p>现在后端基本上OK了，开始写前端，突然发现用Vue写前端对我的挑战好像比后端还大一些，因为从来还没有用Vue正式的写过项目，战斗吧！</p>
 
 
 
