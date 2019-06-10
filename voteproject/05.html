@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vuetify 学习 - Grid系统</title>
+</head>
+<body>
+<ol>
+    <li><a href="#con1">Grid系统</a></li>
+    <li><a href="#con2">后端重构</a></li>
+    <li><a href="#con21">重构用户和TOKEN部分</a></li>
+    <li><a href="#con22">重构获取投票结果部分</a></li>
+    <li><a href="#con23">重构进行投票的部分</a></li>
+    <li><a href="#con3">API的响应码一览</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">Grid系统</h1>
+<p>Vuetify有一套基于<a href="https://www.w3cplus.com/css3/understanding-flexbox-everything-you-need-to-know.html" target="_blank">CSS FLEX-BOX</a>的栅格系统。</p>
+<p>官网说的prop就是指HTML标签上的属性，为boolean的只要加上该属性就是设置为true，不加该属性就是设置为false。</p>
+<p>Vuetify的栅格也是12栅格系统，其中的主要标签是：</p>
+<ol>
+    <li><code>v-container</code>，类似于各种前端框架的container，是一个把内容集中与屏幕中央的容器，可以加上<code>fluid</code>属性扩展至全屏。</li>
+    <li><code>v-layout</code>，用于区分不同的大区域，是<code>v-flex</code>元素的容器，大概近似于其他样式库的row。</li>
+    <li><code>v-flex</code>，每个flex盒子，这个标签会自动设置子元素为<code>flex: 1 1 auto</code>。</li>
+</ol>
+<p>这三个东西，其实上边都设置了<code>display:flex</code>样式，都是一个<code>flex-box</code>元素。</p>
+<p>三个元素的结构是<code>v-container » v-layout » v-flex</code>，具体内容装在<code>v-flex</code>中。</p>
+<p>这三个元素仅仅只有PROPS也就是属性，没有其他API。，可以看一下。</p>
+<p><code>v-container</code>和<code>v-layout</code>的PROPS是一样的，都是基本的用于控制FLEX排版的属性，在官网的<a href="https://vuetifyjs.com/en/framework/grid#examples" target="_blank">Grid例子</a>中提供了对应FLEX排版的例子，简明扼要，比较方便。</p>
+<p>这几个元素在设置的时候，可以自动将属性转换成类，所以无需写class="pa-3 mb-2"，可以直接写 pa-3 mb-2。</p>
+<p>这里要注意的是，经常在<code>v-container</code>和<code>v-layout</code>上要设置<code>wrap</code>属性，这是因为FLEX容器默认是nowrap，也就是在一行上显示全部内容。</p>
+<p>经过在浏览器中查看样式，<code>v-container</code>和<code>v-layout</code>实际上都是<code>display:flex</code>,而<code>v-flex</code>则不是FLEX容器，是一个FLEX项目。</p>
+<p><code>v-flex</code>的PROPS与前两个不同，主要是用于Flex项目而不是Flex容器，这个要结合断点来单独看看。</p>
+<p>所以实际上，Vuetify默认的Grid布局，是一个两层FLEX嵌套的布局。</p>
+
+
+
+<h1 id="con11" style="text-align: center;">V-flex</h1>
+<p><code>v-flex</code>的属性有：</p>
+<ol>
+    <li><code>(size)(1-12)</code>，前边的括号是断点，一共有5种屏幕大小，分别是<code>xs|sm|md|lg|xl</code>，</li>
+</ol>
+<p>这些断点类似于其他UI框架，占的大小也是从小覆盖到大，比如设置xs1 md2，则在xs-md这个范围内，flex都是1。</p>
+<p>典型的像其他UI框架的设置，就是如下：</p>
+<pre>
+&lt;v-container grid-list-xs text-xs-center>
+    &lt;v-layout justify-space-around row wrap>
+        &lt;v-flex v-for="n in 4" :key="n" xs12 md6 lg3 xl2>
+            &lt;v-card dark color="primary">
+                &lt;v-card-text class="px-0">S&lt;/v-card-text>
+            &lt;/v-card>
+        &lt;/v-flex>
+    &lt;/v-layout>
+&lt;/v-container>
+</pre>
+<p>其中的<code>grid-list-xs</code>表示flex项目之间的间隔大小。其他的看样式也能猜出来。如此配置之后，600px以下是四行，md的时候是一行两个元素，lg的时候一行4个元素，xl的时候一行4个元素还带有空白。</p>
+</body>
+</html>

@@ -75,7 +75,7 @@
 
     function clickHandler() {
         axios.post('http://localhost:8080/api/token',{
-            username: 'jenny61',
+            username: 'jenny51',
             password: "3456"
         },{
             headers :{
@@ -95,7 +95,7 @@
         axios.get('http://localhost:8080/api/vote',{
             headers :{
                 "Content-type": "application/json",
-                "Authorization": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJqZW5ueTYxIiwiaXNzIjoiaHR0cDovL2NvbnlsaS5jYyIsImV4cCI6MTU2MDEzOTAyMX0.4q3XYBzmwOp3LKZ6alvxkoadoSady6s0u5dSb_oHZ32t1Yqq1D9NboJn-Yoxg6LEaZvvPJ3PVY6y0Q04FEYY4A"
+                "Authorization": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJqZW5ueTUxIiwiaXNzIjoiaHR0cDovL2NvbnlsaS5jYyIsImV4cCI6MTU2MDE3MDYwNH0.jjCfpTEO1JHvFAsGvVxSXdsp6jVSd4E7Dgx1OGKaxybQN6vKeY4M2gbTlO4eDO3MbJrfEfUa71RINGk_FH-Lcw"
             }
         })
             .then(response => {
