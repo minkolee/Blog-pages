@@ -14,6 +14,7 @@
     <li><a href="#con13">基础布局元素分析 v-layout</a></li>
     <li><a href="#con2">v-layout</a></li>
     <li><a href="#con3">v-flex</a></li>
+    <li><a href="#con31">断点</a></li>
 </ol>
 
 <h1 id="con1" style="text-align: center;">Grid系统</h1>
@@ -26,7 +27,7 @@
 <ol>
     <li><code>v-container</code>，类似于各种前端框架的container，是一个把内容集中与屏幕中央的容器，可以加上<code>fluid</code>属性扩展至全屏。</li>
     <li><code>v-layout</code>，用于区分不同的大区域，是<code>v-flex</code>元素的容器，大概近似于其他样式库的row。</li>
-    <li><code>v-flex</code>，每个flex盒子，这个标签会自动设置子元素为<code>flex: 1 1 auto</code>。</li>
+    <li><code>v-flex</code>，就是响应式格子，这个标签会自动设置其子元素为<code>flex: 1 1 auto</code>。</li>
 </ol>
 <p>这是文档的原文。具体还是要来看一看是怎么排布的。</p>
 <p>用这三个东西创建一个简单的页面，来看看浏览器里的结果。</p>
@@ -155,7 +156,7 @@
     <caption>v-layout API一览</caption>
     <thead>
     <tr>
-        <th>标准FLEX属性</th>
+        <th>标准W3C样式和属性</th>
         <th>v-layout PROPS</th>
     </tr>
     </thead>
@@ -239,25 +240,70 @@
         </tr>
     </tbody>
 </table>
+<p>上边的所有除了写默认值的以外，其他的默认值都是<code>false</code>，即不设置就相当于是<code>false</code>，会让样式采用CSS FLEX标准默认的样式，比如不设置<code>column</code>则默认就是<code>row</code>。</p>
+
+
+
 
 
 <h1 id="con3" style="text-align: center;"><code>v-flex</code></h1>
-<p>既然相当于一个格子，参考其他UI库的经验，肯定会有的就是控制在不同屏幕断点下的宽度的属性了。然后由于是FLEX项目，肯定还会有自身的几个对应标准FLEX属性的属性。此外还有偏移量，分几个部分来看。</p>
+<p>既然相当于一个格子，参考其他UI库的经验，肯定会有的就是控制在不同屏幕断点下的宽度的属性了。然后由于是FLEX项目，肯定还会有自身的几个对应标准FLEX属性的属性。此外还有偏移量。</p>
+<p>先列出全部API然后分开来看：</p>
+<table border="1">
+    <caption>v-flex API一览</caption>
+    <thead>
+    <tr>
+        <th>API</th>
+        <th>解释</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td rowspan="1">(size)(1-12)</td>
+        <td>断点紧跟1-12大小，表示不同屏幕宽度下的格子宽度，断点有五个：xs|sm|md|lg|xl，实际写法比如xs12 md6</td>
+    </tr>
+    <tr>
+        <td>align-self-baseline</td>
+        <td rowspan="4">对应 align-self FLEX标准属性</td>
+    </tr>
+    <tr>
+        <td>align-self-end</td>
+    </tr>
+    <tr>
+        <td>align-self-start</td>
+    </tr>
+    <tr>
+        <td>align-self-center</td>
+    </tr>
+    <tr>
+        <td rowspan="1">grow</td>
+        <td>是否占据剩余空间，设置上该属性相当于flex-grow:1。</td>
+    </tr>
+    <tr>
+        <td rowspan="1">shrink</td>
+        <td>是否缩小以适合空间，设置上该属性相当于flex-shrink: 1。</td>
+    </tr>
+    <tr>
+        <td rowspan="1">order-(size)(1-12)</td>
+        <td>在不同大小屏幕之下对应的顺序，排版的时候需要。对应order属性。</td>
+    </tr>
+    <tr>
+        <td rowspan="1">offset-(size)(0-12)</td>
+        <td>在不同大小屏幕之下的偏移量，使用方法和其他UI库很像。</td>
+    </tr>
+    <tr>
+        <td rowspan="1">tag 实际渲染标签</td>
+        <td>用来控制将这个标签实际渲染成什么元素，比如<code>tag="p"</code>就会渲染成P标签。</td>
+    </tr>
+    <tr>
+        <td rowspan="1">id 标准DOM属性</td>
+        <td>id属性，会被原样渲染到实际的标签中。</td>
+    </tr>
+    </tbody>
+</table>
 
 <h3 id="con31" style="text-align: center;">断点</h3>
-
-
-
-
-
-
-
-
-
-<p><code>v-flex</code>的属性有：</p>
-<ol>
-    <li><code>(size)(1-12)</code>，前边的括号是断点，一共有5种屏幕大小，分别是<code>xs|sm|md|lg|xl</code>，</li>
-</ol>
+<p><code>v-flex</code>最关键的属性API之一就是断点。</p>
 <p>这些断点类似于其他UI框架，占的大小也是从小覆盖到大，比如设置xs1 md2，则在xs-md这个范围内，flex都是1。</p>
 <p>典型的像其他UI框架的设置，就是如下：</p>
 <pre>
@@ -271,10 +317,8 @@
     &lt;/v-layout>
 &lt;/v-container>
 </pre>
-<p>其中的<code>grid-list-xs</code>表示flex项目之间的间隔大小。其他的看样式也能猜出来。如此配置之后，600px以下是四行，md的时候是一行两个元素，lg的时候一行4个元素，xl的时候一行4个元素还带有空白。
-</p>
-
-
+<p>其中的<code>grid-list-xs</code>表示flex项目之间的间隔大小。其他的看样式也能猜出来。如此配置之后，600px以下是四行，md的时候是一行两个元素，lg的时候一行4个元素，xl的时候一行4个元素还带有空白。</p>
+<p>断点还有一些特殊的效果，可以动态设置，不再展开了，具体可以看<a href="https://vuetifyjs.com/en/framework/breakpoints" target="_blank">Vuetify-Breakpoints</a>。</p>
 </body>
 
 </html>
