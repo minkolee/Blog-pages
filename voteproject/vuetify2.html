@@ -7,23 +7,16 @@
 </head>
 <body>
 <div id="app">
-    <v-app>
-        <v-container>
-            <v-layout wrap :class="classObject">
-                <v-flex xs1>
-                    <div style="text-align: center;"><a href="#">Home</a></div>
-                </v-flex>
-                <v-flex xs1>
-                    <div style="text-align: center;"><a href="#">Products</a></div>
-                </v-flex>
-                <v-flex xs1>
-                    <div style="text-align: center;"><a href="#">Contact</a></div>
-                </v-flex>
-                <v-flex xs1>
-                    <div style="text-align: center;"><a href="#">About</a></div>
-                </v-flex>
-            </v-layout>
-        </v-container>
+    <v-app id="inspire">
+        <div>
+            <v-card>
+                <v-responsive max-height="900" :aspect-ratio="16/9" style="border: 1px solid black">
+                    <v-card-text >
+                        This card will always be 16:9 (unless you put more stuff in it)
+                    </v-card-text>
+                </v-responsive>
+            </v-card>
+        </div>
     </v-app>
 </div>
 
@@ -32,12 +25,12 @@
 <script>
     new Vue({
         el: '#app',
-        computed:{
-            classObject:function () {
+        computed: {
+            classObject: function () {
                 return {
                     "justify-end": this.$vuetify.breakpoint.lgAndUp,
                     "column": this.$vuetify.breakpoint.xsOnly,
-                    "justify-space-around":this.$vuetify.breakpoint.smAndUp && this.$vuetify.breakpoint.mdAndDown
+                    "justify-space-around": this.$vuetify.breakpoint.smAndUp && this.$vuetify.breakpoint.mdAndDown
                 }
             }
         }

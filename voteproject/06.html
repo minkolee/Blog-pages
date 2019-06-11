@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vuetify - Grid系统（下）</title>
+</head>
+<body>
+<p>Vuetify除了像很多UI框架提供了根据断点设置栅格大小的功能，还提供了JS代码级别的断点对象，用于动态的设置断点，和根据断点变化做操作，这一点是纯CSS框架不编写额外CSS代码很难实现的。</p>
+<ol>
+    <li><a href="#con1">1 断点类型</a></li>
+    <li><a href="#con2">2 断点对象</a></li>
+    <li><a href="#con21">2.1 监听断点变化</a></li>
+    <li><a href="#con21">2.2 breakpoint对象的属性</a></li>
+    <li><a href="#con21">2.3 自定义断点</a></li>
+    <li><a href="#con3">3 其他一些布局知识</a></li>
+    <li><a href="#con31">3.1 v-container的grid-list-{xs through xl}属性</a></li>
+    <li><a href="#con32">3.2 默认的页面组织结构</a></li>
+    <li><a href="#con33">3.3 v-responsive指定长宽比 Aspect Ratio</a></li>
+    <li><a href="#con34">3.4 预制模板</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">1 断点类型</h1>
+<p><code>v-flex</code>最关键的API之一就是断点。</p>
+<p>这些断点类似于其他UI框架，占的大小也是从小覆盖到大，比如设置xs1 md2，则在xs-md这个范围内，flex都是1。</p>
+<p>Vuetify中一共有5个断点，断点名称和对应关系如下：</p>
+<table>
+    <thead>
+    <tr>
+        <th>代码</th>
+        <th>对应设备</th>
+        <th>宽度范围</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>xs</td>
+        <td>手机屏幕</td>
+        <td>小于600px</td>
+    </tr>
+    <tr>
+        <td>sm</td>
+        <td>平板设备</td>
+        <td>600px-959px</td>
+    </tr>
+    <tr>
+        <td>md</td>
+        <td>大型平板到笔记本电脑</td>
+        <td>960px-1263px</td>
+    </tr>
+    <tr>
+        <td>lg</td>
+        <td>普通桌面显示器</td>
+        <td>1264px-1903px</td>
+    </tr>
+    <tr>
+        <td>xl</td>
+        <td>4K和超宽显示器</td>
+        <td>大于1903px</td>
+    </tr>
+    </tbody>
+</table>
+<p>断点可以以断点代码加上1-12的方式直接设置在<code>v-flex</code>元素上，使其可以根据屏幕宽度改变自身的宽度，从而达到排版的效果。</p>
+
+<h1 id="con2" style="text-align: center;">2 断点对象</h1>
+<p>有了FLEX之后，在不同的宽度之下，除了改变<code>v-flex</code>元素的宽度之外，很可能还需要更改FLEX容器的属性。还有可能同一个页面的不同组件，可能需要不同的断点来展示。</p>
+<p>Vuetify提供了断点对象<code>$vuetify.breakpoint</code>，通过该对象，就可以方便的监听断点变化。</p>
+
+<h3 id="con21" style="text-align: center;">2.1 监听断点变化</h3>
+<p>先看来自官方文档然后修改了一下的案例，以后的代码中都假设已经导入了<code>Vue</code>和<code>vuetify</code>以及在<code>#app</code>元素上挂载了<code>Vue</code>：</p>
+<pre>
+&lt;div id="app">
+    &lt;v-app>
+        &lt;v-container>
+            &lt;v-layout row wrap justify-center tag="p">
+                &lt;v-flex xs3>
+                    {{imageHeight}}
+                &lt;/v-flex>
+            &lt;/v-layout>
+        &lt;/v-container>
+    &lt;/v-app>
+&lt;/div>
+&lt;script>
+    new Vue({
+        el: '#app',
+        mounted(){
+            console.log(this.$vuetify.breakpoint)
+            console.log(this.$vuetify.breakpoint.name)
+        },
+        computed:{
+            imageHeight(){
+                switch (this.$vuetify.breakpoint.name) {
+                    case 'xs': return '220px'
+                    case 'sm': return '400px'
+                    case 'md': return '500px'
+                    case 'lg': return '600px'
+                    case 'xl': return '800px'
+                }
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>在程序启动的时候，会根据当前的窗口大小打印出<code>breakpoint</code>对象和其<code>name</code>属性，前者的内容一会再看，后者就是当前屏幕的代码。</p>
+<p>然后改变屏幕的宽度，会发现显示的像素大小会变动，这说明两点：</p>
+<ol>
+    <li><code>breakpoint</code>是当前实例的响应式数据对象（否则计算属性不会自动更新）</li>
+    <li>在每次断点改变的时候，<code>breakpoint</code>对象会发生改变。</li>
+</ol>
+
+<h3 id="con22" style="text-align: center;">2.2 breakpoint对象的属性</h3>
+<p>官方文档里列出了断点对象的属性，主要是判断当前所属的屏幕宽度范围的一些布尔值：</p>
+<pre>
+{
+  xs: boolean
+  xsOnly: boolean
+  sm: boolean
+  smOnly: boolean
+  smAndDown: boolean
+  smAndUp: boolean
+  md: boolean
+  mdOnly: boolean
+  mdAndDown: boolean
+  mdAndUp: boolean
+  lg: boolean
+  lgOnly: boolean
+  lgAndDown: boolean
+  lgAndUp: boolean
+  xl: boolean
+  xlOnly: boolean
+  name: ('xs' | 'sm' | 'md' | 'lg' | 'xl')
+  width: number
+  height: number
+  thresholds: { xs: number, sm: number, md: number, lg: number }
+  scrollbarWidth: number
+}
+</pre>
+<p>在改变了窗口宽度之后，如果跨越了断点，则断点对象上的所有相关的布尔值都会重新计算，也可以获取名称，以及当前的宽度和高度。很多属性看名称就可以用了。</p>
+<p>有了监听断点的能力和了解了断点对象的属性，我们就可以来尝试完成<a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/" target="_blank">这篇文章</a>里的导航栏例子：这个导航栏有四个按钮在xs屏幕上会上下堆叠，在sm屏幕上会等分成四个导航按钮，在更大的屏幕上则集中在左侧：</p>
+<pre>
+&lt;div id="app">
+    &lt;v-app>
+        &lt;v-container>
+            &lt;v-layout wrap :class="classObject">
+                &lt;v-flex xs1>
+                    &lt;div style="text-align: center;">&lt;a href="#">Home&lt;/a>&lt;/div>
+                &lt;/v-flex>
+                &lt;v-flex xs1>
+                    &lt;div style="text-align: center;">&lt;a href="#">Products&lt;/a>&lt;/div>
+                &lt;/v-flex>
+                &lt;v-flex xs1>
+                    &lt;div style="text-align: center;">&lt;a href="#">Contact&lt;/a>&lt;/div>
+                &lt;/v-flex>
+                &lt;v-flex xs1>
+                    &lt;div style="text-align: center;">&lt;a href="#">About&lt;/a>&lt;/div>
+                &lt;/v-flex>
+            &lt;/v-layout>
+        &lt;/v-container>
+    &lt;/v-app>
+&lt;/div>
+
+&lt;script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js">&lt;/script>
+&lt;script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js">&lt;/script>
+&lt;script>
+    new Vue({
+        el: '#app',
+        computed:{
+            classObject:function () {
+                return {
+                    "justify-end": this.$vuetify.breakpoint.lgAndUp,
+                    "column": this.$vuetify.breakpoint.xsOnly,
+                    "justify-space-around":this.$vuetify.breakpoint.smAndUp && this.$vuetify.breakpoint.mdAndDown
+                }
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>这段代码通过不同的断点，动态设置<code>v-layout</code>元素的样式类，<code>xs</code>屏幕就修改为竖直排列，<code>sm</code>至<code>md</code>屏幕为四个分散对齐，<code>lg</code>以上的屏幕，这四个链接会排列到屏幕右侧。</p>
+
+<h3 id="con23" style="text-align: center;">2.2 自定义断点</h3>
+<p>自定义断点需要两个步骤：</p>
+<ol>
+    <li>需要覆盖<code>$grid-breakpoints</code>CSS属性</li>
+    <li>在导入Vuetify插件的时候，明确的给breakpoint对象指定thresholds对应的属性和滚动条的大小，例如：
+    <pre>
+Vue.use(Vuetify, {
+  breakpoint: {
+    thresholds: {
+      xs: 360
+    },
+    scrollbarWidth: 10
+  }
+})
+    </pre></li>
+</ol>
+<p>这个暂时先了解一下即可。Vuetify提供了很多主题和CSS的变量可以覆盖，毕竟现在还没有到定制Vuetify的阶段。</p>
+
+
+<h1 id="con3" style="text-align: center;">3 其他布局知识</h1>
+
+<h3 id="con31" style="text-align: center;">3.1 v-container的grid-list-{xs through xl}属性</h3>
+<p>这个<code>grid-list-{xs through xl}</code>主要是用来调整gutters，也就是栅格系统里每个格子的间距空间。</p>
+<p>例子可以看官网这个<a href="https://vuetifyjs.com/en/framework/grid-lists#usage" target="_blank">例子</a>，用来分割瀑布流图片是不错的效果。</p>
+
+<h3 id="con32" style="text-align: center;">3.2 默认的页面组织结构</h3>
+<p>在前边分析结构的时候已经分析过了，<code>v-app</code>标签对于所有的应用都是必须的，要将自己的应用写在这个标签内部，因为这个标签是Vuetify很多组件和功能的挂载点。</p>
+<p>除此之外，还有一个<code>v-content</code>标签，用来配合<code>v-app</code>包裹对象，<code>v-content</code>标签一定要是<code>v-app</code>的直接子元素。</p>
+<p><a href="https://vuetifyjs.com/en/framework/default-markup#default-application-markup" target="_blank">官网文档</a>推荐了默认的项目结构如下：</p>
+<pre>
+&lt;v-app>
+  &lt;v-navigation-drawer app>&lt;/v-navigation-drawer>
+  &lt;v-toolbar app>&lt;/v-toolbar>
+  &lt;v-content>
+    &lt;v-container fluid>
+      &lt;router-view>&lt;/router-view>
+    &lt;/v-container>
+  &lt;/v-content>
+  &lt;v-footer app>&lt;/v-footer>
+&lt;/v-app>
+</pre>
+
+<h3 id="con33" style="text-align: center;">3.3 v-responsive指定长宽比 Aspect Ratio</h3>
+<p>有时候对于一些block元素，想保持其一定的比例，看上去比较美观，这个时候可以使用<code>v-responsive</code>组件来指定具体的比例和大小。</p>
+<p>这个元素会被渲染成一个DIV元素，在里边的内容不超出的情况下，会保持指定的长宽比例。</p>
+<p>简单看一下API：</p>
+<ol>
+    <li><code>aspect-ratio</code>，属性的值用宽/高来表示，比如<code>aspect-ratio="16/9"</code>就表示</li>
+    <li><code>height</code>，指定高度</li>
+    <li><code>max-height</code>，最大高度</li>
+    <li><code>min-height</code>，最小高度</li>
+    <li><code>width</code>，指定宽度</li>
+    <li><code>max-width</code>，最大宽度</li>
+    <li><code>min-width</code>，最小宽度</li>
+</ol>
+<p>在特定范围内排版，还算比较好看，尤其是在父元素的宽度已经确定的情况下。</p>
+
+<h3 id="con34" style="text-align: center;">3.4 预制模板</h3>
+<p><a href="https://vuetifyjs.com/en/framework/pre-made-layouts#pre-made-layouts" target="_blank">官网</a>还提供了一些预先做好的简单模板，用于快速制作页面。其中有内容居中的页面，很方便做登录等界面。</p>
+
+<p>Grid栅格排版布局的内容就是这些了。Vuetify框架本身还有可以指定导入部分组件，图标和国际化的内容。图标的部分到之后的使用图标组件的部分再来学习。之后是基础的样式和主题部分。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+
+</html>
