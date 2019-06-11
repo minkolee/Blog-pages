@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>继续开发</title>
+    <title>前端设计与Vuetify库</title>
 </head>
 <body>
 <p>一上来其实我前端是有点懵逼的，压根没想好怎么写。</p>
@@ -12,29 +12,14 @@
 <p>想了一下，既然逻辑还不是很清晰，就先从最简单的入手，想象一下页面进来以后会发生什么事情，然后一点一点实现就可以了。</p>
 <ol>
     <li><a href="#con1">前端设计</a></li>
-    <li><a href="#con2">后端重构</a></li>
-    <li><a href="#con21">重构用户和TOKEN部分</a></li>
-    <li><a href="#con22">重构获取投票结果部分</a></li>
-    <li><a href="#con23">重构进行投票的部分</a></li>
-    <li><a href="#con3">API的响应码一览</a></li>
+    <li><a href="#con2">Vuetify学习</a></li>
+    <li><a href="#con21">Vuetify安装</a></li>
+    <li><a href="#con3">FLEX BOX学习</a></li>
+    <li><a href="#con31">FLEX容器</a></li>
+    <li><a href="#con32">FLEX项目</a></li>
 </ol>
 
-
 <h1 id="con1" style="text-align: center;">前端设计</h1>
-<p>麻雀虽小，五脏俱全，通过Vue-CLI 3直接创建项目，然后导入bootstrap 和依赖的jquery和popper.js库：</p>
-<pre>
-npm install bootstrap --save
-npm install jquery --save
-npm install --save popper.js
-</pre>
-<p>然后在main.js里导入这三个东西：</p>
-<pre>
-import "bootstrap/dist/css/bootstrap.min.css"
-import "jquery/dist/jquery.min"
-import "popper.js/dist/popper.min"
-</pre>
-<p>不过这里只是为了方便开发之用，以让IDE可以认出来CSS类和不影响本地工作，在完成开发之后，应该在index.html中加入上述三个类的链接。</p>
-<p>当然愿意的话，也可以直接用dist中的文件。</p>
 
 <h1>简单的View和组件设计</h1>
 <p>简单想了一下流程，分开两个视图，一个是登录视图（路径为<code>/login</code>)，组件为登录表单；一个是展示投票页面的视图(路径为是根路径)，组件是投票表单+登录展示。</p>
@@ -42,7 +27,7 @@ import "popper.js/dist/popper.min"
 <ol>
     <li>项目初始化
         <ol>
-            <li>vuex从本地加载TOKEN和用户名</li>
+            <li>vuex从尝试从本地加载TOKEN和用户名</li>
         </ol>
     </li>
     <li>用户访问首页
@@ -50,8 +35,9 @@ import "popper.js/dist/popper.min"
             <li>before导航守卫判断vuex中是否有TOKEN，没有则转至登录视图
             <li>如果有TOKEN，向后端发送TOKEN获取投票信息
                 <ol>
-                    <li>正常获得响应--正常进入投票视图</li>
-                    <li>出现任何错误，表示TOKEN认证失败--转至登录视图</li>
+                    <li>正常获得响应，使用vote中的数据进行渲染--正常进入投票视图</li>
+                    <li>出现401错误，表示TOKEN认证失败--转至登录视图</li>
+                    <li>出现404错误，表示用户没有投过票。此时只渲染投票组件中投票部分，不展示投票数量，让用户进行投票之后再展示投票结果。</li>
                 </ol>
             </li>
         </ol>
@@ -59,693 +45,83 @@ import "popper.js/dist/popper.min"
     <li>用户访问登录视图
         <ol>
             <li>导航守卫不做任何验证-->所有用户都可以访问登录视图</li>
-            <li>用户发送登录请求-->成功取得200响应且响应头内有TOKEN-->将TOKEN和用户名，是否投票，到期时间等信息加载至Vuex并存储到本地存储中，然后转至首页。</li>
+            <li>用户发送登录请求-->成功取得200响应-->将TOKEN和用户名，是否投票，上次投票日期等信息加载至Vuex并存储到本地存储中，然后转至首页。</li>
             <li>用户发送登录请求-->返回任何错误代码-->依然返回登录视图，但是需要通过SLOT插入错误信息。</li>
         </ol>
     </li>
     <li>用户选择了组件之后点击发送按钮
         <ol>
             <li>如果获取201响应，则表示成功进行投票。</li>
-            <li>如果获取406响应，表示用户还在冷却中，弹出提示每24小时只能投一次票，什么也不做。</li>
-            <li>如果获取403响应，表示TOKEN出现问题，将用户转至登录页面。</li>
+            <li>如果获取406页面，想办法在页面上提示每24小时只能投一次票，什么也不做，还是留在当前页面。</li>
+            <li>如果获取401响应，表示TOKEN出现问题，将用户转至登录页面。</li>
         </ol>
     </li>
 </ol>
-<p>这样设计之后，Vue开发的过程在我脑子里基本形成了URL--》视图逻辑--》载入数据--》分发给组件。仔细想了一下，其实和后端有异曲同工之妙，因为前端切换视图在传统后端里等于访问不同的URL，自然就是加载数据的过程，然后把数据放到页面上渲染出来的过程，就是载入数据然后分发给组件进行渲染的过程。</p>
+<p>
+    这样设计之后，Vue开发的过程在我脑子里基本形成了URL--》视图逻辑--》载入数据--》分发给组件。仔细想了一下，其实和后端有异曲同工之妙，因为前端切换视图在传统后端里等于访问不同的URL，自然就是加载数据的过程，然后把数据放到页面上渲染出来的过程，就是载入数据然后分发给组件进行渲染的过程。</p>
 <p>一对比，前端的逻辑就清晰好多了。</p>
 <p>不过实际编写的时候，发现细节问题还是很多，所以决定重构一下后端，将所有的请求放行到控制器中来进行处理，这样可以比较方便的处理跨域问题，同时使用Spring Security来简单允许跨域。</p>
-<p>另外看了刘架构分享的<a href="https://mp.weixin.qq.com/s/7_M6RonRpE7vTErIua3nvQ" target="_blank">尤雨溪 6 月 4 日的 Vue 技术分享</a>，然后简单看了一下其中提到的<a href="https://vuetifyjs.com" target="_blank">Vuetify</a>库，发现风格是扁平化的，很对我口味。真的不想再对着BootStrap那套玩意了。决定借写前端的机会也用一下这个库。</p>
 
 
-<h1 id="con2" style="text-align: center;">重构后端</h1>
-<p>这一次决定采用在控制器中返回REST的方法，主要有如下考虑：</p>
+<h1 id="con2" style="text-align: center;">Vuetify</h1>
+<p>看了刘架构分享的<a href="https://mp.weixin.qq.com/s/7_M6RonRpE7vTErIua3nvQ" target="_blank">尤雨溪6月4日的Vue技术分享</a>，其中提到的<a
+        href="https://vuetifyjs.com" target="_blank">Vuetify</a>库，扁平化风格，很对我口味。真的不想再对着BootStrap那套玩意了。决定借写前端的机会也用一下这个库。
+</p>
+<h3 id="con21" style="text-align: center;">vuetify安装</h3>
+<p>Vuetify的文档<a href="https://vuetifyjs.com/zh-Hans/getting-started/quick-start" target="_blank">在这里</a>，还有中文文档，算是比较方便。
+</p>
+<p>我采用的方法是使用<code>vue ui</code>生成项目，在项目生成之后，点击左侧的插件，然后右上角添加插件，搜索<code>vuetify</code>，是0.5版。点击然后点右下角的安装，然后会弹出通知说插件安装好。
+</p>
+<p>之后还有三个选项，由于是新项目之间安装，选默认就可以了。</p>
+<p>剩下就可以使用了。</p>
+<p><a href="https://vuetifyjs.com/zh-Hans/getting-started/quick-start" target="_blank">快速指南</a>里还有其他方法，都比较简便。</p>
+
+<h1 id="con3" style="text-align: center;">Flex Box 学习</h1>
+<p>这里有一篇<a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/" target="_blank">A Complete Guide to Flexbox</a>讲的相当不错。</p>
+<p>把Flex Box的内容总结一下：</p>
+<h3 id="con31" style="text-align: center;">FLEX容器</h3>
+<p>设置了属性<code>display:flex</code>的都是FLEX容器，容器的作用是决定其中内部的FLEX项目的排布。可以设置的属性如下</p>
 <ol>
-    <li>现在返回的错误信息太不标准化，不利用前端渲染数据</li>
-    <li>原来的后端，登录请求需要发送POST的x-www-formdata数据，如果改用控制器，就可以接受JSON字符串，比较方便</li>
-    <li>登录成功之后返回给前端的内容，除了TOKEN和用户名，投票与否，再加上上次投票的时间</li>
-    <li>错误信息原来依靠各种自行设计的响应码，不是很好，这次正好一并设计自己的异常对象并带有错误信息返回，让前端可以方便渲染。</li>
+    <li><code>flex-direction</code>，决定主轴方向，可选<code>row | row-reverse | column | column-reverse</code></li>
+    <li><code>flex-wrap</code>，要不要强制显示在一行中，可选<code>nowrap | wrap | wrap-reverse</code>，<code>nowrap</code>表示不允许换行，<code>wrap</code>表示换行。</li>
+    <li><code>flex-flow</code>，前两个属性的简写，默认是<code>row nowrap</code>。</li>
+    <li><code>justify-content</code>，决定其中项目沿主轴的对齐方式，可选<code>flex-start | flex-end | center | space-between | space-around | space-evenly</code>，分别表示靠近头，靠近尾，居中，两端对齐，平均分布（每个项目自带一个左右两侧相等的空白部分），所有项目之间和到两侧的空白相等</li>
+    <li><code>align-items</code>，决定其中项目沿交叉轴的对齐方式，可选<code>flex-start | flex-end | center | baseline | stretch</code>，分别表示靠近头，靠近尾，居中，对齐其中文字的基线，拉伸到适合整个交叉轴</li>
+    <li><code>align-content</code>，决定其中多根主轴的对齐方式，<code>flex-start | flex-end | center | space-between | space-around | stretch</code>，这个的居中是将一个容器的所有东西向中间排布，其他和单主轴对齐差不多。</li>
 </ol>
-<p>这次发现后端设置Spring Security的时候，无需配置跨域，只需要设置<code>http.cors()</code>即可，这样会将跨域请求交给Spring MVC处理，这样在控制器上就可以用<code>@CrossOrigin</code>来方便灵活的控制跨域。</p>
-
-<h3 id="con21" style="text-align: center;">重构用户和TOKEN部分</h3>
-<p>首先是将用户请求放行到控制器里来，那么就取消了Spring Security的验证，针对需要放行的api单独设置好，然后禁止其他所有请求。</p>
-<pre>
-package cc.conyli.votebackend.config;
-
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-
-
-@Configuration
-@EnableWebSecurity
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
-
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http
-                .cors()
-                .and()
-                .csrf().disable()
-                .authorizeRequests()
-                .antMatchers("/api/token").permitAll()
-                .antMatchers("/api/add").permitAll()
-                .anyRequest().denyAll()
-                .and()
-                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
-    }
-
-//如果设置了http.cors()，跨域就会交给SpringMVC来控制，没有必要写下边的CORS配置
-//    @Bean
-//    CorsConfigurationSource corsConfigurationSource()
-//    {
-//        CorsConfiguration configuration = new CorsConfiguration();
-//        configuration.setAllowedOrigins(Arrays.asList("*"));
-//        configuration.setAllowedMethods(Arrays.asList("GET","POST", "OPTIONS"));
-//        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-//        source.registerCorsConfiguration("/**", configuration);
-//        return source;
-//    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-}
-</pre>
-<p>这里注释掉的部分，根据<a href="https://docs.spring.io/spring-security/site/docs/5.1.5.RELEASE/reference/htmlsingle/#cors" target="_blank">Spring官网文档上允许Spring Security支持跨域请求的设置</a>，但是不能加上去，否则会导致Spring Security拦截跨域请求，会造成奇怪的错误。具体可以看文档这句：</p>
-<code>If you are using Spring MVC’s CORS support, you can omit specifying the CorsConfigurationSource and Spring Security will leverage the CORS configuration provided to Spring MVC.</code>
-<pre>
-@EnableWebSecurity
-public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
-
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http
-            // if Spring MVC is on classpath and no CorsConfigurationSource is provided,
-            // Spring Security will use CORS configuration provided to Spring MVC
-            .cors().and()
-            ...
-    }
-}
-</pre>
-<p>之后重新编写JWTUtils类，将生成TOKEN和设置响应头的部分都放进来：</p>
-<pre>
-package cc.conyli.votebackend.support;
-
-import cc.conyli.votebackend.config.VoteConfig;
-import cc.conyli.votebackend.domain.User;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
-
-import javax.servlet.http.HttpServletResponse;
-import java.security.Key;
-import java.util.Base64;
-import java.util.Date;
-
-@Component
-public class JWTUtils {
-
-    private static final Key KEY = Keys.hmacShaKeyFor(VoteConfig.JWT_SECRET_RAW_STRING.getBytes());
-
-    static Key getKey() {
-        return JWTUtils.KEY;
-    }
-
-    public String getKeyString() {
-        return Base64.getEncoder().encodeToString(KEY.getEncoded());
-    }
-
-    public static String getToken(User user) {
-        return Jwts.builder()
-                .setSubject(user.getUsername())
-                .setIssuer(VoteConfig.TOKEN_ISSUER)
-                .setExpiration(new Date(System.currentTimeMillis() + VoteConfig.TOKEN_EXPIRE_TIME))
-                .signWith(JWTUtils.getKey())
-                .compact();
-    }
-
-    public static void setJWTHeader(String token, HttpServletResponse response) {
-        <span style="color: red">response.setHeader("Access-Control-Expose-Headers","Authorization");</span>
-        response.setHeader(VoteConfig.TOKEN_HEADER, token);
-        response.setStatus(HttpStatus.OK.value());
-    }
-}
-</pre>
-<p>其中要特别注意红色这行，由于跨域请求的标准限制，服务器不加上这个设置的话，axios发送的请求就收不到Authorization头部信息。</p>
-<p>关于验证JWT TOKEN的代码属于投票业务的逻辑，待之后来补充。</p>
-<p>然后是重写了<code>User</code>类，以及一个专门用于接受前端数据的<code>UserPostedIn</code>类，本来想搞一下继承，后来发现复杂度不高，没有这个必要，就没搞。两个类如下：</p>
-<pre>
-package cc.conyli.votebackend.domain;
-
-import com.fasterxml.jackson.annotation.JsonView;
-import org.springframework.data.mongodb.core.index.Indexed;
-import org.springframework.data.mongodb.core.mapping.Document;
-
-import javax.validation.constraints.NotBlank;
-
-@Document
-public class User {
-
-    public interface userSimpleView {}
-
-    public interface userDetailView extends userSimpleView {}
-
-    @JsonView(userSimpleView.class)
-    @NotBlank(message = "用户名不能为空")
-    @Indexed(unique = true)
-    private String username;
-
-    @NotBlank(message = "密码不能为空")
-    @JsonView(userDetailView.class)
-    private String password;
-
-    @JsonView(userSimpleView.class)
-    private boolean voted = false;
-
-    @JsonView(userSimpleView.class)
-    private long lastVotedAt = 0;
-
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public boolean isVoted() {
-        return voted;
-    }
-
-    public void setVoted(boolean voted) {
-        this.voted = voted;
-    }
-
-    public long getLastVotedAt() {
-        return lastVotedAt;
-    }
-
-    public void setLastVotedAt(long lastVotedAt) {
-        this.lastVotedAt = lastVotedAt;
-    }
-
-    public User() {
-    }
-
-    public User(String username, String password) {
-        this.username = username;
-        this.password = password;
-    }
-
-    public User(String username, String password, long lastVotedAt) {
-        this(username, password);
-        this.lastVotedAt = lastVotedAt;
-    }
-
-    @Override
-    public String toString() {
-        return "User{" +
-                "username='" + username + '\'' +
-                ", voted=" + voted +
-                ", lastVotedAt=" + lastVotedAt +
-                '}';
-    }
-}
-</pre>
-<pre>
-package cc.conyli.votebackend.domain;
-
-import javax.validation.constraints.NotBlank;
-
-public class UserPostedIn {
-
-    private String username;
-
-    private String password;
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public UserPostedIn() {
-    }
-
-    public UserPostedIn(@NotBlank(message = "用户名不能为空") String username, @NotBlank(message = "密码不能为空") String password) {
-        this.username = username;
-        this.password = password;
-    }
-
-    @Override
-    public String toString() {
-        return "UserPostedIn{" +
-                "username='" + username + '\'' +
-                ", password='" + password + '\'' +
-                '}';
-    }
-}
-</pre>
-<p>最后是控制器，配置<code>mongoTemplate</code>和<code>redisConnectionFactory</code>两个<code>Bean</code>的类就省略了。</p>
-<pre>
-@RestController
-@RequestMapping("/api")
-public class VoteController {
-
-    private Logger logger = LoggerFactory.getLogger(getClass());
-
-    private MongoTemplate mongoTemplate;
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    public VoteController(MongoTemplate mongoTemplate, PasswordEncoder passwordEncoder) {
-        this.passwordEncoder = passwordEncoder;
-        this.mongoTemplate = mongoTemplate;
-    }
-
-    @CrossOrigin(allowCredentials = "true")
-    @PostMapping(value = "/token", consumes = "application/json")
-    @JsonView(User.userSimpleView.class)
-    public User getToken(@RequestBody UserPostedIn userPostedIn, HttpServletRequest request, HttpServletResponse response) {
-
-        User user = mongoTemplate.findOne(Query.query(where("username").is(userPostedIn.getUsername())), User.class);
-        if (user == null) {
-            response.setStatus(HttpStatus.NOT_FOUND.value());
-            return null;
-        } else {
-            if (passwordEncoder.matches(userPostedIn.getPassword(), user.getPassword())) {
-                JWTUtils.setJWTHeader(JWTUtils.getToken(user), response);
-                return user;
-            } else {
-                response.setStatus(HttpStatus.NOT_FOUND.value());
-                return null;
-            }
-        }
-    }
-}
-</pre>
-
-<h3 id="con22" style="text-align: center;">重构获取投票结果部分</h3>
-<p>这里主要是重新编写控制器方法，确定精简返回投票结果的对象。</p>
-<p>首先是解析JWT的方法，写在JWTUtils类中：</p>
-<pre>
-    public static Map&lt;String, String> parseToken(String token) {
-        Jws&lt;Claims> jws = Jwts.parser().setSigningKey(JWTUtils.getKey()).parseClaimsJws(token);
-        Map&lt;String, String> tokenMap = new HashMap&lt;>();
-        tokenMap.put("username", jws.getBody().getSubject());
-        tokenMap.put("issuer", jws.getBody().getIssuer());
-        tokenMap.put("expire",((Long)jws.getBody().getExpiration().getTime()).toString());
-        return tokenMap;
-    }
-</pre>
-<p>这个方法很简单，想了一下就用一个Map对象把解析出来的东西封装一下。除了username之外，其他两个数据暂时还没什么用处。</p>
-<p>有了解析JWT的方法，就可以编写控制器方法了：</p>
-<pre>
-@CrossOrigin(allowCredentials = "true")
-@GetMapping("/vote")
-public Vote getVote(HttpServletRequest request, HttpServletResponse response) {
-
-    //1 尝试从Header中取得JWT TOKEN，如果没有，返回401错误
-    String token = request.getHeader("Authorization");
-    if (token == null) {
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
-        return null;
-    }
-
-    //2 解析JWT并取得一个Map对象。如果解析出错，返回401错误和空响应
-    Map&lt;String, String> tokenMap;
-    //解析TOKEN 不成功就返回401错误和空响应
-    try {
-        tokenMap = JWTUtils.parseToken(token);
-    } catch (Exception ex) {
-        logger.info(ex.toString());
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
-        return null;
-    }
-
-    //3 检测用户的.isVoted。 false返回空的VoteItem，true返回带有数据的VoteItem
-    //3-1检测用户是不是存在，不存在则返回401错误+空响应
-    User user = mongoTemplate.findOne(Query.query(where("username").is(tokenMap.get("username"))), User.class);
-
-    if (user == null) {
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
-        return null;
-    }
-
-    //4 如果用户已经投过票，组装Vote对象并返回
-    if (user.isVoted()) {
-        Vote vote = new Vote();
-        //组装Vote对象的List&lt;VoteItem> votes属性
-        VoteConfig.NAMELIST.forEach(name -> {
-            Object score = redisTemplate.opsForZSet().score(VoteConfig.REDIS_VOTE_KEY, name);
-            double count = 0;
-            if (score != null) {
-                count = Math.floor((double)score);
-            }
-            VoteItem voteItem = new VoteItem(name, count);
-            vote.addVoteItem(voteItem);
-        });
-        //统计投票的合计数并设置在VoteItem上
-        double totalScore = 0;
-        for (VoteItem voteItem : vote.getVotes()) {
-            totalScore += voteItem.getScore();
-        }
-        vote.setTotalVotes(totalScore);
-        return vote;
-    } else {
-        //用户没有投过票，返回404响应,响应体为空
-        response.setStatus(HttpStatus.NOT_FOUND.value());
-        return null;
-    }
-}
-</pre>
-<p>然后是几个domain类：</p>
-<pre>
-package cc.conyli.votebackend.domain;
-
-import cc.conyli.votebackend.config.VoteConfig;
-
-import java.util.ArrayList;
-import java.util.List;
-
-
-public class Vote {
-
-    private List&lt;VoteItem> votes = new ArrayList&lt;>();
-
-    private long expireTime = VoteConfig.getVoteEndTime();
-
-    private double totalVotes = 0;
-
-
-    public List&lt;VoteItem> getVotes() {
-        return votes;
-    }
-
-    public void setVotes(List&lt;VoteItem> votes) {
-        this.votes = votes;
-    }
-
-    public void addVoteItem(VoteItem voteItem) {
-        this.votes.add(voteItem);
-    }
-
-
-    public double getTotalVotes() {
-        return totalVotes;
-    }
-
-    public void setTotalVotes(double totalVotes) {
-        this.totalVotes = totalVotes;
-    }
-}
-</pre>
-<pre>
-package cc.conyli.votebackend.domain;
-
-public class VoteItem {
-
-    private String name;
-
-    private double score;
-
-    public VoteItem(String name, double score) {
-        this.name = name;
-        this.score = score;
-    }
-
-    public VoteItem() {
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public double getScore() {
-        return score;
-    }
-
-    public void setScore(double score) {
-        this.score = score;
-    }
-
-    @Override
-    public String toString() {
-        return "VoteItem{" +
-                "name='" + name + '\'' +
-                ", score=" + score +
-                '}';
-    }
-}
-</pre>
-<pre>
-package cc.conyli.votebackend.domain;
-
-import cc.conyli.votebackend.config.VoteConfig;
-
-import java.util.ArrayList;
-import java.util.List;
-
-
-public class VotePostedIn {
-
-    private List&lt;VoteItem> votes = new ArrayList&lt;>();
-
-    public List&lt;VoteItem> getVotes() {
-        return votes;
-    }
-
-    public void setVotes(List&lt;VoteItem> votes) {
-        this.votes = votes;
-    }
-
-    public void addVoteItem(VoteItem voteItem) {
-        this.votes.add(voteItem);
-    }
-}
-</pre>
-<p><code>VotePostedIn</code>是给前端投票时所用，由于每个用户每项只能投一票，所以其中的<code>VoteItem</code>的<code>score</code>属性是冗余的，暂时先留着了。</p>
-
-<h3 id="con23" style="text-align: center;">重构进行投票的部分</h3>
-<p>重构进行投票的控制器就是<code>/api/vote</code>的POST请求处理。逻辑其实很简单，基础逻辑：</p>
+<p>通过主轴和交叉轴对齐方式，其实很容易就可以排布其中内部的元素，比如很简单就可以排成水平居中和垂直居中：</p>
+<ul style="box-sizing: border-box;border: 1px solid black;margin: 0 auto;padding: 0; max-width: 500px;height: 500px; display: flex;flex-flow: row wrap; list-style: none;align-content: center; justify-content: center;align-items: center">
+    <li style="order:1;flex-basis: 100%; height: 100px; background-color: #ccc;box-sizing: border-box; border: 1px solid black">item1</li>
+    <li style="order:3;flex: 1 0 auto; height: 100px; background-color: #ccc;box-sizing: border-box; border: 1px solid black">item2</li>
+    <li style="order:2;flex-basis: 100%; height: 100px; background-color: #ccc;box-sizing: border-box; border: 1px solid black">itemcenter</li>
+    <li style="order:4;flex: 1 0 auto; height: 100px; background-color: #ccc;box-sizing: border-box; border: 1px solid black">item3</li>
+    <li style="order:5;width: 100%; height: 100px; background-color: #ccc;box-sizing: border-box; border: 1px solid black">item4</li>
+
+</ul>
+
+<h3 id="con32" style="text-align: center;">FLEX项目</h3>
+<p>在FLEX容器内包裹的内容，自动成为FLEX项目。可以设置的属性如下：</p>
 <ol>
-    <li>检查TOKEN</li>
-    <li>进行写入投票记录</li>
-    <li>将用户的<code>voted</code>属性设置为true</li>
-    <li>将用户的上次投票时间写入数据库</li>
-    <li>如果成功则返回201响应</li>
-    <li>如果失败返回4XX系列响应</li>
+    <li><code>order</code>，一个整数值，决定排列顺序，默认为0，要设置就一起设置，不然0总会排在正数的前边</li>
+    <li><code>flex-grow</code>，表示项目是否放大，默认是0，表示不放大，如果都是1，会等分空间，如果数字不相同，会加总然后计算各自占的比例。</li>
+    <li><code>flex-shrink</code>，表示项目是否缩小，默认为1，表示会缩小；如果设置为0表示不缩小；如果很多项目都是1，会同比例等分缩小。这个属性设置成负数无效。</li>
+    <li><code>flex-basis</code>，表示在分配多余空间之前，项目占据的主轴大小，默认是<code>auto</code>，即项目的本来大小。可以设置成具体的长度，项目就会占据固定空间。设置成100%，就会占满一行，可以比较方便的布局。</li>
+    <li><code>flex</code>，上边三个属性按照<code>flex-grow</code>, <code>flex-shrink</code>和<code>flex-basis</code>顺序的简写。有两个快捷值<code>auto(1 1 auto)</code>和<code>none(0 0 auto)</code>。</li>
+    <li><code>align-self</code>，表示这个属性所在的项目自己的对齐方式，会覆盖FLEX容器的<code>align-items</code>属性。默认为auto，即继承父元素的设置。可以设置为<code>auto | flex-start | flex-end | center | baseline | stretch</code>；其意义与FLEX容器的属性一样。</li>
 </ol>
-<p>重写之后的控制器方法：</p>
-<pre>
-@CrossOrigin(allowCredentials = "true")
-@PostMapping(value = "/vote", consumes = "application/json")
-public void vote(@RequestBody VotePostedIn votePostedIn, HttpServletRequest request, HttpServletResponse response) {
-    long currentTime = System.currentTimeMillis();
-    //1 尝试从Header中取得JWT TOKEN，如果没有，返回401错误
-    String token = request.getHeader("Authorization");
-    if (token == null) {
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
-        return;
-    }
-
-    //2 解析JWT并取得一个Map对象。如果解析出错，返回401错误和空响应
-    Map&lt;String, String> tokenMap;
-    //解析TOKEN 不成功就返回401错误和空响应
-    try {
-        tokenMap = JWTUtils.parseToken(token);
-    } catch (Exception ex) {
-        logger.info(ex.toString());
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
-        return;
-    }
-
-    //获取之后需要反复使用的用户对象和用户名字符串
-    String username = tokenMap.get("username");
-    User user = mongoTemplate.findOne(Query.query(where("username").is(username)), User.class);
-
-    //3 检查用户是否在冷却中，如果在冷却中，不进行投票，直接返回406错误。如果正确则处理投票，根据名称对有序集合中的键增加1
-    if (redisTemplate.opsForValue().get(username) != null) {
-        response.setStatus(HttpStatus.NOT_ACCEPTABLE.value());
-        return;
-    }
-
-    //4 获取用户Post进来的投票信息，在有序集合中增加对应的投票名称1
-    votePostedIn.getVotes().forEach(voteItem -> {
-        redisTemplate.opsForZSet().incrementScore(VoteConfig.REDIS_VOTE_KEY, voteItem.getName(), 1);
-    });
-
-    //5 如果用户未投过票，将其设置为投过票。之后将用户的上次投票时间记录在数据库中，然后在redis中存入用户名称的键，设置一定的时间过期
-    // Redis中设置用户投票冷却时间
-    redisTemplate.opsForValue().set(username, "1", Duration.ofSeconds(VoteConfig.COOLDOWN_SECONDS));
-
-    // 在mongodb中设置用户投过票和记录投票时间
-    if (!user.isVoted()) {
-        mongoTemplate.updateFirst(Query.query(where("username").is(username)), Update.update("voted", true), User.class);
-    }
-    mongoTemplate.updateFirst(Query.query(where("username").is(username)), Update.update("lastVotedAt", currentTime), User.class);
-    response.setStatus(HttpStatus.CREATED.value());
-}
-</pre>
-<p>最后是配置类<code>VoteConfig</code>，暂时能想到的配置都塞到里边去了，包含投票项目的初始化，每一个投票项目的名称，用户TOKEN过期时间和冷却时间，还有整个投票关闭的时间都包含在内了。</p>
-<pre>
-package cc.conyli.votebackend.config;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.core.RedisTemplate;
-
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- *
- */
-@Configuration
-public class VoteConfig {
-    //投票项目列表，每一项目的列表
-    public static List&lt;String> NAMELIST = new ArrayList&lt;>();
-
-    static {
-        NAMELIST.add("VoteItemA");
-        NAMELIST.add("VoteItemB");
-        NAMELIST.add("VoteItemC");
-        NAMELIST.add("VoteItemD");
-        NAMELIST.add("VoteItemE");
-    }
-
-    //用户登录地址
-    public static String LOGIN_URL = "/api/token";
-
-    //获取投票信息和进行投票的地址
-    public static String GET_AND_POST = "/api/vote";
-
-    //填充用户密码
-    public static String DUMMY_PASSWORD = "[CREDENTIAL]";
-
-    //用户TOKEN的有效期毫秒数
-    public static final long TOKEN_EXPIRE_TIME = 1200000L;
-
-    //用户再次投票的冷却小时
-    public static final int COOLDOWN_SECONDS = 30;
-
-    //到期时间的年月日
-    private static final int VOTE_END_YEAR = 2019;
-    private static final int VOTE_END_MONTH = 6;
-    private static final int VOTE_END_DAY = 30;
-    private static final int VOTE_END_HOUR = 0;
-    private static final int VOTE_END_MINUTE = 0;
-
-    //REDIS存储投票结果有序集合的键名
-    public static final String REDIS_VOTE_KEY = "vote";
-
-    //MongoDB的数据库名称
-    public static final String MONGO_DATABASE_NAME = "vote";
-
-    //JWT生成密钥的原始字符串
-    public static final String JWT_SECRET_RAW_STRING = "FD*(S()FS*D()#09-g0fd043jkkjxcv980(*)*(@#vbcoioai989F*D(S(4932jk4f*&(*324jk$(*8gf98g89d0fdzkjeri789*&E*R(";
-
-    //设置TOKEN到哪个请求头的键上
-    public static String TOKEN_HEADER = "Authorization";
-
-    //TOKEN发布者
-    public static String TOKEN_ISSUER = "http://conyli.cc";
-
-    //返回到期日的毫秒数
-    public static long getVoteEndTime() {
-        return LocalDateTime.of(VOTE_END_YEAR, VOTE_END_MONTH, VOTE_END_DAY, VOTE_END_HOUR, VOTE_END_MINUTE).toInstant(ZoneOffset.of("+8")).toEpochMilli();
-    }
-
-    //注入redisTemplate
-    private RedisTemplate&lt;String, String> redisTemplate;
-
-    //启动项目如果Redis中有数据，清空这个键对应的全部数据；然后设置所有的投票项目票数为0，
-    @Autowired
-    public VoteConfig(RedisTemplate&lt;String, String> redisTemplate) {
-        this.redisTemplate = redisTemplate;
-        redisTemplate.opsForZSet().removeRange(VoteConfig.REDIS_VOTE_KEY, 0, -1);
-        NAMELIST.forEach(name -> this.redisTemplate.opsForZSet().add(VoteConfig.REDIS_VOTE_KEY, name, 0));
-    }
-}
-</pre>
-
-<h1 id="con3" style="text-align: center;">API的响应码一览</h1>
-<p>最后还是没有上自定义的错误对象，估计要等功力再深厚一点就行了。在控制器中用响应码区分了不同情况下的响应码，列下来，在前端开发的时候用得到：</p>
-<table>
-    <caption>API响应码一览</caption>
-    <thead>
-    <tr>
-        <th>API</th>
-        <th>方法</th>
-        <th>响应码</th>
-        <th>说明</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    <tr>
-        <td>/api/token</td>
-        <td>POST</td>
-        <td>404</td>
-        <td>用户名和密码匹配出现任意错误都返回404</td>
-    </tr>
-    <tr>
-        <td rowspan="2">/api/vote</td>
-        <td rowspan="2">GET</td>
-        <td>401</td>
-        <td>身份验证出现问题，包括请求头不包含TOKEN，TOKEN验证失败，TOKEN验证成功但找不到用户</td>
-    </tr>
-    <tr>
-        <td>404</td>
-        <td>用户没有投过票</td>
-    </tr>
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
+<p>可见FLEX项目的属性，主要是负责自己的缩放，大小，以及必要的时候跳出来改变一下自己的排布，下边这个例子和上边完全一样，只是让中间的方框自己设置自己的对齐方式为<code>align-self: flex-end</code>。</p>
+<ul style="box-sizing: border-box;border: 1px solid black;margin: 0 auto;padding: 0; max-width: 500px;height: 500px; display: flex; list-style: none; justify-content: center;align-items: center">
+    <li style="width: 100px; height: 100px; background-color: #ccc;box-sizing: border-box; border: 1px solid black;align-self: flex-end">item</li>
+</ul>
+<h3 id="con33" style="text-align: center;">FLEX嵌套</h3>
+<p>FLEX容器是可以嵌套的，一个FLEX项目既可以控制自己的排布，也可以成为一个容器继续控制其内部的排布。</p>
+<p>比如如果将上边的例子里的文字也居中，只需要把文字再套在一个元素里，然后把内部的FLEX项目同时设置为一个FLEX容器：</p>
+<ul style="box-sizing: border-box;border: 1px solid black;margin: 0 auto;padding: 0; max-width: 500px;height: 500px; display: flex; list-style: none; justify-content: center;align-items: center">
+    <li style="width: 100px; height: 100px; background-color: #ccc;box-sizing: border-box; border: 1px solid black; display: flex; justify-content: center;align-items: center">
+        <div>item</div>
+    </li>
+</ul>
+<p>不得不说Flex Box，确实好用啊，比原来基于宽度计算和浮动的网格系统要好太多了。之后就来仔细的学习<code>Vuetify</code>啦，做出的页面应该不会让老婆说丑了。</p>
 
 
 
