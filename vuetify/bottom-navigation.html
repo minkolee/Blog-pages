@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zhHans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.css.network/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <v-app id="inspire">
+        <v-container>
+
+        </v-container>
+        <v-card height="200px" flat>
+            <v-card-text class="text-xs-center">
+                <v-btn flat color="primary" @click="showNav = !showNav">
+                    显示/隐藏导航条
+                </v-btn>
+            </v-card-text>
+            <v-card-text class="text-xs-center">
+                <span class="display-1">当前被选中的按钮编号是：{{bottomNav}}</span>
+            </v-card-text>
+            <v-bottom-nav :active.sync="bottomNav" shift :color="color" :value="showNav">
+                <v-btn color="indigo" flat>
+                    <span>Recent</span>
+                    <v-icon>history</v-icon>
+                </v-btn>
+
+                <v-btn color="red" flat>
+                    <span>Favorites</span>
+                    <v-icon>favorite</v-icon>
+                </v-btn>
+
+                <v-btn color="orange" flat>
+                    <span>Nearby</span>
+                    <v-icon>place</v-icon>
+                </v-btn>
+
+                <v-btn color="lime" flat>
+                    <span>Video</span>
+                    <v-icon>ondemand_video</v-icon>
+                </v-btn>
+            </v-bottom-nav>
+        </v-card>
+    </v-app>
+</div>
+
+<script src="https://cdn.bootcss.com/vue/2.6.10/vue.min.js"></script>
+<script src="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                bottomNav: 0,
+                showNav: true
+            }
+        },
+        computed: {
+            color: function () {
+                switch (this.bottomNav) {
+                    case 0:
+                        return 'blue-grey'
+                    case 1:
+                        return 'teal'
+                    case 2:
+                        return 'brown'
+                    case 3:
+                        return 'indigo'
+                }
+            }
+        }
+
+    })
+</script>
+</body>
+</html>

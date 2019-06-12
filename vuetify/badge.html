@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zhHans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.css.network/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <v-app>
+        <v-container>
+            <v-layout wrap justify-space-around>
+                <v-flex xs2>
+                    <v-badge :value="value" color="secondary">
+                        <template v-slot:badge>
+                            <span>5</span>
+                        </template>
+                        <p style="width: 50px;height: 50px;box-sizing: border-box; border: 1px solid black;background-color: #ddd;"></p>
+                    </v-badge>
+                </v-flex>
+
+                <v-flex xs2>
+                    <v-badge left bottom color="blue">
+                        <template v-slot:badge>
+                            <span>5</span>
+                        </template>
+                        <p style="width: 50px;height: 50px;box-sizing: border-box; border: 1px solid black;background-color: #ddd;"></p>
+                    </v-badge>
+                </v-flex>
+
+                <v-flex xs2>
+                    <v-badge bottom :value="value" color="red">
+                        <template v-slot:badge>
+                            <span>5</span>
+                        </template>
+                        <p style="width: 50px;height: 50px;box-sizing: border-box; border: 1px solid black;background-color: #ddd;"></p>
+                    </v-badge>
+                </v-flex>
+
+                <v-flex xs2>
+                    <v-badge left color="deep-orange">
+                        <template v-slot:badge >
+                            <span>5</span>
+                        </template>
+                        <p style="width: 50px;height: 50px;box-sizing: border-box; border: 1px solid black;background-color: #ddd;"></p>
+                    </v-badge>
+                </v-flex>
+
+                <v-flex xs2>
+                    <v-badge bottom :value="value" color="lime">
+                        <template v-slot:badge>
+                            <span>5</span>
+                        </template>
+                        <p style="width: 50px;height: 50px;box-sizing: border-box; border: 1px solid black;background-color: #ddd;"></p>
+                    </v-badge>
+                </v-flex>
+            </v-layout>
+            <v-layout>
+                <v-btn color="primary" @click="value=!value">改变显示</v-btn>
+            </v-layout>
+        </v-container>
+    </v-app>
+</div>
+
+<script src="https://cdn.bootcss.com/vue/2.6.10/vue.min.js"></script>
+<script src="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.js"></script>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            value: true,
+        }
+    });
+</script>
+</body>
+</html>

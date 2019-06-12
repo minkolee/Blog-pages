@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zhHans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.css.network/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+        [v-cloak]{
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak>
+    <v-app>
+        <v-container>
+            <v-layout wrap>
+                <v-flex xs12>
+                    <v-avatar color="red" :tile="tile" :size="value">
+                        <img src="https://vuetifyjs.com/apple-touch-icon-180x180.png" alt="avatar">
+                    </v-avatar>
+                </v-flex >
+                <input color="primary" type="text" v-model="value" placeholder="输入数字" class="mt-4"/>
+                <v-btn @click="tile=!tile">改变轮廓</v-btn>
+            </v-layout>
+        </v-container>
+    </v-app>
+</div>
+
+<script src="https://cdn.bootcss.com/vue/2.6.10/vue.min.js"></script>
+<script src="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.js"></script>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            value:"",
+            tile: true
+        }
+    });
+</script>
+</body>
+</html>

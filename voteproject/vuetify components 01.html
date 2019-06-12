@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vuetify UI组件 01</title>
+</head>
+<body>
+<p>终于到了开始使用UI组件的时候了。组件几十个，不知道能不能坚持一个一个研究过来。</p>
+<ol>
+    <li><a href="#con1">1 Alert</a></li>
+    <li><a href="#con2">2 Avatars</a></li>
+    <li><a href="#con2">3 Badge</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">1 Alert</h1>
+<p>提示框组件，对应的组件元素是<code>v-alert</code></p>
+<p>传统的提示框组件，<a href="https://vuetifyjs.com/en/components/alerts#api" target="_blank">官网API</a>里的主要属性如下：</p>
+<ol>
+    <li><code>color</code>，提示框颜色</li>
+    <li><code>dismissable</code>，可关闭</li>
+    <li><code>icon</code>，替代默认图标</li>
+    <li><code>mode</code>，过渡效果，不太明白</li>
+    <li><code>origin</code>，也是过渡效果，暂时不明白</li>
+    <li><code>outline</code>，让提示框变成中空</li>
+    <li><code>transition</code>，过渡效果</li>
+    <li><code>type</code>，可以设置为<code>success</code>，<code>info</code>，<code>warning</code>，<code>error</code>四种，会直接使用默认的颜色和图标</li>
+    <li><code>value</code>，是否显示该提示框</li>
+</ol>
+<p>提示框的插槽就是默认的插槽，也就是将其中内容显示到提示框中的插槽。Vuetify的很多组件都具备默认插槽。</p>
+<p>关于提示框做了一个齐全的<a href="http://conyli.cc/vuetify/alert.html" target="_blank">例子</a>可供参考。</p>
+
+<h1 id="con2" style="text-align: center;">2 Avatars</h1>
+<p>用在响应式图片上的圆形图片，通常用来显示头像，组件元素是<code>v-avatar</code>。</p>
+<p><a href="https://vuetifyjs.com/en/components/avatars#api" target="_blank">API</a>有</p>
+<ol>
+    <li><code>color</code>，背景颜色</li>
+    <li><code>size</code>，用数值表示（无需加px)，表示图片大小</li>
+    <li><code>tile</code>，默认为false，表示为圆形，true就显示为正方形</li>
+</ol>
+<p>也有一个默认插槽，插槽中需要插入一个IMG元素，最好是方形的图片，如果插入文字则比例会不正确。</p>
+<p>关于Avatars的例子在<a href="http://conyli.cc/vuetify/avatars.html" target="_blank">这里</a>。</p>
+
+<h1 id="con3" style="text-align: center;">3 Badge</h1>
+<p>徽章样式，可以使用在任何元素上，通常用来显示提示或者通知的数量等，组件元素是<code>v-badge</code>。</p>
+<p><a href="https://vuetifyjs.com/en/components/badges#api" target="_blank">API</a>有</p>
+<ol>
+    <li><code>bottom</code>，默认为false，表示显示到元素的底部去</li>
+    <li><code>color</code>，色彩，默认为<code>primary</code></li>
+    <li><code>left</code>，默认为false，是否显示在左边</li>
+    <li><code>mode</code>，过渡模式</li>
+    <li><code>origin</code>，过渡相关</li>
+    <li><code>overlap</code>，是否覆盖插入进来的元素，默认是false</li>
+    <li><code>transition</code>，默认<code>fab-transition</code>，可以使用内建的过渡效果或者自定义</li>
+    <li><code>value</code>，是否显示该元素，默认为<code>true</code></li>
+</ol>
+<p>插槽有两个，一个具名插槽叫做<code>badge</code>，用于显示在徽章内部的内容。</p>
+<p>Badge的例子在<a href="http://conyli.cc/vuetify/badge.html" target="_blank">这里</a>。</p>
+
+<h1 id="con4" style="text-align: center;">4 Bottom navigation</h1>
+<p>底部导航条<code>v-bottom-nav</code>。通常用在移动应用上，必须与按钮即<code>v-btn</code>组件元素搭配使用。</p>
+<p>导航条一般来说都要和<code>vue-router</code>搭配使用，因为点击导航条一般都需要更改视图，可以通过子组件的<code>active.sync</code>来控制哪个子组件被激活的样式。</p>
+<p>修饰符<code>sync</code>的功能很像v-model，当一个子组件改变了一个<code>prop</code>的值时，这个变化也会同步到父组件中所绑定。当然这不是直接双向绑定，而是让子组件抛出一个固定的事件<code>this.$emit('update:foo', newValue)</code>，父组件来监听。毕竟<code>v-model</code>本身也就是一个语法糖。</p>
+
+<p><a href="https://vuetifyjs.com/en/components/bottom-navigation#api" target="_blank">API</a>有</p>
+<ol>
+    <li><code>absolute</code>，位置是否绝对，默认为false。这个在例子里试验了一下，发现还是不加的好。</li>
+    <li><code>active.sync</code>传递给父组件的当前按钮的值。默认绑定的是当前点击的按钮组件<code>v-btn</code>的<code>value</code>属性，如果按钮组件没有提供属性，则用按钮的索引作为值。另外底部导航组件可以自动给按钮设置激活的样式。</li>
+    <li><code>app</code>，这个没太看懂。</li>
+    <li><code>color</code>，背景颜色</li>
+    <li><code>dark</code>，改成暗色的背景，默认是false。用了这个就无需使用背景颜色。</li>
+    <li><code>fixed</code>，定位改成fixed。如果需要一直显示在屏幕底部，就可以使用这个属性，比absolute效果要好。</li>
+    <li><code>height</code>，导航条高度，默认是56。</li>
+    <li><code>light</code>，启用亮色风格</li>
+    <li><code>mandatory</code>，必须要有元素被选中，默认为false。</li>
+    <li><code>shift</code>，自动隐藏未选中的按钮的文字。</li>
+    <li><code>value</code>，控制是否可见。</li>
+</ol>
+<p>这个组件插槽是默认插槽，但是有一个事件<code>update:active</code>，也就是自动会向父组件抛出事件，带有当前选中的按钮的<code>value</code>属性。</p>
+<p>具体使用该事件的时候，在底部导航条元素上声明<code>:active.sync="varName"</code>，父组件就可以用<code>varName</code>属性拿到<code>value</code>的值。</p>
+<p>而且，如果给父组件的<code>varName</code>赋予与某个按钮组件的<code>value</code>相同的值，这个按钮就会处于开始就被选中的状态。</p>
+<p>这个组件要求插槽元素一定要是<code>v-btn</code>元素，而且<code>v-btn</code>中要有图标和文字，按钮的文字需要用<code>span</code>标签包裹</p>
+<p>底部导航条的例子在<a href="http://conyli.cc/vuetify/bottom-navigation.html" target="_blank">这里</a>。</p>
+
+
+</body>
+
+</html>
