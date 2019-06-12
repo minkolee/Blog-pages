@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vuetify - 滚动与过渡</title>
+</head>
+<body>
+<p>继续来研究Vuetify框架部分的内容，这次是滚动与过渡效果。</p>
+<ol>
+    <li><a href="#con1">1 滚动</a></li>
+    <li><a href="#con2">2 过渡效果</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">1 滚动</h1>
+<p>Vuetify提供了<code>$vuetify.goto(target, options)</code>这样一个方法用于控制滚动。</p>
+<p>其中<code>target</code>可以是一个数字，表示距离页面顶端的像素距离；还可以是一个CSS选择器字符串或者一个元素的引用，用来滚动到指定的元素处。</p>
+<p>其中<code>options</code>则是一个配置对象，其中的属性有<code>duration</code>表示时间，<code>easing</code>表示缓和曲线效果，<code>offset</code>表示上下偏移量，<code>container</code>暂时不知道表示什么。</p>
+<p><code>$vuetify.goto(target, options)</code>是在任意Vue组件中都可以访问的，极大的提高了灵活性。</p>
+<p>光说不练假把式，官网的<a href="https://vuetifyjs.com/en/framework/scroll#usage" target="_blank">例子</a>其实很不错，但是没有明确的看到传入的参数。</p>
+<p>可以做一个页面来简单的看一下效果：</p>
+<pre>
+&lt;div id="app">
+    &lt;v-app id="inspire">
+        &lt;v-container>
+            &lt;v-layout>
+                &lt;v-btn color="primary" @click="scroll1">滚动到1000像素&lt;/v-btn>
+                &lt;v-btn color="primary" class="text-none" @click="scroll2">滚动到id="p2"的元素处&lt;/v-btn>
+                &lt;v-btn color="primary" @click="scroll3" class="text-none">滚动到ref="saner"的元素处&lt;/v-btn>
+            &lt;/v-layout>
+            &lt;v-layout row wrap>
+                &lt;v-flex xs12>
+                    &lt;p style="height: 1500px" id="p1">1st consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?&lt;/p>
+                &lt;/v-flex>
+                &lt;v-flex  xs12>
+                    &lt;p style="height: 1500px" <span style="color: red">id="p2"</span>>1st consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?&lt;/p>
+                &lt;/v-flex>
+                &lt;v-flex xs12>
+                    &lt;p style="height: 1500px" <span style="color: red">ref="saner"</span> id="p3">1st consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?&lt;/p>
+                &lt;/v-flex>
+            &lt;/v-layout>
+
+        &lt;/v-container>
+    &lt;/v-app>
+&lt;/div>
+&lt;script>
+    new Vue({
+        el: '#app',
+        methods:{
+            scroll1:function () {
+                this.$vuetify.goTo(1000, {
+                    duration: 300,
+                    easing: "easeInOutCubic",
+                    offset: 700});
+            },
+            scroll2:function () {
+                this.$vuetify.goTo('#p2', {});
+            },
+            scroll3:function () {
+                this.$vuetify.goTo(this.$refs.saner, {});
+            },
+
+        }
+    })
+&lt;/script>
+</pre>
+<p>这个页面里有三个按钮，然后是三个高1500像素的段落。</p>
+<p>第一个按钮是滚动到距离页面顶部1000像素的位置，然后加上了配置参数，<code>duration: 300</code>我感觉了一下应该是0.3秒左右；<code>easing</code>属性直接传入字符串即可。<code>offset</code>数值为正数的时候，表示从1000像素的位置，往页面上方偏移700像素，也就是实际上只会移动到距离页面顶部300像素的位置。如果是负数就是往页面下方偏移了。</p>
+<p>第二个按钮采用CSS选择器，选中的是<code>id="p2"</code>的元素，会直接滚动到对应元素的地方。</p>
+<p>第二个按钮采用一个DOM对象的方式，使用了Vue的<code>ref</code>属性的特性，通过<code>this.$refs.saner</code>选中第三个段落元素，会直接滚动到该元素处。</p>
+<p><code>easing</code>属性可以使用的字符串有如下：</p>
+<pre>
+linear
+easeInQuad
+easeOutQuad
+easeInOutQuad
+easeInCubic
+easeOutCubic
+easeInOutCubic
+easeInQuart
+easeOutQuart
+easeInOutQuart
+easeInQuint
+easeOutQuint
+easeInOutQuint
+</pre>
+
+<h1 id="con2" style="text-align: center;">2 过渡效果</h1>
+
+
+
+
+
+
+
+
+
+</body>
+
+</html>

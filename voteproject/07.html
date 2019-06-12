@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vuetify - 色彩，主题与基础样式</title>
+</head>
+<body>
+<p>Vuetify的自定义色彩和更换色彩主题非常方便。</p>
+<ol>
+    <li><a href="#con1">1 色彩</a></li>
+    <li><a href="#con11">1.1 JS代码控制主题颜色</a></li>
+    <li><a href="#con12">1.2 StylusCSS预处理器自定义颜色</a></li>
+    <li><a href="#con2">2 主题</a></li>
+    <li><a href="#con21">2.1 Light and Dark风格</a></li>
+    <li><a href="#con22">2.2 主题颜色对象</a></li>
+    <li><a href="#con23">2.3 动态更换主题颜色</a></li>
+    <li><a href="#con3">3 基础样式</a></li>
+    <li><a href="#con31">3.1 内容样式</a></li>
+    <li><a href="#con32">3.2 文字样式</a></li>
+    <li><a href="#con4">4 辅助样式</a></li>
+    <li><a href="#con41">4.1 display相关样式</a></li>
+    <li><a href="#con42">4.2 z轴特效</a></li>
+    <li><a href="#con43">4.3 外边距和内边距控制</a></li>
+    <li><a href="#con44">4.4 文字对齐</a></li>
+    <li><a href="#con5">5 滚动 scroll</a></li>
+
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">1 色彩</h1>
+<p>Vuetify使用了<a href="https://material.io/design/color/#color-usage-palettes" target="_blank">扁平化设计指导色彩</a>中的2014 Material Design color palettes版本的色彩。</p>
+<p>按照<a href="https://vuetifyjs.com/en/framework/colors#material-colors" target="_blank">官方文档中的Material colors</a>，Vuetify中一共可以直接使用的色彩有：</p>
+<ol>
+    <li><code>red lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>pink lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>purple lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>deep-purple lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>indigo lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>blue lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>light-blue lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>cyan lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>teal lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>green lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>light-green lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>lime lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>yellow lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>amber lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>orange lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>deep-orange lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>brown lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>blue-grey lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>grey lighten-{1 to 5} darken-{1 to 4} accent-{1 to 4}</code></li>
+    <li><code>shades black white transparent</code></li>
+</ol>
+<p>一共有19套扁平化风格的色系。每一种颜色有一个主色，然后有浅色调五种颜色，深色调四种颜色和四种额外颜色的扩展，即每一系颜色有14种供选择，非常方便。</p>
+<p>最后的<code>shades</code>系列是基础的纯黑，纯白和透明颜色三种。</p>
+<p>预定义的这些颜色通过同名的CSS类就可以直接使用：</p>
+<ol>
+    <li><code>&lt;div class="red"></code>，定义背景颜色为主色彩</li>
+    <li><code>&lt;span class="red--text"></code>，定义文字颜色为主色彩</li>
+    <li><code>&lt;span class="red--lighten-2"></code>，定义背景颜色为扩展颜色</li>
+    <li><code>&lt;span class="red--text text--accent-2"></code>，定义文字颜色为扩展颜色</li>
+</ol>
+<p>在选择的颜色的时候，每种颜色的主色调对应<a href="https://material.io/design/color/#color-usage-palettes" target="_blank">扁平化设计指导色彩</a>中的500号颜色，浅色对应50-400号颜色，深色对应600-900号颜色。
+<code>accent</code>系列颜色是100，200，400，700号颜色的变体，主要用于一些副标题或者色块区域。在设计网页的时候，基本上还是从50-900号颜色中来挑选主题色彩所需要的颜色。</p>
+
+<h3 id="con11" style="text-align: center;">1.1 JS代码控制主题颜色</h3>
+<p>这里就要稍微接触一下主题色彩了，如果用过其他的前端UI库比如Bootstrap4，里边的色彩通常会写成<code>xxx-primary</code>，其中的<code>primary</code>就是主题色彩变量。</p>
+<p>主题色彩变量的好处是可以到处复用，然后通过更改主题颜色的变量值，可以方便的更换整个应用的颜色风格。</p>
+<p>Vuetify能够在加载插件的时候，手工直接指定主题颜色：</p>
+<pre>
+import Vue from 'vue'
+import Vuetify from 'vuetify'
+
+<!--这是一个颜色对象，包含了上述所有的预置颜色-->
+import colors from 'vuetify/es5/util/colors'
+
+Vue.use(Vuetify, {
+<!--theme是主题对象-->
+  theme: {
+<!--通过colors对象调用颜色-->
+    primary: colors.orange.darken2,
+    secondary: colors.lightGreen.lighten4,
+    accent: colors.indigo.base
+  }
+})
+</pre>
+<p><code>primary</code>等基础颜色变量的使用方法和具体颜色一样，比如<code>class="accent--text text--lighten-2"</code></p>
+
+
+
+<h3 id="con12" style="text-align: center;">1.2 StylusCSS预处理器控制主题颜色</h3>
+<p>Stylus就和SASS之类都是预处理器。在前边的JS代码中，如果导入colors对象，会让整个JS文件的体积增大30Kb左右。如果只是想使用一些特定的颜色，可以通过修改Vuetify的stylus文件来关闭导入颜色对象。这需要手工关闭，然后在导入主stylus文件。</p>
+<p>由于使用stylus预处理器不是重点，而且对于我们不是非常专业的前端，没有必要在颜色方面自定义太多东西，这里就看<a href="https://vuetifyjs.com/en/framework/colors#stylus-color-pack" target="_blank">官方文档</a>吧。</p>
+
+
+<h1 id="con2" style="text-align: center;">2 主题色彩</h1>
+<p>上一节已经看过了主题色彩，其实就是一套固定名称的色彩变量。Vuetify提供了如下几个方面可以快速改变应用的主题色彩。</p>
+
+<h3 id="con21" style="text-align: center;">2.1 Light and Dark风格</h3>
+<p>直接在<code>v-app</code>上设置<code>dark</code>属性可以让大部分应用组件的底色都变成黑色。不设置则默认是亮色主题。</p>
+<pre>
+&lt;v-app dark>
+...
+&lt;/v-app>
+</pre>
+
+<h3 id="con22" style="text-align: center;">2.2 主题颜色对象</h3>
+<p>在上一节中，引入Vuetify插件的时候传入的配置对象中的<code>theme</code>对象，就是主题颜色对象。Vuetify提供了一个<a href="https://theme-generator.vuetifyjs.com/" target="_blank">主题色彩生成器</a>，进去选好需要的七种色彩，就可以生成直接可供导入的对象或者对应color对象的代码：</p>
+<pre>
+{
+    primary: #3f51b5,
+    secondary: #673ab7,
+    accent: #e91e63,
+    error: #f44336,
+    warning: #ff5722,
+    info: #4caf50,
+    success: #607d8b
+}
+</pre>
+<p>或者：</p>
+<pre>
+import colors from 'vuetify/es5/util/colors'
+
+{
+    primary: colors.indigo.base,
+    secondary: colors.deep-purple.base,
+    accent: colors.pink.base,
+    error: colors.red.base,
+    warning: colors.deep-orange.base,
+    info: colors.green.base,
+    success: colors.blue-grey.base
+}
+</pre>
+<p>有了这个对象就可以方便的更换颜色风格。</p>
+<p>在传入对象的时候，也可以只传部分颜色名称，没有传入的颜色会使用默认颜色。</p>
+
+<h3 id="con23" style="text-align: center;">2.3 动态更换主题颜色</h3>
+<p>刚才的对象都是在App启动的时候传入的。Vuetify通过<code>this.$vuetify.theme</code>对象可以直接访问和设置色彩变量的名称。</p>
+<p>比如给之前在学习Grid系统的时候写的导航栏增加一个改变文字颜色的按钮：</p>
+<pre>
+&lt;button @click="changeColor">改变颜色&lt;/button>
+&lt;script>
+    new Vue({
+        el: '#app',
+        // ...此处省略...
+        methods: {
+            changeColor : function () {
+                this.$vuetify.theme.primary = '#FF9800'
+            }
+        }
+    })
+&lt;/script>
+</pre>
+<p>按了这个按钮，就会把所有文字的颜色变成橙色（A标签的文字默认使用<code>primary</code>颜色）。</p>
+<p>主题的内容除了上述这些之外，还有一些可以在传入<code>theme</code>对象的时候自定义类似<code>primary.base</code>或者<code>primary.darken1</code>的方法，就是使用嵌套的对象。</p>
+<p>此外还有服务端渲染的内容，以及自定义颜色变量等内容，有兴趣的可以看<a href="https://vuetifyjs.com/en/framework/theme#options" target="_blank">官方文档</a>。</p>
+
+<h1 id="con3" style="text-align: center;">3 基础样式</h1>
+<p>Vuetify对一些HTML标签应用了一些特殊样式，此外还提供了一些CSS类用于控制文字展示。</p>
+
+<h3 id="con31" style="text-align: center;">3.1 内容样式</h3>
+<p>已经定义了预置样式的HTML元素有：</p>
+<ol>
+    <li><code>blockquote</code>，blockquote元素，其中的内容会自动应用样式，字体大小为18px，带有上下padding</li>
+    <li><code>p</code>，标准P元素，字体大小为14px，带有下margin</li>
+    <li><code>var</code>，表示变量，会自动应用斜体，14px</li>
+    <li><code>code</code>，会自动应用样式，等宽字体，13px</li>
+    <li><code>kbd</code>，13px，背景为浅黑色，等宽字体</li>
+</ol>
+<p>这些样式直接使用对应的标签包围内容即可。无需额外在标签上定义CSS类。</p>
+
+<h3 id="con32" style="text-align: center;">3.2 文字样式</h3>
+<p>Vuetify提供了一系列类，用于将文字规范到扁平化设计的文字规范，主要有是四个方面的内容：字体大小，字体重量，字体转换，字体包裹。</p>
+<p>字体大小提供了一系列CSS类用于将指定的文字转换成符合扁平化设计的文字大小，这些字体大小的CSS类可以用于任何文字对象上，但最好还是和语义化的HTML标签一起使用：</p>
+<ol>
+    <li><code>.display-4</code>，设置文字为112px，通常搭配<code>h1</code>元素使用</li>
+    <li><code>.display-3</code>，设置文字为56px，通常搭配<code>h2</code>元素使用</li>
+    <li><code>.display-2</code>，设置文字为45px，通常搭配<code>h3</code>元素使用</li>
+    <li><code>.display-1</code>，设置文字为34px，通常搭配<code>h4</code>元素使用</li>
+    <li><code>.headline</code>，设置文字为24px，通常搭配<code>h5</code>元素使用</li>
+    <li><code>.title</code>，设置文字为20px，通常搭配<code>h6</code>元素使用</li>
+    <li><code>.subheading</code>，设置文字为16px，通常在标题作为副标题使用</li>
+    <li><code>.body-2</code>，设置文字为14px，字重500，通常作为正文使用</li>
+    <li><code>.body-1</code>，设置文字为14px，通常作为正文使用</li>
+    <li><code>.caption</code>，设置文字为12px，通常作为辅助文字使用</li>
+</ol>
+<p>除了<code>.body-2</code>，都是普通字重。</p>
+<p>Vuetify支持的字重对应关系是：</p>
+<ol>
+    <li><code>.font-weight-thin</code>，对应100</li>
+    <li><code>.font-weight-light</code>，对应300</li>
+    <li><code>.font-weight-regular</code>，对应400</li>
+    <li><code>.font-weight-medium</code>，对应500</li>
+    <li><code>.font-weight-bold</code>，对应700</li>
+    <li><code>.font-weight-black</code>，对应900</li>
+</ol>
+<p>字重选择的支持也得益于Vuetify默认的Roboto字体支持的字重种类比较多。</p>
+<p><code>.font-italic</code>类用于斜体。</p>
+<p>文本转换也有几个类，用于转换大小写：</p>
+<ol>
+    <li><code>.text-capitalize</code>，设置首字母大写</li>
+    <li><code>.text-lowercase</code>，设置英文为小写</li>
+    <li><code>.text-none</code>，不进行转换</li>
+    <li><code>.text-uppercase</code>，设置大写</li>
+    <li><code>.font-weight-bold</code>，对应700</li>
+    <li><code>.font-weight-black</code>，对应900</li>
+</ol>
+<p>最后是外边容器是否截断文字的两个类：</p>
+<ol>
+    <li><code>.text-no-wrap</code>，设置whitespace属性为nowrap</li>
+    <li><code>.text-truncate</code>，截断超出的文字</li>
+</ol>
+
+<h1 id="con4" style="text-align: center;">4 辅助样式</h1>
+<p>除了基础的预置样式和文字样式之外，Vuetify也提供了很多辅助类用于微调样式。</p>
+
+<h3 id="con41" style="text-align: center;">4.1 display相关样式</h3>
+<p>这里的样式主要是与<code>display</code>属性相关，用于控制可见性，溢出和元素的显示框类型。</p>
+<p>可见性的写法是：<code>hidden-{breakpoint}-{condition}</code>。</p>
+<p>其中的<code>breakpoint</code>是断点的代码，<code>{condition}</code>部分是条件，有三个选项：</p>
+<ol>
+    <li><code>only</code>，仅在断点对应的屏幕宽度范围内生效</li>
+    <li><code>and-down</code>，断点和更小的屏幕宽度</li>
+    <li><code>and-up</code>，断点和更大的屏幕宽度</li>
+</ol>
+<p>此外还可以使用媒体类型，控制元素在不同的情况下可见，比如<code>hidden-screen-only</code>控制仅在屏幕上不可见，<code>hidden-print-only</code>控制仅在打印时不可见。</p>
+<p>溢出的处理有三个类：</p>
+<ol>
+    <li><code>overflow-hidden</code>，不显示所有溢出部分</li>
+    <li><code>overflow-y-hidden</code>，不显示竖直方向的溢出</li>
+    <li><code>overflow-x-hidden</code>，不显示水平方向的溢出</li>
+</ol>
+<p>最后是控制元素的显示框类型，在Grid部分的几个排版元素的API中已经见过这种类型的CSS样式类。这些类如下：</p>
+<ol>
+    <li><code>d-inline-flex</code></li>
+    <li><code>d-flex</code></li>
+    <li><code>d-inline-block</code></li>
+    <li><code>d-block</code></li>
+    <li><code>d-inline</code></li>
+    <li><code>d-none</code></li>
+</ol>
+<p>类名一看就知道效果是什么。利用<code>display</code>相关样式，很容易就可以做出一个随着屏幕宽度减少，导航条内容不断减少的效果：</p>
+<pre>
+&lt;div id="app">
+    &lt;v-app>
+        &lt;v-container>
+            &lt;v-layout wrap :class="classObject" >
+                &lt;v-flex xs1 class="hidden-xs-only">
+                    &lt;div style="text-align: center;">&lt;a href="#">Home&lt;/a>&lt;/div>
+                &lt;/v-flex>
+                &lt;v-flex xs1 class="hidden-sm-and-down">
+                    &lt;div style="text-align: center;">&lt;a href="#">Products&lt;/a>&lt;/div>
+                &lt;/v-flex>
+                &lt;v-flex xs1 class="hidden-md-and-down">
+                    &lt;div style="text-align: center;">&lt;a href="#">Contact&lt;/a>&lt;/div>
+                &lt;/v-flex>
+                &lt;v-flex xs1 class="hidden-lg-and-down">
+                    &lt;div style="text-align: center;">&lt;a href="#">About&lt;/a>&lt;/div>
+                &lt;/v-flex>
+            &lt;/v-layout>
+        &lt;/v-container>
+    &lt;/v-app>
+&lt;/div>
+</pre>
+
+<h3 id="con42" style="text-align: center;">4.2 z轴特效</h3>
+<p>Vuetify中对于标准CSS中的<code>z-index</code>属性进行重新设计，使用elevation-{n}标识z轴的层级，并且自动设置对应的样式。</p>
+<p>层级一共有25种，用0-24表示，所以这个CSS类就是从<code>elevation-0</code>到<code>elevation-24</code>。</p>
+<p>每一个层级都会设置不同的样式，看上去就像是离页面越来越远。可以看官网的<a href="https://vuetifyjs.com/en/framework/elevation#playground" target="_blank">例子</a>。</p>
+
+<h3 id="con43" style="text-align: center;">4.3 外边距和内边距控制</h3>
+<p>Vuetify的文档还是很细致的，我记得Bootstrap4可能也有类似的类，但是都没在文档里仔细提过。</p>
+<p>控制外边距和内边距的CSS类是<code>{property}{direction}-{size}</code>。来分别看看其中的三个内容：</p>
+<ol>
+    <li><code>property</code>，可以设置为<code>m</code>和<code>p</code>，分别表示外边距<code>margin</code>和内边距<code>padding</code>。</li>
+    <li><code>direction</code>设置如下：
+        <ol>
+            <li><code>t</code>表示<code>top</code></li>
+            <li><code>b</code>表示<code>bottom</code></li>
+            <li><code>l</code>表示<code>left</code></li>
+            <li><code>r</code>表示<code>right</code></li>
+            <li><code>x</code>表示同时<code>right</code>和<code>left</code></li>
+            <li><code>y</code>表示同时<code>top</code>和<code>bottom</code></li>
+            <li><code>a</code>表示所有方向</li>
+        </ol>
+    </li>
+    <li><code>size</code>设置如下：
+        <ol>
+            <li><code>auto</code>表示<code>auto</code></li>
+            <li><code>0</code>表示<code>0</code></li>
+            <li><code>1</code>表示<code>$spacer</code>代表的宽度*0.25，默认是4px</li>
+            <li><code>2</code>表示<code>$spacer</code>代表的宽度*0.5，默认是8px</li>
+            <li><code>3</code>表示<code>$spacer</code>代表的宽度，默认是16px</li>
+            <li><code>4</code>表示<code>$spacer</code>代表的宽度*1.5，默认是24px</li>
+            <li><code>5</code>表示<code>$spacer</code>代表的宽度*3，默认是48px</li>
+        </ol>
+    </li>
+</ol>
+<p>掌握了原始的CSS样式的话，使用这个类很容易。</p>
+
+<h3 id="con44" style="text-align: center;">4.4 文字对齐</h3>
+<p>控制文字对齐的CSS样式类是<code>text-{breakpoint}-{position}</code>。</p>
+<p><code>{position}</code>可以选择的是<code>right</code>，<code>left</code>和<code>center</code>。</p>
+<p>需要说明的是这个样式类的工作特点和断点是一样的，即如果想让一个元素的文字在所有情况下都居中，需要设置成<code>text-xs-center</code>，会自动覆盖掉所有更大宽度的屏幕。</p>
+
+<h1 id="con5" style="text-align: center;">5 滚动 scroll</h1>
+<p>Vuetify提供了<code>$vuetify.goto(target, options)</code>这样一个方法用于控制滚动。</p>
+<p>其中<code>target</code>可以是一个数字，表示距离页面顶端的像素距离；还可以是一个CSS选择器字符串或者一个元素的引用，用来滚动到指定的元素处。</p>
+<p>其中<code>options</code>则是一个配置对象，其中的属性有<code>duration</code>表示时间，<code>easing</code>表示缓和曲线效果，<code>offset</code>表示上下偏移量，<code>container</code>暂时不知道表示什么。</p>
+<p><code>$vuetify.goto(target, options)</code>是在任意Vue组件中都可以访问的，极大的提高了灵活性。</p>
+<p>光说不练假把式，官网的<a href="https://vuetifyjs.com/en/framework/scroll#usage" target="_blank">例子</a>其实很不错，但是没有明确的看到传入的参数。</p>
+<p>可以做一个页面来简单的看一下效果：</p>
+<pre>
+&lt;div id="app">
+    &lt;v-app id="inspire">
+        &lt;v-container>
+            &lt;v-layout>
+                &lt;v-btn color="primary" @click="scroll1">滚动到1000像素&lt;/v-btn>
+                &lt;v-btn color="primary" class="text-none" @click="scroll2">滚动到id="p2"的元素处&lt;/v-btn>
+                &lt;v-btn color="primary" @click="scroll3" class="text-none">滚动到ref="saner"的元素处&lt;/v-btn>
+            &lt;/v-layout>
+            &lt;v-layout row wrap>
+                &lt;v-flex xs12>
+                    &lt;p style="height: 1500px" id="p1">1st consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?&lt;/p>
+                &lt;/v-flex>
+                &lt;v-flex  xs12>
+                    &lt;p style="height: 1500px" <span style="color: red">id="p2"</span>>1st consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?&lt;/p>
+                &lt;/v-flex>
+                &lt;v-flex xs12>
+                    &lt;p style="height: 1500px" <span style="color: red">ref="saner"</span> id="p3">1st consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?&lt;/p>
+                &lt;/v-flex>
+            &lt;/v-layout>
+
+        &lt;/v-container>
+    &lt;/v-app>
+&lt;/div>
+&lt;script>
+    new Vue({
+        el: '#app',
+        methods:{
+            scroll1:function () {
+                this.$vuetify.goTo(1000, {
+                    duration: 300,
+                    easing: "easeInOutCubic",
+                    offset: 700});
+            },
+            scroll2:function () {
+                this.$vuetify.goTo('#p2', {});
+            },
+            scroll3:function () {
+                this.$vuetify.goTo(this.$refs.saner, {});
+            },
+
+        }
+    })
+&lt;/script>
+</pre>
+<p>这个页面里有三个按钮，然后是三个高1500像素的段落。</p>
+<p>第一个按钮是滚动到距离页面顶部1000像素的位置，然后加上了配置参数，<code>duration: 300</code>我感觉了一下应该是0.3秒左右；<code>easing</code>属性直接传入字符串即可。<code>offset</code>数值为正数的时候，表示从1000像素的位置，往页面上方偏移700像素，也就是实际上只会移动到距离页面顶部300像素的位置。如果是负数就是往页面下方偏移了。</p>
+<p>第二个按钮采用CSS选择器，选中的是<code>id="p2"</code>的元素，会直接滚动到对应元素的地方。</p>
+<p>第二个按钮采用一个DOM对象的方式，使用了Vue的<code>ref</code>属性的特性，通过<code>this.$refs.saner</code>选中第三个段落元素，会直接滚动到该元素处。</p>
+<p><code>easing</code>属性可以使用的字符串有如下：</p>
+<pre>
+linear
+easeInQuad
+easeOutQuad
+easeInOutQuad
+easeInCubic
+easeOutCubic
+easeInOutCubic
+easeInQuart
+easeOutQuart
+easeInOutQuart
+easeInQuint
+easeOutQuint
+easeInOutQuint
+</pre>
+
+<p>现在VuetifyGrid系统和基础的样式都学习完了，官网文档里<a href="https://vuetifyjs.com/en/framework/transitions#motion" target="_blank">过渡</a>的部分由于Vue里过渡基本没怎么用过，暂且先放一放。经过一些初步的使用，发现Vuetify相比原来的纯CSS库，在HTML结构方面确实简明了很多。</p>
+<p>下边就来看看各个组件的使用了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+
+</html>

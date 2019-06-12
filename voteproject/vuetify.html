@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="zhHans">
 <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Vuetify</title>
     <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
@@ -9,17 +12,17 @@
 <div id="app">
     <v-app>
         <v-container>
-            <v-layout wrap :class="classObject">
-                <v-flex xs1>
+            <v-layout wrap :class="classObject" class="error">
+                <v-flex xs1 class="hidden-xs-only">
                     <div style="text-align: center;"><a href="#">Home</a></div>
                 </v-flex>
-                <v-flex xs1>
+                <v-flex xs1 class="hidden-sm-and-down elevation-10" >
                     <div style="text-align: center;"><a href="#">Products</a></div>
                 </v-flex>
-                <v-flex xs1>
+                <v-flex xs1 class="hidden-md-and-down">
                     <div style="text-align: center;"><a href="#">Contact</a></div>
                 </v-flex>
-                <v-flex xs1>
+                <v-flex xs1 class="hidden-lg-and-down">
                     <div style="text-align: center;"><a href="#">About</a></div>
                 </v-flex>
             </v-layout>
@@ -39,6 +42,11 @@
                     "column": this.$vuetify.breakpoint.xsOnly,
                     "justify-space-around":this.$vuetify.breakpoint.smAndUp && this.$vuetify.breakpoint.mdAndDown
                 }
+            }
+        },
+        methods: {
+            changeColor : function () {
+                this.$vuetify.theme.primary = '#FF9800'
             }
         }
     })

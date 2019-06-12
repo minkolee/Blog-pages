@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="zhHans">
 <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
@@ -8,14 +10,39 @@
 <body>
 <div id="app">
     <v-app id="inspire">
-        <div>
-            <v-card>
-                <v-responsive max-height="900" :aspect-ratio="16/9" style="border: 1px solid black">
-                    <v-card-text >
-                        This card will always be 16:9 (unless you put more stuff in it)
-                    </v-card-text>
-                </v-responsive>
-            </v-card>
+        <div class="text-xs-center">
+            <v-menu transition="slide-x-transition">
+                <template v-slot:activator="{ on }">
+                    <v-btn
+                            dark
+                            color="primary"
+                            v-on="on"
+                    >
+                        Slide X Transition
+                    </v-btn>
+                </template>
+                <v-list>
+                    <v-list-tile v-for="n in 5" :key="n" @click="">
+                        <v-list-tile-title v-text="'Item ' + n"></v-list-tile-title>
+                    </v-list-tile>
+                </v-list>
+            </v-menu>
+            <v-menu transition="slide-x-reverse-transition">
+                <template v-slot:activator="{ on }">
+                    <v-btn
+                            dark
+                            color="secondary"
+                            v-on="on"
+                    >
+                        Slide X Reverse Transition
+                    </v-btn>
+                </template>
+                <v-list>
+                    <v-list-tile v-for="n in 5" :key="n" @click="">
+                        <v-list-tile-title v-text="'Item ' + n"></v-list-tile-title>
+                    </v-list-tile>
+                </v-list>
+            </v-menu>
         </div>
     </v-app>
 </div>
@@ -25,15 +52,6 @@
 <script>
     new Vue({
         el: '#app',
-        computed: {
-            classObject: function () {
-                return {
-                    "justify-end": this.$vuetify.breakpoint.lgAndUp,
-                    "column": this.$vuetify.breakpoint.xsOnly,
-                    "justify-space-around": this.$vuetify.breakpoint.smAndUp && this.$vuetify.breakpoint.mdAndDown
-                }
-            }
-        }
     })
 </script>
 </body>
