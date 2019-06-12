@@ -14,6 +14,7 @@
     <li><a href="#con3">3 Badge</a></li>
     <li><a href="#con4">4 Bottom navigation</a></li>
     <li><a href="#con5">5 Bottom sheets</a></li>
+    <li><a href="#con6">6 面包屑导航</a></li>
 </ol>
 
 
@@ -54,7 +55,7 @@
     <li><code>left</code>，默认为false，是否显示在左边</li>
     <li><code>mode</code>，过渡模式</li>
     <li><code>origin</code>，过渡相关</li>
-    <li><code>overlap</code>，是否覆盖插入进来的元素，默认是false</li>
+    <li><code>overlap</code>，是否覆盖插入进来的元素，默认是false，在左上和左下的位置，设置为overlap比较好看一些，在下部就不怎么好看了。</li>
     <li><code>transition</code>，默认<code>fab-transition</code>，可以使用内建的过渡效果或者自定义</li>
     <li><code>value</code>，是否显示该元素，默认为<code>true</code></li>
 </ol>
@@ -102,16 +103,55 @@
 <p>这个组件有一个特殊的插槽，名称叫做<code>activator</code>，插入的元素被点击的时候，会打开菜单。如果不使用这个插槽，那只有通过控制具体属性才行。一般都通过一个链接或者按钮来控制菜单弹出。</p>
 <p>写了一个简单的例子在<a href="http://conyli.cc/vuetify/bottom-sheets.html" target="_blank">这里</a>。</p>
 
-
-
-
-
-
-
-
-
-
-
+<h1 id="con6" style="text-align: center;">6 面包屑导航</h1>
+<p>组件元素是<code>v-breadcrumbs</code>，面包屑导航组件。</p>
+<p>这个组件在使用的时候，需要绑定<code>items</code>这个prop，给其一个数组对象，数组对象中的每个元素是一个<code>v-breadcrumbs-item</code>对象。</p>
+<p>先来看看这两个组件的<a href="https://vuetifyjs.com/en/components/breadcrumbs#api" target="_blank">API</a>。</p>
+<p><code>v-breadcrumbs</code>的PROPS：</p>
+<ol>
+    <li><code>dark</code>，这个不用多说了，暗色风格</li>
+    <li><code>light</code>，亮色风格</li>
+    <li><code>divider</code>，区分各个导航的分隔符，默认是字符串<code>'/'</code>，可以自行修改。这个属性也是一个同名的插槽，可以插入图标，文字等作为分隔符。</li>
+    <li><code>items</code>，核心的属性，绑定一个由<code>v-breadcrumbs-item</code>对象组成的数组。</li>
+    <li><code>large</code>，使用较大的字体。</li>
+</ol>
+<p><code>v-breadcrumbs</code>具有上边说的一个具名插槽<code>divider</code>，还有一个作用域插槽叫做<code>item</code>，插入的内容会覆盖<code>items</code>属性渲染的内容。在使用这个作用域插槽的时候<code>v-slot:item="varName"</code>的<code>varName</code>就是临时变量名称，<code>varName.item</code>就可以访问到子组件绑定的数据了。</p>
+<p>再来看一下<code>v-breadcrumbs-item</code>的属性：</p>
+<ol>
+    <li><code>active-class</code>，激活时候的CSS类，默认是<code>v-breadcrumbs__item--disabled</code>。</li>
+    <li><code>append</code>这个不是很清楚，说是路由对象的属性。</li>
+    <li><code>disabled</code>，链接是否有效</li>
+    <li><code>exact</code>，精确匹配，默认是false。</li>
+    <li><code>href</code>，渲染成a标签，并将其中的内容作为链接</li>
+    <li><code>nuxt</code>，成为一个nuxt-link，这个也不知道怎么回事。</li>
+    <li><code>replace</code>，Vue-router的属性。</li>
+    <li><code>tag</code>，指定要被渲染成的标签。</li>
+    <li><code>target</code>，指定target属性。</li>
+    <li><code>to</code>，指定这个标签被渲染成一个<code>&lt;router-link></code>标签。</li>
+    <li><code>ripple</code>，应用<code>v-ripple</code>标签。</li>
+</ol>
+<p>这个对象里有好多说的不清不楚（估计我水平也不够）的，只能来试验试验了。</p>
+<p>结果发现很多选项好像暂时没有什么用处，给<code>items</code>传入这样一个对象就能够生成链接了：</p>
+<pre>
+items: [
+    {
+        text: 'Homepage',
+        disabled: false,
+        href: 'api/token'
+    },
+    {
+        text: 'Token',
+        disabled: false,
+        href: 'api/vote'
+    },
+    {
+        text: 'Vote',
+        disabled: true,
+        href: 'about'
+    }
+]
+</pre>
+<p>写了一个简单的<a href="http://conyli.cc/vuetify/breadcrumbs.html" target="_blank">例子</a>，感觉这里使用作用域插槽的意义也不是很大。</p>
 
 
 

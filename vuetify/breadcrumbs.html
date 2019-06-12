@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zhHans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.css.network/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak="">
+    <v-app id="inspire" >
+        <v-container>
+            <v-layout row wrap>
+                <v-flex>
+                    <v-breadcrumbs :items="items1" divider=">>">
+
+                    </v-breadcrumbs>
+                </v-flex>
+            </v-layout>
+            <v-layout>
+                <v-flex>
+                    <div>
+                        <v-breadcrumbs :items="items1">
+                            <template v-slot:item="props">
+                                <a :href="props.item.href" :class="[props.item.disabled && 'disabled']">{{ props.item.text.toUpperCase() }}</a>
+                            </template>
+                        </v-breadcrumbs>
+                    </div>
+                </v-flex>
+            </v-layout>
+        </v-container>
+    </v-app>
+</div>
+
+<script src="https://cdn.bootcss.com/vue/2.6.10/vue.min.js"></script>
+<script src="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            items1: [
+                {
+                    text: 'Homepage',
+                    disabled: false,
+                    href: 'api/token'
+                },
+                {
+                    text: 'Token',
+                    disabled: false,
+                    href: 'api/vote'
+                },
+                {
+                    text: 'Vote',
+                    disabled: false,
+                    href: 'api/getvote'
+                },
+                {
+                    text: 'About',
+                    disabled: true,
+                    href: 'about'
+                },
+            ],
+            items2: [
+                {
+                    text: 'Dashboard',
+                    disabled: false,
+                    href: 'api/token',
+                },
+                {
+                    text: 'Link 1',
+                    disabled: false,
+                    href: 'api/vote',
+                },
+                {
+                    text: 'Link 2',
+                    disabled: true,
+                    href: 'about',
+                }
+            ]
+        }
+    })
+</script>
+</body>
+</html>

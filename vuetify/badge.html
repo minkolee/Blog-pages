@@ -18,7 +18,7 @@
         <v-container>
             <v-layout wrap justify-space-around>
                 <v-flex xs2>
-                    <v-badge :value="value" color="secondary">
+                    <v-badge :value="value" color="secondary" overlap>
                         <template v-slot:badge>
                             <span>5</span>
                         </template>
@@ -36,7 +36,7 @@
                 </v-flex>
 
                 <v-flex xs2>
-                    <v-badge bottom :value="value" color="red">
+                    <v-badge bottom :value="value" color="red" overlap>
                         <template v-slot:badge>
                             <span>5</span>
                         </template>
