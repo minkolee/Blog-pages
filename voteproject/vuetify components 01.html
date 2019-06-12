@@ -7,11 +7,13 @@
     <title>Vuetify UI组件 01</title>
 </head>
 <body>
-<p>终于到了开始使用UI组件的时候了。组件几十个，不知道能不能坚持一个一个研究过来。</p>
+<p>终于到了开始使用UI组件的时候了。组件几十个，希望能坚持一个一个研究过来。</p>
 <ol>
     <li><a href="#con1">1 Alert</a></li>
     <li><a href="#con2">2 Avatars</a></li>
-    <li><a href="#con2">3 Badge</a></li>
+    <li><a href="#con3">3 Badge</a></li>
+    <li><a href="#con4">4 Bottom navigation</a></li>
+    <li><a href="#con5">5 Bottom sheets</a></li>
 </ol>
 
 
@@ -83,6 +85,49 @@
 <p>而且，如果给父组件的<code>varName</code>赋予与某个按钮组件的<code>value</code>相同的值，这个按钮就会处于开始就被选中的状态。</p>
 <p>这个组件要求插槽元素一定要是<code>v-btn</code>元素，而且<code>v-btn</code>中要有图标和文字，按钮的文字需要用<code>span</code>标签包裹</p>
 <p>底部导航条的例子在<a href="http://conyli.cc/vuetify/bottom-navigation.html" target="_blank">这里</a>。</p>
+
+<h1 id="con5" style="text-align: center;">5 Bottom sheets</h1>
+<p>组件元素是<code>v-bottom-sheet</code>，是一个从底部向上展开的菜单。其中可以包含一个<code>v-list</code>组件。</p>
+<p>来看看<a href="https://vuetifyjs.com/en/components/bottom-sheets#api" target="_blank">API</a>：</p>
+<ol>
+    <li><code>disabled</code>，不打开底部菜单，默认是false</li>
+    <li><code>full-width</code>，强制100%宽度，默认为false。</li>
+    <li><code>hide-overlay</code>，覆盖元素，默认是false。</li>
+    <li><code>inset</code>，强制最大宽度为70%</li>
+    <li><code>lazy</code>，惰性渲染，只在打开的情况下才渲染。</li>
+    <li><code>max-width</code>，指定最大宽度，默认是auto。</li>
+    <li><code>persistent</code>，点击菜单以外的地方，菜单不会缩回去，默认是false</li>
+    <li><code>value</code>，可见性</li>
+</ol>
+<p>这个组件有一个特殊的插槽，名称叫做<code>activator</code>，插入的元素被点击的时候，会打开菜单。如果不使用这个插槽，那只有通过控制具体属性才行。一般都通过一个链接或者按钮来控制菜单弹出。</p>
+<p>写了一个简单的例子在<a href="http://conyli.cc/vuetify/bottom-sheets.html" target="_blank">这里</a>。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 </body>

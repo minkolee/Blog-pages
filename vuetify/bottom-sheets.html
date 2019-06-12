@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zhHans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.css.network/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak="">
+    <v-app id="inspire" dark>
+        <div class="text-xs-center">
+            <v-layout justify-center>
+                <v-btn @click="per=!per">改变点击菜单以外的地方自动缩回</v-btn>
+                <v-btn @click="inset=!inset">改变宽度</v-btn>
+                <v-btn @click="dis=!dis">菜单是否弹出</v-btn>
+            </v-layout>
+            <v-bottom-sheet v-model="value" :inset="inset" :persistent="per" :disabled="dis">
+                <template v-slot:activator>
+                    <v-btn color="deep-orange" dark>
+                        点击弹出菜单
+                    </v-btn>
+                </template>
+
+                <v-list>
+                    <v-subheader>这个例子中使用了v-model绑定value属性，在点击列表中任何一项时，将value置为false，菜单又缩回去了。</v-subheader>
+                    <v-subheader>记住全部的插槽中内容都是父元素作用域</v-subheader>
+                    <v-list-tile v-for="tile in tiles" :key="tile.title" @click="value = false">
+                        <v-list-tile-avatar>
+                            <v-avatar size="32px" tile>
+                                <img :src="`https://cdn.vuetifyjs.com/images/bottom-sheets/${tile.img}`"
+                                     :alt="tile.title"
+                                >
+                            </v-avatar>
+                        </v-list-tile-avatar>
+                        <v-list-tile-title>{{ tile.title }}</v-list-tile-title>
+                    </v-list-tile>
+                </v-list>
+            </v-bottom-sheet>
+        </div>
+    </v-app>
+</div>
+
+<script src="https://cdn.bootcss.com/vue/2.6.10/vue.min.js"></script>
+<script src="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data: () => ({
+            value: false,
+            tiles: [
+                {img: 'keep.png', title: 'Keep'},
+                {img: 'inbox.png', title: 'Inbox'},
+                {img: 'hangouts.png', title: 'Hangouts'},
+                {img: 'messenger.png', title: 'Messenger'},
+                {img: 'google.png', title: 'Google+'}
+            ],
+            per:false,
+            inset: false,
+            dis:false,
+
+        })
+    })
+</script>
+</body>
+</html>
