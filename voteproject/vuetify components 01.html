@@ -15,6 +15,7 @@
     <li><a href="#con4">4 Bottom navigation</a></li>
     <li><a href="#con5">5 Bottom sheets</a></li>
     <li><a href="#con6">6 面包屑导航</a></li>
+    <li><a href="#con7">7 按钮</a></li>
 </ol>
 
 
@@ -153,12 +154,47 @@ items: [
 </pre>
 <p>写了一个简单的<a href="http://conyli.cc/vuetify/breadcrumbs.html" target="_blank">例子</a>，感觉这里使用作用域插槽的意义也不是很大。</p>
 
-
-
-
-
-
-
+<h1 id="con7" style="text-align: center;">7 按钮</h1>
+<p>按钮可以说是非常常用的元素了，组件是<code>v-btn</code>。</p>
+<p>直接来看<a href="https://vuetifyjs.com/en/components/buttons#api" target="_blank">API</a>：</p>
+<ol>
+    <li><code>absolute</code>，绝对定位，默认false。</li>
+    <li><code>active-class</code>，激活时候的CSS类名，默认是v-btn--active。</li>
+    <li><code>append</code>，vue-router的prop</li>
+    <li><code>block</code>，把按钮伸展成100%宽度。</li>
+    <li><code>color</code>，应用颜色</li>
+    <li><code>dark</code>，暗色主题。</li>
+    <li><code>depressed</code>，去除按钮周围的阴影。</li>
+    <li><code>disabled</code>，按钮不可用。</li>
+    <li><code>exact</code>，精确匹配路径。</li>
+    <li><code>exact-active-class</code>，Vue-router<code>&lt;router-link></code>标签使用。</li>
+    <li><code>fab</code>，圆形按钮。</li>
+    <li><code>fixed</code>，固定定位。</li>
+    <li><code>flat</code>，去掉背景颜色。</li>
+    <li><code>href</code>，将按钮渲染成A标签。</li>
+    <li><code>icon</code>，将按钮渲染成圆形并且无背景的样式。</li>
+    <li><code>input-value</code>，控制按钮激活状态，这个不是很明白。</li>
+    <li><code>large</code>，大型按钮。</li>
+    <li><code>left</code>，将按钮排布在父容器左侧。</li>
+    <li><code>light</code>，亮色色调。</li>
+    <li><code>loading</code>，添加载入动画。</li>
+    <li><code>nuxt</code>，nuxt-link。</li>
+    <li><code>outline</code>，按钮只具有轮廓线</li>
+    <li><code>replace</code>，Vue Router的属性</li>
+    <li><code>right</code>，内容排布在父容器右侧</li>
+    <li><code>ripple</code>，应用v-ripple指令</li>
+    <li><code>round</code>，圆角按钮</li>
+    <li><code>small</code>，小型按钮</li>
+    <li><code>tag</code>，默认'button'，表示被渲染成的元素</li>
+    <li><code>target</code>，指定target，属性</li>
+    <li><code>to</code>，将其渲染为<code>&lt;router-link></code>标签</li>
+    <li><code>top</code>，内容排布在上方。这个测试了一下好像有些排版问题。可以看下边的例子</li>
+    <li><code>type</code>，指定按钮的type属性，默认为'button'</li>
+    <li><code>value</code>，控制可见性</li>
+</ol>
+<p>基础的载入动画可以直接使用<code>loading</code>属性，发现作者做的很细致，在打开<code>loading</code>属性的同时，按钮就变得不可点击了。</p>
+<p>按钮还有一个效果，就是在子绝父相的情况下，可以通过<code>top</code>，<code>left</code>，<code>right</code>让按钮处在一个框的右上或者左上角，作出扁平化常用的效果。</p>
+<p>按钮这个是很常用的元素，除了那个<a href="https://vuetifyjs.com/en/components/buttons#button-dropdown-variants" target="_blank">菜单按钮</a>和<a href="https://vuetifyjs.com/en/components/buttons#loaders" target="_blank">loader动画</a>还没搞清楚，打算用到再补，其他的做了个<a href="http://conyli.cc/vuetify/button.html" target="_blank">例子</a>。</p>
 
 
 

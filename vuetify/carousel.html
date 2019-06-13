@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zhHans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.css.network/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak="">
+    <v-app id="inspire" >
+        <v-container grid-list-lg>
+            <v-layout justify-center>
+                <v-flex>
+                    <h3 class="text-xs-center display-3">标准轮播图 速度2000</h3>
+                </v-flex>
+            </v-layout>
+            <v-layout row wrap justify-center>
+                <v-flex xs12 sm8>
+                    <v-carousel interval="2000">
+                        <v-carousel-item
+                                v-for="(item,i) in items"
+                                :key="i"
+                                :src="item.src"
+                        ></v-carousel-item>
+                    </v-carousel>
+                </v-flex>
+
+            </v-layout>
+            <v-layout justify-center>
+                <v-flex>
+                    <h3 class="text-xs-center display-3">暗色，不循环播放</h3>
+                </v-flex>
+            </v-layout>
+            <v-layout row wrap justify-center>
+                <v-flex xs12 sm8>
+                    <v-carousel :cycle="cycle" dark>
+                        <v-carousel-item
+                                v-for="(item,i) in items"
+                                :key="i"
+                                :src="item.src"
+                        ></v-carousel-item>
+                    </v-carousel>
+                </v-flex>
+            </v-layout>
+            <v-layout justify-center>
+                <v-flex>
+                    <h3 class="text-xs-center display-3">隐藏控制键+反向滚动</h3>
+                </v-flex>
+            </v-layout>
+            <v-layout row wrap justify-center>
+                <v-flex xs12 sm8>
+                    <v-carousel hide-controls hide-delimiters reverse interval="3000">
+                        <v-carousel-item
+                                v-for="(item,i) in items"
+                                :key="i"
+                                :src="item.src"
+                        ></v-carousel-item>
+                    </v-carousel>
+                </v-flex>
+            </v-layout>
+        </v-container>
+    </v-app>
+</div>
+
+<script src="https://cdn.bootcss.com/vue/2.6.10/vue.min.js"></script>
+<script src="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data:{
+            cycle:false,
+
+            items: [
+                {
+                    src: 'https://cdn.vuetifyjs.com/images/carousel/squirrel.jpg'
+                },
+                {
+                    src: 'https://cdn.vuetifyjs.com/images/carousel/sky.jpg'
+                },
+                {
+                    src: 'https://cdn.vuetifyjs.com/images/carousel/bird.jpg'
+                },
+                {
+                    src: 'https://cdn.vuetifyjs.com/images/carousel/planet.jpg'
+                }
+            ]
+        }
+    })
+</script>
+</body>
+</html>

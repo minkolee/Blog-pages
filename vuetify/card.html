@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zhHans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.css.network/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak="">
+    <v-app id="inspire" >
+        <v-container grid-list-lg>
+            <v-layout row wrap>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card>
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title>
+                            <div>
+                                <h3 class="headline mb-0">图 文字 链接标准排法</h3>
+                                <div> {{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card color="purple">
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0 white--text">改变背景色</h3>
+                                <div class="white--text">标题使用primary-title || {{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card dark>
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0 white--text">dark色调</h3>
+                                <div class="white--text">{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card elevation="15">
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">elevation-15效果</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card flat>
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">取消边缘阴影</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card height="190">
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">height小于实际高度效果</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card height="430">
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">height大于实际高度效果</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card hover="true">
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">hover 鼠标停留效果</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card href="http://conyli.cc">
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">渲染为A标签</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card img="https://via.placeholder.com/300.png/ddd/333">
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">img属性设置背景图片</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card light raised>
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">亮色调 raised</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card tag="p">
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">渲染成P标签</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card tile>
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">去掉圆角</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card to="api/auth">
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">渲染成router-link</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card>
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">v-spacer把按钮移到右侧</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-spacer></v-spacer>
+                            <v-btn outline flat color="orange">Share</v-btn>
+                            <v-btn outline color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+                <v-flex xs12 sm6 md4 lg3>
+                    <v-card width="350px">
+                        <v-img
+                                src="https://cdn.vuetifyjs.com/images/cards/desert.jpg"
+                                aspect-ratio="2.75"
+                        ></v-img>
+                        <v-card-title primary-title>
+                            <div>
+                                <h3 class="headline mb-0">指定宽度</h3>
+                                <div>{{ card_text }} </div>
+                            </div>
+                        </v-card-title>
+                        <v-card-actions>
+                            <v-btn flat color="orange">Share</v-btn>
+                            <v-btn flat color="orange">Explore</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-flex>
+
+            </v-layout>
+        </v-container>
+    </v-app>
+</div>
+
+<script src="https://cdn.bootcss.com/vue/2.6.10/vue.min.js"></script>
+<script src="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data:{
+            card_text: 'Lorem ipsum dolor sit amet, brute iriure accusata ne mea. Eos suavitate referrentur ad, libris qualisque, utroque quaestio accommodare no qui. Ignota salutandi accusamus in sed, et per malis fuisset, qui id ludus appareat.'
+        }
+    })
+</script>
+</body>
+</html>

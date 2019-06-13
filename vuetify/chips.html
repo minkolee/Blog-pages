@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zhHans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.css.network/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak="">
+    <v-app id="inspire" >
+        <v-container grid-list-lg>
+            <v-layout justify-center>
+                <v-flex>
+                    <v-chip close :value="showChip">{{showChip}}</v-chip>
+                    <v-chip color="primary" text-color="white">蓝色底色白色文字</v-chip>
+                    <v-chip dark>暗色调</v-chip>
+                    <v-chip disabled>无法选中</v-chip>
+                    <v-chip label>去除圆边</v-chip>
+                    <v-chip light>亮色调</v-chip>
+                    <v-chip outline color="deep-orange">轮廓</v-chip>
+                    <v-chip selected>被选中</v-chip>
+                    <v-chip small>小尺寸</v-chip>
+                    <v-chip><v-avatar  color="primary white--text">V</v-avatar>带v-avatar</v-chip>
+                </v-flex>
+            </v-layout>
+        </v-container>
+    </v-app>
+</div>
+
+<script src="https://cdn.bootcss.com/vue/2.6.10/vue.min.js"></script>
+<script src="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data:{
+            showChip: true
+        }
+    })
+</script>
+</body>
+</html>

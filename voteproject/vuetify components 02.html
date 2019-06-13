@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vuetify UI组件 02</title>
+</head>
+<body>
+<p>继续来学习新的组件。</p>
+<ol>
+    <li><a href="#con1">v-card</a></li>
+    <li><a href="#con2">轮播图</a></li>
+    <li><a href="#con3">chip</a></li>
+    <li><a href="#con4">Bottom navigation</a></li>
+    <li><a href="#con5">Bottom sheets</a></li>
+    <li><a href="#con6">面包屑导航</a></li>
+    <li><a href="#con7">按钮</a></li>
+</ol>
+
+
+<h1 id="con1" style="text-align: center;">V-card</h1>
+<p>终于到了一个通用的组件，<code>v-card</code>可以装载几乎所有的组件，还有三个辅助组件，可以更容易的排版，分别是<code>v-card-title</code>, <code>v-card-text</code>和<code>v-card-actions</code>。</p>
+<p>实际上<code>v-card</code>就是划出了一片预置好格式的block元素，其中的元素可以通过辅助组件再进行区分，从上到下排布好。<code>v-card</code>也常装在<code>v-flex</code>格子里使用。</p>
+<ol>
+    <li><code>active-class</code>，激活类</li>
+    <li><code>append</code>，Vue-router属性</li>
+    <li><code>color</code>，色彩</li>
+    <li><code>dark</code>，暗色调</li>
+    <li><code>disabled</code>，禁止路由项目</li>
+    <li><code>elevation</code>，z轴高度</li>
+    <li><code>exact</code>，精确匹配URL</li>
+    <li><code>exact-active-class</code>，路由属性</li>
+    <li><code>flat</code>，取消阴影</li>
+    <li><code>height</code>，高度</li>
+    <li><code>hover</code>，鼠标移动到上边有高度特效</li>
+    <li><code>href</code>，渲染成A标签</li>
+    <li><code>img</code>，指定背景图片</li>
+    <li><code>light</code>，亮色调</li>
+    <li><code>max-height</code>，最高</li>
+    <li><code>max-width</code>，最大宽度</li>
+    <li><code>min-height</code>，最小高度</li>
+    <li><code>min-width</code>，最小宽度</li>
+    <li><code>nuxt</code>，nuxt-link</li>
+    <li><code>raised</code>，默认高起来的样式</li>
+    <li><code>replace</code>，路由属性</li>
+    <li><code>ripple</code>，v-ripple</li>
+    <li><code>tag</code>，渲染成的组件，默认是div</li>
+    <li><code>target</code>，target属性</li>
+    <li><code>tile</code>，去掉圆角特效，默认关闭</li>
+    <li><code>to</code>，渲染成<code>&lt;router-link></code></li>
+    <li><code>width</code>，指定宽度</li>
+</ol>
+<p><code>v-card-title</code>只有一个props叫做<code>primary-title</code>，会使用特殊的样式。<code>v-card-text</code>和<code>v-card-actions</code>都没有什么props。</p>
+<p>在实际排版中，图片需要用到<code>v-img</code>，而按钮一般放在<code>v-card-actions</code>中，文字则使用<code>v-card-title</code>和<code>v-card-text</code>。</p>
+<p>有了<code>v-card</code>之后，很多东西都可以用其来做基础布局，使用<code>flat</code>取消阴影就和普通排布区别不大了。做了一点<a href="">例子</a>。</p>
+
+<h1 id="con2" style="text-align: center;">轮播图</h1>
+<p><code>v-carousel</code>组件是可以方便的生成轮播图的组件。在学JS的过程中，最先学的特效几乎就是轮播图。使用起来很简单，每一张图对应一个轮播图辅助组件<code>v-carousel-item</code>，用一个<code>v-for</code>循环为其指定<code>src</code>属性即可。</p>
+<p>看一下<a href="https://vuetifyjs.com/en/components/carousels#api" target="_blank">API</a>：</p>
+<p><code>v-carousel</code>的API如下：</p>
+<ol>
+    <li><code>active-class</code>，激活类</li>
+    <li><code>cycle</code>，是否循环播放图片，默认是true</li>
+    <li><code>dark</code>，暗色</li>
+    <li><code>delimiter-icon</code>，默认是<code>'$vuetify.icons.delimiter'，下方控制按键的样式</code></li>
+    <li><code>height</code>，高度，默认500</li>
+    <li><code>hide-controls</code>，是否隐藏左右箭头</li>
+    <li><code>hide-delimiters</code>，是否隐藏下边控制键</li>
+    <li><code>interval</code>，播放两幅图片之间的间隔</li>
+    <li><code>light</code>，亮色</li>
+    <li><code>mandatory</code>，强制选中一个value</li>
+    <li><code>max</code>，最大宽度</li>
+    <li><code>multiple</code>，允许多选</li>
+    <li><code>next-icon</code>，向右箭头的样式，默认是<code>$vuetify.icons.next</code></li>
+    <li><code>prev-icon</code>，向左箭头的样式，默认是<code>$vuetify.icons.prev</code></li>
+    <li><code>reverse</code>，反向移动的过渡效果</li>
+    <li><code>touch</code>，支持左右滑动，手机平板上适用</li>
+    <li><code>touchless</code>，关闭滑动功能，只能通过点击控制键播放图片</li>
+    <li><code>value</code>，控制可见性</li>
+    <li><code>vertical</code>，使用垂直过渡</li>
+</ol>
+<p>轮播图有一个<code>input</code>事件，可以用来通知父组件当前的图片<code>value</code>属性。</p>
+<p><code>v-carousel-item</code>的API如下：</p>
+<ol>
+    <li><code>active-class</code>，激活类</li>
+    <li><code>disabled</code>，不显示该图片</li>
+    <li><code>lazy</code>，惰性渲染</li>
+    <li><code>reverse-transition</code>，过渡效果</li>
+    <li><code>transition</code>，过渡效果</li>
+    <li><code>value</code>，控制可见性</li>
+</ol>
+<p>轮播图组件使用范围也很广，这个组件可以简单的生成轮播图。各种不同的样式看<a href="http://conyli.cc/vuetify/carousel.html" target="_blank">例子</a>。</p>
+
+<h1 id="con3" style="text-align: center;">chip</h1>
+<p><code>v-chip</code>用来渲染一个行内元素，显示一小段信息。</p>
+<ol>
+    <li><code>close</code>，加上关闭按钮</li>
+    <li><code>color</code>，色彩</li>
+    <li><code>dark</code>，暗色调</li>
+    <li><code>disabled</code>，不能选中</li>
+    <li><code>label</code>，去掉圆角边缘，变成方形</li>
+    <li><code>light</code>，亮色调</li>
+    <li><code>outline</code>，轮廓</li>
+    <li><code>selected</code>，搭配<code>v-select</code>使用，高亮显示</li>
+    <li><code>small</code>，尺寸变小</li>
+    <li><code>text-color</code>，文字颜色</li>
+    <li><code>value</code>，默认是true，控制可见性</li>
+</ol>
+<p>这个小东西其实类似于很多UI库中的<code>label</code>样式，扁平化之下也变得更好看了，<a href="http://conyli.cc/vuetify/chips.html" target="_blank">示例</a>。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+
+</html>

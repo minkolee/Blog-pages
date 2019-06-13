@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zhHans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.css.network/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div id="app" v-cloak="">
+    <v-app id="inspire" >
+        <v-container>
+            <v-layout row wrap>
+                <v-flex xs6 sm4 md2>
+                    <v-btn absolute>绝对定位</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn block>100%宽度</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn color="primary">primary颜色</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn dark>dark色调</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn depressed color="grey">无阴影</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn disabled>不可用</v-btn>
+                </v-flex>
+            </v-layout>
+            <v-layout row wrap>
+                <v-flex xs6 sm4 md2>
+                    <v-btn fab color="primary">圆形按钮</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn fixed>固定定位</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn flat>无背景颜色</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn href="http://conyli.cc">A标签按钮</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn color="pink white--text" icon><v-icon dark>list</v-icon><span></span></v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn large color="success">大型按钮</v-btn>
+                </v-flex>
+            </v-layout>
+            <v-layout row wrap>
+                <v-flex xs6 sm4 md2>
+                    <v-btn left color="warning">左侧排布</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn light>light色调</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn :loading="load">loading动画</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn outline color="error">outline按钮</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn right color="warning">右侧排布</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn round color="deep-orange white--text" >圆角按钮</v-btn>
+                </v-flex>
+            </v-layout>
+            <v-layout row wrap>
+                <v-flex xs6 sm4 md2>
+                    <v-btn small color="primary">小型按钮</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn tag="p">渲染成p元素</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn target="http://conyli.cc">target元素</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn to="/api/token">routerlink元素</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn top color="info">上方排布</v-btn>
+                </v-flex>
+                <v-flex xs6 sm4 md2>
+                    <v-btn type="submit" color="deep-purple white--text" >submit按钮</v-btn>
+                </v-flex>
+            </v-layout>
+            <v-layout>
+                <v-flex xs6 sm4 md2>
+                        <v-btn type="button" color="red white--text" :value="showButton" >Value是{{showButton}}</v-btn>
+                    <v-btn type="button" color="teal white--text" @click="showButton++;load=!load" >上边的按钮value+1/改变按钮load动画</v-btn>
+                </v-flex>
+            </v-layout>
+            <v-layout row nowrap justify-center mt-4>
+                <v-flex xs12 sm10 md8 lg6>
+                    <v-card>
+                        <v-toolbar>
+                            <v-toolbar-side-icon></v-toolbar-side-icon>
+                        </v-toolbar>
+                        <v-card-text  style="height: 100px" class="grey darken-1">点击按钮切换列表</v-card-text>
+                        <v-card-text  :style="styles" class="grey darken-2 display-2">“咕咕咕咕，咕咕”，三鹅开心的叫道。</v-card-text>
+                    </v-card>
+                    <v-card height="100">
+                        <v-btn class="display-1" absolute color="info" top right fab @click="showText=!showText">{{token}}</v-btn>
+                        <v-btn class="display-1" absolute color="info" top left fab @click="showText=!showText">{{token}}</v-btn>
+                    </v-card>
+
+                </v-flex>
+            </v-layout>
+        </v-container>
+    </v-app>
+</div>
+
+<script src="https://cdn.bootcss.com/vue/2.6.10/vue.min.js"></script>
+<script src="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data:{
+            showButton: 0,
+            load:false,
+            showText: false
+        },
+        computed: {
+            styles:function () {
+                return {
+                    display: this.showText ? "block" : "none",
+                    height:"200px"
+                }
+            },
+            token: function () {
+                return this.showText? "-":"+"
+            }
+        }
+    })
+</script>
+</body>
+</html>
