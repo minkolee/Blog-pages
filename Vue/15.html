@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
+    <title>Vue 14 Vuelidate验证库</title>
+    <script src="vuejs实战/vue.js"></script>
+</head>
+<body>
+<p>想到以往写表单，后端的模板里加上一堆东西，还有JS代码用来组织不正确的表单，还要加上HTML5里的新input标签，就算这样还需要在后端验证。虽然后端验证是避免不了的，但是学了Vue之后，发现还有很多库可以用，这个Vuelidate就是很方便的验证库。</p>
+<p>Vuelidate的官网是<a href="https://vuelidate.netlify.com/" target="_blank">https://vuelidate.netlify.com/</a>，文档也在其中。开始吧</p>
+<ol>
+    <li><a href="#con1">安装和导入</a></li>
+    <li><a href="#con2">为字段设置验证功能</a></li>
+    <li><a href="#con3">将验证结果反映在UI上</a></li>
+    <li><a href="#con4">鉴权的其他应用</a></li>
+</ol>
+
+<h1 id="con1" style="text-align: center;">安装和导入</h1>
+<p>安装没有什么可说的了，<code>npm install vuelidate --save</code>搞定</p>
+<p>之后就像普通的插件一样，使用之前需要在项目里导入：</p>
+<pre>
+import Vue from 'vue'
+import Vuelidate from 'vuelidate'
+Vue.use(Vuelidate)
+</pre>
+<p>如果是直接在页面中使用，则直接可以导入：</p>
+<pre>
+&lt;script src="vuelidate/dist/vuelidate.min.js">&lt;/script>
+</pre>
+
+<h1 id="con2" style="text-align: center;">为字段设置验证功能</h1>
+<p>还是用<a href="https://github.com/minkolee/axios" target="_blank">学axios的库</a>来学习Vuelidate。</p>
+<p>给一个字段加上验证功能主要有如下步骤：</p>
+<ol>
+    <li>项目中导入Vuelidate</li>
+    <li>在组件中添加新属性和设置验证器</li>
+    <li>在绑定属性的标签上添加一个<code>@input</code>事件，通过<code>$v</code>对象获取验证结果</li>
+    <li>根据验证结果进行其他逻辑</li>
+</ol>
+<p>在<code>signup.vue</code>中，是一个用于向Firebase新注册用户的表单，原来是没有任何验证的，现在要给这个表单加上验证功能。首先是<code>email</code>字段。</p>
+<p>先到<code>main.js</code>中导入<code>Vuelidate</code>：</p>
+<pre>
+import Vuelidate from 'vuelidate'
+Vue.use(Vuelidate)
+</pre>
+<p>然后我们到<code>signup.vue</code>组件中，给组件添加一个新的属性<code>validations</code>，这个属性只有在使用Vuelidate的时候才生效。</p>
+<pre>
+export default {
+    data() {
+        return {
+            <span style="color: red">email</span>: '',
+            age: null,
+            password: '',
+            confirmPassword: '',
+            country: 'usa',
+            hobbyInputs: [],
+            terms: false
+        }
+    },
+
+    validations :{
+        <span style="color: red">email</span>: {
+        }
+    },
+
+    ......
+}
+</pre>
+<p>这里的<code>validations</code>中的每一个属性，都表示要验证的字段名称，名称必须和<code>data</code>中定义的属性名称一样，这里的<code>email</code>属性名就对应<code>data</code>中的<code>email</code>属性。</p>
+<p>之后就要开始针对这个字段添加验证器了，验证器需要从Vuelidate的包中导入，然后设置在字段对应的属性中，添加如下代码：</p>
+<pre>
+<span style="color:red;">import {required, email} from 'vuelidate/lib/validators';</span>
+export default {
+    data() {
+        return {
+            email: '',
+            age: null,
+            password: '',
+            confirmPassword: '',
+            country: 'usa',
+            hobbyInputs: [],
+            terms: false
+        }
+    },
+
+        validations :{
+            email:{
+                <span style="color: red">required,</span>
+                <span style="color: red">email</span>
+            }
+        },
+
+    ......
+}
+</pre>
+<p>这表明给这个字段添加验证器，验证器需要从Vuelidate的包中导入，之后作为一个属性添加到<code>email</code>对象上，这里使用了ES6的语法，同名绑定，实际上属性名字可以任意取。</p>
+<p>做好关联之后，是设置动作，也就是在双向绑定<code>email</code>的<code>input</code>元素中添加：</p>
+<pre>
+&lt;input
+    type="email"
+    id="email"
+    &lt;span style="color: red">@input="$v.email.$touch()"&lt;/span>
+    v-model="email">
+    {{$v}}
+</pre>
+<p>监听<code>input</code>事件，<code>v-model</code>也监听这个事件，所以这里实际上在同样一个事件上加上了处理。</p>
+<p><code>$v.email.$touch()</code>中的<code>$v</code>就是验证对象，在后边显示出来看看其中的内容。之后的<code>email</code>就是刚才设置的新属性。而<code>$touch()</code>方法是一个特殊的方法，调用这个方法表示进行验证，此时<code>$v</code>中的内容才会有变化。</p>
+<p>正因为如此，<code>$touch()</code>的调用时机不一定是这里，也可以是按下提交按钮之前，或者其他任何逻辑的时候。</p>
+<p>现在来启动项目试试，看看添加了验证器之后会有什么变化：</p>
+<p>在Email的Input框为空的时候，即刚进入页面，看到如下显示：</p>
+<pre>
+{
+	"email":{
+		"required": false,
+		"email": true,
+		"$model": "",
+		"$invalid": true,
+		"$dirty": false,
+		"$anyDirty": false,
+		"$error": false,
+		"$anyError": false,
+		"$pending": false,
+		"$params": {
+			"required": {
+				"type": "required"
+				},
+			"email":
+				{ "type": "email" }
+		}
+	},
+	"$model": null,
+	"$invalid": true,
+	"$dirty": false,
+	"$anyDirty": false,
+	"$error": false,
+	"$anyError": false,
+	"$pending": false,
+	"$params": { "email": null }
+}
+</pre>
+<p>这其实是一个验证结果对象，看其中的<code>email</code>的最开始两个属性，就是我们定义的<code>required</code>和<code>email</code>验证结果。<code>required</code>要求不能不输入，所以显示<code>false</code>，而<code>email</code>之所以显示<code>true</code>，是因为默认初始状态是<code>true</code>。</p>
+<p>到框里随便输入几个字符，但不要输入一个完整电子邮件地址，会看到其中的<code>required</code>变成了<code>true</code>，而<code>email</code>变成了<code>false</code>，实际上整个<code>$v</code>对象也有变化：</p>
+<pre>
+{
+    "email": {
+        "required": true,
+        "email": false,
+        "$model": "cony",
+        "$invalid": true,
+        "$dirty": true,
+        "$anyDirty": true,
+        "$error": true,
+        "$anyError": true,
+        "$pending": false,
+        "$params": {
+            "required": {
+                "type": "required"
+            },
+            "email": {
+                "type": "email"
+            }
+        }
+    },
+    "$model": null,
+    "$invalid": true,
+    "$dirty": true,
+    "$anyDirty": true,
+    "$error": true,
+    "$anyError": true,
+    "$pending": false,
+    "$params": {
+        "email": null
+    }
+}
+</pre>
+<p><code>email</code>属性中的几个验证结果解释如下：</p>
+<ol>
+    <li><code>$model</code>，实际输入的值</li>
+    <li><code>$invalid</code>，是否有效</li>
+    <li><code>$dirty</code>，表示是不是从未点击过这个控件</li>
+    <li><code>$anydirty</code>，任何一个框被点击过</li>
+    <li><code>$error</code>，在<code>$invalid</code>和<code>$dirty</code>都为<code>true</code>的情况下为<code>true</code>，表示用户点击过但仍未输入正确，这是为了防止进入页面，用户还没碰过这个框的时候就报错。</li>
+    <li><code>$anyError</code>，顾名思义，任一个<code>$error</code>出错的时候为true</li>
+    <li><code>$pending</code>，表示正在验证当前的这个字段，在异步验证的时候有用。</li>
+    <li><code>$params</code>，表示当前字段设置的所有验证器的列表。</li>
+</ol>
+<p>其后的属性表示整个表单的验证结果，也就是说如果设置了多个验证字段，都会在当前组件的同一个<code>$v</code>对象中反映出来。</p>
+<p>现在输入一个完整的电子邮件地址，再来看看结果：</p>
+<pre>
+{
+    "email": {
+        "required": true,
+        "email": true,
+        "$model": "conyli@gmail.com",
+        "$invalid": false,
+        "$dirty": true,
+        "$anyDirty": true,
+        "$error": false,
+        "$anyError": false,
+        "$pending": false,
+        "$params": {
+            "required": {
+                "type": "required"
+            },
+            "email": {
+                "type": "email"
+            }
+        }
+    },
+    "$model": null,
+    "$invalid": false,
+    "$dirty": true,
+    "$anyDirty": true,
+    "$error": false,
+    "$anyError": false,
+    "$pending": false,
+    "$params": {
+        "email": null
+    }
+}
+</pre>
+<p>可以看到除了<code>dirty</code>两个验证结果之外，其他都没有任何错误了。</p>
+<p>当然，在实际项目中不能够直接打印<code>$v</code>对象，而是通过检查其属性，将错误信息反映在界面上。</p>
+
+<h1 id="con3" style="text-align: center;">将验证结果反映在UI上</h1>
+<p>可以发现，只要根据<code>$v</code>对象提供的各种属性的布尔值来进行判断，就可以得到当前应该提醒用户的内容，进而将其反映在UI上就可以了。</p>
+<p>考虑如下几个场景：</p>
+<ol>
+    <li>用户在刚进入界面的时候，<code>required</code>是<code>false</code>，但此时<code>dirty</code>是<code>true</code>，所以不应该提示用户错误信息</li>
+    <li>如果<code>dirty</code>是<code>false</code>，<code>required</code>有错，应该进行提示</li>
+    <li>如果<code>dirty</code>是<code>false</code>，<code>email</code>有错，应该进行提示</li>
+    <li><code>$error</code>表示<code>$invalid</code>为<code>true</code>，<code>dirty</code>也是<code>true</code>，所以是通用提示，表示用户输入了之后仍未正确</li>
+</ol>
+<p>基于上述逻辑，可以编写代码如下：</p>
+<pre>
+&lt;div class="input" <span style="color: red">:class="{invalid: $v.email.$error}"</span>>
+    &lt;label for="email" <span style="color: red">:style="{color: $v.email.$error? 'red':''}"</span>>Mail&lt;/label>
+    &lt;input
+            type="email"
+            id="email"
+            @input="$v.email.$touch()"
+            v-model="email">
+&lt;/div>
+</pre>
+<p>编写样式如下：</p>
+<pre>
+.input.invalid input {
+    border: 1px solid red;
+    background-color: #ffc9a9;
+}
+</pre>
+<p>之后如果录入错误，可以看到输入框的颜色和label均改变。</p>
+<p>然后可以添加一些文字提示：</p>
+<pre>
+
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
