@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vuetify - Grid系统（上）</title>
+</head>
+<body>
+<p>Vuetify有一套基于<a href="https://www.w3cplus.com/css3/understanding-flexbox-everything-you-need-to-know.html"
+                  target="_blank">CSS FLEX-BOX</a>的栅格系统。</p>
+<p>
+    Vuetify官网说的<code>prop</code>就是指HTML标签上的属性，为<code>boolean</code>的只要加上该属性就是设置为<code>true</code>，不加该属性就是设置为<code>false</code>。
+</p>
+<p>Vuetify的栅格也是12栅格系统，其中的主要标签是：</p>
+<ol>
+    <li><code>v-container</code>，类似于各种前端框架的container，是一个把内容集中与屏幕中央的容器，可以加上<code>fluid</code>属性扩展至全屏。</li>
+    <li><code>v-layout</code>，用于区分不同的大区域，是<code>v-flex</code>元素的容器，大概近似于其他样式库的row。</li>
+    <li><code>v-flex</code>，就是响应式格子，这个标签会自动设置其子元素为<code>flex: 1 1 auto</code>。</li>
+</ol>
+<p>这是文档的原文。具体还是要来看一看是怎么排布的。本文的目录如下：</p>
+<ol>
+    <li><a href="#con1">Grid系统</a></li>
+    <li><a href="#con11">基础布局元素分析 v-app</a></li>
+    <li><a href="#con12">基础布局元素分析 v-container</a></li>
+    <li><a href="#con13">基础布局元素分析 v-layout</a></li>
+    <li><a href="#con2">v-layout</a></li>
+    <li><a href="#con3">v-flex</a></li>
+    <li><a href="#con4">v-spacer</a></li>
+</ol>
+<h1 id="con1" style="text-align: center;">Grid系统</h1>
+
+<h3 id="con11" style="text-align: center;">基础布局元素分析 v-app</h3>
+<p>用这三个元素创建一个简单的页面，来看看浏览器里的结果。</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html lang="zhHans">
+&lt;head>
+    &lt;link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    &lt;link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+&lt;/head>
+&lt;body>
+&lt;div id="app">
+    &lt;v-app>
+        &lt;v-container>
+            &lt;v-layout>
+                &lt;v-flex>
+                    &lt;div>ITEM&lt;/div>
+                &lt;/v-flex>
+            &lt;/v-layout>
+        &lt;/v-container>
+    &lt;/v-app>
+&lt;/div>
+
+&lt;script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js">&lt;/script>
+&lt;script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js">&lt;/script>
+&lt;script>
+    new Vue({el: '#app'})
+&lt;/script>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>首先要知道的是：</p>
+<ol>
+    <li><code>Vuetify</code>作为<code>Vue</code>的插件，要在<code>Vue</code>内部才生效。所以外部需要<code>#app</code>挂载<code>Vue</code>，这和正常使用<code>Vue</code>是一样的。
+    </li>
+    <li>所有的<code>Vuetify</code>内容，都要被包裹在<code>v-app</code>标签内才能正常发挥作用</li>
+</ol>
+<p>然后来看一下浏览器中的结果：</p>
+<pre>
+&lt;div id="app">
+    v-app生成的标签
+    &lt;div data-app="true" class="application theme--light" id="app">
+        &lt;div class="application--wrap">
+            v-container生成的标签
+            &lt;div class="container">
+                v-laygout生成的标签
+                &lt;div class="layout">
+                    &lt;div class="flex">
+                        &lt;div>ITEM1&lt;/div>
+                    &lt;/div>
+                &lt;/div>
+            &lt;/div>
+        &lt;/div>
+    &lt;/div>
+&lt;/div>
+</pre>
+<p>查看了一下样式，最外层的<code>&lt;div id="app"></code>是Vue的挂载点，被设置成了所有padding和margin都是0的一个block。</p>
+<p>之后的两层嵌套标签是<code>v-app</code>生成的：来看一看其中奥妙：</p>
+<ol>
+    <li><code>&lt;div data-app="true" ...></code>标签的样式是<code>display:flex</code>，而且没有任何其他的FLEX相关属性，很显然，这个是作为最外层的FLEX容器。默认是就是row
+        和 nowrap。
+    </li>
+    <li><code>&lt;div class="application--wrap"></code>也具有<code>display:flex</code>属性，所以既是一个FLEX
+        ITEM（FLEX项目）也是一个FLEX容器，所以这是第二个嵌套FLEX容器。这其上还有其他相关的FLEX属性是：
+        <ol>
+            <li><code>flex-basis: auto</code>，说明宽度根据其中的项目来确定。</li>
+            <li><code>flex-direction: column</code>，注意，这里其内部包裹的FLEX项目排布变成了竖直方向。</li>
+            <li><code>flex-grow: 1</code>，说明允许放大。</li>
+            <li><code>flex-shrink: 1</code>，说明允许缩小。</li>
+        </ol>
+    </li>
+</ol>
+<p>通过分析这两个元素可以看到，<code>v-app</code>这个元素直接将其中的所有内容包含在了一个两层嵌套，竖直排布的FLEX项目容器中。也就是说其中的所有内容，都是竖直排列的，显然是为了从上到下一块一块的排布内容。</p>
+<p>可见这也是为什么Vuetify要求很多元素都要放在<code>v-app</code>标签内部才生效，这是因为提供了页面的基础布局，在后台可能还有更多的东西依赖于这个元素。</p>
+
+
+<h3 id="con12" style="text-align: center;">基础布局元素分析 v-container</h3>
+<p><code>v-container</code>元素生成的页面元素是：<code>&lt;div class="container"></code>，也来看看其上的属性：</p>
+<ol>
+    <li><code>display: block</code>，说明不是FLEX容器</li>
+    <li><code>flex-basis: 100%</code>，可见这个元素强行撑开全部的页面</li>
+    <li><code>flex-grow: 1</code>，这个加上<code>flex-basis: 100%</code>，让这个元素独占一行</li>
+    <li><code>flex-shrink: 1</code>，可缩小</li>
+</ol>
+<p>通过这个元素可以发现，这个元素确实是起到分割的作用，每多一个这个元素，就相当于在FLEX容器里增加一个新区域。在行里就可以继续排布了。这个元素还有一个<code>fluid</code>属性用于控制内容集中在视口中心还是平铺到整个宽度，经过看样式变化，加上<code>fluid</code>其实就是取消了原本媒体查询在960px屏幕上最大宽度为900px和1264px屏幕上最大宽度1185px的样式。
+</p>
+
+<h3 id="con13" style="text-align: center;">基础布局元素分析 v-layout</h3>
+<p><code>v-layout</code>元素生成的页面元素是：<code>&lt;div class="layout"></code>，也来看看其上的属性：</p>
+<ol>
+    <li><code>display: flex</code>，是FLEX容器</li>
+    <li><code>flex-basis: auto</code>，可见这个元素强行撑开全部的页面</li>
+    <li><code>flex-grow: 1</code>，这个加上<code>flex-basis: 100%</code>，让这个元素独占一行</li>
+    <li><code>flex-shrink: 1</code>，可缩小</li>
+    <li><code>flex-wrap: nowrap</code>，不允许换行，一行内排布</li>
+</ol>
+<p>通过看其上的属性，可以发现这个元素在<code>v-container</code>分割出的区域内，划出单独不允许换行的一行来排布元素。</p>
+
+<h3 id="con14" style="text-align: center;">基础布局元素分析 v-flex</h3>
+<p>最后是<code>v-flex</code>元素，渲染的标签是<code>&lt;div class="flex"></code>，其属性是：</p>
+<ol>
+    <li><code>display: block</code>，不是FLEX容器</li>
+    <li><code>flex-basis: auto</code>，可见这个元素强行撑开全部的页面</li>
+    <li><code>flex-grow: 1</code>，这个加上<code>flex-basis: 100%</code>，让这个元素独占一行</li>
+    <li><code>flex-shrink: 1</code>，可缩小</li>
+</ol>
+<p>说明每一个<code>v-flex</code>是<code>v-container</code>这一行内的元素。</p>
+
+<p>
+    看完了这一层层元素，就比较清楚了，Vuetify先是强行使用<code>v-app</code>排了一个竖向的布局，在其中用<code>v-layout</code>分割出一个不换行的行，每一行里可以塞一个<code>v-flex</code>元素，每个实际要布局的代码，就放在一行里的<code>v-flex</code>元素中。
+</p>
+<p>所以就可以把<code>v-flex</code>元素认为是一个允许缩放的格子，在其中排布内容就行了。<code>v-container</code>，由于不是FLEX容器，一般就无需控制了，而<code>v-app</code>由Vuetify自动控制，我们也不用管。
+</p>
+<p>分析到最后的结论就是，需要控制的是<code>v-layout</code>和<code>v-flex</code>的属性，就需要看一看Vuetify提供的这两个元素的属性（PROPS）了。</p>
+
+
+<h1 id="con2" style="text-align: center;"><code>v-layout</code></h1>
+<p><code>v-layout</code>作为Flex容器，其实对于其的设置，主要就是Vuetify提供的设置flex相关属性的API。</p>
+<p>在官网的<a href="https://vuetifyjs.com/en/framework/grid#api" target="_blank">Grid
+    API</a>可以查看相关的设置，除了<code>tag</code>和<code>id</code>属性之外，都是用于控制FLEX容器的属性，而且属性设置之后，就会被渲染为标签上的同名样式类，也方便使用Vue来控制。</p>
+<table border="1">
+    <caption>v-layout API一览</caption>
+    <thead>
+    <tr>
+        <th>标准W3C样式和属性</th>
+        <th>v-layout PROPS</th>
+    </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td rowspan="3">flex-direction 排布方向</td>
+            <td>column</td>
+        </tr>
+        <tr>
+            <td>row</td>
+        </tr>
+        <tr>
+            <td>reverse</td>
+        </tr>
+        <tr>
+            <td rowspan="1">flex-wrap 是否换行</td>
+            <td>wrap，默认是nowrap</td>
+        </tr>
+        <tr>
+            <td rowspan="5">justify-content 主轴对齐</td>
+            <td>justify-end</td>
+        </tr>
+        <tr>
+            <td>justify-center</td>
+        </tr>
+        <tr>
+            <td>justify-space-around</td>
+        </tr>
+        <tr>
+            <td>justify-space-between</td>
+        </tr>
+        <tr>
+            <td>justify-start</td>
+        </tr>
+        <tr>
+            <td rowspan="5">align-items 交叉轴对齐</td>
+            <td>align-baseline</td>
+        </tr>
+        <tr>
+            <td>align-center</td>
+        </tr>
+        <tr>
+            <td>align-end</td>
+        </tr>
+        <tr>
+            <td>align-start</td>
+        </tr>
+        <tr>
+            <td>fill-height，这个对应的是align-items：stretch</td>
+        </tr>
+        <tr>
+            <td rowspan="6">align-content 交叉轴多行对齐</td>
+            <td>align-content-center</td>
+        </tr>
+        <tr>
+            <td>align-content-end</td>
+        </tr>
+        <tr>
+            <td>align-content-space-around</td>
+        </tr>
+        <tr>
+            <td>align-content-space-between</td>
+        </tr>
+        <tr>
+            <td>align-content-start</td>
+        </tr>
+        <tr>
+            <td>好像没有在这种情况下对应stretch的内容。不过试验了一下，对排版没有任何影响。</td>
+        </tr>
+        <tr>
+            <td rowspan="1">tag 实际渲染标签</td>
+            <td>用来控制将这个标签实际渲染成什么元素，比如<code>tag="p"</code>就会渲染成P标签。</td>
+        </tr>
+        <tr>
+            <td rowspan="1">display: flex FLEX容器类型</td>
+            <td>d-{type}，比如d-inline-flex就对应display: inline-flex，默认就是d-flex。</td>
+        </tr>
+        <tr>
+            <td rowspan="1">id 标准DOM属性</td>
+            <td>id属性，会被原样渲染到实际的标签中。</td>
+        </tr>
+    </tbody>
+</table>
+<p>上边的所有除了写默认值的以外，其他的默认值都是<code>false</code>，即不设置就相当于是<code>false</code>，会让样式采用CSS FLEX标准默认的样式，比如不设置<code>column</code>则默认就是<code>row</code>。</p>
+
+<h1 id="con3" style="text-align: center;"><code>v-flex</code></h1>
+<p>既然相当于一个格子，参考其他UI库的经验，肯定会有的就是控制在不同屏幕断点下的宽度的属性了。然后由于是FLEX项目，肯定还会有自身的几个对应标准FLEX属性的属性。此外还有偏移量。</p>
+<p>先列出全部API然后分开来看：</p>
+<table border="1">
+    <caption>v-flex API一览</caption>
+    <thead>
+    <tr>
+        <th>API</th>
+        <th>解释</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td rowspan="1">(size)(1-12)</td>
+        <td>断点紧跟1-12大小，表示不同屏幕宽度下的格子宽度，断点有五个：xs|sm|md|lg|xl，实际写法比如xs12 md6</td>
+    </tr>
+    <tr>
+        <td>align-self-baseline</td>
+        <td rowspan="4">对应 align-self FLEX标准属性</td>
+    </tr>
+    <tr>
+        <td>align-self-end</td>
+    </tr>
+    <tr>
+        <td>align-self-start</td>
+    </tr>
+    <tr>
+        <td>align-self-center</td>
+    </tr>
+    <tr>
+        <td rowspan="1">grow</td>
+        <td>是否占据剩余空间，设置上该属性相当于flex-grow:1。</td>
+    </tr>
+    <tr>
+        <td rowspan="1">shrink</td>
+        <td>是否缩小以适合空间，设置上该属性相当于flex-shrink: 1。</td>
+    </tr>
+    <tr>
+        <td rowspan="1">order-(size)(1-12)</td>
+        <td>在不同大小屏幕之下对应的顺序，排版的时候需要。对应order属性。比如offset-xs1，注意这个也是从小到大覆盖的，offset-xs1表示所有情况下都缩进一行1/12的距离。</td>
+    </tr>
+    <tr>
+        <td rowspan="1">offset-(size)(0-12)</td>
+        <td>在不同大小屏幕之下的偏移量，使用方法和其他UI库很像。</td>
+    </tr>
+    <tr>
+        <td rowspan="1">tag 实际渲染标签</td>
+        <td>用来控制将这个标签实际渲染成什么元素，比如<code>tag="p"</code>就会渲染成P标签。</td>
+    </tr>
+    <tr>
+        <td rowspan="1">id 标准DOM属性</td>
+        <td>id属性，会被原样渲染到实际的标签中。</td>
+    </tr>
+    </tbody>
+</table>
+<p><code>v-flex</code>上除了标准FLEX属性，和有时候能用到的偏移之外，最重要的属性就是断点。有了断点配合对应的宽度，才能够实现一些特殊的排版。由于Vuetify里的断点设计成可以通过JS代码方便的控制，因此也是构成Grid系统的一个关键部分，需要单独来看。</p>
+
+<h1 id="con4" style="text-align: center;"><code>v-spacer</code></h1>
+<p><code>v-spacer</code>是一个空白的div元素，可以用来进行分离挨的近的元素。一般用在FLEX排版的内容当中。典型的应用就是一个标题栏。</p>
+
+<p>到现在就可以进行简单的排版了，但是如果要通过断点改变FLEX的属性，还需要针对断点编写媒体查询的CSS代码。既然使用了前端UI库，当然不想再写额外的CSS代码了，Vuetify提供了使用JS代码监听断点进而改变属性的功能。在下篇中来看一下断点，就可以非常灵活的进行排版了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+
+</html>
