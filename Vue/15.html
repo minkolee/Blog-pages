@@ -390,7 +390,20 @@ terms: {
     })
 }
 </pre>
-<p>这样就行了，很方便的搞定了。不过不知道为什么，在我的机器上checkbox的required不会变化，一会用示例来试试。</p>
+<p>这样就行了，很方便的搞定了。不过不知道为什么，在我的机器上checkbox的required不会变化，后来在<a href="https://github.com/vuelidate/vuelidate/issues/332#issuecomment-402993390" target="_blank">stackflow</a>上找到了答案：</p>
+<p>新版本的Vuelidate中对CHECKBOX的验证修改了，未选中情况下的<code>false</code>值默认也满足<code>required</code>条件；但没有关系，反正绑定了<code>v-model</code>，可以知道按钮选中与否，可以使用下边的代码来验证是否选中：</p>
+<pre>myCb : { sameAs: sameAs( () => true ) }</pre>
+<p>想达到和教程一样的效果，需要编写一个自定义验证器，同时也知道了<span style="color: red">自定义验证器的第二个参数</span>传入的是当前的Vue实例对象：</p>
+<pre>
+terms: {
+    required: (val,vm)=>{
+        if ( vm.country === 'germany') {
+            return true;
+        }
+        return vm.terms === true;
+    }
+},
+</pre>
 
 <h3 id="con44" style="text-align: center;">验证数组</h3>
 <p>我们采用<code>v-for</code>的形式渲染了<code>hobbyInputs</code>系列控件，在把<code>hobbyInputs</code>以JSON格式发送之前，如何验证整个数组的有效性。</p>
