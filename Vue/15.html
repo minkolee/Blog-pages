@@ -5,18 +5,25 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="../Spring%20in%20Action%205/base.css">
-    <title>Vue 14 Vuelidate验证库</title>
-    <script src="vuejs实战/vue.js"></script>
+    <title>Vue 15 Vuelidate</title>
 </head>
 <body>
 <p>想到以往写表单，后端的模板里加上一堆东西，还有JS代码用来组织不正确的表单，还要加上HTML5里的新input标签，就算这样还需要在后端验证。虽然后端验证是避免不了的，但是学了Vue之后，发现还有很多库可以用，这个Vuelidate就是很方便的验证库。</p>
 <p>Vuelidate的官网是<a href="https://vuelidate.netlify.com/" target="_blank">https://vuelidate.netlify.com/</a>，文档也在其中。开始吧</p>
-<ol>
-    <li><a href="#con1">安装和导入</a></li>
-    <li><a href="#con2">为字段设置验证功能</a></li>
-    <li><a href="#con3">将验证结果反映在UI上</a></li>
-    <li><a href="#con4">鉴权的其他应用</a></li>
-</ol>
+<ul>
+    <li><a href="#con1">1 安装和导入</a></li>
+    <li><a href="#con2">2 为字段设置验证功能</a></li>
+    <li><a href="#con3">3 将验证结果反映在UI上</a></li>
+    <li><a href="#con31">3.1 input框失去焦点再验证</a></li>
+    <li><a href="#con4">4 一些其他种类的验证器</a></li>
+    <li><a href="#con41">4.1 数字和大小值验证</a></li>
+    <li><a href="#con42">4.2 密码相等</a></li>
+    <li><a href="#con43">4.3 仅在特定情况下才进行验证</a></li>
+    <li><a href="#con44">4.4 验证数组</a></li>
+    <li><a href="#con45">4.5 修改提交按钮</a></li>
+    <li><a href="#con5">5 自定义验证器</a></li>
+    <li><a href="#con51">5.1 异步验证</a></li>
+</ul>
 
 <h1 id="con1" style="text-align: center;">安装和导入</h1>
 <p>安装没有什么可说的了，<code>npm install vuelidate --save</code>搞定</p>
@@ -179,7 +186,7 @@ export default {
 <p><code>email</code>属性中的几个验证结果解释如下：</p>
 <ol>
     <li><code>$model</code>，实际输入的值</li>
-    <li><code>$invalid</code>，是否有效</li>
+    <li><code>$invalid</code>，如果任何一个验证器没通过，就是true</li>
     <li><code>$dirty</code>，表示是不是从未点击过这个控件</li>
     <li><code>$anydirty</code>，任何一个框被点击过</li>
     <li><code>$error</code>，在<code>$invalid</code>和<code>$dirty</code>都为<code>true</code>的情况下为<code>true</code>，表示用户点击过但仍未输入正确，这是为了防止进入页面，用户还没碰过这个框的时候就报错。</li>
@@ -255,28 +262,242 @@ export default {
 <p>之后如果录入错误，可以看到输入框的颜色和label均改变。</p>
 <p>然后可以添加一些文字提示：</p>
 <pre>
+&lt;div class="input" :class="{invalid: $v.email.$error}">
+    &lt;label for="email" :style="{color: $v.email.$error? 'red':''}">Mail&lt;/label>
+    &lt;input
+            type="email"
+            id="email"
+            @blur="$v.email.$touch()"
+            v-model="email">
+    <span style="color: red">&lt;p v-if="!$v.email.email">请输入正确的Email地址。&lt;/p>
+    &lt;p v-if="!$v.email.required && $v.email.$dirty">Email地址不能为空。&lt;/p></span>
+&lt;/div>
+</pre>
+<p>红字的部分结合其中的各种验证条件，显示不同的错误信息。这里要注意的就是一开始用户还没有输入的时候，不能去提示错误，这个时候<code>$v</code>对象提供的<code>$dirty</code>就派上用场了。</p>
 
+<h3 id="con31" style="text-align: center;">input框失去焦点之后进行验证</h3>
+<p>在上边的例子里，只要一开始输入，监听的input方法就会开始判断是否输入错误，但实际上用户在输入的过程中被提示错误，显得不太好，这个时候可以绑定blur，让input框失去焦点的时候才判断。</p>
+<pre>
+&lt;div class="input" :class="{invalid: $v.email.$error}">
+    &lt;label for="email" :style="{color: $v.email.$error? 'red':''}">Mail&lt;/label>
+    &lt;input
+            type="email"
+            id="email"
+            <span style="color: red">@blur="$v.email.$touch()"</span>
+            v-model="email">
+    &lt;p v-if="!$v.email.email">请输入正确的Email地址。&lt;/p>
+    &lt;p v-if="!$v.email.required && $v.email.$dirty">Email地址不能为空。&lt;/p>
+&lt;/div>
+</pre>
+<p>这样在完成输入，移动到下一个输入框的时候，就会提示错误。</p>
+
+<h1 id="con4" style="text-align: center;">一些其他种类的验证器</h1>
+<p>现在已经用过了required， email验证器，了解了基础工作原理，可以来看看在其他字段上运用过滤器了。</p>
+
+<h3 id="con41" style="text-align: center;">数字和大小值验证</h3>
+<p>为age输入框来添加验证器，想验证的是年龄必须大于18岁：</p>
+<pre>
+import {required, email, <span style="color: red">numeric, minValue</span> } from 'vuelidate/lib/validators';
+
+validations :{
+    email:{
+        required,
+        email
+    },
+    <span style="color: red">age :{
+        required,
+        numeric,
+        minValue:minValue(18)
+    }</span>
+}
+</pre>
+<p>这里导入了新的验证器，一个数字验证器，一个minValue，是一个函数，需要传入一个最小值。类似的验证器还有验证最大值，验证字符串的大小长度等。</p>
+<p>现在再给age框添加上验证事件和UI提示：</p>
+<pre>
+&lt;div class="input" :class="{invalid: $v.age.$error}">
+    &lt;label for="age">Your Age&lt;/label>
+    &lt;input
+            id="age"
+            @blur="$v.age.$touch()"
+            v-model="age">
+    &lt;p v-if="!$v.age.required && $v.age.$dirty">年龄不能为空。&lt;/p>
+    &lt;p v-if="!$v.age.numeric && $v.age.$dirty">必须输入数字。&lt;/p>
+    &lt;p v-if="!$v.age.minValue && $v.age.$dirty &&$v.age.numeric">年龄必须大于{{ <span style="color: red">$v.age.$params.minValue.min</span> }}岁。&lt;/p>
+&lt;/div>
+</pre>
+<p>这里要注意的是，如果把input框的类型限定，比如type="number"，会导致numeric的属性不会正常变化，所以一般需要验证的可以放开input的类型。</p>
+<p>这里新加的内容就是获取这些带参数的验证器其中的参数，以动态的展示限制条件。详细的各个参数如何访问可以查看官方文档。</p>
+
+<h3 id="con42" style="text-align: center;">密码相等</h3>
+<p>常用的验证之一是验证两个密码是否相等。</p>
+<p>这里需要使用一个新的验证器叫做<code>sameAs</code>，这也是一个带参数的验证器，还有两种写法。</p>
+<p>分成两步，第一步先给上边的密码输入框添加验证：</p>
+<pre>
+import {required, email, numeric, minValue, <span style="color: red">minLength</span> } from 'vuelidate/lib/validators';
+
+validations :{
+    ......
+    <span style="color: red">password: {
+        required,
+        minLength: minLength(4)
+    }</span>
+}
+</pre>
+<p>UI就简单一些，不做提示只修改样式：</p>
+<pre>
+&lt;div class="input" :class="{invalid: $v.password.$error}">
+    &lt;label for="password">Password&lt;/label>
+    &lt;input
+            type="password"
+            id="password"
+            <span style="color: red">@blur="$v.password.$touch()"</span>
+            v-model="password">
+&lt;/div>
+</pre>
+<p>第二步，就是给下边一个密码框添加验证相同密码的验证功能：</p>
+<pre>
+import {required, email, numeric, minValue, minLength, <span style="color: red">sameAs</span> } from 'vuelidate/lib/validators';
+
+confirmPassword: {
+    //直接传入字符串
+    // sameAs: sameAs("saner")
+
+    //传入当前实例的属性值
+    <span style="color: red">sameAs: sameAs(v=>v.password)</span>
+}
+</pre>
+<p>同样也设置上UI：</p>
+<pre>
+&lt;div class="input" :class="{invalid: $v.confirmPassword.$error}">
+    &lt;label for="confirm-password">Confirm Password&lt;/label>
+    &lt;input
+            type="password"
+            id="confirm-password"
+            <span style="color: red">@blur="$v.confirmPassword.$touch()"</span>
+            v-model="confirmPassword">
+&lt;/div>
+</pre>
+<p>其他的验证都无需设置，因为会自动盯住上一个密码框的变化。</p>
+
+<h3 id="con43" style="text-align: center;">仅在特定情况下才进行验证</h3>
+<p>紧接着密码下边是一个选择国家的SELECT元素，假如我们有特定的要求，比如如果选中国家是德国，则不需要点击下边的<code>Accept Terms of Use</code>选项。来看看如何实现：</p>
+<pre>
+import {required, email, numeric, minValue, minLength, sameAs, <span style="color: red">requiredUnless</span>} from 'vuelidate/lib/validators';
+
+terms: {
+    required: requiredUnless(v=>{
+        return v.country === 'germany'
+    })
+}
+</pre>
+<p>这样就行了，很方便的搞定了。不过不知道为什么，在我的机器上checkbox的required不会变化，后来在<a href="https://github.com/vuelidate/vuelidate/issues/332#issuecomment-402993390" target="_blank">stackflow</a>上找到了答案：</p>
+<p>新版本的Vuelidate中对CHECKBOX的验证修改了，未选中情况下的<code>false</code>值默认也满足<code>required</code>条件；但没有关系，反正绑定了<code>v-model</code>，可以知道按钮选中与否，可以使用下边的代码来验证是否选中：</p>
+<pre>myCb : { sameAs: sameAs( () => true ) }</pre>
+<p>想达到和教程一样的效果，需要编写一个自定义验证器，同时也知道了<span style="color: red">自定义验证器的第二个参数</span>传入的是当前的Vue实例对象：</p>
+<pre>
+terms: {
+    required: (val,vm)=>{
+        if ( vm.country === 'germany') {
+            return true;
+        }
+        return vm.terms === true;
+    }
+},
 </pre>
 
+<h3 id="con44" style="text-align: center;">验证数组</h3>
+<p>我们采用<code>v-for</code>的形式渲染了<code>hobbyInputs</code>系列控件，在把<code>hobbyInputs</code>以JSON格式发送之前，如何验证整个数组的有效性。</p>
+<p>答案是除了验证数组本身的长度等数据之外，还需要以嵌套的形式验证其内部的每一个数据。编写的验证稍微有些复杂，但很容易懂：</p>
+<pre>
+hobbyInputs :{
+    required,
+    minLength: minLength(1),
+    //$each表示当前array中的每一个元素
+    //所以其中要对这个元素的属性进行验证
+    //$each代表的是hobbyInput对象，要验证其value，验证器中的属性就是value
+    $each: {
+        value: {
+            required,
+            minLength:minLength(5)
+        }
+    }
+}
+</pre>
+<p><code>$each</code>代表数组中的每一个元素，在这个例子中，就是<code>hobbyInput</code>对象，等于我们要对<code>hobbyInput</code>的<code>value</code>属性再编写验证器，就写成了这种嵌套的。</p>
+<p>然后需要将验证器添加到表单里：</p>
+<pre>
+&lt;div class="hobby-list">
+    &lt;div
+            class="input"
+            v-for="(hobbyInput, index) in hobbyInputs"
+            :key="hobbyInput.id">
+        &lt;label :for="hobbyInput.id">Hobby #{{ index }}&lt;/label>
+        &lt;input
+                type="text"
+                :id="hobbyInput.id"
+                <span style="color: red">@input="$v.hobbyInputs.$each[index].value.$touch()"</span>
+                v-model="hobbyInput.value">
+        &lt;button @click="onDeleteHobby(hobbyInput.id)" type="button">X&lt;/button>
+    &lt;/div>
+    &lt;p v-if="!$v.hobbyInputs.minLength || !$v.hobbyInputs.required">You have to select at least {{ <span style="color: red">$v.hobbyInputs.$params.minLength.min</span> }} hobby(s).&lt;/p>
+&lt;/div>
+</pre>
+<p>注意看绑定的事件，需要给<code>$each</code>加上一个索引，就是数组的索引，在<code>v-for</code>中取得，然后指定验证字段<code>value</code>，最后也加上<code>$touch()</code>，其实和验证普通单个数据一样，多出来的是通过数组和索引选择到具体对象的过程。</p>
+<p>在UI错误信息里，也可以通过<code>$params</code>获取传入的参数。</p>
 
+<h3 id="con45" style="text-align: center;">修改提交按钮</h3>
+<p>一个很常见的情况，是有错误的情况下不允许提交表单。</p>
+<p>实际上很简单，这个时候就可以用到<code>$v.$invalid</code>，<code>$v</code>的<code>$invalid</code>在所有子验证全部的<code>$invalid</code>都是<code>false</code>的情况下返回<code>false</code>，由于<code>$invalid</code>不检测<code>dirty</code>，所以使用这个比使用<code>$error</code>要好。</p>
+<pre>
+&lt;button :disabled="$v.$invalid" type="submit">Submit&lt;/button>
+</pre>
 
+<h1 id="con5" style="text-align: center;">自定义验证器</h1>
+<p>既然是验证，肯定都会提供自定义验证器的功能。来看看Vuelidate的验证器如何编写。</p>
+<p>所谓一个验证器，其实就是一个自定义的名称，然后对应一个接受一个参数并且返回一个布尔值的函数。</p>
+<p>给<code>email</code>加自定义验证器：</p>
+<pre>
+email: {
+    required,
+    email,
+    myVal: val => {
+        return false
+    }
+},
+</pre>
+<p>可以打印出<code>$v</code>或者用Chrome的Vue开发工具查看，<code>$v.email</code>下边多了一个<code>myVal</code>，一直返回<code>false</code>，导致<code>$invalid</code>永远为<code>true</code>，不会通过任何验证。</p>
+<p>那么就可以来编写任意的条件了，比如：</p>
+<pre>
+email: {
+    required,
+    email,
+    myVal: val => {
+        return val !== 'test@test.com'
+    }
+},
+</pre>
+<p>如果邮件名等于这个，就无法通过验证。</p>
+<p>自定义验证器的功能远不止如此。</p>
 
+<h3 id="con51" style="text-align: center;">异步验证</h3>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<p>在开发中常见的是，用户输入之后，异步查询服务器然后告诉用户是否可用。</p>
+<p>自定义验证器还可以返回一个Promise对象，Vuelidate会自动根据返回结果来判断验证通过与否。来模拟一个异步效果：</p>
+<pre>
+myVal: val => {
+    if (val === '') return true
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(val === 'test@test.com')
+        }, 2000)
+    })
+}
+</pre>
+<p>返回了一个两秒钟之后返回<code>val</code>是否等于<code>test@test.com</code>的结果。</p>
+<p>启动项目，在地址栏输入<code>test@test.com</code>，<code>myVal</code>会过两秒才会变成<code>true</code>。</p>
+<p>注意观察Chrome的Vue插件，可以发现在这个过程中，前边一直没有用到的<code>$pending</code>变成了<code>true</code>，在返回异步请求之后，<code>$pending</code>又会变回<code>false</code>。</p>
+<p>这实际上就是异步的验证，在异步验证没有返回结果之前，<code>$pending</code>会变成<code>true</code>。</p>
+<p>有了模拟的异步之后，就可以在其中使用axios向后端查询实现各种验证，比如验证该用户名是否已经被注册。具体的实现就需要后端配合了。</p>
 
 
 

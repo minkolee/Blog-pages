@@ -10,11 +10,10 @@
 <p>Vuetify看了几天，发现先把组件过一遍，心里有数，就直接上吧。</p>
 <ol>
     <li><a href="#con1">前端设计</a></li>
-    <li><a href="#con2">Vuetify学习</a></li>
-    <li><a href="#con21">Vuetify安装</a></li>
-    <li><a href="#con3">FLEX BOX学习</a></li>
-    <li><a href="#con31">FLEX容器</a></li>
-    <li><a href="#con32">FLEX项目</a></li>
+    <li><a href="#con2">后端的继续改进</a></li>
+    <li><a href="#con3">自动登录的逻辑</a></li>
+    <li><a href="#con4">Login组件</a></li>
+    <li><a href="#con5">投票页面</a></li>
 </ol>
 
 <h1 id="con1" style="text-align: center;">前端设计</h1>
@@ -59,6 +58,434 @@
     这样设计之后，Vue开发的过程在我脑子里基本形成了URL--》视图逻辑--》载入数据--》分发给组件。仔细想了一下，其实和后端有异曲同工之妙，因为前端切换视图在传统后端里等于访问不同的URL，自然就是加载数据的过程，然后把数据放到页面上渲染出来的过程，就是载入数据然后分发给组件进行渲染的过程。</p>
 <p>一对比，前端的逻辑就清晰好多了。</p>
 <p>不过实际编写的时候，发现细节问题还是很多，所以决定重构一下后端，将所有的请求放行到控制器中来进行处理，这样可以比较方便的处理跨域问题，同时使用Spring Security来简单允许跨域。</p>
+
+<h1 id="con2" style="text-align: center;">后端的继续改进</h1>
+<p>主要是在返回投票结果的地方做了一些改进，不再返回错误码，而是如果用户未投过票，就返回一个-1的投票总数；此外还返回一个expireTime，表示整个投票的过期时间。</p>
+<p>现在显示的是：</p>
+<pre>
+{
+    "votes": [
+        {
+            "name": "VoteItemA",
+            "score": 9
+        },
+        {
+            "name": "VoteItemB",
+            "score": 11
+        },
+        {
+            "name": "VoteItemC",
+            "score": 27
+        },
+        {
+            "name": "VoteItemD",
+            "score": 5
+        },
+        {
+            "name": "VoteItemE",
+            "score": 19
+        }
+    ],
+    "expireTime": 1561824000000,
+    "totalVotes": 71
+}
+</pre>
+
+<h1 id="con3" style="text-align: center;">自动登录</h1>
+<p>自动登录使用了Vuex，由于要自动登录，很显然要在应用启动的时候从<code>localStorage</code>中载入相关信息，在<code>login</code>的时候写入相关信息。</p>
+<p>这两个动作都放到Vuex的actions中去，这样无论在任何时候都可以通过这两个函数来设置vuex的内容。</p>
+<p>store.js的主要内容：</p>
+<pre>
+import Vue from 'vue'
+import Vuex from 'vuex'
+import axios from 'axios'
+
+
+Vue.use(Vuex)
+
+export default new Vuex.Store({
+  state: {
+    token: null,
+    username: null,
+    lastVote: null,
+    expire: null,
+    vote:null
+  },
+  //更新token，username和上次投票的mutations
+  mutations: {
+    setToken: function (state, token) {
+      state.token = token;
+    },
+    setUsername: function (state, username) {
+      state.username = username;
+    },
+    setLastVote: function (state, lastVote) {
+      state.lastVote = lastVote;
+    },
+    setExpire: function (state, expire) {
+      state.expire = expire;
+    },
+    setVote: function (state, vote) {
+      state.vote = vote;
+    }
+  },
+  //异步更新，用于登录请求
+  actions: {
+    tryAutoLogin: function (context) {
+      const token = localStorage.getItem('token')
+      const username = localStorage.getItem('username')
+      const lastVote = localStorage.getItem('lastVote')
+      const expire = localStorage.getItem('expire')
+      const vote = localStorage.getItem('vote')
+      const now = (new Date()).getTime()
+      if(now<=expire){
+        context.commit('setToken', token)
+        context.commit('setUsername', username)
+        context.commit('setLastVote', lastVote)
+        context.commit('setExpire', expire)
+        context.commit('setVote',vote)
+      } else {
+        context.commit('setExpire', -1);
+      }
+    },
+
+    login:function({commit}, authData){
+      return new Promise((resolve,reject)=>{
+        axios.post('http://localhost:8080/api/token', {
+          username: authData.username,
+          password: authData.password
+        }).then(res => {
+          commit('setToken', res.headers.authorization)
+          commit('setUsername', authData.username)
+          commit('setLastVote', res.data.lastVotedAt)
+          commit('setExpire', res.data.expire)
+          localStorage.setItem('token', res.headers.authorization)
+          localStorage.setItem('username', authData.username)
+          localStorage.setItem('expire', res.data.expire)
+          localStorage.setItem('lastVote', res.data.lastVotedAt);
+          resolve()
+        }).catch(err => {
+          err.toString()
+          reject()
+        })
+      })
+    }
+  }
+})
+</pre>
+<p>这里的数据设置有些冗余。<code>tryAutoLogin</code>用于读入信息，然后马上就要被首页锁使用。<code>login</code>的方法则比较特殊，返回一个<code>Promise</code>对象，这样视图在调用这个方法的时候，能够根据结果来访问路由。</p>
+
+<h1 id="con4" style="text-align: center;">Login视图</h1>
+<p>这里其实写的不是太好，就直接渲染了一个表单作为login视图的唯一组件。应该是将向后端提交数据的方法写在视图里，然后视图将传回的数据通知给组件。</p>
+<p>不过由于比较简单，也就直接实现了，而是是通过Vuex中的<code>login</code>返回Promise来实现的。</p>
+<p>登录的组件如下：</p>
+<pre>
+&lt;template>
+    &lt;v-container fill-height>
+        &lt;v-layout justify-center align-center>
+            &lt;v-flex xs10 sm9 md7 lg6 xl4 class="mb-5">
+                &lt;h2 class="display-3 text-xs-center">Please Login&lt;/h2>
+                &lt;v-layout wrap row justify-center>
+                    &lt;v-flex text-xs-center xs8>
+                        &lt;v-alert type="error" :value="loginFailed" outline>用户名或密码错误&lt;/v-alert>
+                    &lt;/v-flex>
+                    &lt;v-flex xs12>
+                        &lt;v-text-field
+                                v-model="username"
+                                label="Username"
+                                type="text"
+                                required
+                                @blur="$v.username.$touch()"
+                        >&lt;/v-text-field>
+                    &lt;/v-flex>
+                    &lt;v-flex xs12>
+                        &lt;v-text-field
+                                v-model="password"
+                                label="Password"
+                                type="password"
+                                @blur="$v.password.$touch()"
+                                required
+                        >&lt;/v-text-field>
+                    &lt;/v-flex>
+                    &lt;v-flex xs12 class="text-xs-center">
+                        &lt;v-btn :disabled="$v.$invalid" @click="handleLogin">Login&lt;/v-btn>
+                    &lt;/v-flex>
+                &lt;/v-layout>
+            &lt;/v-flex>
+        &lt;/v-layout>
+
+    &lt;/v-container>
+&lt;/template>
+
+&lt;script>
+    import {required} from 'vuelidate/lib/validators'
+
+    export default {
+        name: "LoginForm",
+        data: function () {
+            return {
+                username: "",
+                password: ""
+            }
+        },
+        computed: {
+            loginFailed: function () {
+                return window.location.href.endsWith('error')
+            }
+        },
+        validations: {
+            username: {
+                required
+            },
+
+            password: {
+                required
+            }
+        },
+        methods: {
+            handleLogin: function () {
+                var _this=this
+                this.$store.dispatch('login',{
+                    username:this.username,
+                    password:this.password
+                }).then(()=>_this.$router.push('/')).catch(()=>_this.$router.push('/login?error'))
+            }
+        }
+    }
+&lt;/script>
+
+&lt;style scoped>
+
+&lt;/style>
+</pre>
+<p>这个组件比较简单，就是使用了一个表单，然后将用户名和密码发送过去。如果不成功，就返回一个错误页面，这里实际上应该用个<code>snack-bar</code>来做一下提示，比较懒也没做。</p>
+
+<h1 id="con5" style="text-align: center;">投票页面</h1>
+<p>投票页面编写的时候，终于找到了Vue的套路，想想看不然为什么Vue CLI生成的项目，要先分出来视图，再分出来组件。</p>
+<p>访问视图的时候，涉及到去请求数据的内容，都写在视图中，然后视图将获得数据传递给组件，组件进行渲染和操作。如果请求出错，视图可以直接控制跳转，无需再渲染视图。</p>
+<p>视图获得数据后进行渲染和自己的处理，在需要提交投票的时候，抛出一个自定义事件给父组件，然后父组件去进行操作。</p>
+<p>这里把发送投票写在了组件里，发现就比较麻烦去更新页面，后来才发现其实根本无需组件自己做这个，应该发送一个事件给视图，视图去更新，再把数据发送回来。</p>
+<p>依据这个思路，其实子组件发送请求的事件也不一定写在组件里，完全可以传给视图。不过不管怎么样，全局更新视图这个肯定要写在视图中比较好。</p>
+<p>这是Home.vue的视图：</p>
+<pre>
+&lt;template>
+    &lt;vote :vote="vote" :expire="vote.expireTime" @new-voted="handleVote">&lt;/vote>
+&lt;/template>
+
+&lt;script>
+    import vote from '../components/Vote.vue'
+    import axios from 'axios'
+
+    export default {
+        components: {
+            vote
+        },
+        data: function () {
+            return {
+                vote: {},
+            }
+        },
+
+        created:function () {
+            let token = this.$store.state.token
+            axios.get('http://localhost:8080/api/vote', {
+                headers: {
+                    Authorization: token
+                }
+            }).then(res => {
+                this.$store.commit('setVote', res.data)
+                this.vote = res.data
+            }).catch(() => {
+                this.$router.push('/login')
+            });
+        },
+        methods:{
+            handleVote() {
+                let token = this.$store.state.token
+                axios.get('http://localhost:8080/api/vote', {
+                    headers: {
+                        Authorization: token
+                    }
+                }).then(res => {
+                    /* eslint-disable */
+                    // console.log(res)
+                    this.$store.commit('setVote')
+                    this.vote = res.data
+                }).catch(() => {
+                    this.$router.push('/login')
+                });
+            }
+        }
+    }
+&lt;/script>
+</pre>
+<p>创建和每次事件发生的时候都去调一次，其实重复了。</p>
+<p>vote组件的内容：</p>
+<pre>
+&lt;template>
+    &lt;v-container>
+        &lt;v-layout v-if="voted" justify-center>
+            &lt;v-flex xs12 class="text-xs-center">
+                &lt;h2 class="display-3">投票结果&lt;/h2>
+            &lt;/v-flex>
+        &lt;/v-layout>
+        &lt;v-layout>
+            &lt;v-flex xs12 class="text-xs-center">
+                &lt;h3 class="display-2" v-if="this.expire-(new Date()).getTime()>=0">还有{{day}}天{{hr}}小时{{min}}分钟{{sec}}秒投票截止&lt;/h3>
+            &lt;/v-flex>
+        &lt;/v-layout>
+        &lt;v-layout v-if="!voted">
+            &lt;v-flex xs12 class="text-xs-center">
+                &lt;h2 class="display-3">请先投票然后查看投票结果&lt;/h2>
+            &lt;/v-flex>
+        &lt;/v-layout>
+        &lt;v-layout v-for="(voteItem, index) in vote.votes" :key="index" justify-center align-center wrap>
+            &lt;v-flex xs12 sm3 md2 class="pa-0 ma-0">
+                &lt;v-layout justify-end>
+                    &lt;v-flex offset-xs-1>
+                        &lt;label v-if="voted">{{voteItem.name}}&nbsp;{{voteItem.score}}票
+                            &lt;input type="checkbox" v-if="voted" v-model="votenames" :value="voteItem.name" >
+
+                        &lt;/label>
+                        &lt;label v-if="!voted">{{voteItem.name}}
+                            &lt;input type="checkbox" v-if="!voted" v-model="votenames" :value="voteItem.name" >
+                        &lt;/label>
+                    &lt;/v-flex>
+                &lt;/v-layout>
+            &lt;/v-flex>
+            &lt;v-flex xs11 sm6 md7>
+                &lt;v-progress-linear
+                        v-if="voted"
+                        color="red"
+                        height="10"
+                        :value="voteItem.score"
+                        background-color="rgba(250,250,250,0)"
+                >&lt;/v-progress-linear>
+            &lt;/v-flex>
+        &lt;/v-layout>
+        &lt;v-layout justify-center>
+            &lt;v-btn color="primary" @click="comeToVote">投票&lt;/v-btn>
+        &lt;/v-layout>
+        &lt;v-snackbar
+                v-model="errorOccured"
+                :timeout="3000"
+                top
+                auto-height
+
+        >您已经投过票&lt;/v-snackbar>
+    &lt;/v-container>
+&lt;/template>
+
+&lt;script>
+    import axios from 'axios'
+
+    function VoteItem(name,score=0) {
+        this.name = name
+        this.score = score;
+    }
+    // 代码重写，抛自定义事件，还是接受prop
+    export default {
+        name: "Vote",
+        props :{
+            vote:{
+                type: Object
+            },
+            expire: {
+                type: Number,
+                default: 0
+            }
+
+        },
+        data: function () {
+            return {
+                votenames:[],
+                errormessage: "",
+                errorOccured: false,
+                day: 0, hr: 0, min: 0, sec: 0
+            }
+        },
+        computed:{
+            voted:function () {
+                return this.vote.totalVotes !== -1;
+            },
+            voteSentToBackend: function () {
+                var temp = [];
+                this.votenames.map(votename => temp.push(
+                    new VoteItem(votename, 0)
+                ));
+
+                var o = {};
+                o.votes = temp;
+                return o;
+            },
+        },
+        methods: {
+            comeToVote: function () {
+                // eslint-disable-next-line
+                console.log("当前的votes对象是" + this.vote)
+                // eslint-disable-next-line
+                console.log('发送的投票对象是' + JSON.stringify(this.voteSentToBackend))
+                axios.post('http://localhost:8080/api/vote', this.voteSentToBackend, {
+                    headers: {
+                        Authorization: this.$store.state.token
+                    }
+                }).then(res => {
+                    // eslint-disable-next-line
+                    console.log(res)
+                    this.$emit('new-voted', res.data);
+                }).catch((err) => {
+                    // eslint-disable-next-line
+                    if (err.response.status === 406) {
+                        this.errorOccured = true;
+                        // eslint-disable-next-line
+                        console.log(this.errorOccured)
+                    } else {
+                        this.$router.push('/login')
+                    }
+                });
+            },
+            countdown: function() {
+                let mesc = this.expire-(new Date()).getTime()
+                let day = parseInt(mesc / 1000 / 60 / 60 / 24);
+                let hr = parseInt(mesc / 1000 / 60 / 60 % 24)
+                let min = parseInt(mesc / 1000 / 60 % 60)
+                let sec = parseInt(mesc / 1000 % 60)
+                this.day = day
+                this.hr = hr > 9 ? hr : '0' + hr
+                this.min = min > 9 ? min : '0' + min
+                this.sec = sec > 9 ? sec : '0' + sec
+                const that = this
+                setTimeout(function () {
+                    that.countdown()
+                }, 1000)
+            }
+        },
+        mounted() {
+            this.countdown();
+        }
+    }
+&lt;/script>
+
+&lt;style scoped>
+    .v-input__control {
+        width: 100%!important;
+    }
+&lt;/style>
+</pre>
+<p>这样就基本写完了最简单的投票核心逻辑。</p>
+<p>果然书看得再多，不实际写也是不行的。写了这一个东西，终于把Vue的开发套路也摸清楚了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
