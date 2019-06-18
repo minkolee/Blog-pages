@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>柚子计算器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+
+        }
+
+        .wrapper {
+            background-color: #FB8C00;
+        }
+
+        .container {
+            max-width: 1164px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        input {
+            height: 2rem;
+            font-size: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+<div id=app>
+    <div class="wrapper">
+        <div class="container" style="padding-bottom: 1rem">
+            <h1 style="text-align: center;color: #fefefe">柚子计算</h1>
+            <h3 style="text-align: center;color: #fefefe">输入数字</h3>
+            <br>
+            <div style="text-align: center;">
+            <input type="number" id="number1" v-model="number1"> + <input type="number" id="number2" v-model="number2">
+            </div>
+            <div style="text-align: center;margin-top: 1rem">
+                <span style="color: white;font-size: 2rem">{{result}}</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script>
+    new Vue({
+        el: "#app",
+        data:{
+            number1: "",
+            number2: ""
+        },
+        computed:{
+            result: function () {
+                if(isNaN(parseInt(this.number1)) || isNaN(parseInt(this.number2)) ){
+                    return ""
+                } else {
+                    return parseInt(this.number1)+ parseInt(this.number2)
+                }
+            }
+        }
+    })
+</script>
+</body>
+</html>
