@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Vue 双向绑定</title>
+    <style>
+        .container {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <p>{{numbers}}</p>
+    <p>Sum of numbers: {{ numberTotal }}</p>
+</div>
+
+<script src="https://unpkg.com/vue"></script>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            numbers: [5, 8, 3]
+        },
+        computed: {
+            numberTotal: {
+                get() {
+                    return this.numbers.reduce((sum, val) => sum + val);
+                },
+                set(newValue) {
+                    const oldValue = this.numberTotal;
+                    const difference = newValue - oldValue;
+                    this.numbers.push(difference)
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>

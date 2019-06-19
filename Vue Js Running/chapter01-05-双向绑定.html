@@ -4,38 +4,27 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Vue </title>
+    <title>Vue 双向绑定</title>
     <style>
-
+        .container {
+            text-align: center;
+        }
     </style>
 </head>
 <body>
 <div id="app">
-    <button v-bind:disabled="buttonDisabled">Test button</button>
+    <label><input type="radio" v-model="value" value="one"> One</label>
+    <label><input type="radio" v-model="value" value="two"> Two</label>
+    <label><input type="radio" v-model="value" value="three"> Three</label>
+    <p>The value is {{ value }}</p>
 </div>
-
-
-
-
-
-
-
-
-
-
-
 
 <script src="https://unpkg.com/vue"></script>
 <script>
-    var app= new Vue({
+    var app = new Vue({
         el: '#app',
         data: {
-            buttonDisabled: true
-        },
-        mounted :function () {
-                setInterval(()=>{
-                    this.buttonDisabled = !this.buttonDisabled
-                },1000)
+            value: 'one'
         }
     });
 </script>

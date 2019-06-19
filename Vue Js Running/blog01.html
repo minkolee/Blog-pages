@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Vue再学习 01</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+
+    <style>
+
+    </style>
+</head>
+<body>
+<p>6月剩下的时间，决定在趁热打铁把Vue再看看，用了两本2018年的新书：</p>
+<ul>
+    <li><a href="http://shop.oreilly.com/product/0636920103455.do" target="_blank">Vue.js: Up and Running</a>，中文版是<a
+            href="https://item.jd.com/12493424.html" target="_blank">Vue.js快跑：构建触手可及的高性能Web应用</a></li>
+    <li><a href="https://www.packtpub.com/web-development/vuejs-2-web-development-projects" target="_blank">Vue.js 2 Web Development Projects</a>，中文版是<a
+            href="https://item.jd.com/12513396.html" target="_blank">Vue.js项目实战</a></li>
+</ul>
+<p>昨天开始看上边这本Vue.js快跑，发现上次跟着老外的视频确实讲的的比较浅显，而国人的Vue.js实战这书对理念其实阐述的不是很好，而这本书就解决了不少疑惑，也理清了我的一些思路，把其中的一些补遗记录下来。</p>
+<p>我感觉自己现在集中新内容=>回头补点基础=>写实际代码=>再突击新内容的循环效果也不错，第一次用Vue写了东西，正好回头再看看Vue。</p>
+<p>虽然技术在不断进步，但是能仔细的掌握一两个好用的东西，也会加大对于其他内容的理解。</p>
+
+<ul>
+    <li><a href="#con1">1 v-if与v-show</a></li>
+    <li><a href="#con2">2 向Vue实例添加反应式属性</a></li>
+    <li><a href="#con3">3 重新审视Vue实例的内容</a></li>
+    <li><a href="#con4">4 Vue操作数组</a></li>
+    <li><a href="#con5">5 双向绑定的补充</a></li>
+    <li><a href="#con6">6 computed属性的set</a></li>
+    <li><a href="#con7">7 watch监听对象属性和获取新旧值</a></li>
+    <li><a href="#con71">7.1 监听对象的属性</a></li>
+    <li><a href="#con72">7.2 监听时获取变化前后的值</a></li>
+    <li><a href="#con73">7.3 深度监听</a></li>
+    <li><a href="#con8">8 filter补遗</a></li>
+    <li><a href="#con9">9 ref引用</a></li>
+</ul>
+
+<h1 id="con1" style="text-align: center;">v-if与v-show</h1>
+<p><code>v-show</code>需要先把模板处理完毕，而<code>v-if</code>不需要。看下边这个例子：</p>
+<pre>
+&lt;div id="app">
+    &lt;div v-show="user">
+        &lt;p>User name: {{ user.name }}&lt;/p>
+    &lt;/div>
+&lt;/div>
+&lt;script>
+new Vue({
+    el: '#app',
+    data: {
+        user: undefined
+    }
+});
+&lt;/script>
+</pre>
+<p>这里会报错，因为Vue会尝试去获取<code>user.name</code>。如果将<code>v-show</code>改成<code>v-if</code>，内部的元素根本不会去被解释和渲染，所以不会报错。</p>
+<p>采用这个方法，可以在父子组件通信的时候先进行父组件传来的数据的判断。</p>
+<p><code>v-show</code>的好处是开销小。<code>v-if</code>变动的时候，其内部组件会被重新计算和渲染，而<code>v-show</code>不会，如果需要展示经常变化的数据，<code>v-show</code>更合适一些。。</p>
+
+<h1 id="con2" style="text-align: center;">向Vue实例添加反应式属性</h1>
+<p>在之前QQ群讨论里，有朋友就说面试时候被问到如何给Vue实例添加属性，不用说，肯定是问如何添加反应式的属性。</p>
+<p>Vue是在初始化实例的时候对data内的对象添加监听方法，为了要给Vue添加反应式的新属性有如下几种方法：</p>
+<p>主要有三种方法：</p>
+<ol>
+    <li>给要添加的属性提前赋值为undefined，然后再赋值，当然这种其实不叫做添加了，因为已经让Vue初始化了</li>
+    <li>使用<code>Object.assign()</code>，创建一个新对象覆盖原来data的对象。一会看下边例子。</li>
+    <li>使用<code>Vue.set(object,name, value)</code>，其中<code>object</code>是<code>data</code>中的对象，<code>name</code>是属性名，<code>value</code>设置的属性的值。在组件里想要使用这个方法，则可以通过<code>this.$set</code>来使用这个方法。</li>
+</ol>
+<p>第一种的例子就不看了，先来看第二种方法的例子：</p>
+<pre>
+&lt;div id="app" class="container">
+    &lt;template v-if="formData.user">
+        &lt;div>这是新添加的user属性： {{formData.user}}&lt;/div>
+    &lt;/template>
+        &lt;div>这是原来的属性： {{formData.username}}&lt;/div>
+&lt;/div>
+
+&lt;script>
+    var app= new Vue({
+        el: '#app',
+        data: {
+            formData: {
+                username: 'jenny',
+            }
+        },
+
+    });
+&lt;/script>
+</pre>
+<p>启动这个实例后，在控制台里输入<kbd>app.formData = Object.assign({},app.formData,{user:'cony'})</kbd>，页面就能渲染出来新添加的属性。</p>
+<p>再来看第三种方法的实例：</p>
+<pre>
+&lt;div id="app" class="container">
+    &lt;template v-if="formData.user">
+        &lt;div>这是新添加的user属性： {{formData.user}}&lt;/div>
+    &lt;/template>
+        &lt;div>这是原来的属性： {{formData.username}}&lt;/div>
+    &lt;button @click="addProperty">添加user=cony属性&lt;/button>
+&lt;/div>
+
+&lt;script>
+    var app= new Vue({
+        el: '#app',
+        data: {
+            formData: {
+                username: 'jenny',
+            }
+        },
+        methods:{
+            addProperty:function () {
+                this.$set(this.formData,'user','cony')
+            }
+        }
+
+    });
+&lt;/script>
+</pre>
+<p>点击这个按键，就会看到新添加的属性被显示了出来。</p>
+
+
+<h1 id="con3" style="text-align: center;">重新审视Vue实例的内容</h1>
+<p>在之前学的时候，总以为数据放data，需要计算的放在computed里边，事件处理放在methods中。这也是被Vue.js实战这本书按照实例直接形成的想法。</p>
+<p>实际上Vue实例就将其看成一个对象，其中的内容可以将其分为<code>properties</code>和<code>methods</code>两大类。</p>
+<p><code>data</code>就是纯粹的保存数据，而<code>methods</code>实际上就是这个Vue实例的方法。而<code>computed</code>介于属性和方法之间，采用函数进行计算，采用属性进行访问。</p>
+<p>另外就是<code>this</code>的使用：</p>
+<ol>
+    <li>在模板渲染的双花括号里，不要使用<code>this</code>，Vue直接会去找<code>data</code>，<code>computed</code>和<code>methods</code>对应的名称</li>
+    <li>在<code>methods</code>里访问属性和方法，需要加上<code>this</code>，这个<code>this</code>表示方法所属的Vue实例对象，可以用其调用其他属性和方法（以及<code>computed</code>属性）。</li>
+    <li>在<code>computed</code>里访问属性和方法，也需要加上<code>this</code></li>
+    <li>在<code>watch</code>里访问属性和方法，也需要加上<code>this</code></li>
+    <li>在<code>filter</code>中无法通过this访问Vue实例的内容</li>
+</ol>
+
+<h1 id="con4" style="text-align: center;">Vue操作数组</h1>
+<p>Vue里不能够直接通过索引操作数组。看下边这个例子：</p>
+<pre>
+&lt;div id="app" class="container" v-cloak="">
+    &lt;p>{{games}}&lt;/p>
+&lt;/div>
+
+&lt;script>
+    var app= new Vue({
+        el: '#app',
+        data: {
+            games: ['Baldur\'s gate 3','Baldur\'s gate 2','Neverwinter Nights','TotalWar: ThreeKingdoms', 'Planescape: Torment']
+        },
+        methods:{
+        }
+    });
+&lt;/script>
+</pre>
+<p>如果在控制台中输入<kbd>app.games[2]='Neverwinter Nights 2'</kbd>，会发现数组没有任何变化，这是因为Vue在代理数组的时候，没有针对索引进行监听，而是针对数组的原生方法进行监听。</p>
+<p>想要更改数组的内容，有如下几种办法：</p>
+<ol>
+    <li>Vue内置了对于<code>.splice</code>等数组常用内部方法的监听，所以可以用这些方法来更改。</li>
+    <li>用上边提到的<code>Vue.set</code>直接更新整个数组</li>
+</ol>
+<p>来看一下第一种方法的例子，在控制台中输入<kbd>app.games.splice(2,1,'Neverwinter Nights 2')</kbd>，就可以成功的更新了。</p>
+<p>在控制台中输入<kbd>app.games.push('Neverwinter Nights 2')</kbd>也可以更新数组。</p>
+<p>第二种方法的例子和之前设置对象的区别是第二个参数直接用数组的索引就可以，在控制台中输入<kbd>Vue.set(app.games,2,'Neverwinter Nights 2')</kbd>就可以改变内容。</p>
+
+<h1 id="con5" style="text-align: center;">双向绑定的补充</h1>
+<p>双向绑定已经了解了其实是一个语法糖，会绑定<code>value</code>属性并且通过事件进行监听。</p>
+<p>双向绑定之后，HTML元素的<code>value</code>，<code>checked</code>和<code>selected</code>属性会失效，这个要注意。</p>
+<p>由于绑定可以用来监听value属性，所以对于radio，checkbox，select都可以用来监听。只需要给要监听的一组内容绑定同一个属性即可。而且还可以反向传递value来控制选中哪个内容。</p>
+
+<h1 id="con6" style="text-align: center;">computed属性的set</h1>
+<p><code>computed</code>设置的东西，也像一个属性一样，可以实例内访问。<code>data</code>，<code>computed</code>和<code>methods</code>的区别如下：</p>
+<table>
+    <caption>data-computed-methods</caption>
+    <thead>
+    <tr>
+        <th>名称</th>
+        <th>可读</th>
+        <th>可写</th>
+        <th>是否能接受参数</th>
+        <th>动态计算</th>
+        <th>缓存</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>data</td>
+        <td>Yes</td>
+        <td>Yes</td>
+        <td>No</td>
+        <td>No</td>
+        <td>不会被计算</td>
+    </tr>
+    <tr>
+        <td>methods</td>
+        <td>Yes</td>
+        <td>No</td>
+        <td>Yes</td>
+        <td>Yes</td>
+        <td>No，每次调用都重新计算</td>
+    </tr>
+    <tr>
+        <td>computed</td>
+        <td>Yes</td>
+        <td>Yes</td>
+        <td>No</td>
+        <td>Yes</td>
+        <td>Yes</td>
+    </tr>
+    </tbody>
+</table>
+<p>这里<code>computed</code>属性也可以<code>set</code>，要通过设置具体的<code>get</code>和<code>set</code>方法才行：</p>
+<pre>
+&lt;div id="app">
+    &lt;p>{{numbers}}&lt;/p>
+    &lt;p>Sum of numbers: {{ numberTotal }}&lt;/p>
+&lt;/div>
+
+&lt;script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            numbers: [5, 8, 3]
+        },
+        computed: {
+            numberTotal: {
+                get() {
+                    return this.numbers.reduce((sum, val) => sum + val);
+                },
+                set(newValue) {
+                    const oldValue = this.numberTotal;
+                    const difference = newValue - oldValue;
+                    this.numbers.push(difference)
+                }
+            }
+        }
+    });
+&lt;/script>
+</pre>
+<p>这里的<code>get</code>就是访问属性的时候得到的结果。<code>set</code>方法则是传入一个新要设置的值作为参数，然后在<code>set</code>方法中进行更改。</p>
+<p>这样就极大的提高了<code>computed</code>属性的灵活性。</p>
+
+<h1 id="con7" style="text-align: center;">watch监听对象属性和获取新旧值</h1>
+<p><code>watch</code>的内容比较多，要分成几个部分总结。</p>
+
+<h3 id="con71" style="text-align: center;">监听对象的属性</h3>
+<p><code>watch</code>能做的事情，如果只是纯粹更改数值，最好还是使用<code>methods</code>和<code>computed</code>，否则逻辑会乱。<code>watchers</code>的真正意义在于异步进行一些操作，比如模拟一个异步：</p>
+<pre>
+&lt;div id="app">
+    &lt;input type="text" v-model="inputValue">
+    &lt;p>Five seconds ago, the input said "{{ oldInputValue }}".&lt;/p>
+&lt;/div>
+
+&lt;script>
+    new Vue({
+        el: '#app',
+        data: {
+            inputValue: '',
+            oldInputValue: ''
+        },
+        watch: {
+            inputValue() {
+                const newValue = this.inputValue;
+                setTimeout(() => {
+                    this.oldInputValue = newValue;
+                }, 5000);
+            }
+        }
+    });
+&lt;/script>
+</pre>
+<p>注意<code>watch</code>是在数字变动之后才执行的。这里就监听了<code>count</code>属性，然后每次有变动的时候，获取新的属性，过五秒在设置到<code>oldInputValue</code>上。</p>
+<p>普通情况下，如果watch一个对象，只有整个对象被替换成其他对象，才会触发watch。修改对象的属性，不会触发watch，这个时候需要特殊的写法：</p>
+<pre>
+&lt;div id="app">
+    &lt;p>outer对象的value是{{outer.value}}&lt;/p>
+&lt;/div>
+
+&lt;script src="https://unpkg.com/vue">&lt;/script>
+&lt;script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            outer: {
+                value: 1,
+            }
+        },
+        watch: {
+            'outer.value'() {
+                console.log('outer.value watcher 被触发了')
+            },
+            outer() {
+                console.log('outer watcher整个对象被替换了')
+            }
+        }
+    });
+&lt;/script>
+</pre>
+<p>如果在控制台输入<kbd>app.outer.value =3</kbd>，会发现只触发了<code>'outer.value'</code>的监听，如果输入<kbd>app.outer={}</kbd>，就可以看到两个监听器都被触发了。</p>
+
+<h3 id="con72" style="text-align: center;">监听时获取变化前后的值</h3>
+<p><code>watch</code>还一个重要的内容是可以获取变化前后的值，这两个值是作为watch方法的两个参数存在：</p>
+<pre>
+&lt;div id="app">
+    &lt;p>outer对象的value是{{outer.value}}&lt;/p>
+&lt;/div>
+
+&lt;script src="https://unpkg.com/vue">&lt;/script>
+&lt;script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            outer: {
+                value: 1,
+            }
+        },
+        watch: {
+            'outer.value'(newval, oldval) {
+                console.log('outer.value watcher 被触发了');
+                console.log('新的值是：' + newval);
+                console.log('老的值是：' + oldval);
+            },
+            outer() {
+                console.log('outer watcher整个对象被替换了')
+            }
+        }
+    });
+&lt;/script>
+</pre>
+<p>可以方便的通过参数来获取要设置的值和原来的值，这就可以进行一些特殊的操作。</p>
+
+<h3 id="con73" style="text-align: center;">深度监听</h3>
+<p>如果要监听一个对象所有的属性变化，就需要将watch拆开来写：</p>
+<pre>
+&lt;div id="app">
+    &lt;p>outer对象的value是{{outer.value}}&lt;/p>
+&lt;/div>
+
+&lt;script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            outer: {
+                value: 1,
+                inner:{
+                    value:2
+                }
+            }
+        },
+        watch: {
+            outer: {
+                handler(newval, oldval) {
+                    console.log(newval, oldval);
+                },
+                deep: true
+            }
+        }
+    });
+&lt;/script>
+</pre>
+<p>这里实际上是递归增加了所有监听器，所以不能直接显示前后的值，监听某个具体属性是可以的。<code>watch</code>的其他一些高级用法可以看<a href="https://juejin.im/post/5ae91fa76fb9a07aa7677543" target="_blank">这里</a>。</p>
+
+<h1 id="con8" style="text-align: center;">过滤器filter补遗</h1>
+<p>filter本质上就是接受一个参数的函数。一般来说可以有两种方法编写过滤器：</p>
+<ol>
+    <li>在Vue实例的<code>filters</code>属性之内编写</li>
+    <li><code>Vue.filter(filtername,function)</code>来注册</li>
+</ol>
+<p>一般最好把过滤器单独放在一个文件里。注意在过滤器中无法使用this来访问Vue实例，可以将过滤器认为就是一个纯粹的功能函数。</p>
+<p>还一个注意事项是，<span style="color: red">过滤器只能放在v-bind绑定的属性里或者放在双花括号的解释语句中</span>。</p>
+
+<h1 id="con9" style="text-align: center;">ref引用</h1>
+<p>已经知道了<code>&lt;canvas ref="myCanvas">&lt;/canvas></code>这样一个元素可以用<code>this.$refs.myCanvas</code>来获取对应的vnode节点对象。</p>
+<p>这里还需要知道的是<code>this.$refs</code>只是对当前组件内的元素进行查找，不会查到其他组件去，所以可以很方便的使用，省去了使用<code>queryselector</code>等方式定位元素。</p>
+
+<p>果然还是老外写的书好，昨天看了一会，就发现还有如此多的细节没有掌握。</p>
+<p>现在对于一个Vue实例的作用也比较清楚了。<code>data</code>用来定义原始的数据，<code>computed</code>用于基于原始数据生成可以反复使用的结果，<code>methods</code>就是这个实例的方法，可以包括各种方法，无论是普通功能还是事件调用。当然不同的方法有不同的参数，尤其是处理事件的方法。<code>watch</code>则用于对数据的异步处理。</p>
+<p>前边几个属性都和Vue实例有着紧密的联系，而filter是比较独立的功能函数，无法通过this访问实例。</p>
+<p>这样基本上一个实例的内部就理清楚了。把实例进化到组件的话，还要再添加一个<code>props</code>作为父组件传入的基础数据，和<code>data</code>一样共同构成组件的基础数据。</p>
+
+
+
+
+
+
+
+
+
+</body>
+</html>

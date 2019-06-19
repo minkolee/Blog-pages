@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Vue 操作数组</title>
+    <style>
+        .container {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div id="app" class="container" v-cloak="">
+    <p>{{games}}</p>
+    <button @click="changeGame">添加 NWN2</button>
+</div>
+
+<script src="https://unpkg.com/vue"></script>
+<script>
+    var app= new Vue({
+        el: '#app',
+        data: {
+            games: ['Baldur\'s gate 3','Baldur\'s gate 2','Neverwinter nights','TotalWar: ThreeKingdoms', 'Planescape: Torment']
+        },
+        methods:{
+            changeGame: function () {
+                this.games.push('nwn2')
+            }
+        }
+    });
+</script>
+</body>
+</html>

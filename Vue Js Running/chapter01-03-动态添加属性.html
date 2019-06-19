@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Vue 添加属性</title>
+    <style>
+        .container {
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+<div id="app" class="container">
+    <template v-if="formData.user">
+        <div>这是新添加的user属性： {{formData.user}}</div>
+    </template>
+        <div>这是原来的属性： {{formData.username}}</div>
+    <button @click="addProperty">添加user=cony属性</button>
+</div>
+
+<script src="https://unpkg.com/vue"></script>
+<script>
+    var app= new Vue({
+        el: '#app',
+        data: {
+            formData: {
+                username: 'jenny',
+            }
+        },
+        methods:{
+            addProperty:function () {
+                this.$set(this.formData,'user','cony')
+            }
+        }
+
+    });
+</script>
+</body>
+</html>
