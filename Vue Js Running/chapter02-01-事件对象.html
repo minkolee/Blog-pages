@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Vue </title>
+    <style>
+
+    </style>
+</head>
+<body>
+<div id="app">
+    <button @click="handle">打印事件对象</button>
+</div>
+
+
+<script src="https://unpkg.com/vue"></script>
+<script>
+    var hours = new Date().getHours();
+    new Vue({
+        el: '#app',
+        methods: {
+            handle:function (event) {
+                console.log(event)
+            }
+        }
+    })
+</script>
+</body>
+</html>
