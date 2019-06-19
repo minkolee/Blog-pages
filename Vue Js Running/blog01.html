@@ -37,6 +37,8 @@
     <li><a href="#con73">7.3 深度监听</a></li>
     <li><a href="#con8">8 filter补遗</a></li>
     <li><a href="#con9">9 ref引用</a></li>
+    <li><a href="#con10">10 处理事件</a></li>
+    <li><a href="#con11">11 过渡与动画</a></li>
 </ul>
 
 <h1 id="con1" style="text-align: center;">v-if与v-show</h1>
@@ -372,12 +374,154 @@ new Vue({
 <p>已经知道了<code>&lt;canvas ref="myCanvas">&lt;/canvas></code>这样一个元素可以用<code>this.$refs.myCanvas</code>来获取对应的vnode节点对象。</p>
 <p>这里还需要知道的是<code>this.$refs</code>只是对当前组件内的元素进行查找，不会查到其他组件去，所以可以很方便的使用，省去了使用<code>queryselector</code>等方式定位元素。</p>
 
+
+<h1 id="con10" style="text-align: center;">处理事件</h1>
+<p>之前的内容主要都是数据展示，还不涉及到交互。如果要使用交互，就要涉及到处理事件了。</p>
+<p>处理事件的时候，可以直接写在绑定内部，是因为已经知道绑定内部的东西都按照JS语句解析。</p>
+<p>但实际上，还是采用处理函数比较方便，因为处理函数的第一个参数会被传入事件对象。</p>
+
+<h3  style="text-align: center;">修饰符</h3>
+<ol>
+    <li><code>prevent</code>，阻止默认事件，常用于a标签，submit类型的按钮之类</li>
+    <li><code>stop</code>，阻止冒泡，很常用</li>
+    <li><code>once</code>，只有第一次才生效</li>
+    <li><code>capture</code>，这是一个新了解的，即元素自身触发的事件先在此处理，然后才交由内部元素进行处理。像反向冒泡。</li>
+    <li><code>self</code>，event.target是当前元素，即事件不是从内部冒泡上来的。</li>
+</ol>
+<p>监听键盘按键和按键的一堆修饰符也是属于已经了解但用的不多的内容。</p>
+
+<h1 style="text-align: center;">详细的生命周期</h1>
+<p>一个Vue实例的生命周期对应八个钩子，其实是四个大阶段+四个before，具体如下：</p>
+<ol>
+    <li><code>new Vue()</code>执行，新实例初始化</li>
+    <li><code>beforeCreate</code>调用，反应式功能初始化</li>
+    <li><code>created</code>调用，模板被初始化，会根据组件的template和render函数等初始化模板，模板还未加载到DOM上</li>
+    <li><code>beforeMount</code>调用，根据模板生成了HTML元素，依然没有挂载到DOM上</li>
+    <li><code>mounted</code>在生成好HTML元素之后调用，Vue 2.0中不能保证这个钩子调用之后Vue实例立刻被挂载到DOM上，必须在<code>mounted</code>中调用<code>Vue.nextTick()</code>（组件中使用<code>this.$nextTick()</code>）才能确保，这个还有一个回调函数可以执行自己的代码。详细看<a
+            href="#ex1">下边例子</a>。此钩子执行完毕之后，用户可以看到DOM元素，但数据还没更新上去。</li>
+    <li><code>beforeUpdate</code>在数据还没有更新到DOM上之前调用，去计算新数据和准备更新</li>
+    <li><code>updated</code>在用数据更新DOM完成之后调用，这个钩子会反复调用，如果有多个地方需要更新数据</li>
+    <li><code>beforeDestroy</code>调用，在需要从DOM中去除组件的时候调用</li>
+    <li><code>destroyed</code>调用，从DOM中去除组件之后调用</li>
+</ol>
+<p id="ex1"><code>Vue.nextTick()</code>的例子是：</p>
+<pre>
+&lt;script>
+new Vue({
+    el: '#app',
+    mounted() {
+// Element might not have been added to the DOM yet
+        this.$nextTick(() => {
+// Element has definitely been added to the DOM now
+        });
+    }
+});
+&lt;/script>
+</pre>
+
+<h1 id="con11" style="text-align: center;">过渡与动画</h1>
+<p>Vue提供了很多过渡效果，之前一直没有看过，现在要稍微入入门看看。</p>
+
+<h3 style="text-align: center;">CSS过渡效果</h3>
+<p>Vue提供了一个组件<code>&lt;transition></code>，这个组件会给其中的所有元素添加一个v-if指令和一个css类，这样就可以通过CSS类给元素添加挂载到DOM和从DOM移除时候的动画效果。</p>
+<p>下边是一个初始的例子：</p>
+<pre>
+&lt;div id="app">
+    &lt;button @click="divVisible = !divVisible">Toggle visibility&lt;/button>
+    &lt;div v-if="divVisible">This content is sometimes hidden&lt;/div>
+&lt;/div>
+
+
+&lt;script src="https://unpkg.com/vue">&lt;/script>
+&lt;script>
+    new Vue({
+        el: '#app',
+        data: {
+            divVisible: true
+        }
+    });
+&lt;/script>
+</pre>
+<p>这个例子很简单，就是点击按钮来切换下边的元素是否显示，由于我们使用了<code>v-if</code>，所以这个元素每次被移入和移出DOM树。</p>
+<p>先来通过<code>&lt;transition></code>添加一个简单的效果：</p>
+<pre>
+&lt;transition name="fade">
+    &lt;div v-if="divVisible">This content is sometimes hidden&lt;/div>
+&lt;/transition>
+</pre>
+<p>单独加上这个也没效果，必须配合样式：</p>
+<pre>
+.fade-enter-active, .fade-leave-active {
+    transition: opacity .5s;
+}
+.fade-enter, .fade-leave-to {
+    opacity: 0;
+}
+</pre>
+<p>这个生效的原理是：Vue会使用<code>&lt;transition name="fade"></code>中的<code>name</code>属性的值，加上一些后缀拼合成在不同阶段应用的CSS类名，这些类及对应作用是：</p>
+<ol>
+    <li><code>{name}-enter</code>，元素添加进DOM的时候会被加上这个类，在1帧之后就会取消这个类。用来设置元素进入DOM之后初始并且想要逐渐消失的样式，例子里设置了完全透明，在元素进入的时候，一开始就是完全透明的。</li>
+    <li><code>{name}-enter-active</code>，这个样式在整个加入过程中都生效，和<code>{name}-enter</code>同时添加到元素上，在动画完成后移除。这个类里最好设置CSS的transition属性，包括动画时间，属性和过渡曲线。</li>
+    <li><code>{name}-enter-to</code>在<code>{name}-enter</code>被移除的时候添加到元素上，一般用于设置逐渐出现在元素上的样式。</li>
+    <li><code>{name}-leave</code>，在触发要移除DOM的第一帧添加上，然后下一帧就会移除</li>
+    <li><code>{name}-leave-active</code>，在移除的全过程生效。</li>
+    <li><code>{name}-leave-to</code>，很像enter-to，当<code>{name}-leave</code>被移除的时候添加到元素上。</li>
+</ol>
+<p>一般来说，主要使用<code>{name}-enter</code>、<code>{name}-enter-active</code>、<code>{name}-leave-active</code>和<code>{name}-leave-to</code>四个类。</p>
+
+<h3 style="text-align: center;">JS过渡效果</h3>
+<p>JS过渡就是<code>&lt;transition></code>在不同阶段提供的钩子，就可以使用JS库来写动画。</p>
+<p>这里的钩子，是指特殊的事件，在<code>&lt;transition></code>元素上监听这些事件然后写处理函数就可以了。</p>
+<p>钩子和CSS动画的阶段本质上是一致的，列表如下：</p>
+<ol>
+    <li><code>before-enter</code>，在进入动画开始之前执行，用于设置初始样式</li>
+    <li><code>enter</code>，进入动画开始的时候执行，可以在其中使用done回调来指示动画结束</li>
+    <li><code>afterEnter</code>，进入动画结束的时候调用</li>
+    <li><code>enterCancelled</code>，进入动画被取消的时候调用</li>
+    <li><code>beforeLeave</code>，移出动画开始之前调用，用于设置移出的初始样式</li>
+    <li><code>leave</code>，移出动画开始的时候执行</li>
+    <li><code>afterLeave</code>，和上边的阶段类似</li>
+    <li><code>leaveCancelled</code>和上边的阶段类似</li>
+</ol>
+<p>使用这些钩子的例子：</p>
+<pre>
+&lt;div id="app">
+    &lt;button @click="divVisible = !divVisible">Toggle visibility&lt;/button>
+    &lt;transition
+            v-on:before-enter="handleBeforeEnter"
+            v-on:enter="handleEnter"
+            v-on:leave="handleLeave">
+    &lt;div v-if="divVisible">The content&lt;/div>
+&lt;/transition>
+&lt;/div>
+
+&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.1.3/TweenMax.min.js">&lt;/script>
+&lt;script src="https://unpkg.com/vue">&lt;/script>
+&lt;script>
+    new Vue({
+        el: '#app',
+        data: {
+            divVisible: false
+        },
+        methods: {
+            handleBeforeEnter(el) {
+                el.style.opacity = 0;
+            },
+            handleEnter(el, done) {
+                TweenLite.to(el, 1, { opacity: 1, onComplete: done });
+            },
+            handleLeave(el, done) {
+                TweenLite.to(el, 1, { opacity: 0, onComplete: done });
+            }
+        }
+    });
+&lt;/script>
+</pre>
+
 <p>果然还是老外写的书好，昨天看了一会，就发现还有如此多的细节没有掌握。</p>
 <p>现在对于一个Vue实例的作用也比较清楚了。<code>data</code>用来定义原始的数据，<code>computed</code>用于基于原始数据生成可以反复使用的结果，<code>methods</code>就是这个实例的方法，可以包括各种方法，无论是普通功能还是事件调用。当然不同的方法有不同的参数，尤其是处理事件的方法。<code>watch</code>则用于对数据的异步处理。</p>
 <p>前边几个属性都和Vue实例有着紧密的联系，而filter是比较独立的功能函数，无法通过this访问实例。</p>
 <p>这样基本上一个实例的内部就理清楚了。把实例进化到组件的话，还要再添加一个<code>props</code>作为父组件传入的基础数据，和<code>data</code>一样共同构成组件的基础数据。</p>
-
-
 
 
 

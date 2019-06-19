@@ -31,16 +31,17 @@
 <body>
 <div id=app>
     <div class="wrapper">
-        <div class="container" style="padding-bottom: 1rem">
+        <div class="container" style="padding-bottom: 1rem;margin-top:200px">
             <h1 style="text-align: center;color: #fefefe">柚子计算</h1>
             <h3 style="text-align: center;color: #fefefe">输入数字</h3>
             <br>
             <div style="text-align: center;">
-            <input type="number" id="number1" v-model="number1"> + <input type="number" id="number2" v-model="number2">
+            <input type="text" id="number1" v-model="number1"> <span style="color: white;font-size: 1.5rem">+</span> <input type="text" id="number2" v-model="number2">
             </div>
             <div style="text-align: center;margin-top: 1rem">
-                <span style="color: white;font-size: 2rem">{{result}}</span>
+                <span style="color: white;font-size: 3rem">{{result}}</span>
             </div>
+            <div style="margin-left: auto;margin-right: auto;text-align: center; "><button style="background-color: #1673b1;color: white;font-size: 1.5rem" @click='clear'>清零</button></div>
         </div>
     </div>
 
@@ -62,7 +63,14 @@
                     return parseInt(this.number1)+ parseInt(this.number2)
                 }
             }
+        },
+        methods:{
+            clear:function () {
+                this.number1=''
+                this.number2=''
+            }
         }
+
     })
 </script>
 </body>

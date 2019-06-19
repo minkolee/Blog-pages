@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Vue </title>
+    <style>
+
+    </style>
+</head>
+<body>
+<div id="app">
+    <list :price="3"></list>
+    <list :price="-33"></list>
+</div>
+
+<script src="https://unpkg.com/vue"></script>
+<script>
+    Vue.component('list', {
+        template: '<div>Price is {{price}}</div>',
+        props: {
+            price:{
+                type:Number,
+                default:0,
+                validator(val){
+                    return val >= 0;
+                }
+            }
+        }
+    });
+    new Vue({
+        el: '#app'
+    });
+</script>
+</body>
+</html>
