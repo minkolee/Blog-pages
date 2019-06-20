@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta content="ie=edge" http-equiv="x-ua-compatible">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Vue </title>
+    <style>
+
+    </style>
+</head>
+<body>
+<div id="app">
+    <myslots>
+        <template v-slot:default>父组件插入默认插槽</template>
+        <template v-slot:saner>父组件插入具名插槽</template>
+        <template v-slot:scope="cony">{{cony.innerobject.name}}</template>
+    </myslots>
+</div>
+
+<script src="https://unpkg.com/vue"></script>
+<script>
+    Vue.component('myslots', {
+        template: '<div><p><slot>不具名插槽默认内容</slot></p>' +
+            '<p><slot name="saner">具名插槽默认内容</slot></p>' +
+            '<p></p><slot name="scope" :innerobject="person">绑定子组件属性的插槽</slot></div>',
+        data: function () {
+            return {
+                person: {
+                    name: 'jenny'
+                }
+            }
+        }
+    });
+    new Vue({
+        el: '#app'
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>

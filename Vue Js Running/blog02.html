@@ -17,17 +17,9 @@
 
 <ul>
     <li><a href="#con1">1 组件</a></li>
-    <li><a href="#con2">2 slot</a></li>
-    <li><a href="#con3">3 过渡与动画</a></li>
-    <li><a href="#con4">4 Vue操作数组</a></li>
-    <li><a href="#con5">5 双向绑定的补充</a></li>
-    <li><a href="#con6">6 computed属性的set</a></li>
-    <li><a href="#con7">7 watch监听对象属性和获取新旧值</a></li>
-    <li><a href="#con71">7.1 监听对象的属性</a></li>
-    <li><a href="#con72">7.2 监听时获取变化前后的值</a></li>
-    <li><a href="#con73">7.3 深度监听</a></li>
-    <li><a href="#con8">8 filter补遗</a></li>
-    <li><a href="#con9">9 ref引用</a></li>
+    <li><a href="#con2">2 2.6版本后的新版slot</a></li>
+    <li><a href="#con3">3 自定义事件</a></li>
+    <li><a href="#con4">4 子组件上没有进行绑定props的属性</a></li>
 </ul>
 
 <h1 id="con1" style="text-align: center;">组件</h1>
@@ -44,7 +36,6 @@
     &lt;list :price="-33">&lt;/list>
 &lt;/div>
 
-&lt;script src="https://unpkg.com/vue">&lt;/script>
 &lt;script>
     Vue.component('list', {
         template: '&lt;div>Price is {{price}}&lt;/div>',
@@ -76,17 +67,99 @@ found in
 
 <h1 id="con2" style="text-align: center;">slot</h1>
 <p>之前已经知道普通插槽，具名插槽和作用域插槽。现在slot和作用域插槽都要废弃，引入了<code>v-slot</code>指令，只能作用于<code>&lt;template&gt;</code>元素。</p>
-<p>v-slot的插槽可以采取加上名称的方式指定具名的插槽。</p>
+<p>2.6之后的Vue的<a href="https://cn.vuejs.org/v2/guide/components-slots.html" target="_blank">组件</a>大改了，用一个例子看明白：</p>
+<pre>
+&lt;div id="app">
+    &lt;myslots>
+        &lt;template v-slot:default>父组件插入默认插槽&lt;/template>
+        &lt;template v-slot:saner>父组件插入具名插槽&lt;/template>
+        &lt;template v-slot:scope="cony">{{cony.innerobject.name}}&lt;/template>
+    &lt;/myslots>
+    &lt;/div>
 
+&lt;script>
+    Vue.component('myslots', {
+        template: '&lt;div>&lt;p>&lt;slot>不具名插槽默认内容&lt;/slot>&lt;/p>' +
+            '&lt;p>&lt;slot name="saner">具名插槽默认内容&lt;/slot>&lt;/p>' +
+            '&lt;p>&lt;/p>&lt;slot name="scope" :innerobject="person">绑定子组件属性的插槽&lt;/slot>&lt;/div>',
+        data: function () {
+            return {
+                person: {
+                    name: 'jenny'
+                }
+            }
+        }
+    });
+    new Vue({
+        el: '#app'
+    });
+&lt;/script>
+</pre>
+<p>主要就是v-slot指令要搭配template来使用，作用域的使用方法很简单，父的绑定名称.子的属性名.实际属性即可。</p>
 
+<h1 id="con3" style="text-align: center;">自定义事件</h1>
+<p>自定义事件<code>$emit</code>已经知道了，现在要了解一下可以用其他方式在父组件上添加和取消事件监听器：</p>
+<pre>
+&lt;div id="app">
+        &lt;events ref="tar">&lt;/events>
+        &lt;button @click="cancel">取消事件绑定&lt;/button>
+&lt;/div>
 
+&lt;script>
+    Vue.component('events', {
+        template: '&lt;div>&lt;button @click="event1">反复触发事件&lt;/button>&lt;button @click="event2">一次事件&lt;/button>&lt;/div>',
+        methods:{
+            event1:function () {
+                this.$emit('repeat')
+            },
+            event2:function () {
+                this.$emit('once')
+            }
+        }
+    });
+    new Vue({
+        el: '#app',
+        methods: {
+            handle1:function () {
+                console.log("反复事件触发了")
+            },
+            handle2:function () {
+                console.log('一次事件触发了')
+            },
+            cancel:function () {
+                this.$refs.tar.$off('repeat',this.handle1)
+                this.$refs.tar.$off('once',this.handle2)
+            }
+        },
+        mounted: function () {
+            this.$refs.tar.$on('repeat',this.handle1)
+            this.$refs.tar.$once('once',this.handle2)
+        }
+    });
+&lt;/script>
+</pre>
+<p>如果先按了下边的取消事件绑定按钮，再点击按钮，就没有处理事件的函数了。</p>
 
+<h1 id="con4" style="text-align: center;">子组件上没有进行绑定props的属性</h1>
+<p>如果在子组件上设置了没有绑定props的普通HTML属性，这些属性会被放到子组件的外层元素上去。如果父组件设置的属性和子组件模板内的属性相同，父组件的设置会覆盖子组件。看例子：</p>
+<pre>
+&lt;div id="app">
+    &lt;custom-button type="submit">Click me!&lt;/custom-button>
+&lt;/div>
 
-
-
-
-
-
+&lt;script>
+    const CustomButton = {
+        template: '&lt;button type="button">&lt;slot>&lt;/slot>&lt;/button>'
+    };
+    new Vue({
+        el: '#app',
+        components: {
+            CustomButton
+        }
+    });
+&lt;/script>
+</pre>
+<p>这时候实际渲染出来的按钮的属性是submit。大部分属性会覆盖，但是<code>class</code>和<code>style</code>属性则会叠加，所以有时候可以方便的通过父组件去控制样式。</p>
 
 
 

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta content="ie=edge" http-equiv="x-ua-compatible">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Vue </title>
+    <style>
+
+    </style>
+</head>
+<body>
+<div id="app">
+        <events ref="tar"></events>
+        <button @click="cancel">取消事件绑定</button>
+</div>
+
+<script src="https://unpkg.com/vue"></script>
+<script>
+    Vue.component('events', {
+        template: '<div><button @click="event1">反复触发事件</button><button @click="event2">一次事件</button></div>',
+        methods:{
+            event1:function () {
+                this.$emit('repeat')
+            },
+            event2:function () {
+                this.$emit('once')
+            }
+        }
+    });
+    new Vue({
+        el: '#app',
+        methods: {
+            handle1:function () {
+                console.log("反复事件触发了")
+            },
+            handle2:function () {
+                console.log('一次事件触发了')
+            },
+            cancel:function () {
+                this.$refs.tar.$off('repeat',this.handle1)
+                this.$refs.tar.$off('once',this.handle2)
+            }
+        },
+        mounted: function () {
+            this.$refs.tar.$on('repeat',this.handle1)
+            this.$refs.tar.$once('once',this.handle2)
+        }
+    });
+</script>
+
+
+
+
+
+
+</body>
+</html>
