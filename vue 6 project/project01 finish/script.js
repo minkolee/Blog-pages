@@ -2,13 +2,17 @@ new Vue({
     el: '#notebook',
     data: function () {
         return {
-            content: localStorage.getItem('content'),
-            notes: []
+            content: localStorage.getItem('content') || 'This is note',
+            notes: [],
+            selectedId: null
         }
     },
     computed: {
         notePreview() {
-            return marked(this.content);
+            return this.selectedNote? marked(this.selectedNote.content):'';
+        },
+        selectedNote() {
+            return this.notes.find(note => note.id === this.selectedId)
         }
     },
     watch: {
@@ -36,7 +40,11 @@ new Vue({
                 favorite: false,
             }
             this.notes.push(note)
-        }
+        },
+        selectNote(note) {
+            this.selectId = note.id
+        },
+
     },
 })
 

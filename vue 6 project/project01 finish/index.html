@@ -10,12 +10,15 @@
 
     <aside class="side-bar">
       <div class="toolbar">
-        <button @click="addNote"><i class="material-icons">add</i>Add Note</button>
+        <button @click="addNote" :title="notes.length + 'note(s) already'"><i class="material-icons">add</i>Add Note</button>
+      </div>
+      <div class="notes">
+        <div @click="selectNote(note)" class="note" v-for="note of notes">{{ note.title }}</div>
       </div>
     </aside>
 
     <section class="main">
-      <textarea v-model="content"></textarea>
+      <textarea v-model="selectedNote.content"></textarea>
     </section>
 
     <aside class="preview" v-html="notePreview"></aside>
