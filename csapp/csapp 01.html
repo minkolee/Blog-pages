@@ -28,11 +28,10 @@
 <p>正好处在6月末，需要订立一下下半年的学习计划。</p>
 <p>我把左耳大佬的后边的要求整理了一下，大概有如下几个方面：</p>
 
-
 <h1 style="text-align: center;">通用型能力</h1>
 <p>一些需要的阅读：</p>
 <ol>
-    <li><a href="https://97-things-every-x-should-know.gitbooks.io/97-things-every-programmer-should-know/content/en/index.html" target="_blank">97 Things Every Programmer Should Know</a></li>
+            <li><a href="https://97-things-every-x-should-know.gitbooks.io/97-things-every-programmer-should-know/content/en/index.html" target="_blank">97 Things Every Programmer Should Know</a></li>
     <li><a href="http://www.catb.org/~esr/faqs/smart-questions.html" target="_blank">How To Ask Questions The Smart Way</a>。中文版：<a href="http://doc.zengrong.net/smart-questions/cn.html" target="_blank">提问的智慧</a></li>
     <li><a href="">重构：改善既有代码的设计</a></li>
     <li><a href="">修改代码的艺术</a></li>
@@ -53,9 +52,97 @@
     <li><a href="https://item.jd.com/10484020.html#crumb-wrap" target="_blank">More Effective C++：35个改善编程与设计的有效方法（中文版）</a></li>
     <li><a href="https://item.jd.com/10909788.html" target="_blank">深度探索C++对象模型</a></li>
 </ol>
-.....待整理
 <p>看完大佬的推荐书目，真的是心头一紧，不愧大佬什么都会，学过C的我知道，如果掉进C和C++的大坑里肯定是爬不出来了。</p>
-<p>不过好在，C和C++有着明确的用途，就是帮助我们了解底层。</p>
+
+<h1 style="text-align: center;">理论学科</h1>
+<p>理论学科的核心就是算法：</p>
+<ol>
+    <li><a href="https://item.jd.com/11098789.html" target="_blank">算法</a></li>
+    <li><a href="https://item.jd.com/12148832.html" target="_blank">算法图解</a></li>
+    <li><a href="https://item.jd.com/10653387543.html" target="_blank">算法导论</a></li>
+    <li><a href="https://item.jd.com/11642529.html" target="_blank">编程珠玑</a></li>
+    <li><a href="https://www.wikiwand.com/en/List_of_algorithms" target="_blank">List_of_algorithms</a></li>
+    <li><a href="https://www.cs.usfca.edu/~galles/visualization/Algorithms.html" target="_blank">算法视觉化</a></li>
+</ol>
+<p>然后是一些其他理论知识的书：</p>
+<ol>
+    <li><a href="https://item.jd.com/28189641146.html" target="_blank">数据结构与算法分析 c语言描述</a></li>
+    <li><a href="https://item.jd.com/10954261.html" target="_blank">数据库系统概念</a></li>
+    <li><a href="https://item.jd.com/12139635.html" target="_blank">现代操作系统</a></li>
+    <li><a href="https://item.jd.com/12392810.html" target="_blank">计算机网络 自顶向下方法</a></li>
+    <li><a href="https://item.jd.com/10057478.html" target="_blank">SICP 神书</a></li>
+    <li><a href="https://item.jd.com/25755470698.html" target="_blank">编译原理</a></li>
+
+</ol>
+
+<h1 style="text-align: center;">系统知识</h1>
+<p>系统级知识都是底层的了：</p>
+<ol>
+    <li><a href="https://item.jd.com/12006637.html" target="_blank">深入理解计算机系统</a></li>
+    <li><a href="https://item.jd.com/11469694.html" target="_blank">UNIX环境高级编程</a></li>
+    <li><a href="https://item.jd.com/1745392370.html" target="_blank">UNIX网络编程1+2</a></li>
+    <li><a href="https://item.jd.com/11542190059.html" target="_blank">TCP/IP 详解</a></li>
+</ol>
+<p>如果上边比较难懂，可以看下边的书。当然上边能啃下来的话，就不用看下边的了，下边看完还是要看上边的。</p>
+<ol>
+    <li><a href="https://item.jd.com/42867763733.html" target="_blank">LINUX C一站式编程 已绝版的国产神书</a></li>
+    <li><a href="https://item.jd.com/11492130.html" target="_blank">TCP/IP网络编程</a></li>
+    <li><a href="https://item.jd.com/11253710.html" target="_blank">图解TCP/IP 第5版</a></li>
+    <li><a href="http://www.tcpipguide.com/free/index.htm" target="_blank">THE TCP/IP GUIDE</a></li>
+</ol>
+<p>把上边看完之后，就可以看：</p>
+<ol>
+    <li><a href="https://item.jd.com/11383763.html" target="_blank">Linux UNIX系统编程手册 套装上下册</a></li>
+    <li><a href="http://igm.univ-mlv.fr/~yahya/progsys/linux.pdf" target="_blank">http://igm.univ-mlv.fr/~yahya/progsys/linux.pdf</a></li>
+    <li><a href="http://product.dangdang.com/27514482.html" target="_blank">Linux 系统编程</a></li>
+</ol>
+<p>之后是一些作业要求：</p>
+<ul>
+    <li>用这些系统知识操作一下文件系统，实现一个可以拷贝目录树的小程序。</li>
+    <li>用fork / wait / waitpid写一个多进程的程序，用pthread写一个多线程带同步或互斥的程序。比如，多进程购票的程序。</li>
+    <li>用signal / kill / raise / alarm / pause / sigprocmask实现一个多进程间的信号量通信的程序。</li>
+    <li>学会使用gcc和gdb来编程和调试程序（参看我的《<strong>用gdb调试程序</strong>》<a href="https://blog.csdn.net/haoel/article/details/2879">一</a>、<a href="https://blog.csdn.net/haoel/article/details/2880">二</a>、<a href="https://blog.csdn.net/haoel/article/details/2881">三</a>、<a href="https://blog.csdn.net/haoel/article/details/2882">四</a>、<a href="https://blog.csdn.net/haoel/article/details/2883">五</a>、<a href="https://blog.csdn.net/haoel/article/details/2884">六</a>、<a href="https://blog.csdn.net/haoel/article/details/2885">七</a>）。</li>
+    <li>学会使用makefile来编译程序（参看我的《<strong>跟我一起写makefile</strong>》<a href="https://blog.csdn.net/haoel/article/details/2886">一</a>、<a href="https://blog.csdn.net/haoel/article/details/2887">二</a>、<a href="https://blog.csdn.net/haoel/article/details/2888">三</a>、<a href="https://blog.csdn.net/haoel/article/details/2889">四</a>、<a href="https://blog.csdn.net/haoel/article/details/2890">五</a>、<a href="https://blog.csdn.net/haoel/article/details/2891">六</a>、<a href="https://blog.csdn.net/haoel/article/details/2892">七</a>、<a href="https://blog.csdn.net/haoel/article/details/2893">八</a>、<a href="https://blog.csdn.net/haoel/article/details/2894">九</a>、<a href="https://blog.csdn.net/haoel/article/details/2895">十</a>、<a href="https://blog.csdn.net/haoel/article/details/2896">十一</a>、<a href="https://blog.csdn.net/haoel/article/details/2897">十二</a>、<a href="https://blog.csdn.net/haoel/article/details/2898">十三</a>、<a href="https://blog.csdn.net/haoel/article/details/2899">十四</a>）。</li>
+    <li>Socket的进程间通信。用C语言写一个1对1的聊天小程序，或是一个简单的HTTP服务器。</li>
+</ul>
+
+
+<h1 style="text-align: center;">实践项目</h1>
+<p>最后是作业要求：</p>
+实践项目
+我们已经学习完了编程语言、理论学科和系统知识三部分内容，下面就来做几个实践项目，小试牛刀一下。实现语言可以用C、C++或Java。
+
+实现一个telnet版本的聊天服务器，主要有以下需求。
+
+每个客户端可以用使用telnet ip:port的方式连接到服务器上。
+新连接需要用用户名和密码登录，如果没有，则需要注册一个。
+然后可以选择一个聊天室加入聊天。
+管理员有权创建或删除聊天室，普通人员只有加入、退出、查询聊天室的权力。
+聊天室需要有人数限制，每个人发出来的话，其它所有的人都要能看得到。
+实现一个简单的HTTP服务器，主要有以下需求。
+
+解释浏览器传来的HTTP协议，只需要处理URL path。
+然后把所代理的目录列出来。
+在浏览器上可以浏览目录里的文件和下级目录。
+如果点击文件，则把文件打开传给浏览器（浏览器能够自动显示图片、PDF，或HTML、CSS、JavaScript以及文本文件）。
+如果点击子目录，则进入到子目录中，并把子目录中的文件列出来。
+实现一个生产者/消费者消息队列服务，主要有以下需求。
+
+消息队列采用一个Ring-buffer的数据结构。
+可以有多个topic供生产者写入消息及消费者取出消息。
+需要支持多个生产者并发写。
+需要支持多个消费者消费消息（只要有一个消费者成功处理消息就可以删除消息）。
+消息队列要做到不丢数据（要把消息持久化下来）。
+能做到性能很高。
+
+<p>我看完之后感觉，只要你打算学计算机，这些书貌似是绕不过去的。想要成为程序员，而不是API调用师，没有什么捷径可以走了。</p>
+<p>好了，话不多说，先把书单整理出来，对照一下手头的书看看还差哪些。根据进度开始把要看的书买齐，首先是一些关于修养的书，可以在放松脑子的时候看。</p>
+<p>然后就从C语言再搞起了。一年半之前对于C虽然能看懂，但是显然对指针之类的东西不如现在理解深刻。上吧！</p>
+
+
+
+
+
 
 
 
