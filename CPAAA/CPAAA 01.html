@@ -56,6 +56,29 @@
 <p>有空格会给一些匹配特殊字符带来不便，不过这不是什么错误，而是scanf的特性。比如使用<code>%d/$d</code>就无法正常匹配到<code>5 /96</code>，因为会用/去匹配一个空白，出现错误就不再匹配。但是空白可以匹配任意多的空白，所以可以使用<code>%d /%d</code>来匹配<code>5 /96</code></p>
 <p>这在把一串数字分别匹配成一个一个数字的时候非常好用。</p>
 
+<h1 style="text-align: center;">指针</h1>
+<p>很多书里的指针都写成<code>int *p</code>，其实我觉得应该写成<code>int* p</code>更容易理解一些。</p>
+<p>单纯的指针还是比较容易理解，有意思的是数组的指针，和数组变量是一回事，取数组变量的地址就是得到数组变量指针，这个比较特别。</p>
+<p>此外就是数组的指针运算，可以加和减，实际的内存地址变化的数量，是当前数据类型的size大小。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
 
