@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>C再学习 - 指针和数组</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+</head>
+<body>
+<h1 style="text-align: center;">环境配置</h1>
+
+<p>一年多前看C的时候，IDE用的是Dev C++，这一次试过VS，觉得Git控制用起来比较累，也不习惯VS的代码补全，想到JetBrains有个Clion，就下载下来使用了。</p>
+<p>不过Clion要正确使用，需要配置编译环境，这里记录一下自己是如何折腾的：</p>
+<ol>
+    <li>由于不想使用重型的VS系列编译器，看到Clion支持各种编译器，在Windows之下就去下载了<code>MingGW64</code>首先需要去下载</li>
+    <li>不过这MingGW64竟然下载不了仓库文件，就选用离线版本。在<a href="https://sourceforge.net/projects/mingw-w64/files/mingw-w64/mingw-w64-release/" target="_blank">这个页面</a>拉到底选用最新的版本。</li>
+    <li>选的是<a href="https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/8.1.0/threads-win32/seh/x86_64-8.1.0-release-win32-seh-rt_v6-rev0.7z">x86_64-win32-seh</a>，我现在暂时还不知道这些后缀名有什么区别。</li>
+    <li>下载回来以后解压到一个目录下，然后设置环境变量为其中的<code>bin</code>目录。</li>
+    <li>然后就是在Clion中配置，在<code>File | Settings | Build, Execution, Deployment | Toolchains</code>中选择<code>MinGW</code>，然后在右侧的环境目录中选择类似<code>D:\Software\mingw64</code>这样的目录，我一开始直接选到bin目录，一直发现不了，后来才发现需要选择MinGW压缩包的第一层目录就可以了。之后会自动检测相关的C-make，编译器和Debugger，就算配置完成了。</li>
+</ol>
+<p>这样就继续在JetBrains全家桶系统内使用了，主要是Git用起来要VS方便太多了，代码补全和字体也看着舒服很多，不用再去重新适应IDE。</p>
+<p>Clion是采用单个项目制，最后编译成一个exe文件，每次新添加目录和源文件，都会自动添加到Makefile中，比较方便。</p>
+<p>把家里的PC也设置好，就可以愉快的写C了。</p>
+<p>感觉C的学习博客真的比较难写，很多时候在于C语言靠近细节的灵活性，而语言其实本身相当小巧，这次结合<a href="https://item.jd.com/11310979.html" target="_blank">Head First C</a>和<a href="https://item.jd.com/10064146.html" target="_blank">C语言程序设计现代方法</a>一起来看吧。</p>
+
+<h1 style="text-align: center;">指针</h1>
+<p>折腾过<a href="https://book.douban.com/subject/1998341/" target="_blank">计算机系统要素</a>之后，对指针的理解就更深刻了，这就是一个时刻准备着把自己的值装入到寻址寄存器中的变量。</p>
+<p>所以指针的长度和机器的字长也就是寻址能力是对应的，32位机器的指针就是32位，64位的就是64位，就是用来寻址。</p>
+<p>所谓<code>*</code>解引用，其实就是把指针的值往寻址寄存器里一塞，对应就选中了某个内存地址，内存地址的值就送进了CPU，之后就可以处理了。说好理解也好理解，说不好理解，就是因为这个<code>*</code>号导致看起来很绕。</p>
+<p>所以我比较欣赏<a href="https://item.jd.com/11917487.html" target="_blank">C Primer Plus</a>中指针的写法，写成<code>int * p</code>，如果要我写，我更喜欢写成<code>int* p</code>。</p>
+<p>由于C语言里全部是传值，所以传指针类型的变量，其实就是传了一个64位地址进来。回头想想数据类型的定义：数据类型在数据结构中的定义是一组性质相同的值的集合以及定义在这个值集合上的一组操作的总称。</p>
+<p>如果只是传一个64位的int类型，是无法当地址使用的。正是由于传递的是一个指针类型，所以可以当做地址来解引用。</p>
+<p>所以数据类型不光是如何存储，还包含或者说隐含了如何操作。当然，虽然大部分时候指针是一个无符号整数，但是毕竟不是int类型，printf里特别提供了<code>%p</code>来转换指针类型，也可以用<code>$li</code>即long无符号整数，但编译器会报警。</p>
+<p>其实指针就和Java里的引用很类似了，可以传递一个值，或者传递一个指针。而传递指针，就可以用来操作值了。</p>
+<p>一个传指针改变变量的超级简单的例子：</p>
+<pre>
+#include &lt;stdio.h>
+
+void go_south_east(int * lat, int * lon){
+
+    (*lat)--;
+    (*lon)++;
+}
+
+int main(void) {
+
+    int latitude = 32;
+    int longtitude = -64;
+
+    int *lat = &latitude;
+    int *lon = &longtitude;
+
+
+    go_south_east(lat, lon);
+
+    printf("Stop at latitude %d, longtitude %d\n", latitude, longtitude);
+    printf("Latitude's address is %p, longtitude's address is %p\n", lat, lon);
+
+}
+</pre>
+<p>最后输出的结果是：</p>
+<pre>
+Stop at latitude 31, longtitude -63
+Latitude's address is 000000000061FE3C, longtitude's address is 000000000061FE38
+</pre>
+<p>可见成功的通过参数修改了变量，这样可以通过指针而不是全局变量来通信，程序要健壮很多。而后边的16位16进制数，也说明了我的64位操作系统上，指针长度是64位。</p>
+
+<p>只要声明了一种类型，就可以声明对应的指针。指针的算术运算每次移动多少，其实就是根据类型的长度计算所得。</p>
+<p>这里如果再深入的话，应该就是要看操作系统如何为程序分配内存了。函数的变量位于栈中，动态部分位于堆中，此外还有专门存放全局变量和常量段的内存，此外还有存放代码也就是指令内容的内存。</p>
+
+<h3 style="text-align: center;">指针与数组</h3>
+<p>说到指针就不得不提数组，C的数组只能存放一种数据类型（再次强调，指针也是一种类型）。</p>
+<p>什么是数组就不再赘述了，为何指针和数组通常在一起，是因为如果声明一个数组变量，这个变量实际上就是一个指向数组首地址的指针。</p>
+<p>如果对数组变量使用解引用，取到的是数组首个元素。而且解引用的方式比较特别，<code>*array</code>和<code>array[0]</code>以及<code>*(array+0)</code>以及<code>*(0+array)</code>以及<code>0[array]</code></p>
+<pre>
+int main(void) {
+
+    int array[] = {99, 3, 4, 5};
+
+    printf("%p\n", array);
+
+    printf("array's address is %p\n", array);
+    printf("array[0] address is %p\n", &array[0]);
+    printf("*(array + 0)'s address is %p\n", &*(array + 0));
+    printf("0[array]'s address is %p\n", &0[array]);
+    printf("\n");
+    printf("*array is %d\n", *array);
+    printf("array[0] is %d\n", array[0]);
+    printf("(array+0) is %d\n", *(array + 0));
+    printf("0[array] is %d\n", 0[array]);
+
+}
+</pre>
+<p>四个结果和地址分别是完全一样的。</p>
+<p>所以在给函数传参的时候，注意传进来的好像是一个数组，其实是一个指针，对其使用sizeof是没有用的。</p>
+<p>在数组元素定义的时候可以使用sizeof来计算长度，但是传递给函数就不可以了，比如：</p>
+<pre>
+void get_length(const int a[]){
+    printf("数组的长度是：%u", sizeof(a) / sizeof(a[0]));
+}
+
+int main(void) {
+
+    int array[] = {99, 3, 4, 5, 10, 30};
+
+    printf("直接计算数组的长度是：%d\n", sizeof(array)/sizeof(array[0]));
+    get_length(array);
+
+}
+</pre>
+<p>实际上在编译的时候，编译器就会警告如下：</p>
+<pre>warning: 'sizeof' on array function parameter 'a' will return size of 'const int *' [-Wsizeof-array-argument]</pre>
+<p>意思就是对传入的（我们以为的）数组变量求长度，实际上返回的是<code>const int *</code>的长度，也就是固定64位=8字节，所以无法计算出数组的长度。</p>
+<p>所以一般可以给使用数组的函数额外传递一个数组的长度方便操作，否则便需要某种方式约定好数组的结束标记。</p>
+<p>其实只要记住一条，数组变量就是指针，当成函数的参数时候就是一个普通的指针。只有在声明的作用域覆盖范围内直接使用sizeof才能获取正确的大小。</p>
+<p>上边强调的是数组变量就是指针，但是还有一些区别如下：</p>
+<ol>
+    <li>对数组变量使用&运算符，结果还是数组变量本身，这是特殊之处。</li>
+    <li>数组变量不能再指向其他地方。</li>
+</ol>
+<p>所以可见数组变量比普通指针要稍微感觉内容多一些，内部还是有一定区别，但是当成函数参数的时候，数组变量其实就退化成了普通的指针。</p>
+<pre>
+int main(void) {
+    int array[] = {99, 3, 4, 5, 10, 30};
+
+    //两个地址完全相同
+    printf("array's address is %p\n", array);
+    printf("&array's address is %p\n", &array);
+
+    int j = 10;
+    //会编译失败，提示assignment to expression with array type
+    array = &j;
+}
+</pre>
+<p>其实知道了指针，就可以方便的使用<code>scanf()</code>这个格式化输入函数了，会把匹配成功的内容放入到指定的地址上去，所以后边要传入一个指针，当然，数组变量就是指针，所以读字符串的时候，可以传入一个<code>char *</code>。</p>
+<p>还有一个函数<code>fgets(指针，长度，输入输出对象)</code>也比较好用，<code>fgets</code>参数的长度就是实际可以接受的字符长度，不用像<code>scanf()</code>要把字符数组的数量减1作为实际可接受长度。</p>
+<p>如果要输入结构化的数据，就用<code>scanf</code>，如果要单读入字符串，可以用<code>fgets</code></p>
+
+<h3 style="text-align: center;">char *指针与字符数组</h3>
+<p>在C里，没有天生的String类型，由于之前已经知道数组变量是一个指针，所以也可以知道<code>char string[]</code>和<code>char * string</code>都可以指向一个字符序列。</p>
+<p>这两个的区别在于<code>char string[]</code>中的内容可以修改，因为是一个数组。而<code>char * string</code>指向的是字符串字面量，无法修改。</p>
+<p>而如果把<code>char string[]</code>传进函数，就退化成普通的指针啦。其他的区别就很上边说的数组变量和指针变量的区别一样。</p>
+<p>所以一般可以用数组来指向字符串，这样方便修改。如果确实想用<code>char * string</code>，可以在之前加上<code>const</code>，这样就可以保证字符串字面量不会被修改。</p>
+
+<h1 style="text-align: center;">字符串的处理</h1>
+<p>对于字符串，为了简便，可以使用<code>string.h</code>库，创建的时候可以使用<code>char *</code>，而操作的时候使用库函数就比较方便了。</p>
+<p>这里需要深刻理解的是，<code>char *msg = "ABC"</code>，在内部，C语言是创建一个char数组来存放ABC，同时会自动多一个位置，存储<code>'\0'</code>，但这个数组并不是存放在栈和堆里，而是在常量中，不能改变。</p>
+<p>不过既然是一个数组，也是一个指针，自然也可以赋值给其他的指针。一定要理解一个概念，字面量=一个指针：</p>
+<pre>
+int main(void) {
+
+    char *p;
+
+    //这行语句的意思是指针p指向"ABC"的第一个字符
+    p = "ABC";
+
+    puts(p);
+}
+</pre>
+<p>关于字符串还有一个小HACK就是连续的字面量，C语言会将其拼起来成一个字面量。</p>
+<p><code>string.h</code>的所有函数，都是操作字符序列中含有<code>'\0'</code>的正常字符串。</p>
+<p>常用的有：</p>
+<ol>
+    <li><code>char * strchr(const char *s, int c)</code>，在字符串s中查找c（转换成char)第一次出现的位置，返回指向那个位置的指针。简单的说就是找单个字符。如果找不到返回0。</li>
+    <li><code>int strcmp(const char *s1, const char *s2)</code>，比较s1和s2，比较的方法是逐个字符比较，按照字符的ASCII码的大小。s1大于s2返回大于0的整数，相等返回0，小于则返回小于0的整数。</li>
+    <li><code>char * strstr(const char *s1, const char *s2)</code>，在s1串中查找s2子串，返回指向s2子串的位置。如果返回0就是没找到。可以进行布尔判断。</li>
+    <li><code>char * strcpy(char *s1, const char *s2)</code>，把s2中的内容，包括空字符，拷贝到s1中，返回指向s1的指针。</li>
+    <li><code>size_t strlen(const char *s)</code>，返回字符串中空字符之前的字符的数目。注意返回值是一个定义在<code>string.h</code>中的<code>size_t</code>，实际上是一个无符号整数，在字符串长度不太长的情况下，可以当成整数来使用。</li>
+    <li><code>char * strcat(char *s1, char *s2)</code>，拼接字符串，把s2的第一个字符复制到s1的空字符的位置，然后依次向后复制一直到复制完s2的空字符，返回s1的值。</li>
+</ol>
+<p>这里要注意的是，strcpy和strcat，实际上都更改了第一个字符串的值。</p>
+
+<p>知道了单个字符串，如果要存储多个字符串或者其他内容，就可以使用指针数组，声明的方式就是<code>char *msg[] = {"cony", "jenny", "minko"};</code>，依然记得每个字面量等于一个指针，所以这是一个char指针数组。</p>
+<p>指针基本上就到这里了，之后再来看指针，就是高级的指针应用，即动态内存分配了。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
