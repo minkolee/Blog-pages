@@ -249,25 +249,179 @@ int filter(void){
 <p>看来linux的bash编程之后也要学了，学无止境啊。</p>
 
 <h1 style="text-align: center;">创建自己的数据流</h1>
-<p>除了重定向标准输入输出，还可以创建自己的数据流，其实就是写入到自己的文件里。</p>
+<p>在一个程序运行的时候，操作系统会为其创建三个数据流，分别是标准输入，标准输出和标准错误输出。</p>
+<p>除了重定向标准输入输出，还可以创建自己的数据流，其实就是自定义输入和输出，一般输入没有太多的需要自定义的内容，主要是输出。</p>
+<p>所以自定义的数据流可以用一个指向文件的指针来表示：</p>
+<pre>FILE *in_file = fopen("input.txt","r");</pre>
+<p>r代表模式，已经很熟悉了。w表示写，r表示读，a表示追加。</p>
+<p>创建了这个文件指针之后，就可以和stdio之类的流一样当做<code>fprintf</code>函数的第一个参数来往里边写东西了，<code>fscanf</code>也可以从其中进行输入。</p>
+<p>只是要记得在完成之后使用<code>fclose(in_file)</code>来关闭数据流。</p>
+<p>来写一个简单的例子，现在有一个文本文件input.txt如下：</p>
+<pre>
+a,b,c
+d,e,f
+g,h,i
+</pre>
+<p>想让其中所有逗号分隔的内容，用|分割并且追加到一个output.txt的尾部：</p>
+<pre>
+#include &lt;stdio.h>
+
+int custom(void){
+
+    char a[5];
+    char b[5];
+    char c[5];
+
+    FILE *in_file = fopen("input.txt", "r");
+    FILE *out_file = fopen("output.txt", "a");
+
+    //读逗号分隔的字符串真不容易，要先读到逗号之前的部分，之后逗号放回缓冲区。
+    //再读的时候逗号匹配逗号，再去按照%[^,]来读取
+    //如果直接要逗号分隔，不加%[^,]是不行的，因为%s会一次读完所有的空白
+//    fscanf(in_file, "%[^,],%[^,],%[^\n]\n", a, b, c);
+//    printf("%s|%s|%s|", a, b, c);
+//
+//    fscanf(in_file, "%[^,],%[^,],%[^\n]", a, b, c);
+//    printf("%s|%s|%s|", a, b, c);
+
+    while (fscanf(in_file, "%[^,],%[^,],%[^\n]\n", a, b, c) == 3) {
+        fprintf(out_file, "%s|%s|%s|", a, b, c);
+    }
 
 
+    fclose(in_file);
+    fclose(out_file);
 
+    return 0;
+}
+</pre>
+<p>这里比较搞的是用扫描用逗号分隔的字符串。由于默认情况下%s是会一直扫描到空白字符为止，所以这里要使用类似正则的匹配到逗号为止。</p>
+<p>然而注意，逗号匹配不成功后会放回到缓冲区，所以必须添加一个逗号分隔符用于匹配逗号。在最末尾，会在匹配到\n之前，然后把\n放回缓冲区。会匹配到下一行开始的新字符串上，导致使用a模式的时候会换行。所以必须再添加一个\n来匹配掉\n。</p>
+<p>这样执行程序的时候，就不会添加上换行字符。</p>
+<p>运行程序后产生output.txt文件，结果是：</p>
+<pre>
+a|b|c|d|e|f|g|h|i|
+</pre>
+<p>再运行一次，变成：</p>
+<pre>a|b|c|d|e|f|g|h|i|a|b|c|d|e|f|g|h|i|</pre>
+<p>scanf函数的花头实在太多了，在匹配的时候一定要当心。</p>
+<p>还需要注意的是，fopen函数如果打开错误，会返回0，也就是判断是否打开成功：</p>
+<pre>
+FILE *in;
+if (!(in = fopen("我不存在.txt", "r"))) {
+    fprintf(stderr, "无法打开文件.\n");
+    return 1;
+}
+</pre>
 
+<h1 style="text-align: center;">运行时候获取参数</h1>
+<p>为了写一个完整的在命令行下可以使用的小程序，还需要知道最后一点，就是可以从命令行中获取参数来执行任务。</p>
+<p>之前写main(void)已经形成习惯，其实真正的main()函数要写成如下方式：</p>
+<pre>
+int main(int argc, char *argv[]){
 
+}
+</pre>
+<p>int argc是记录命令行一共有几个参数，其中自己的可执行文件的名称也算一个参数。</p>
+<p>而char *argv[]记录了所有参数的内容，是一个字符串数组或者说是一个char * 指针数组。</p>
+<p>这样知道了argc，和数组，就可以遍历其中来获取参数，之后可以进行各种操作。</p>
+<p>比如先写一个获取所有参数的命令：</p>
+<pre>
+int getparam(int argc, char *argv[]){
+    int i = 0;
+    for (i = 0; i < argc; i++) {
+        printf("顺序为 %d 的参数是 %s\n", i, argv[i]);
+    }
+}
+</pre>
+<p>然后在main执行的时候把参数传给这个函数用来打印：</p>
+<pre>
+int getparam(int , char *[]);
 
+int main(int argc, char *argv[]) {
 
+    getparam(argc, argv);
 
+}
+</pre>
+<p>编译之后，在命令行下随便输入一些参数：</p>
+<pre>c fdsj 98 fdk -312 s9d8</pre>
+<p>可以看到结果是：</p>
+<pre>
+顺序为 0 的参数是 c
+顺序为 1 的参数是 fdsj
+顺序为 2 的参数是 98
+顺序为 3 的参数是 fdk
+顺序为 4 的参数是 -312
+顺序为 5 的参数是 s9d8
+</pre>
+<p>这样就可以根据其中的内容，在程序中进行逻辑处理了，可以规定argc的长度，强制用户输入一些参数。这里边的逻辑就会更复杂了，但是万变不离其宗。</p>
 
+<h3 style="text-align: center;">命令行选项库</h3>
+<p>如果我们的工具写的比较死，比如我们规定argc为3，去掉自己的文件名之后，还有两个参数，必须是源文件和目标文件名，这样是可以的。但是不够灵活。</p>
+<p>如果用过一些操作系统工具就会知道，这些工具常常是以提供选项的方式来操作，比如经典的ls命令：</p>
+<pre>ls -l</pre>
+<p>就会列出与单独使用ls不同的结果，使用了-l的结果更加详细。</p>
+<p>这个通过一个一个搜索数组去进行判断固然可以，不过C语言在<code>unistd.h</code>标准库中提供了一个函数<code>getopt()</code>可以方便的来进行操作。</p>
+<p>要使用这个库函数，就要把argc和argv交给这个库函数，然后就可以进行操作了。看一个最简单的例子，我们自己编写的程序支持-a name -b age两个选项，如果-a生效会打印名字，-b生效会打印年龄。</p>
+<pre>
+int getparam(int , char *[]);
 
+int main(int argc, char *argv[]) {
 
+    char ch;
 
+    while ((ch = getopt(argc, argv, "a:b:")) != EOF) {
+        switch (ch) {
+            case 'a':
+                printf("Your name is %s\n", optarg);
+                break;
+            case 'b':
+                printf("Your age is %s\n", optarg);
+                break;
+            default:
+                fprintf(stderr, "You don't give name or age!\n");
+                return 1;
+        }
+    }
 
+    argc -= optind;
+    argv += optind;
 
+    getparam(argc, argv);
+}
+</pre>
+<p>这里的核心是使用<code>getopt</code>函数不断循环来处理所有的选项和传入的值，之后才是剩余的没有处理的普通的参数值。</p>
+<p>其中的<code>getopt</code>的模式很重要，<code>"a:b:"</code>表示有效的选项是a和b，这两个选项都需要带参数。</p>
+<p>注意，我们的程序如果使用这个库，就必须要先输入选项的部分，再输入普通参数，否则不会匹配成功。</p>
+<p>在循环结束之后，<code>optind</code>表示成功匹配的数量，只要跳过匹配的数量，之后就是剩余的参数，所以继续利用上一节里的<code>getparam(argc, argv);</code>打印出剩余的参数。</p>
+<p>在命令行里可以各种实验一下，其中有一点和Head First C上说的不同，不传入任何选项不会报错，只是什么都没有做。</p>
+<p>一些尝试和结果如下：</p>
+<pre>
+>c -a cony
+Your name is cony
 
+>c -b 5
+Your age is 5
 
+>c -b 5 -a cony
+Your age is 5
+Your name is cony
 
+>c -t 32
+c: unknown option -- t
+You don't give name or age!
 
+>c -a cony -b 5 confidence optimal happy birthday
+Your name is cony
+Your age is 5
+顺序为 0 的参数是 confidence
+顺序为 1 的参数是 optimal
+顺序为 2 的参数是 happy
+顺序为 3 的参数是 birthday
+</pre>
+<p>有了输入输出和参数控制，现在就可以写控制台下有用的程序了。</p>
+<p>今天还是可爱的女儿5岁生日，超级乐观和自信的小家伙，成为厉害的人吧。老爸在此祝你生日快乐。也许某一天你会看到这里哦。</p>
 
 
 
