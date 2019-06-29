@@ -14,6 +14,252 @@
 <p>这一次就借助一个程序来学习一下标准输入输出与重定向吧。</p>
 <p>程序来自于Head First C的第三章的示例程序。用格式化的方式读入数据并且转换成JSON格式。</p>
 
+<h3 style="text-align: center;">重定向标准输入</h3>
+<p>一开始的程序很简单，通过读入一行的三个数字，然后以JSON格式输出：</p>
+<pre>
+#include &lt;stdio.h>
+
+int parse(void){
+    float latitude;
+    float longitude;
+    char info[80];
+    int started = 0;
+
+    puts("data=[");
+
+    while (scanf("%f,%f,%79[^\n]", &latitude, &longitude, info) == 3) {
+        if (started) {
+            printf(",\n");
+        } else {
+            started = 1;
+        }
+        printf("{latitude: %f, longitude: %f, info: \"%s\"}", latitude, longitude, info);
+    }
+
+    puts("\n]");
+    return 0;
+}
+</pre>
+<p>但是单独运行这个程序的时候，会等待键盘的输入，然后输出一行结果。这是因为标准输入和输出默认情况下是键盘和显示器。</p>
+<p>现在我们希望用一个csv文件作为输入，其中的内容是复核程序读取格式的一行一行的数据：</p>
+<pre>
+42.363400,-71.098465,Speed = 21
+43.363327,-72.097588,Speed = 23
+44.363255,-73.096710,Speed = 17
+45.363182,-74.095833,Speed = 22
+46.363110,-75.094955,Speed = 14
+47.363037,-76.094078,Speed = 16
+48.362965,-77.093201,Speed = 18
+49.362892,-78.092323,Speed = 22
+50.362820,-79.091446,Speed = 17
+51.362747,-80.090569,Speed = 23
+52.362675,-81.089691,Speed = 14
+53.362602,-82.088814,Speed = 19
+54.362530,-83.087936,Speed = 16
+55.362457,-84.087059,Speed = 16
+56.362385,-85.086182,Speed = 21
+</pre>
+<p>这个时候无需重新编译程序，实际上现在学习的是操作系统的命令，也就是重定向标准输入。</p>
+<p>将csv文件和编译出的exe文件放在同一个目录之下，然后输入<kbd>c < gpsdata.csv</kbd>，<code>&lt;</code>表示重定向标准输入到这个文件，即将csv文件的内容输入给c.exe文件。</p>
+<p>之后程序成功的输出了结果：</p>
+<pre>
+[
+{"latitude": 42.363400, "longitude": -71.098465, "info": "Speed = 21"},
+{"latitude": 43.363327, "longitude": -72.097588, "info": "Speed = 23"},
+{"latitude": 44.363255, "longitude": -73.096710, "info": "Speed = 17"},
+{"latitude": 45.363182, "longitude": -74.095833, "info": "Speed = 22"},
+{"latitude": 46.363110, "longitude": -75.094955, "info": "Speed = 14"},
+{"latitude": 47.363037, "longitude": -76.094078, "info": "Speed = 16"},
+{"latitude": 48.362965, "longitude": -77.093201, "info": "Speed = 18"},
+{"latitude": 49.362892, "longitude": -78.092323, "info": "Speed = 22"},
+{"latitude": 50.362820, "longitude": -79.091446, "info": "Speed = 17"},
+{"latitude": 51.362747, "longitude": -80.090569, "info": "Speed = 23"},
+{"latitude": 52.362675, "longitude": -81.089691, "info": "Speed = 14"},
+{"latitude": 53.362602, "longitude": -82.088814, "info": "Speed = 19"},
+{"latitude": 54.362530, "longitude": -83.087936, "info": "Speed = 16"},
+{"latitude": 55.362457, "longitude": -84.087059, "info": "Speed = 16"},
+{"latitude": 56.362385, "longitude": -85.086182, "info": "Speed = 21"}
+]
+
+</pre>
+<p>有了重定向输入，就可以处理以文件形式的数据，而不是每次都一个一个从键盘上输入了。</p>
+
+<h3 style="text-align: center;">重定向标准输出</h3>
+<p>肯定立刻就会想到，那重定向输出应该也可以，是的，可以把上边程序的结果输出成一个.json文件。</p>
+<p>输入<kbd>c < gpsdata.csv >output.json</kbd>即可。<code>&gt;</code>是重定向标准输出符号。这里就会将本来应该打印在显示器上的结果重定向输出到output.json文件。执行之后就在同一目录下找到这个文件。</p>
+<p>当然，熟悉JSON格式的肯定知道这个输出结果其实并不是一个JSON文件，只需要略微修改一下原来的程序即可：</p>
+<pre>
+#include &lt;stdio.h>
+
+int parse(void) {
+    float latitude;
+    float longitude;
+    char info[80];
+    int started = 0;
+
+    puts("[");
+
+    while (scanf("%f,%f,%79[^\n]", &latitude, &longitude, info) == 3) {
+        if (started) {
+            printf(",\n");
+        } else {
+            started = 1;
+        }
+        printf("{\"latitude\": %f, \"longitude\": %f, \"info\": \"%s\"}", latitude, longitude, info);
+    }
+
+    puts("\n]");
+    return 0;
+}
+</pre>
+
+<h3 style="text-align: center;">重定向标准错误输出</h3>
+<p>现在又有了新需求，我们的程序在处理数据的时候，至少要具备的功能就是对数据进行检测是否符合要求，如果不符合要求，需要提醒使用者，而不是闷头继续处理。从错误的输入得到的结果没有意义。</p>
+<p>现在给输入加上一些判断，如果出错的话，就直接返回：</p>
+<pre>
+#include &lt;stdio.h>
+
+int parse(void) {
+    float latitude;
+    float longitude;
+    char info[80];
+    int started = 0;
+
+    puts("[");
+
+    while (scanf("%f,%f,%79[^\n]", &latitude, &longitude, info) == 3) {
+        if (started) {
+            printf(",\n");
+        } else {
+            started = 1;
+        }
+
+        if(latitude<-90.0 || latitude> 90.0){
+            printf("Invalid latitude: %f\n", latitude);
+            return 2;
+        }
+
+        if(longitude < -180.0 || longitude>180.0){
+            printf("Invalid longitude: %f\n", longitude);
+            return 2;
+        }
+
+        printf("{\"latitude\": %f, \"longitude\": %f, \"info\": \"%s\"}", latitude, longitude, info);
+    }
+
+    puts("\n]");
+    return 0;
+}
+</pre>
+<p>现在判断经度和纬度超出范围的时候，会停止处理程序并且报错。</p>
+<p>在csv文件中插入一条错误的数据：</p>
+<pre>
+342.362965,-712.093201,Speed = 18
+</pre>
+<p>然后再执行同样的命令，可以看到控制台没有任何错误提示，打开output.json，发现错误信息写在了里边：</p>
+<pre>
+[
+{"latitude": 42.363400, "longitude": -71.098465, "info": "Speed = 21"},
+{"latitude": 43.363327, "longitude": -72.097588, "info": "Speed = 23"},
+{"latitude": 44.363255, "longitude": -73.096710, "info": "Speed = 17"},
+{"latitude": 45.363182, "longitude": -74.095833, "info": "Speed = 22"},
+{"latitude": 46.363110, "longitude": -75.094955, "info": "Speed = 14"},
+{"latitude": 47.363037, "longitude": -76.094078, "info": "Speed = 16"},
+<span style="color: red">Invalid latitude: 342.362976</span>
+</pre>
+<p>这是因为在重定向标准输出的时候，其实还有一个错误输出，也一并重定向到文件中了。操作系统可以使用<code>&gt;2</code>来单独指定标准错误输出的重定向。</p>
+<p>想重定向这个，就不能使用<code>printf</code>函数了，而要使用<code>fprintf</code>函数，printf只是fprintf的一个简化形式。</p>
+<p>用fprintf来修改一下程序：</p>
+<pre>
+#include &lt;stdio.h>
+
+int parse(void) {
+    float latitude;
+    float longitude;
+    char info[80];
+    int started = 0;
+
+    puts("[");
+
+    while (scanf("%f,%f,%79[^\n]", &latitude, &longitude, info) == 3) {
+        if (started) {
+            printf(",\n");
+        } else {
+            started = 1;
+        }
+
+        if(latitude<-90.0 || latitude> 90.0){
+//            printf("Invalid latitude: %f\n", latitude);
+            fprintf(stderr,"Invalid latitude: %f\n", latitude);
+            return 2;
+        }
+
+        if(longitude < -180.0 || longitude>180.0){
+//            printf("Invalid longitude: %f\n", longitude);
+            fprintf(stderr,"Invalid longitude: %f\n", longitude);
+            return 2;
+        }
+
+        printf("{\"latitude\": %f, \"longitude\": %f, \"info\": \"%s\"}", latitude, longitude, info);
+    }
+
+    puts("\n]");
+    return 0;
+}
+</pre>
+<p>现在再运行程序，错误信息就会被打印到标准错误输出，默认的标准错误输出也是屏幕，则数据会写到文件中，而错误会显示到屏幕上。</p>
+<p>如果还想要重定向标准错误输出，就使用<code>2&gt;</code>来重定向，比如：</p>
+<pre>c < gpsdata.csv >output.json 2>error.txt</pre>
+<p>这就会将输出写入output.json，将错误信息写入error.txt。</p>
+
+<h1 style="text-align: center;">管道符号</h1>
+<p>假设我们的csv文件是其他程序生成的，不会有错误。现在我们专注于解决问题。</p>
+<p>现在需要从结果中过滤出所有的在一定范围内的数据，然后生成对应的JSON文件。考虑一下我们现在的程序，是一个接受CSV然后输出JSON的程序。</p>
+<p>我们只要想办法过滤一下所有的csv文件，从中取出符合要求的数据传递给我们现在的程序就可以了。</p>
+<p>这个时候就要用到管道符<code>|</code>，表示将一个程序的标准输出连接到另外一个程序的标准输入。而最开始的输入和最后的输出，可以通过重定向来控制。</p>
+<p>先来编写一个过滤CSV的程序：</p>
+<pre>
+int filter(void){
+    float latitude;
+    float longitude;
+    char info[80];
+    while (scanf("%f,%f,%79[^\n]", &latitude, &longitude, info) == 3) {
+        if(latitude>45.0 && latitude<50.0){
+            if(longitude<-73.0 && longitude > -80.0){
+                printf("%f,%f,%s\n", latitude, longitude, info);
+            }
+        }
+    }
+    return 0;
+}
+</pre>
+<p>然后把这个编译生成一个<code>filter.exe</code>文件，刚才的程序我们叫<code>json.exe</code>文件，将两个文件和csv文件放在同一个目录下，然后执行（windows下）：</p>
+<pre>(filter | json) < gpsdata.csv >output.json</pre>
+<p>检查生成的JSON文件：</p>
+<pre>
+[
+{"latitude": 45.363182, "longitude": -74.095833, "info": "Speed = 22"},
+{"latitude": 46.363110, "longitude": -75.094955, "info": "Speed = 14"},
+{"latitude": 47.363037, "longitude": -76.094078, "info": "Speed = 16"},
+{"latitude": 48.362965, "longitude": -77.093201, "info": "Speed = 18"},
+{"latitude": 49.362892, "longitude": -78.092323, "info": "Speed = 22"}
+]
+</pre>
+<p>可以看到成功的过滤出来了结果。这里注意的是无论在windows下还是linux下，都需要用括号包起来管道内的所有程序，这样才能知道是一整个管道，如果不包起来，则认为对每个程序设置重定向。</p>
+<p>看来linux的bash编程之后也要学了，学无止境啊。</p>
+
+<h1 style="text-align: center;">创建自己的数据流</h1>
+
+
+
+
+
+
+
+
+
+
+
 
 
 
