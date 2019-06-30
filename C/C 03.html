@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>C再学习 02 - 结构与联合</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+</head>
+<body>
+<p>要开始使用稍微复杂一点的数据结构了，就是结构与联合，当然还会附带枚举。在开始之前，还要再回顾一下make的使用。</p>
+<h1 style="text-align: center;">make的简单使用</h1>
+<p>make的使用其实就是按照依赖关系编译，依次将所需的文件，依赖关系，执行的指令放在一个文件中，通过make执行就可以了。</p>
+<p>现在使用Clion IDE，无需自己管理make文件，但还是要掌握一下。</p>
+<p>头文件存放函数声明，然后在需要使用函数（还有宏)的文件和提供这些函数的文件里都包含头文件就可以了。</p>
+<p>Clion中，可以在创建一个C source file的同时指定创建对应的h文件，之后就可以看到头文件，而且自动生成了避免重复导入的内容。比如创建一个encrypt.c和encrypt.h：</p>
+<pre>
+#include "encrypt.h"
+
+void encrypt(char * message){
+    while(*message){
+        *message = *message ^ 31;
+        message++;
+    }
+}
+</pre>
+<pre>
+#ifndef C_ENCRYPT_H
+#define C_ENCRYPT_H
+
+#endif //C_ENCRYPT_H
+
+void encrypt(char * message);
+</pre>
+<p>然后可以在主程序里调用，这其实是一个把字符数组替换成加密后的内容的函数：</p>
+<pre>
+#include &lt;stdio.h>
+#include "chapter04/encrypt.h"
+
+
+int main(int argc, char *argv[]) {
+
+    char msg[80];
+
+    while (fgets(msg, 80, stdin)) {
+        encrypt(msg);
+        printf("%s\n", msg);
+    }
+
+}
+</pre>
+
+<h3 style="text-align: center;">使用make</h3>
+<p>其实很简单，在通常使用GCC的时候，是一次性从源代码编译完成。现在要加上一个步骤，也就是生成中间代码<code>.o</code>文件，即<kbd>gcc -c *.c</kbd>。</p>
+<p>然后再使用<kbd>gcc - o *.0 launch</kbd>编译成可执行文件。</p>
+<p>编译的顺序是：</p>
+<ol>
+    <li>
+        使用<code>.c</code>和<code>.h</code>生成<code>.o</code>文件
+    </li>
+    <li>使用<code>.o</code>文件生成可执行文件</li>
+</ol>
+<p>只要将生成的依赖顺序定义好在一个叫做makefile的文件中就可以了，clion可以自动生成makefile文件。</p>
+<pre>
+launch.o: launch.c launch.h thruster.h
+    gcc -c launch.c
+thruster.o: thruster.h thruster.c
+    gcc -c thruster.c
+launch: launch.o thruster.o
+    gcc launch.o thruster.o -o launch
+</pre>
+<p>每一行的目标文件之后是所需要的文件，然后是执行的指令，注意第二行必须要以一个制表符tab缩进。</p>
+
+<h1 style="text-align: center;">结构</h1>
+<p>上一次学结构的时候基本上是稀里糊涂，因为对于自定义类型还不是理解的很透彻。现在就OK多了，看起来也更加理解了。</p>
+<p>结构就是将一部分数据打包在一起，也是很多复杂的数据结构的基础。</p>
+<p>struct也是一种数据类型，定义的方式就是采用类型的关键字，外加需要给这种类型取一个具体名字，这个名字加上struct，构成完整的类型名称：</p>
+<pre>
+<span style="color: red">struct fish</span> {
+    const char *name;
+    const char *species;
+    int teeth;
+    int age;
+};
+</pre>
+<p>这里一定要理解，<code>struct fish</code>一起构成新的类型名称，相当于一个类。而创建具体的struct结构的时候，要用这个完整的类型名加上具体类型名，就像new一个对象一样：</p>
+<pre>
+<span style="color: red">struct fish</span> <span style="color: #1673b1">snappy</span> = {
+        "Snappy",
+        "Piranha",
+        69,
+        4
+};
+</pre>
+<p>蓝色的就是具体的一个结构的名称。</p>
+<p>知道了这个就理解容易多了，其实就是取名有点绕而已。还可以用typedef一次性将<code>struct fish</code>起一个别名，这样使用起来就更像类了：</p>
+<pre>
+typedef struct fish {
+    const char *name;
+    const char *species;
+    int teeth;
+    int age;
+} afish;
+
+int main(int argc, char *argv[]); {
+
+    afish snappy = {
+            "Snappy",
+            "Piranha",
+            69,
+            4
+    };
+
+    printf("%s\n", snappy.name);
+    printf("%s\n", snappy.species);
+    printf("%d\n", snappy.teeth);
+    printf("%d\n", snappy.age);
+}
+</pre>
+<p>访问其中的属性用<code>.</code>，如果结构中再有结构，就连续用<code>.</code>，确实很像对象。</p>
+<p>如果拥有一个指向结构的指针s，而不是结构名，则可以用<code>(*s).age</code>来访问属性，但还有一种简写更常用就是<code>s->age</code>：</p>
+<pre>
+void grown(afish * fish){
+    fish->age++;
+}
+
+int main(int argc, char *argv[]){
+
+    afish snappy = {
+            "Snappy",
+            "Piranha",
+            69,
+            4
+    };
+
+    printf("%s\n", snappy.name);
+    printf("%s\n", snappy.species);
+    printf("%d\n", snappy.teeth);
+    printf("%d\n", snappy.age);
+
+    grown(&snappy);
+
+    printf("%d\n",snappy.age);
+
+}
+</pre>
+<p>C语言的语法其实也真的很灵活。要注意的是，一般最好还是不要直接使用typedef匿名的结构，看上去会有些奇怪。</p>
+<p>struct是很多数据结构的节点，一定要掌握使用方法。</p>
+
+<h1 style="text-align: center;">联合</h1>
+<p>联合简单的说，就是同一个东西可以存多种属性，然后同时只能有一个存在，但大家共用一个内存，只是因为数据类型不同，取出时候的解释也不同。</p>
+<p>C语言并没有限制存一个然后取另外一个数据类型。所以单独使用联合容易出问题。</p>
+<p>联合通常是作为struct的一部分存在，而且不是仅仅依赖联合，通常另外设置一个枚举字段，在取值的时候通过检测枚举字段，来决定从联合中按照何种数据类型来取值。</p>
+<p>比如我们有一个时间struct，其中有一个联合打算存放年和月两种类型的数据，年因为是可能是几万年，所以采用long类型，而月只有1-12，用二进制一个字节就放的下，可以采用char类型。</p>
+<p>很显然，如果存的是年，而按照月取出来，可能就会有问题。所以另外加一个枚举字段，标示当前的这个数据类型是年还是月。各个数据类型定义如下：</p>
+<pre>
+enum datetype {YEAR, MONTH};
+
+union date {
+    char month;
+    long year;
+};
+
+struct time {
+    union date adate;
+    enum datetype enumdatetype;
+};
+</pre>
+<p>实际使用如下：</p>
+<pre>
+int main(int argc, char *argv[]){
+    struct time time1 = {12,MONTH};
+    struct time time2;
+    time2.adate.year = 2019;
+
+    //错误的用法，随心所欲取联合中的数据
+    //由于long比char长，time1显示正确
+    printf("time1的年份是：%ld\n", time1.adate.year);
+    //由于存入long，按照char读取，显示了错误的结果为-29
+    printf("time2的月份是：%d\n", time2.adate.month);
+
+
+
+    //正确的用法，先检测枚举类型，再根据结果取数据
+    if (time1.enumdatetype == MONTH) {
+        printf("time1的月份是：%d\n", time1.adate.month);
+    } else {
+        printf("time1的年份是：%ld\n", time1.adate.year);
+    }
+
+    if (time2.enumdatetype == YEAR) {
+        printf("time2的年份是：%ld\n", time2.adate.year);
+    } else {
+        printf("time2的月份是：%d\n", time2.adate.month);
+    }
+
+}
+</pre>
+<h1 style="text-align: center;">位字段</h1>
+<p>有的时候可能存放的内容其实一个字节都不用，可能几位数就可以表示。比如我们有一个测验成绩对象，其中有实际成绩0-50分，成绩的档位A-E，以及是否及格三个字段。</p>
+<p>通常情况下，可能我们会用一个布尔值存放是否及格，用char类型来存放实际分数和成绩的档位。然而实际上我们知道，是否及格只需要一个二进制位0或者1就可以存放。而成绩的档位A-E共有5档，可以用0-4来表示。用三位二进制就可以存的下。而成绩最高到50，用六位二进制就可以存放的下。结构中可以在变量的末尾指定二进制位数：</p>
+<pre>
+struct result {
+    <span style="color: red">unsigned int</span> passed<span style="color: orange">:1</span>;
+    <span style="color: red">unsigned int</span> score<span style="color: orange">:6</span>;
+    <span style="color: red">unsigned int</span> grade<span style="color: orange">:3</span>;
+};
+</pre>
+<p>使用位字段的时候要注意，所有的数据类型必须都是unsigned int类型，然后在末尾用冒号加上位数来指定具体的二进制位。</p>
+<p>这样的结构相比原来一个布尔和两个char类型的数据，至少要节省一个字节的空间。来看看实际使用：</p>
+<pre>
+struct result {
+    unsigned int passed:1;
+    unsigned int score:6;
+    unsigned int grade:3;
+};
+
+void pri(struct result myresult){
+    printf("%d\n", myresult.passed);
+    printf("%d\n", myresult.score);
+    printf("%d\n", myresult.grade);
+    printf("-----------------------------\n");
+}
+
+int main(int argc, char *argv[]){
+    struct result result1 = {1,32,2};
+    struct result result2 = {3,70,7};
+    struct result result3 = {1,53,3};
+
+    pri(result1);
+    pri(result2);
+    pri(result3);
+
+}
+</pre>
+<p>这个的输出结果如下：</p>
+<pre>
+1
+32
+2
+-----------------------------
+1
+6
+7
+-----------------------------
+1
+53
+3
+-----------------------------
+</pre>
+<p>result1的三个属性的值都在对应范围内，所以正常显示。</p>
+<p>result2就有些问题了，首先是第一个布尔值，由于3的二进制是11，所以就存了最低位的1进去。然后是70，二进制是1000110，超过了6位二进制数的范围，所以取了后边六位000110，变成了十进制的6。最后一个属性是7，虽然超过了0-4的取值范围，然而依然是三位二进制，所以打印出来是7。</p>
+<p>result3的成绩和result2的档位的问题类似，数据超出了实际范围，但位数相同，所以打印了出来。</p>
+<p>其实这些编译器都有警告。C语言还是很灵活的，就算规定了位数，也要小心存入了错误的数值。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
