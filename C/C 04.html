@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>C再学习 04 - 链表与动态分配内存</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+</head>
+<body>
+<p>在C这种没有提供基础数据结构的语言里，最适合自己来学习链表的结构了。</p>
+<p>在上次学C的时候，知道了链表的基础，所以写起来还是比较简单的。最基础的单项链表，每一个节点存储数据和指向下一个节点的指针就可以了。</p>
+<p>在制作链表的时候，如果使用typedef，一定要给结构起一个名字，因为之后要包含同种类型的指针，会反复使用到。</p>
+<h1 style="text-align: center;">创建链表和遍历</h1>
+<p>最简单的单链表，每个节点指向下一个链表，如果没有，就指向NULL。</p>
+<p>在遍历的时候，时刻检查当前节点的下一个是不是NULL，是的话说明到达了链表的底部。</p>
+<pre>
+#include "chapter06/linkedlist.h"
+
+void walk(struct island * islands){
+
+    for (; islands != NULL; islands=islands->next) {
+        printf("%s %s %s\n", islands->name, islands->opens, islands->closes);
+    }
+}
+
+int main(int argc, char *argv[]){
+
+    //创建四个结构
+    island island1 = {"island1", "09:00", "17:00", NULL};
+    island island2 = {"island2", "08:00", "18:00", NULL};
+    island island3 = {"island3", "10:00", "16:00", NULL};
+    island island4 = {"island4", "09:00", "15:00", NULL};
+
+    //链在一起
+    island1.next = &island2;
+    island2.next = &island3;
+    island3.next = &island4;
+
+    //用指向第一个节点的指针当做整个链表的指针
+    island *linked_islands = &island1;
+
+    //遍历链表
+    walk(linked_islands);
+
+}
+</pre>
+<p>单链表直接就用指针遍历就可以了，如果当前指针不是null，说明至少存在一个节点，处理完当前节点的数据后，将指针指向next，这样继续判断，如果是NULL了，说明已经遍历完了所有节点。</p>
+
+
+<h1 style="text-align: center;">动态内存分配</h1>
+<p>在上边的程序中，实际上是写死了4个节点，编译器已经为这个四个节点分配完了空间。</p>
+<p>在现实里，可能不知道会有几个节点，需要动态的扩展内存，此时就要使用<code>stdlib.h</code>标准库中的<code>malloc</code>和<code>free</code>函数用来动态申请内存和释放内存了。</p>
+<p>先来创建一个返回一个新建岛的函数：</p>
+<pre>
+island * create_new_island(char * name){
+    //将void * 指针赋值给 island * 指针
+    island *i = malloc(sizeof(island));
+
+    i->name = name;
+    i->opens = "09:00";
+    i->closes = "18:30";
+    i->next = NULL;
+    return i;
+}
+</pre>
+<p>malloc返回的是一个通用指针类型，也就是void * 类型，实际上malloc只是按照大小来申请，所以需要将其转换成我们需要的类型。</p>
+<p>为了验证可以动态添加，来让用户输入名称：</p>
+<pre>
+    //动态输入2个岛名字
+    char name[80];
+
+    scanf("%s", name);
+    island *i1 = create_new_island(name);
+
+    scanf("%s", name);
+    island *i2 = create_new_island(name);
+
+    island5.next = i1;
+    i1->next = i2;
+
+    //遍历链表
+    walk(linked_islands);
+</pre>
+<p>但是遍历之后，发现两个岛的名字是一样的，这是因为我们使用了同一个char 数组指针，只要修改了其中一个，另外一个也会修改，这里可以使用一个新的库函数：<code>string.h</code>库中的<code>strdup()</code>函数。</p>
+<p>这个函数接受一个char*，然后会将其中的内容复制到堆上，之后返回一个指向这个字符串。注意，由于这个也是动态申请的字符，所以一样需要释放。</p>
+<p>然后来修改新建岛的代码：</p>
+<pre>
+island * create_new_island(char * name){
+    island *i = malloc(sizeof(island));
+
+    <span style="color: red">i->name = strdup(name);</span>
+    i->opens = "09:00";
+    i->closes = "18:30";
+    i->next = NULL;
+    return i;
+}
+</pre>
+<p>这里其他的内容我们都传入了字符串字面量也就是常量，所以没有问题（这里没有用fgets是因为会读取换行符）。</p>
+<p>之后就可以用全部动态的方式来组成链表了。组成的方式是：首先用一个指针当做链表的头部，设置初始值为NULL。生成第一个节点的时候，这个指针就指向其，然后不再变动。</p>
+<p>再使用第二个指针表示链表的尾部，最开始的时候也指指向NULL。在第一次新增的时候，指向第一个节点。之后新增加一个节点的时候，先把自己当前指向的节点的next指向下一个节点，然后自己去指向下一个节点也就是最后一个节点。</p>
+<pre>
+int main(int argc, char *argv[]){
+
+    island *start = NULL;
+    island *current = NULL;
+    island *end = NULL;
+
+    char name[6];
+    name[0] = 'c';
+    name[1] = 'o';
+    name[2] = 'n';
+    name[3] = 'y';
+    name[5] = '\0';
+
+    int j = 33;
+
+    for (; j < 127; j++) {
+        name[4] = (char) j;
+        current = create_new_island(name);
+
+        if (start == NULL) {
+            start = current;
+            end = start;
+        }
+
+        end->next = current;
+
+        end = end->next;
+
+    }
+
+    walk(start);
+}
+</pre>
+<p>这里只是一个最简单的用链表存储内容。这里还没有用到增删改查，实际上用到增删改查的时候，选择指针指向那个元素很重要。比如删除的时候，就不能仅仅只用最后一个指针，这样无法完成操作。要遍历到next的next为null，也就是倒数第二个才可以，然后先回收最后一个，然后将倒数第二个的next置为NULL。</p>
+
+<h1 style="text-align: center;">释放链表</h1>
+<p>有了新建链表，就要释放链表，注意释放的顺序很重要。</p>
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
