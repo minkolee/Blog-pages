@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>C再学习 05 - 函数指针</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+</head>
+<body>
+<p>竟然还有函数指针，上次在看C语言现代方法第二版的时候压根没有留意到有函数指针。这次要好好看看，感觉有了struct，再有函数指针，一个对象的雏形好像就出来了。</p>
+<p>这次是用一个常见的高级语言里的filter函数式编程的方法，给filter函数传递一个函数（所谓传递函数，就是传递一段代码用于执行）来进行过滤。</p>
+<h1 style="text-align: center;">普通过滤函数</h1>
+<p>一个普通的过滤函数用来过滤满足一定条件的数据。比如有一个字符串数组如下：</p>
+<pre>
+int NUM_ADS = 7;
+char *ADS[] = {
+    "William: SBM GSOH likes sports, TV, dining",
+    "Matt: SWM NS likes art, movies, theater",
+    "Luis: SLM ND likes books, theater, art",
+    "Mike: DWM DS likes trucks, sports and bieber",
+    "Peter: SAM likes chess, working out and art",
+    "Josh: SJM likes sports, movies and theater",
+    "Jed: DBM likes theater, books and dining"
+};
+</pre>
+<p>如果要过滤出其中喜欢运动但不喜欢bieber（这么不受欢迎啊）的人，可以用一个简单的方法来打印出来：</p>
+<pre>
+void find(char **strlist, int length){
+    int i = 0;
+    for (; i < length; i++) {
+
+        if (strstr(strlist[i], "sports") && !strstr(strlist[i], "bieber")) {
+            printf("%s\n", strlist[i]);
+        }
+    }
+}
+</pre>
+<p>但是这个函数有个很大的缺点，就是写死了过滤方法。如果要换一种过滤方法，就要重新编写一个函数。然而这些函数之间只有过滤的条件不同。</p>
+<p>如果可以给这个函数传入一个函数，传入的函数专门用来供这个函数调用，判断是否符合条件，这样每次只要传入不同的函数就可以进行不同的过滤，而不需要写很多过滤函数了。</p>
+<p>函数名称就是一种指针，然而不能直接把函数名传进来，必须使用特殊的函数指针语法。</p>
+
+<h1 style="text-align: center;">函数指针</h1>
+<p>函数名其实就是一个指向函数的指针，调用的时候写函数名(参数)就是在调用函数。</p>
+<p>但要注意的是，函数名和指针变量还是有所区别，函数名是一个左值，而指针变量的值是右值。函数名称不能使用++，--等运算。</p>
+<p>在C语言里也没有函数类型。需要针对函数的参数和返回值，采用特殊的语法声明函数指针。</p>
+<p>对于这样一个函数：</p>
+<pre>
+int filter_by_sports_bieber(char* string){
+    return strstr(string, "sports") && !strstr(string, "bieber");
+}
+</pre>
+<p>对应的函数指针是：<code><span style="color: red">int</span> <span style="color: #0FA0CE">(*filt)</span> <span style="color: orange">(char *)</span>;</code></p>
+<p>红色的部分表示函数的返回值，蓝色的部分就是新声明的指针名称，而橙色的部分就是函数的参数。</p>
+<p>在声明之后，就可以把<code>filter_by_sports_bieber</code>函数名赋给<code>filt</code>变量。</p>
+<pre>
+filt = filter_by_sports_bieber;
+</pre>
+<p>之后使用，就可以像使用函数名称一样，可以试验一下：</p>
+<pre>
+    printf("%d\n", filt(ADS[0]));
+    printf("%d\n", filt(ADS[1]));
+    printf("%d\n", filt(ADS[2]));
+    printf("%d\n", filt(ADS[3]));
+    printf("%d\n", filt(ADS[4]));
+    printf("%d\n", filt(ADS[5]));
+    printf("%d\n", filt(ADS[6]));
+</pre>
+<p>可以看到，只有索引为0和5的结果返回值是1，说明这两个元素符合条件，和刚才我们的过滤函数的结果类似。</p>
+<p>现在就可以来改造过滤函数，传入这个指针了：</p>
+<pre>
+void find(char **strlist, int length, int (*match)(char *)){
+    int i = 0;
+    for (; i < length; i++) {
+
+        if (match(strlist[i])) {
+            printf("%s\n", strlist[i]);
+        }
+    }
+}
+</pre>
+<p>然后在头文件中声明：</p>
+<pre>void find(char **strlist, int length, int (*match)(char *));</pre>
+<p>在main文件中导入头文件，然后来使用这个函数：</p>
+<pre>
+int filter_by_sports_bieber(char* string){
+    return strstr(string, "sports") && !strstr(string, "bieber");
+}
+
+int main(int argc, char *argv[]){
+
+    int (*filt)(char *);
+
+    filt = filter_by_sports_bieber;
+
+    find(ADS, NUM_ADS, filt);
+}
+</pre>
+<p>可以看到完成了和原来filt的同样结果，如果想修改一下过滤条件，比如过滤出喜欢movies的，只修改过滤函数就可以了，主体函数无需改动。</p>
+<pre>
+int filter_by_movies(char * string){
+    return strstr(string, "movies") != NULL;
+}
+
+int main(int argc, char *argv[]){
+
+    int (*filt)(char *);
+
+    filt = filter_by_movies;
+
+    find(ADS, NUM_ADS, filt);
+
+}
+</pre>
+<p>这就非常方便了。</p>
+<p>通过函数指针调用的时候，可以在前边加*，也可以不加，就像数组变量一样，编译器知道它们就是指针。用<code>&</code>也可以取得函数的地址，而<code>&function_name</code>和<code>function_name</code>是同一个东西。</p>
+<p>C标准库中有一些排序函数比如qsort就接受函数指针，这个函数指针只要根据两个数比较结果返回大于，等于和小于0的数就可以。</p>
+<p>库函数经常接受带有*void指针签名的函数指针，但是在使用前必须要转换成具体类型的指针。</p>
+<p>通常就是用<code>int a = * (*int) void_poinnter</code>从指针中取具体的值。</p>
+
+<h3 style="text-align: center;">函数指针数组</h3>
+<p>指针生万物，数组放万物。既然我们知道有指针数组的存在，而函数指针也是指针类型的一种，则很显然也需要有函数指针数组了。</p>
+<p>声明方法很简单：<code>int (*functions[])(param)</code>，很显然，一个函数指针数组中也必须存放一组签名相同的函数指针。</p>
+<p>所以我们就可以用一个函数指针数组来存放不同的过滤函数，然后只要根据需要传一下就可以了。</p>
+<pre>
+int filter_by_sports_bieber(char* string){
+    return strstr(string, "sports") && !strstr(string, "bieber");
+}
+
+int filter_by_movies(char * string){
+    return strstr(string, "movies") != NULL;
+}
+
+int filter_by_books(char * string){
+    return strstr(string, "books") != NULL;
+}
+
+int main(int argc, char *argv[]){
+    int (*filt[])(char *) = {filter_by_sports_bieber, filter_by_movies, filter_by_books};
+
+    find(ADS, NUM_ADS, filt[0]);
+    find(ADS, NUM_ADS, filt[1]);
+    find(ADS, NUM_ADS, filt[2]);
+
+}
+</pre>
+<p>可以看到只需要传入不同的数组元素也就是函数指针，就相当于传入了不同的函数。</p>
+<p>这个数组方式的声明比较方便，直接传入函数名即可。不像单独声明函数指针，还需要用一个指针变量名称接受一下函数名。</p>
+
+<h3 style="text-align: center;">可变参函数</h3>
+<p>C里边的可变参函数，必须使用<code>stdarg.h</code>库。然后有特殊的写法。来编写一个指定打印几个int的函数，第一个参数是固定参数，表示其后的参数数量。</p>
+<pre>
+#include "params.h"
+#include &lt;stdarg.h>
+#include &lt;stdio.h>
+
+void print_ints(int args, ...){
+
+    //必须使用宏声明一个特殊的变量，实际上就是这个函数接受的所有参数组成的数组
+    va_list ap;
+    //表示可变参数从哪里开始,第一个参数是上边的参数列表，第二个是指最后一个固定参数
+    va_start(ap,args);
+
+    int i;
+    for (i = 0; i < args; i++) {
+        //va_arg用于从ap中取出指定的类型的参数，每一次循环就会自动往后取一次
+        printf("arguments: %i\n", va_arg(ap, int));
+    }
+    //最后要对va_list调用va_end来销毁这个参数列表
+    va_end(ap);
+}
+</pre>
+<p><code>va_</code>开头的都是样板代码，会用就可以了。</p>
+
+<h1 style="text-align: center;">实现原始的对象</h1>
+<p>现在有了struct，还有了函数指针，想到了什么。貌似可以实现一个简单的对象了。尝试了一下还真的自己写了出来。</p>
+<p>假设我们创建一个带有字符串姓名，short 年龄，和一个说出自己名字和年龄的函数。</p>
+<p>先来创建结构：</p>
+<pre>
+typedef struct object {
+    char *name;
+    short age;
+    struct object *self;
+    void(*sayhello)(struct object *);
+} Person;
+</pre>
+<p>在其中设置了一个指针叫做self，还有一个sayhello名称的函数指针，其中需要传入一个Person指针。</p>
+<p>之后先来写出sayhello函数：</p>
+<pre>
+void show(struct object * obj){
+    printf("My name is %s\n", obj->name);
+    printf("My age is %d\n", obj->age);
+}
+</pre>
+<p>然后是创建这个struct的函数，动态分配地址，然后返回指向这个struct的指针：</p>
+<pre>
+struct object * create_obj(char*name, short age){
+    void (*showself)(struct object *);
+    showself = show;
+    struct object * new_object = malloc(sizeof(struct object));
+    new_object->name = name;
+    new_object->age=age;
+    new_object->self = new_object;
+    new_object->sayhello = showself;
+}
+</pre>
+<p>这个创建函数类似构造函数，设置了名字和年龄，将指针指向自己，然后设置了函数指针。</p>
+<p>之后就可以来生成对象和调用方法了。高级语言里会说绑定对象的方法默认参数是传入了当前对象。这里我们也显式的传一下：</p>
+<pre>
+int main(int argc, char *argv[]){
+
+    Person * new_obj = create_obj("cony",5);
+
+    new_obj->sayhello(new_obj);
+
+}
+</pre>
+<p>哇哈哈哈，看起来已经是一个最简单的类了。而且函数指针都指向同一个函数，说明方法也属于类。在调用的时候根据传入的具体对象不同而不同。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
