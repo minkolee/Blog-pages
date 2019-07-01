@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>C再学习 06 - 动态链接库</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+</head>
+<body>
+<p>这一章是经常遇到但是没有仔细深究的一个玩意，叫做动态链接库的解说。原来这是C语言里的概念。</p>
+<h1 style="text-align: center;">库位置与静态链接</h1>
+<p>一般linux都带有GCC，而windows则不会。最好还是在linux上运行程序。</p>
+<p>之前写过的两个解密和生成验证码的程序：</p>
+<pre>
+//encoder.c
+#include "encoder.h"
+
+void encrypt(char *msg){
+    while (*msg) {
+        *msg = *msg^31;
+        msg++;
+    }
+}
+
+int checksum(char *msg){
+    int c=0;
+    while (*msg) {
+        c += c ^ (int) (*msg);
+        msg++;
+    }
+
+    return c;
+}
+</pre>
+<pre>
+//encoder.h
+#ifndef C_ENCODER_H
+#define C_ENCODER_H
+
+#endif //C_ENCODER_H
+void encrypt(char *msg);
+int checksum(char *msg);
+</pre>
+<p>在编译的时候，Clion中包含头文件的位置是：</p>
+<pre>
+#include "chapter08/encoder.h"
+</pre>
+<p>而不能写成<code>#include &lt;encoder.h&gt;</code>，这是因为尖括号中的库有着特殊的路径，CentOS下实验了一下是<code>/usr/include/</code>。</p>
+<p>而Windows下是<code>D:\Software\mingw64\x86_64-w64-mingw32\include</code></p>
+<p>如果想让自己的库可以被别的程序共享，有如下几种方法：</p>
+<ol>
+    <li>将程序复制到<code>/usr/include</code>这种目录下边</li>
+    <li>在程序的目录下边，可以使用相对main函数所在的文件的相对路径下边</li>
+    <li>gcc -I加上目录，在编译的时候会先检查-I 选项中的目录路径</li>
+    <li>用完整的路径共享</li>
+</ol>
+<p>一句话，只要能让编译器找到通过encoder.h和encoder.c生成的encoder.o文件，就可以使用其中的文件。</p>
+
+<h3 style="text-align: center;">目标文件存档</h3>
+<p>目标文件存档就是一批目标文件，后缀名以<code>.a</code>结尾。比如在<code>D:\Software\mingw64\x86_64-w64-mingw32\lib</code>中就可以找到很多<code>.a</code>文件。</p>
+<p>在CMD中可以用<kbd>nm</kbd>命令来查看其中的内容。用ar命令可以保存我们的目标文件到一个库文件中。</p>
+<pre>
+ar -rcs libmyencoder.a encoder.o
+</pre>
+<p>这样就会生成一个<code>libmyencoder.a</code>的文件，然后将其放入系统的文档存档文件夹中，就可以在编译的时候通过-l带上lib后边的名称来进行编译。</p>
+<pre>gcc -c main.c -lmyencoder -o main.exe</pre>
+<p>这其实也是约定俗称的一种指定目标文件的方式。实验了一下，在CentOS7下成功了。</p>
+<p>先要将生成的<code>libmyencoder.a</code>放入到<code>/usr/lib</code>中，这个目录也和<code>/lib</code>是同一个目录，表示系统的库。</p>
+<p>由于已经不再需要<code>encoder.c/.h/.o</code>文件，可以都删除。然后main.c文件中的<code>#include "encoder.h"</code>这个也要删掉，不然会报找不到文件。</p>
+<p>那么现在我们main.c文件中用到的函数从哪里来呢，答案就是通过gcc -l来指定库名称，就会自动从库中寻找函数然后链接。</p>
+<pre>
+gcc main.c -lmyencoder -o main
+</pre>
+<p><code>-l</code>后边紧跟的，就是不带<code>lib</code>前缀和<code>.a</code>后缀的刚生成的库文件的名称，这样就成功编译出了可执行文件。</p>
+<p>这些<code>.a</code>的库，叫做静态库，静态链接库。使用这些库编译成的软件，编译时候已经使用了某个具体库里的代码，写死了。</p>
+
+<h1 style="text-align: center;">动态链接库</h1>
+<p>动态库相比静态库，也是从一堆O文件中创建，但是有一些额外信息，比如库的名称，操作系统用来确定如何把库链接到程序。</p>
+<p>动态库官方名称叫做带有原信息的可重定位目标文件。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
