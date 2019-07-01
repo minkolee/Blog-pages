@@ -138,6 +138,68 @@ int main(int argc, char *argv[]){
 
 <h1 style="text-align: center;">释放链表</h1>
 <p>有了新建链表，就要释放链表，注意释放的顺序很重要。</p>
+<p>首先是节点里的字符串释放，一个字符串放在堆上，要先释放，否则释放链表的节点之后就要失去对这个字符串的引用。</p>
+<p>第二是释放链表的顺序，在链表生成的时候，是一个一个链上去，那需要一个一个从尾部释放吗。</p>
+<p>如果需要一次性释放全部的链表，是不需要的，只需要从最前边开始，用两个指针，一个指向当前，一个指向下一个，先释放当前，然后让当前的指针指向下一个，下一个指向再下一个，再释放当前，一直到当前的指针为NULL为止。</p>
+<pre>
+void releaseall(island * linked_island){
+    island *current = NULL;
+    island *next = NULL;
+
+
+    if (linked_island == NULL) {
+        return;
+    } else{
+        current = linked_island;
+    }
+
+    while (current != NULL) {
+        free(current->name);
+        next = current->next;
+        free(current);
+        current = next;
+    }
+
+    printf("释放完成\n");
+
+}
+</pre>
+<p>Head First C的书里代码和这个逻辑一样，只不过将每个循环最后都做的<code>current = next;</code>放到for循环体里，看着更简明。</p>
+<p>这是按顺序释放一整条链表。如果从链表中删除元素，就不能简单的这么操作了，必须有一个引用指向被删除的元素，释放完字符串和节点才行。</p>
+<p>这就是最基础的数据结构了。待之后到专门的数据结构C语言实现中再来看。</p>
+<p>感觉读入字符串的玩意也很绕，fgets，get,和scanf也各不相同。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
