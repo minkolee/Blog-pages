@@ -79,28 +79,69 @@ gcc main.c -lmyencoder -o main
 <h1 style="text-align: center;">动态链接库</h1>
 <p>动态库相比静态库，也是从一堆O文件中创建，但是有一些额外信息，比如库的名称，操作系统用来确定如何把库链接到程序。</p>
 <p>动态库官方名称叫做带有原信息的可重定位目标文件。</p>
+<p>我理解了一下，实际上就是运行的时候才会去调用的东西，在exe文件里只保留了一个函数调用，至于调用的时候是什么样子，就看链接进来的库文件是什么样子。</p>
+<p>好处就是无需重新编译，只需要修改动态链接库，就可以改变可执行文件的行为。动态链接库会把库名也写入到文件里，所以必须知道库名才能明确的调用。如果库不存在，exe文件就会报错。</p>
+<p>下边还是来实验一下：</p>
+<p>依然使用上边的encoder系列文件，先把刚才生成的静态库给删除掉。然后把<code>encoder.h</code>和<code>encoder.c</code>放到一个文件夹里。这次来编译动态库文件：</p>
+<pre>
+gcc -fPIC -c encoder.c -o encoder.o
+</pre>
+<p>这里的 <code>-fPIC</code>命令表示编译位置无关的代码，-c表示不要链接文件，-o表示生成目标代码。</p>
+<p>然后需要使用这个<code>.o</code>文件生成动态链接库文件：</p>
+<pre>
+gcc -shared encoder.o -o libencoder.so
+</pre>
+<p><code>-shared</code>指令加上<code>-o</code>，就会根据目标文件生成动态链接库文件。</p>
+<p>然后需要将动态链接库文件放到编译器可以找到的路径中去，有很多种办法，比如指定环境变量，或者放到系统的库路径去。</p>
+<p>这里我把<code>libencoder.so</code>还是放到系统的库路径<code>/usr/lib/</code>中去。</p>
+<p>现在把main.c文件弄到另外一个目录去，记得也要去掉开头的包含头文件的地方，然后就可以编译了：</p>
+<pre>
+gcc main.c -lencoder -o main
+</pre>
+<p>这样编译的话，可执行文件<code>main</code>中就会记住动态链接库的名字<code>libencoder.so</code>，然后需要设置一下linux系统到哪里去找动态链接库文件。</p>
+<pre>
+export LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
+</pre>
+<p><code>LD_LIBRARY_PATH</code>是环境变量，表示动态库加载的位置，在centos上看了一下，默认是空，这里改成了<code>/usr/lib</code>，然后运行一下<code>./main</code>，发现成功的运行了。</p>
+<p>把<code>libencoder.so</code>从<code>/usr/lib</code>中删除。再运行一下看看：</p>
+<pre>./main: error while loading shared libraries: libencoder.so: cannot open shared object file: No such file or directory</pre>
+<p>会提示找不到库。</p>
+<p>现在重新复制进去，运行之后看一下显示：</p>
+<pre>
+\pqf?qzz{l?wzm?svkksz?phs1
+-558420795
+Cony needs her little owl.
+460729038
+</pre>
+<p>现在我们来修改一下动态链接库文件，原来是与31做异或运算，现在改成与33做异或运算。我们无需编译main.c文件，只要修改<code>encoder.c</code>，然后再按照上述步骤生成动态链接库，覆盖掉上一版。</p>
+<p>再运行<code>./main</code>：</p>
+<pre>
+bNOXODDERIDSMHUUMDNVM
+-1850266385
+Cony needs her little owl.
+460729038
+</pre>
+<p>可以看到，程序的结果发生了改变。全程并没有重新编译可执行文件<code>main</code>，而是通过修改动态链接库，让程序执行的时候使用库中的代码。如果还想更改行为，只要热插拔一下dll文件就可以了。</p>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<h1 style="text-align: center;">gcc命令</h1>
+<p>最后复习一下GCC的常用命令吧，首先是编译选项：</p>
+<ol>
+    <li><kbd>gcc test.c -o test</kbd>，单独使用-o是直接将源文件编译成可执行文件。但其实编译有四个阶段，因此还有其他指令。</li>
+    <li><kbd>gcc -E test.c -o test.i</kbd>，-E控制着预处理，这样会生成test.i，即经过预处理的文件。</li>
+    <li><kbd>gcc -S test.i -o test.s</kbd>，-S表示编译成汇编后停止，此时输出文件得到的就是汇编文件</li>
+    <li><kbd>gcc -c test.s -o test.o</kbd>，-c表示complie，即编译成目标文件。</li>
+    <li><kbd>gcc test.o -o test</kbd>，链接，对.o文件使用，就是链接o文件，输出就是可执行文件</li>
+</ol>
+<p>这里要注意的是，把<code>-o filename</code>看成是输出到什么文件中。而前边的各种参数和无参数表示编译的各个阶段。</p>
+<p>对于多个文件（每个文件是一个编译单元），可以对多个文件使用，比如<kbd>gcc test1.c test2.c -o test</kbd>，其内部就是把两个编译单元都生成目标文件，然后再链接起来得到可执行文件。</p>
+<p>其他选项：</p>
+<ol>
+    <li><code>-Wall</code>，输出所有警告信息</li>
+    <li><code>-Werror</code>，遇到警告就停止编译，强制要求改正代码</li>
+    <li><code>-I</code>，这个参数后边跟着的是路径，表示头文件的所在地</li>
+    <li><code>-l</code>，这个参数比较特别，在前边已经知道，<code>-lname</code>表示的是<code>libname.a</code>或者<code>libname.so</code>库</li>
+    <li><code>-static</code>，这个参数表示强制使用静态库。如果同时存在静态库和动态库，都用<code>-l</code>，到底使用哪一种？GCC默认优先使用动态链接库。</li>
+</ol>
 
 
 
