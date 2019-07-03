@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>C再学习 07 - 系统调用和父子进程</title>
+    <title>C再学习 08- 进程间通信和信号</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
 </head>
@@ -110,9 +110,6 @@ int main(int argc, char *argv[]) {
 
     int pid_status;
 
-    pid_t pids[3];
-
-
 
     for (i = 0; i < times; i++) {
         char var[255];
@@ -154,48 +151,300 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 </pre>
+<p>这里使用<code>waitpid</code>函数来等待某个PID的进程结束，然后会更新<code>pid_status</code>，之后用一个宏<code>WEXITSTATUS</code>去判断一下，如果不为0，则说明出现错误。</p>
+
+<h1 style="text-align: center;">管道的真实 - 父子进程通信</h1>
+<p><code>rssgossip.py</code>这个脚本有一个选项<code>-u</code>，可以用来显示查找到的新闻的URL链接，可以将连接到<code>GREP</code>命令来查找包含内容的行：</p>
+<pre>
+[root@localhost clearn]# export RSS_FEED=https://www.gcores.com/rss
+[root@localhost clearn]# python rssgossip.py -u a | grep http
+    https://www.gcores.com/articles/111869
+    https://www.gcores.com/articles/111848
+    https://www.gcores.com/articles/111837
+    https://www.gcores.com/articles/111838
+    https://www.gcores.com/articles/111826
+</pre>
+<p>管道的真实是，用管道连接的命令会成为父子进程之间的关系，在这个例子里，<code>grep</code>是<code>python</code>的父进程，<code>grep</code>在子进程中执行<code>python</code>命令+<code>rssgossip</code>脚本，然后把子进程的输出连接到自己的输入，等待子进程的输入，然后再运行<code>grep</code>命令。</p>
+<p>那么是如何连接的呢，这里需要要到另外一个linux的系统命令<code>pipe()</code>，这个命令会创建一个管道，参数是一个两个元素的数组，会把管道的两个文件描述符放在数组中，第一个元素是从这个管道读数据的描述符，第二个元素是向管道内放入数据的描述符。</p>
+<p>在父进程和子进程中，谁要放入数据，就关闭自己这边的读通道，然后将标准输出重定向到写通道；要获取数据的，就关闭自己这边的写通道，然后将标准输入重定向到读通道。（还记得吗，重定向用<code>dup2()</code>系统函数）</p>
+<p>注意，不能同时使用一个管道的两端。比如父进程按照上边所述创建了一条从子进程接受数据的管道，现在父进程想要发送数据给子进程，需要再开一条新管道。</p>
+<p>这次来实验一下，通过管道，父进程从子进程中获取url链接，然后使用浏览器打开。</p>
+<pre>
+#include &lt;time.h>
+#include &lt;stdlib.h>
+#include &lt;errno.h>
+#include &lt;string.h>
+#include &lt;unistd.h>
+#include &lt;sys/wait.h>
 
 
+void error(char *msg)
+{
+    fprintf(stderr, "%s: %s\n", msg, strerror(errno));
+    exit(1);
+}
+
+void open_url(char *url){
+    char launch[255];
+
+    sprintf(launch, "cmd /c start %s", url);
+    system(launch);
+    sprintf(launch, "x-www-browser '%s' &", url);
+    system(launch);
+    sprintf(launch, "open '%s'", url);
+    system(launch);
+}
+
+int main(int argc, char *argv[]) {
+
+    char *phrase = argv[1];
+
+    char *vars[] = {"RSS_FEED=https://juejin.im/rss", NULL};
+
+    int fd[2];
+
+    if (pipe(fd) == -1) {
+        error("Pipe failed");
+    }
+
+    pid_t pid = fork();
+
+    if (pid == -1) {
+        error("Can't fork process");
+    }
+
+    if (!pid) {
+        //子进程关闭读取端，然后重定向标准输出到该描述符
+
+        close(fd[0]);
+        dup2(fd[1], 1);
+
+        if(execle("/usr/bin/python", "/usr/bin/python", "./rssgossip.py", "-u", phrase, NULL, vars) == -1) {
+            error("Can't run script");
+        }
+
+    }
+
+    //父进程关闭写入端，将标准输入重定向到该描述符
+    close(fd[1]);
+    dup2(fd[0], 0);
+
+    char line[255];
+
+    while (fgets(line, 255, stdin)) {
+        if (line[0]=='\t') {
+            open_url(line + 1);
+        }
+    }
+    return 0;
+}
+</pre>
+<p>可以看到，其实使用起来不算难。但还是那句话，脑子一定要清楚。</p>
+<p>这里要说明的是，最好用一个循环来读取内容，在子进程结束的时候，<code>fgets</code>会收到EOF文件结束符，此时<code>fgets</code>返回0，循环就结束了。</p>
+<p>系统编程的东西还是太刺激了，现在只是先能用用，以后肯定还是要好好学学系统编程的。</p>
+
+<h1 style="text-align: center;">信号</h1>
+<p>最后一个经常使用到的和操作系统相关的内容就是信号。</p>
+<p>试想一下运行命令的时候用<kbd>Ctrl+C</kbd>来中止程序，程序为什么会中止？</p>
+<p>真相是，管理键盘的实际上是操作系统而不是我们的程序。操作系统看到Ctrl+C的时候，并不会像其他按键一样把字符交给程序处理，而是会给程序传递一个中断信号。</p>
+<p>中断信号是整型值。每个进程只要接到信号，就会立刻停止工作去处理信号。通过查看信号映射表和对应的处理函数来执行处理函数。</p>
+<p>很巧也很不巧的是，中断信号（SIGINT，值是2)的默认处理函数就是调用exit()函数立刻结束程序。</p>
+<p>操作系统通过接受信号查看对应函数的方式是为了更大的灵活性，这样就可以创建自己的映射，来通过信号执行自己的代码。</p>
+
+<h3 style="text-align: center;">创建自己的中断信号-处理函数映射</h3>
+<p>所谓自己的处理函数，就是在接受到某个信号的时候，运行的函数。想要设置自己的映射，有如下步骤要做：</p>
+<ol>
+    <li>创建一个指向想要的动作的函数</li>
+    <li>创建一个<code>struct sigaction</code>类型的结构体，其中有指针指向函数，还有一些其他内容</li>
+    <li>在系统中注册描述符与对应结构体。</li>
+</ol>
+<p>第一步创建函数唯一的要求是，参数必须接受一个整型参数，比如：</p>
+<pre>
+void crashed(int signal){
+
+    printf("当前收到的中断信号是：%d", signal);
+    exit(1);
+}
+</pre>
+<p>第二步，需要导入<code>signal.h</code>，创建结构体：</p>
+<pre>
+struct sigaction action;
+action.sa_handler = handler;
+sigemptyset(&action.sa_mask);
+action.sa_flags = 0;
+</pre>
+<p><code>sa_handler</code>对应自己创建的函数指针。sigemptyset通常是用一个空的掩码来过滤信号值。最后一行是附加标志位，简单先设置为0。</p>
+<p>第三步，使用<code>sigaction(signal_no, &new_action, &old_action);</code>来注册。</p>
+<p>参数解释如下：</p>
+<ol>
+    <li><code>signal_no</code>指的是错误信号，一般传递标准信号，可以查看<code>signal.h</code>中的标准信号，常用的<kbd>Ctrl+C</kbd>中断信号是<code>SIGINT</code></li>
+    <li><code>&new_action</code>是刚创建的<code>action</code>结构体的指针</li>
+    <li><code>&old_action</code>指的是想要替换掉的原来的结构体的指针被放到哪个地址，这样可以获得原来的结构体的引用。如果不想保留原来的结构体，可以设置为NULL。</li>
+</ol>
+<p>来看一个简单的例子：</p>
+<pre>
+#include &lt;stdlib.h>
+#include &lt;signal.h>
+#include &lt;stdio.h>
 
 
+void crashed(int signal){
+
+    printf("\n当前收到的中断信号是：%d\n", signal);
+    exit(1);
+}
+
+int catch_signal(int sig, void (*handler)(int))
+{
+    struct sigaction action;
+    action.sa_handler = handler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    return sigaction (sig, &action, NULL);
+}
+
+int main()
+{
+    if (catch_signal(SIGINT, crashed) == -1) {
+        fprintf(stderr, "Can't map the handler");
+        exit(2);
+    }
+    char name[30];
+    printf("Enter your name: ");
+    while(1){
+        fgets(name, 30, stdin);
+        printf("Hello %s\n", name);
+    }
+    return 0;
+}
+</pre>
+<p>通过一个函数包装一下创建struct和注册的过程，然后返回注册函数执行的结果，这样可以方便判断成功与否。</p>
+<p>这个程序运行之后会等待键盘输入，此时按<kbd>Ctrl+C</kbd>，就可以看到如下结果：</p>
+<pre>
+[root@localhost clearn]# ./m3
+Enter your name: f^C
+当前收到的中断信号是：2
+</pre>
+
+<h3 style="text-align: center;">常见信号</h3>
+<ol>
+    <li><code>SIGINT</code>，进程中断</li>
+    <li><code>SIGQUIT</code>，要求停止进程并将内存存储到核心转储文件</li>
+    <li><code>SIGFPE</code>，浮点错误</li>
+    <li><code>SIGTRAP</code>，调试者询问执行到何处</li>
+    <li><code>SIGSEGV</code>，访问非法存储器地址</li>
+    <li><code>SIGWINCH</code>，终端窗口大小发生变化</li>
+    <li><code>SIGTERM</code>，有人要求内核终止进程</li>
+    <li><code>SIGPIPE</code>，进程向无人读取的管道写内容</li>
+</ol>
+<p>这些情况出现的时候，操作系统都会向进程发送信号，大部分信号都会导致进程结束。如果编写了自己的处理函数，不调用exit()，则不会退出。</p>
+<p>但一般情况下，遇到信号都应该考虑退出，因为这表示程序运行不正常，有问题需要解决。</p>
+
+<h3 style="text-align: center;">KILL命令</h3>
+<p>Linux中有一个结束进程的命令<code>kill</code>，后边加上进程的PID，用于结束进程。实际上，这个命令只是发送了一个信号，默认情况下发送的是<code>SIGTERM</code>信号。</p>
+<p>把上一个程序中的处理SIGINT的函数中的<code>exit(1)</code>去掉，重新编译后执行。此时不管按几次<kbd>Ctrl+C</kbd>，是无法退出的。</p>
+<p>保持程序运行，再开一个终端窗口，先用<kbd>ps -a</kbd>查看进程：</p>
+<pre>
+[root@localhost clearn]# ps -a
+   PID TTY          TIME CMD
+  1803 pts/0    00:00:00 m3
+  1805 pts/1    00:00:00 ps
+</pre>
+<p>可见PID是1803，然后运行<kbd>kill</kbd>命令：</p>
+<pre>
+// -int表示发送SIGINT中断
+kill -int 1803
+</pre>
+<p>此时查看原来的终端窗口，发现并没有中止程序，这是因为我们针对SIGINT的处理函数不会退出。</p>
+<p>再换一下：</p>
+<pre>
+kill 1803
+</pre>
+<p>这次干掉了，这是因为默认发送的信号是SIGTERM，我们没有针对这个进行处理，所以会被干掉。</p>
+<p>可能会想，那我针对所有的信号都进行处理，就是不结束程序，会怎样？<code>kill</code>命令有一个<code>-KILL</code>参数，不会被代码捕捉到，必定能干掉程序。</p>
+<p>类似的还有<code>-STOP</code>参数，表示暂停进程，也不会被代码捕捉到。</p>
+
+<h3 style="text-align: center;">生成和发送信号</h3>
+<p>刚才讨论的都是程序如何处理外界发来的信号。程序也可以自己生成信号并发送给自己。</p>
+<p>发送信号的函数是<code>raise(SIGTERM)</code>，程序执行到这行就会发送这个信号给自己。这个函数通常用在接收低级别的信号之后发送高级别的信号，叫做信号升级。</p>
+<p>像刚才这样发送SIGTERM把自己干掉并不是初衷。发送信号更大的作用是让程序在接收信号的时候做一些事情，而在平时做其他事情。通常一些定时任务就可以用这个方法来完成。</p>
+<p><code>signal.h</code>中有两个符号，一个是<code>SIG_DFL</code>，表示默认的处理方式。<code>SIG_IGN</code>表示让进程忽略某个信号，通过注册函数注册即可。</p>
+<p>进程还有一个间隔定时器，可以用系统函数<code>alarm()</code>来调用，参数为整型的秒数。如果在定时器没有到期的时候再次执行定时器，就会覆盖原来的设置。</p>
+<p>还一个系统函数<code>sleep()</code>，不要和<code>alarm()</code>一起使用，因为都调用了间隔定时器。</p>
+<p><code>alarm()</code>到时间之后，发送的信号叫做<code>SIGALRM</code>，看一个例子：</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+#include &lt;unistd.h>
+#include &lt;time.h>
+#include &lt;string.h>
+#include &lt;errno.h>
+#include &lt;signal.h>
+
+int score = 0;
+
+void end_game(int sig)
+{
+    printf("\nFinal score: %i\n", score);
+    exit(0);
+}
 
 
+void crashed(int signal){
+
+    printf("\n当前收到的中断信号是：%d\n", signal);
+    exit(1);
+}
+
+int catch_signal(int sig, void (*handler)(int))
+{
+    struct sigaction action;
+    action.sa_handler = handler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    return sigaction (sig, &action, NULL);
+}
 
 
+void times_up(int sig)
+{
+    puts("\nTIME'S UP!");
+    raise(SIGINT);
+}
+
+void error(char *msg)
+{
+    fprintf(stderr, "%s: %s\n", msg, strerror(errno));
+    exit(1);
+}
 
 
+int main()
+{
+    catch_signal(SIGALRM,times_up );
+    catch_signal(SIGINT, end_game);
+    srandom (time (0));
+    while(1) {
+        int a = random() % 11;
+        int b = random() % 11;
+        char txt[4];
+        alarm(5);
+        printf("\nWhat is %i times %i? ", a, b);
+        fgets(txt, 4, stdin);
+        int answer = atoi(txt);
+        if (answer == a * b)
+            score++;
+        else
+            printf("\nWrong! Score: %i\n", score);
+    }
+    return 0;
+}
+</pre>
+<p>在主程序的循环里使用了<code>alarm(5)</code>，如果5秒钟之后还没有执行到相同的地方，也就是意味着用户没有输入，则程序会收到<code>SIGALRM</code>信号，然后调用对应的处理函数<code>times_up</code>。</p>
+<p>处理函数先打印到期，然后又抛出一个信号给自己，这次是更严重的SIGINT，再被处理函数<code>end_game</code>处理，打印分数并结束程序。</p>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<p>不得不说很多系统函数的处理，由于没有好好的研究过系统环境下的编程，现在只能一边学一边用。这就像刚学Spring的还不知道底层实现，后来一看Spring Security是过滤器，就明白了很多。</p>
+<p>这里的东西，大概也要在以后学到系统编程的时候，才会有更深的理解吧。</p>
 
 
 
