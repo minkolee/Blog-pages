@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>C再学习 07 - 系统调用和父子进程</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+</head>
+<body>
+<p>有了进程，进程之间是互相独立的。可以使用管道来进行进程间通信。在开始之前，先复现一下Head First C中的例子：</p>
+
+<h1 style="text-align: center;">多进程读取RSS的例子</h1>
+<pre>
+#include &lt;time.h>
+#include &lt;stdlib.h>
+#include &lt;errno.h>
+#include &lt;string.h>
+#include &lt;unistd.h>
+
+int main(int argc, char *argv[]) {
+
+    char *feeds[] = {
+            "https://www.gcores.com/rss",
+            "https://www.v2ex.com/index.xml",
+            "https://juejin.im/rss"
+    };
+
+    int times = 3;
+
+    pid_t pid;
+
+    char *phrase = argv[1];
+
+    int i;
+
+    for (i = 0; i < times; i++) {
+        char var[255];
+
+        pid = fork();
+
+        if (pid == -1) {
+            fprintf(stderr, "Can't fork process: %s\n", strerror(errno));
+            return 1;
+        }
+
+        if (!pid) {
+
+            sprintf(var, "RSS_FEED=%s", feeds[i]);
+
+            char *vars[] = {var, NULL};
+
+            if (execle("/usr/bin/python2", "usr/bin/python2", "./rssgossip.py", phrase, NULL, vars) == -1) {
+                fprintf(stderr, "Can't run script: %s\n", strerror(errno));
+                return 1;
+            }
+        }
+    }
+}
+</pre>
+<p>这个例子里，每次起一个进程，然后去执行<kbd>python rssgossip.py searchcontent</kbd>，然后将环境变量设置为需要去查询的RSS地址。</p>
+
+<h1 style="text-align: center;">文件描述符</h1>
+<p>在之前我们是在运行命令的时候，手工指定了重定向输入输出的内容。现在我们新启动了一个进程，可以看到，新启动的进程默认是将结果输出到了屏幕上。</p>
+<p>有没有办法在启动进程的时候就让能在进程内部自己重定向输入输出，甚至输出到其他的进程中呢。</p>
+<p>先要知道什么是文件描述符。实际上每启动一个进程，操作系统都会自动给其设置上三个文件描述符，0好对应标准输入，1对应标准输出，2对应标准错误。0-2这三个是固定的，每次创建的时候，操作系统都会将进程的这三个输入输出设置成标准输入输出，直到有重定向。</p>
+<p>由于2是标准错误，所以可以理解之前我们在输入输出那里的命令：</p>
+<pre>./myprog > output.txt 2> errors.log</pre>
+<p>那如何在进程中改变输入和输出呢。每创建一个新的数据流（比如打开一个文件），操作系统都会在文件描述符表中新注册一项，把文件指针传递给一个系统函数<code>fileno()</code>，就可以获取文件描述符。</p>
+<p>然后再用<code>dup2(from,to)</code>把一个数据流复制到另外一个数据流的描述符上，两个描述符都指向同一个数据流。比如<code>dup2(4,1)</code>，就让标准输出连接到了4号描述符。</p>
+
+<h1 style="text-align: center;">等待进程结束</h1>
+<p>在完成程序之前，还需要知道最后的进程等待，如果不等待，主进程会直接结束，文件描述符也被关闭。</p>
+<p>直接放代码了：</p>
+<pre>
+#include &lt;time.h>
+#include &lt;stdlib.h>
+#include &lt;errno.h>
+#include &lt;string.h>
+#include &lt;unistd.h>
+#include &lt;sys/wait.h>
+
+
+void error(char *msg)
+{
+    fprintf(stderr, "%s: %s\n", msg, strerror(errno));
+    exit(1);
+}
+
+
+
+int main(int argc, char *argv[]) {
+
+    char *feeds[] = {
+            "https://www.gcores.com/rss",
+            "https://www.v2ex.com/index.xml",
+            "https://juejin.im/rss"
+    };
+
+    int times = 3;
+
+    pid_t pid;
+
+    char *phrase = argv[1];
+
+    int i;
+
+    FILE *f = fopen("result.txt", "w");
+
+    int pid_status;
+
+    pid_t pids[3];
+
+
+
+    for (i = 0; i < times; i++) {
+        char var[255];
+
+        pid = fork();
+
+        if (pid == -1) {
+            error("Can't open file");
+        }
+
+        if (!pid) {
+
+            //重定向标准输出到f文件指针对应的文件描述符
+            if (dup2(fileno(f), 1) == -1) {
+                error("Can't redirect standard output");
+            }
+
+            sprintf(var, "RSS_FEED=%s", feeds[i]);
+
+            char *vars[] = {var, NULL};
+
+            if (execle("/usr/bin/python2", "usr/bin/python2", "./rssgossip.py", phrase, NULL, vars) == -1) {
+                error("Can't run script");
+            }
+        }
+
+
+        //放在这里会在每次循环等待子进程结束之后再执行循环
+        if (waitpid(pid, &pid_status, 0) == -1) {
+            error("waiting for process error");
+        }
+
+        if (WEXITSTATUS(pid_status))
+            puts("Error status non-zero");
+    }
+
+    //放到括号外边只会等待最后一个子进程，需要用一个数组监听才行
+
+    return 0;
+}
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
