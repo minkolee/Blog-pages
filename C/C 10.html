@@ -9,516 +9,103 @@
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
 </head>
 <body>
-<p>开始看C下边的网络编程了。前边的一堆系统编程算是刚消化完基础使用。现在要来看网络编程了。</p>
-<h1 style="text-align: center;">简单的服务器</h1>
-<p>网络编程么，只要不是想直接控制TCP/IP协议，一般都会选择抽象程度比较高的套接字来通信。</p>
-<p>先来写一个简单的服务器，分这么几步：</p>
+<p>看到前边多进程的时候就知道肯定后边有多线程，否则只用进程就太重型了。但是使用线程就要碰到数据共享的问题了。</p>
+<h1 style="text-align: center;">创建线程</h1>
+<p>C的线程库是<code>pthread.h</code>，使用这个库来操作线程。</p>
+<p>使用线程的步骤是：</p>
 <ol>
-    <li>创建套接字</li>
-    <li>把套接字绑定端口</li>
-    <li>开始监听</li>
-    <li>接受连接</li>
-    <li>写套接字信息</li>
+    <li>创建需要在线程中运行的函数</li>
+    <li>创建一个结构<code>pthread_t</code></li>
+    <li><code>pthread_create()</code>创建并立刻运行线程</li>
+    <li>主线程需要监听线程，不能立刻结束，否则尚未运行完的线程也没了</li>
 </ol>
-
-<h3 style="text-align: center;">创建套接字</h3>
-<p>C里边的套接字在<code>&lt;sys/socket.h></code>库中，不能在Windows下使用。</p>
-<p>先来创建一个套接字：</p>
+<p>由于线程库不是C标准库，需要在使用的时候使用参数<code>-lpthread</code>链接该库。</p>
+<p>来创建两个在线程里执行的函数，注意，这种函数的返回值必须是 <code>void*</code> ，也就是通用指针类型：</p>
 <pre>
-#include &lt;sys/socket.h>
-int listener_d = socket(PF_INET, SOCK_STREAM, 0);
-if (listener_d == -1)
-    error("无法打开套接字");
-</pre>
-<p>这里的参数PF_INET和SOCK_STREAM都预定义好的宏，第一个表示本地的网络地址，第二个表示一个流对象，目前都不用深究。这个<code>socket</code>函数返回一个套接字文件描述符。</p>
-<p>如果为-1，则表示无法创建套接字。</p>
+void *overtime(void *a) {
+    int i = 0;
 
-<h3 style="text-align: center;">绑定端口</h3>
-<p>之后需要把套接字绑定端口，这样程序才能通过端口和其他服务进行基于套接字的网络通信（本机进程通信除了管道，也可以使用套接字文件）。</p>
-<pre>
-#include &lt;arpa/inet.h>
-struct sockaddr_in name;
-name.sin_family = PF_INET;
-name.sin_port = (in_port_t)htons(30000);
-name.sin_addr.s_addr = htonl(INADDR_ANY);
-
-int c = bind (listener_d, (struct sockaddr *) &name, sizeof(name));
-if (c == -1)
-    error("无法绑定端口");
-</pre>
-<p>前边的几行代码通过一个结构，创建了一个30000端口的结构，然后使用<code>bind</code>函数，将这个30000端口与套接字绑定起来。这里要把<code>sockaddr_in</code>的指针转换成<code>sockaddr</code>指针。</p>
-
-<h3 style="text-align: center;">开始监听</h3>
-<p>监听需要使用一个系统函数<code>listen()</code>，第一个参数是套接字描述符，第二个参数是队列长度，表示可以同时连接服务器的客户端数量。小于等于长度的连接可以成功连接，但未必会立刻得到响应。大于连接数字的连接会被直接告知服务器忙。</p>
-<pre>
-if (listen(listener_d, 10) == -1)
-    error("无法监听");
-</pre>
-
-<h3 style="text-align: center;">接受连接</h3>
-<p>这里需要使用另外一个系统函数<code>accept()</code>，一旦有连接，就会创建一个新的套接字对象，可以使用新的套接字对象进行通信了。</p>
-<pre>
-//保存连接的详细信息
-struct sockaddr_storage client_addr;
-socketlen_t address_size = sizeof(client_addr);
-//connect_d是新的套接字描述符
-int connect_d = accept(listener_d, (struct sockaddr *)&client_addr, address_size);
-if (connect_d == -1)
-    error("无法打开新套接字");
-</pre>
-
-<h3 style="text-align: center;">通信</h3>
-<p>现在先知道使用send()系统函数向套接字内写内容：</p>
-<pre>
-char *msg = "Internet Knock-Knock Protocol Server\r\nVersion 1.0\r\nKnock! Knock!\r\n> ";
-
-if (send(connect_d, msg, strlen(msg), 0) == -1)
-    error("send");
-</pre>
-<p>send()的第一个参数是套接字描述符，第二个参数是消息，第三个参数是消息的长度。最后一个参数是高级选项，目前先填写0。</p>
-<p>和很多函数一样，错误也会返回-1，要及时判断。</p>
-
-<h3 style="text-align: center;">设置套接字立刻可重用</h3>
-<p>端口在使用后，操作系统默认30秒不会让其他程序绑定到该端口，但可以在绑定之前进行一些设置即可：</p>
-<pre>
-if (bind (listener_d, (struct sockaddr *) &name, sizeof(name)) == -1)
-    error("无法绑定端口");
-
-int reuse = 1;
-if (setsockopt(listener_d, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(int)) == -1)
-    error("无法设置套接字的“重新使用端口”选项");
-</pre>
-<p>之后再绑定就不会出现提示套接字不可用了。</p>
-
-<h3 style="text-align: center;">简单的服务器完整程序</h3>
-<p>这个简单的服务器，连接的时候自动发一条信息，然后就关闭连接。</p>
-<pre>
-#include &lt;sys/socket.h>
-#include &lt;string.h>
-#include &lt;arpa/inet.h>
-#include &lt;stdlib.h>
-
-int main() {
-    char *advice[] = {
-            "Take smaller bites\r\n",
-            "Go for the tight jeans. No they do NOT make you look fat.\r\n",
-            "One word: inappropriate\r\n",
-            "Just for today, be honest. Tell your boss what you *really* think\r\n",
-            "You might want to rethink that haircut\r\n"
-    };
-
-    int listener_d = socket(PF_INET, SOCK_STREAM, 0);
-    int reuse = 1;
-    if (setsockopt(listener_d, SOL_SOCKET, SO_REUSEADDR, (char *) &reuse, sizeof(int)) == -1) {
-        puts("unablkjdskjaffjkldsajlkf");
-        exit(1);
+    for (; i < 10; i++) {
+        sleep(1);
+        puts("still overtime .....");
     }
 
-    struct sockaddr_in name;
-    name.sin_family = PF_INET;
-    name.sin_port = (in_port_t) htons(30000);
-    name.sin_addr.s_addr = htonl(INADDR_ANY);
-    if (bind(listener_d, (struct sockaddr *) &name, sizeof(name)) == -1) {
-        puts("Unable to bind port");
-        exit(1);
+    return NULL;
+}
+
+void *update_git(void *b) {
+    int j;
+    for (j = 0; j < 10; j++) {
+        sleep(1);
+        puts("don't forget to learn coding...");
     }
-    listen(listener_d, 10);
-    puts("Waiting for connection");
-
-    while (1) {
-
-        struct sockaddr_storage client_addr;
-        unsigned int address_size = sizeof(client_addr);
-
-        int connect_d = accept(listener_d, (struct sockaddr *) &client_addr, &address_size);
-
-        char *msg = advice[rand() % 5];
-
-        send(connect_d, msg, strlen(msg), 0);
-
-        close(connect_d);
-    }
-
-    return 0;
+    return NULL;
 }
 </pre>
-<p>这个服务器现在是向服务端发送消息。现在来看看如何读取消息。</p>
-<p>可以用<code>telnet</code>命令来登录，看看效果：</p>
+<p>然后创建结构<code>pthread_t</code>并运行：</p>
 <pre>
-[root@localhost c]# telnet 127.0.0.1 30000
-Trying 127.0.0.1...
-Connected to 127.0.0.1.
-Escape character is '^]'.
-One word: inappropriate
-Connection closed by foreign host.
+pthread_t thread0;
+pthread_t thread1;
 
-[root@localhost c]# telnet 127.0.0.1 30000
-Trying 127.0.0.1...
-Connected to 127.0.0.1.
-Escape character is '^]'.
-Just for today, be honest. Tell your boss what you *really* think
-Connection closed by foreign host.
-</pre>
-<p>telnet是基于TCP/IP协议的，可以默认连接到标准的套接字通信。</p>
-
-
-<h1 style="text-align: center;">从套接字读取消息</h1>
-<p>读取套接字用<code>recv</code>函数，这个函数的参数依次是(描述符，缓冲区，读几个字节，0)。</p>
-<p>telnet输出文本的时候，客户端按下回车，发送过来的最后一个字符是<code>\r\n</code>而不是<code>\0</code>。</p>
-<p>如果发生错误返回<code>-1</code>，如果关闭了连接就返回<code>0</code>。</p>
-<p>最关键的一点是，有缓冲区的概念，不一定一次能够全部读完，所以一般用一个<code>while</code>函数反复读取直到没有字符可以读或者读到了<code>'\n'</code></p>
-<p>一般读取的时候用一个函数反复读取：</p>
-<pre>
-int read_in(int socket, char *buf, int len) {
-
-    char *s = buf;
-
-    int slen = len;
-
-    int c = recv(socket, s, slen, 0);
-
-    //判断读入的字符大于0，和最后一个字符不是\n
-    while (c > 0 && (s[c - 1] != '\n')) {
-
-        //指针指向缓冲区长度c之后的空白
-        s += c;
-        //剩余字符数减去已经读取的字符数
-        slen -= c;
-        //继续读取剩下的字符
-        c = recv(socket, s, slen, 0);
-    }
-
-    //读入完成之后处理，有错就返回-1，如果是0就直接设置是0，如果正常读入，将最后一位设置为\0
-    if (c < 0) {
-        return c;
-    } else if (c == 0) {
-        buf[0] = '\0';
-
-    } else s[c-1]='\0';
-
-    //返回已经读取的字符数
-    return len - slen;
+//线程需要运行的函数传递给pthread_create
+if (pthread_create(&thread0, NULL, overtime, NULL) == -1) {
+    error("can't create thread0");
+}
+if (pthread_create(&thread1, NULL, update_git, NULL) == -1) {
+    error("can't create thread1");
 }
 </pre>
-<p>这个函数就是将内容读入到一个足够长的缓冲区里，每次收不到消息或者遇到\n字符就会停止，然后返回读取的字符数量。</p>
-<p>配合telnet就可以反复读取和显示字符。</p>
+<p>之后监听线程是否结束。</p>
+<pre>
+//用一个变量接收线程函数返回的指针
+void *result;
 
-<h1 style="text-align: center;">简单一次性服务器例子：</h1>
+//pthread_join通过监听线程返回值的方式等待线程
+if (pthread_join(thread0, &result) == -1)
+    error("无法回收线程t0");
+if (pthread_join(thread1, &result) == -1)
+    error("无法收回线程t1");
+</pre>
+<p>用一个变量接收线程返回的指针，然后针对线程调用函数<code>pthread_join</code>。可以同时监听多个线程。这样主线程会在监听函数执行完之后才继续往下执行，这里就会结束。</p>
+<p>完整的<code>main</code>函数如下：</p>
 <pre>
 #include &lt;stdio.h>
-#include &lt;string.h>
-#include &lt;errno.h>
 #include &lt;stdlib.h>
-#include &lt;sys/socket.h>
-#include &lt;arpa/inet.h>
-#include &lt;unistd.h>
-#include &lt;signal.h>
-
-
-//#include "chapter11/server.h"
-
-int listener_d;
-
-void error(char* msg)
-{
-    fprintf(stderr, "%s: %s\n", msg, strerror(errno));
-    exit(1);
-}
-int open_listener_socket()
-{
-    int s = socket(PF_INET, SOCK_STREAM, 0);
-    if (s == -1)
-        error("Can't open socket");
-    return s;
-}
-void bind_to_port(int socket, int port)
-{
-    struct sockaddr_in name;
-    name.sin_family = PF_INET;
-    name.sin_port = (in_port_t)htons(30000);
-    name.sin_addr.s_addr = htonl(INADDR_ANY);
-    int reuse = 1;
-    if (setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(int)) == -1)
-        error("Can't set the reuse option on the socket");
-    int c = bind (socket, (struct sockaddr *) &name, sizeof (name));
-    if (c == -1)
-        error("Can't bind to socket");
-}
-int say(int socket, char* s)
-{
-    int result = send(socket, s, strlen(s), 0);
-    if (result == -1)
-        fprintf(stderr, "%s: %s\n", "Error talking to the client", strerror(errno));
-    return result;
-}
-
-void handle_shutdown(int sig)
-{
-    if (listener_d)
-        close(listener_d);
-    fprintf(stderr, "Bye!\n");
-    exit(0);
-}
-
-int read_in(int socket, char *buf, int len)
-{
-    char *s = buf;
-    int slen = len;
-    int c = recv(socket, s, slen, 0);
-    while ((c > 0) && (s[c-1] != '\n')) {
-        s += c; slen -= c;
-        c = recv(socket, s, slen, 0);
-    }
-    if (c < 0)
-        return c;
-    else if (c == 0)
-        buf[0] = '\0';
-    else
-        s[c-1]='\0';
-    return len - slen;
-}
-
-int main(int argc, char* argv[])
-{
-    if (signal(SIGINT, handle_shutdown) == SIG_ERR)
-        error("Can't set the interrupt handler");
-    listener_d = open_listener_socket();
-    bind_to_port(listener_d, 30000);
-    if (listen(listener_d, 10) == -1)
-        error("Can't listen");
-    struct sockaddr_storage client_addr;
-    unsigned int address_size = sizeof client_addr;
-    puts("Waiting for connection");
-    char buf[255];
-    for(;;) {
-        int connect_d = accept(listener_d, (struct sockaddr *)&client_addr,
-                               &address_size);
-        if (connect_d == -1)
-            error("Can't open secondary socket");
-        if (say(connect_d,
-                "Internet Knock-Knock Protocol Server\r\nVersion 1.0\r\nKnock! Knock!\r\n> ")
-            != -1) {
-            read_in(connect_d, buf, sizeof(buf));
-            if (strncasecmp("Who's there?", buf, 12))
-                say(connect_d, "You should say 'Who's there?'!");
-            else {
-                if (say(connect_d, "Oscar\r\n> ") != -1) {
-                    read_in(connect_d, buf, sizeof(buf));
-                    if (strncasecmp("Oscar who?", buf, 10))
-                        say(connect_d, "You should say 'Oscar who?'!\r\n");
-                    else
-                        say(connect_d, "Oscar silly question, you get a silly answer\r\n");
-                }
-            }
-        }
-        close(connect_d);
-    }
-    return 0;
-}
-</pre>
-<p>除了套接字要反复使用之外，对套接字的设置，绑定端口，其中所使用的变量都无需设置为全局或者是main函数内的局部变量。</p>
-<p>反复使用的就是从accept的初始套接字，以及从此的来的用于通信的新套接字。</p>
-<p>这里由于把套接字的变量写成了全局变量，所以同一时刻只能有一个连接，连接排队为10。经过尝试也可以发现，同时开两个连接，只有一个会跳出输入提示符，关闭连接之后，另外一个才会连接成功。</p>
-<p>所以剩下的问题就是要解决给每个连接开启一个进程的问题了。</p>
-
-
-<h1 style="text-align: center;">为每个客户端开启进程</h1>
-<p>核心是主进程的套接字只有一个，而子进程的套接字每次就使用从accept中返回的来进行处理。</p>
-<p>核心的代码修改如下：</p>
-<pre>
-int main(int argc, char* argv[])
-{
-    if (signal(SIGINT, handle_shutdown) == SIG_ERR)
-        error("Can't set the interrupt handler");
-    listener_d = open_listener_socket();
-    bind_to_port(listener_d, 30000);
-    if (listen(listener_d, 10) == -1)
-        error("Can't listen");
-    struct sockaddr_storage client_addr;
-    unsigned int address_size = sizeof client_addr;
-    puts("Waiting for connection");
-    char buf[255];
-    for(;;) {
-        int connect_d = accept(listener_d, (struct sockaddr *)&client_addr,
-                               &address_size);
-        if (connect_d == -1)
-            error("Can't open secondary socket");
-
-        //这里fork一个子进程
-        //子进程执行完对话之后退出
-        <span style="color:red;">if(!fork()){</span>
-            <span style="color:red;">close(listener_d);</span>
-            if (say(connect_d,
-                    "Internet Knock-Knock Protocol Server\r\nVersion 1.0\r\nKnock! Knock!\r\n> ")
-                != -1) {
-                read_in(connect_d, buf, sizeof(buf));
-                if (strncasecmp("Who's there?", buf, 12))
-                    say(connect_d, "You should say 'Who's there?'!");
-                else {
-                    if (say(connect_d, "Oscar\r\n> ") != -1) {
-                        read_in(connect_d, buf, sizeof(buf));
-                        if (strncasecmp("Oscar who?", buf, 10))
-                            say(connect_d, "You should say 'Oscar who?'!\r\n");
-                        else
-                            say(connect_d, "Oscar silly question, you get a silly answer\r\n");
-                    }
-                }
-            }
-            <span style="color: red">close(connect_d);</span>
-            <span style="color: red">exit(0);</span>
-        }
-
-        //这是主进程，关闭子进程的连接，在下一个新循环里又重新初始化一个变量
-        close(connect_d);
-    }
-    return 0;
-}
-</pre>
-<p>只使用一次的全局套接字，变量可以定义为只有一个。而每次都要使用的新套接字，变量需要定义在循环内部，每次初始化。这么简单的道理才刚刚想明白。</p>
-<p>之后就可以同时多个连接了。</p>
-
-<h1 style="text-align: center;">简单的客户端</h1>
-<p>对于客户端，工作简化了一些，只需要两部就可以获取套接字：</p>
-<ol>
-    <li>创建套接字</li>
-    <li>连接至远程端口</li>
-</ol>
-<p>连接成功之后，就可以使用send()和recv()来发送和收取数据了。</p>
-
-
-<h3 style="text-align: center;">创建套接字</h3>
-<p>创建套接字有两种方法，一种是直接根据IP地址创建，一种是根据域名创建。</p>
-<p>先来看根据IP地址创建：</p>
-<pre>
-int s = socket(PF_INET, SOCK_STREAM, 0);
-
-struct sockaddr_in si;
-//memset用于清空结构对应的内存区域
-memset(&si, 0, sizeof(si));
-si.sin_family = PF_INET;
-si.sin_addr.s_addr = <span style="color: red">inet_addr("60.205.47.148");</span>
-si.sin_port = htons(<span style="color: red">80</span>);
-//与服务器套接字的bind函数不同，这里是connect函数
-connect(s, (struct sockaddr *) &si, sizeof(si));
-</pre>
-<p>根据域名来创建，则需要使用<code>getaddrinfo()</code>函数。</p>
-<pre>
-#include &lt;netdb.h>
-
-struct addrinfo *res;
-struct addrinfo hints;
-memset(&hints, 0, sizeof(hints));
-hints.ai_family = PF_UNSPEC;
-hints.ai_socktype = SOCK_STREAM;
-getaddrinfo("www.conyli.cc", "80", &hints, &res);
-
-int s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-connect(s, res->ai_addr, res->ai_addrlen);
-</pre>
-<p>由于名字资源在堆上创建，所以在使用完毕还必须释放内存：</p>
-<pre>
-freeaddrinfo(res);
-</pre>
-<p>这段样板代码没有看很懂到底是什么意思，估计<code>getaddrinfo</code>创建的名字资源的指针就是<code>res</code>。</p>
-
-
-<h3 style="text-align: center;">一个简单的HTTP客户端</h3>
-<p>知道了如何使用套接字，也将其包裹在函数里形成简便的操作，然后就可以来使用了。</p>
-<pre>
-#include &lt;stdio.h>
 #include &lt;string.h>
-#include &lt;errno.h>
-#include &lt;stdlib.h>
-#include &lt;sys/socket.h>
-#include &lt;arpa/inet.h>
 #include &lt;unistd.h>
-#include &lt;netdb.h>
+#include &lt;errno.h>
+#include &lt;pthread.h>
 
-void error(char* msg)
-{
-    fprintf(stderr, "%s: %s\n", msg, strerror(errno));
-    exit(1);
-}
-
-int open_socket(char *host, char *port)
-{
-    struct addrinfo *res;
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = PF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo(host, port, &hints, &res) == -1)
-        error("Can't resolve the address");
-    int d_sock = socket(res->ai_family, res->ai_socktype,
-                        res->ai_protocol);
-    if (d_sock == -1)
-        error("Can't open socket");
-    int c = connect(d_sock, res->ai_addr, res->ai_addrlen);
-    freeaddrinfo(res);
-    if (c == -1)
-        error("Can't connect to socket");
-    return d_sock;
-}
-
-
-int say(int socket, char* s)
-{
-    int result = send(socket, s, strlen(s), 0);
-    if (result == -1)
-        fprintf(stderr, "%s: %s\n", "Error talking to the server", strerror(errno));
-    return result;
-}
-</pre>
-<p>这其中只有一个open_socket函数是全新的，使用了域名连接。</p>
-<p>之后来可以来编写一个不断读入文件直到结束的简单客户端：</p>
-<pre>
 int main(int argc, char* argv[])
 {
-    int client_sock;
+    pthread_t thread0;
+    pthread_t thread1;
 
-    client_sock = open_socket("http://conyli.cc", "80");
-
-    char buf[255];
-
-    //HTTP协议的请求行
-    sprintf(buf, "GET /archives/%s http/1.1\\r\\n", argv[1]);
-    say(client_sock, buf);
-
-    //请求头的Host键值对
-    say(client_sock, "Host: www.conyli.cc");
-
-    char receive[256];
-
-    //先读取一次，然后不断重复读取，在最后加上\0当成字符串
-    int bytesReceived = recv(client_sock, receive, 255, 0);
-
-    while (bytesReceived) {
-        if (bytesReceived == -1) {
-            error("无法读取数据");
-        }
-
-        receive[bytesReceived] = '\0';
-        printf("%s", receive);
-        bytesReceived = recv(client_sock, receive, 255, 0);
+    //线程需要运行的函数传递给pthread_create
+    if (pthread_create(&thread0, NULL, overtime, NULL) == -1) {
+        error("can't create thread0");
+    }
+    if (pthread_create(&thread1, NULL, update_git, NULL) == -1) {
+        error("can't create thread1");
     }
 
-    close(client_sock);
+    //用一个变量接收线程函数返回的指针
+    void *result;
+
+    //pthread_join通过监听线程返回值的方式等待线程
+    if (pthread_join(thread0, &result) == -1)
+        error("无法回收线程t0");
+    if (pthread_join(thread1, &result) == -1)
+        error("无法收回线程t1");
 
     return 0;
-
 }
 </pre>
-<p>执行这个程序，后边加上文章编号，就可以从<code>http://www.conyli.cc/archives/编号</code>获取html代码。</p>
-<p>实际执行了一下：</p>
+<p>这段代码也只能在linux下编译，需要链接库：</p>
 <pre>
-[root@localhost clearn]# ./client 2861 >>index.html
+gcc main.c -o threads -lpthread
 </pre>
-<p>发现还成功下载了。客户端的套路就是用一个缓冲区，先读再循环判断，直到读完为止。</p>
-<p>这里注意参数有空格，需要替换成下划线，或者采用<a href="http://www.w3schools.com/tags/ref_urlencode.asp" target="_blank">urlencoded方式</a>。</p>
-<p>服务器里主要是很多样板代码中的参数意义不是很明白，简单的服务器本身的逻辑还算容易理解。</p>
-<p>系统编程现在开了个头，还是很多东西要探索啊。</p>
-
-
+<p>运行之后，可以看到两个线程的执行是乱序的。这也说明具体线程的执行顺序是不确定的。</p>
 
 
 
