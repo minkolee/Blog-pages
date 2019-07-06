@@ -109,18 +109,30 @@ gcc main.c -o threads -lpthread
 
 <h1 style="text-align: center;">老问题：线程间共享数据</h1>
 <p>线程就不像进程，fork的时候会复制全部的变量，然后彼此独立开来。线程依然在同一个进程内，共享同一个进程内的所有数据。</p>
-<p>这也就导致如果不加以控制，线程操作数据的结果无法预料。</p>
+<p>这也就导致如果不加以控制，线程操作数据的结果无法预料。最简单的不加锁的例子。</p>
+<p>奇怪的是自己写了个尝试多线程读取变量的程序，发现运行结果竟然相同。。。</p>
+<p>那就看加锁的情况吧：</p>
 <pre>
+//先初始化锁为不锁状态
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+//在进入锁的地方：
+if (pthread_mutex_lock(&mutex) != 0) {
+    perror("pthread_mutex_lock");
+    exit(EXIT_FAILURE);
+}
+
+//解锁
+if (pthread_mutex_unlock(&mutex) != 0) {
+    perror("pthread_mutex_unlock");
+    exit(EXIT_FAILURE);
+}
 </pre>
+<p>类似于锁的使用还有使用信号量，这个留待以后研究了。</p>
 
-
-
-
-
-
-
-
+<p>后边的给线程传递一个函数似乎不起作用，在linux下编译运行通不过去，报内存错误。</p>
+<p>估计问题主要还是出在指针和long类型的转换上。</p>
+<p>系统编程的时候再来看吧。</p>
 
 
 
