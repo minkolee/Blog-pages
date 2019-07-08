@@ -1,0 +1,695 @@
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport"
+          content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
+    <meta name="format-detection" content="telephone=no">
+    <title>程序员练级指南</title>
+    <style type="text/css">
+
+
+
+#watermark {
+
+  position: relative;
+  overflow: hidden;
+}
+
+#watermark .x {
+  position: absolute;
+  top: 800;
+  left: 400;
+  color: #3300ff;
+  font-size: 50px;
+  pointer-events: none;
+  opacity:0.5;
+  filter:Alpha(opacity=50);
+  -webkit-transform: rotate(45deg);
+  -moz-transform: rotate(45deg);
+}
+    </style>
+
+
+    <style type="text/css">
+ html{color:#333;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;text-rendering:optimizelegibility;font-family:Helvetica Neue,PingFang SC,Verdana,Microsoft Yahei,Hiragino Sans GB,Microsoft Sans Serif,WenQuanYi Micro Hei,sans-serif}html.borderbox *,html.borderbox :after,html.borderbox :before{box-sizing:border-box}article,aside,blockquote,body,button,code,dd,details,dl,dt,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,input,legend,li,menu,nav,ol,p,pre,section,td,textarea,th,ul{margin:0;padding:0}article,aside,details,figcaption,figure,footer,header,menu,nav,section{display:block}audio,canvas,video{display:inline-block}body,button,input,select,textarea{font:300 1em/1.8 PingFang SC,Lantinghei SC,Microsoft Yahei,Hiragino Sans GB,Microsoft Sans Serif,WenQuanYi Micro Hei,Helvetica,sans-serif}button::-moz-focus-inner,input::-moz-focus-inner{padding:0;border:0}table{border-collapse:collapse;border-spacing:0}fieldset,img{border:0}blockquote{position:relative;color:#999;font-weight:400;border-left:1px solid #1abc9c;padding-left:1em;margin:1em 3em 1em 2em}@media only screen and (max-width:640px){blockquote{margin:1em 0}}abbr,acronym{border-bottom:1px dotted;font-variant:normal}abbr{cursor:help}del{text-decoration:line-through}address,caption,cite,code,dfn,em,th,var{font-style:normal;font-weight:400}ol,ul{list-style:none}caption,th{text-align:left}q:after,q:before{content:""}sub,sup{font-size:75%;line-height:0;position:relative}:root sub,:root sup{vertical-align:baseline}sup{top:-.5em}sub{bottom:-.25em}a{color:#1abc9c}a:hover{text-decoration:underline}.typo a{border-bottom:1px solid #1abc9c}.typo a:hover{border-bottom-color:#555;color:#555}.typo a:hover,a,ins{text-decoration:none}.typo-u,u{text-decoration:underline}mark{background:#fffdd1;border-bottom:1px solid #ffedce;padding:2px;margin:0 5px}code,pre,pre tt{font-family:Courier,Courier New,monospace}pre{background:hsla(0,0%,97%,.7);border:1px solid #ddd;padding:1em 1.5em;display:block;-webkit-overflow-scrolling:touch}hr{border:none;border-bottom:1px solid #cfcfcf;margin-bottom:.8em;height:10px}.typo-small,figcaption,small{font-size:.9em;color:#888}b,strong{font-weight:700;color:#000}[draggable]{cursor:move}.clearfix:after,.clearfix:before{content:"";display:table}.clearfix:after{clear:both}.clearfix{zoom:1}.textwrap,.textwrap td,.textwrap th{word-wrap:break-word;word-break:break-all}.textwrap-table{table-layout:fixed}.serif{font-family:Palatino,Optima,Georgia,serif}.typo-dl,.typo-form,.typo-hr,.typo-ol,.typo-p,.typo-pre,.typo-table,.typo-ul,.typo dl,.typo form,.typo hr,.typo ol,.typo p,.typo pre,.typo table,.typo ul,blockquote{margin-bottom:1rem}h1,h2,h3,h4,h5,h6{font-family:PingFang SC,Helvetica Neue,Verdana,Microsoft Yahei,Hiragino Sans GB,Microsoft Sans Serif,WenQuanYi Micro Hei,sans-serif;color:#000;line-height:1.35}.typo-h1,.typo-h2,.typo-h3,.typo-h4,.typo-h5,.typo-h6,.typo h1,.typo h2,.typo h3,.typo h4,.typo h5,.typo h6{margin-top:1.2em;margin-bottom:.6em;line-height:1.35}.typo-h1,.typo h1{font-size:2em}.typo-h2,.typo h2{font-size:1.8em}.typo-h3,.typo h3{font-size:1.6em}.typo-h4,.typo h4{font-size:1.4em}.typo-h5,.typo-h6,.typo h5,.typo h6{font-size:1.2em}.typo-ul,.typo ul{margin-left:1.3em;list-style:disc}.typo-ol,.typo ol{list-style:decimal;margin-left:1.9em}.typo-ol ol,.typo-ol ul,.typo-ul ol,.typo-ul ul,.typo li ol,.typo li ul{margin-bottom:.8em;margin-left:2em}.typo-ol ul,.typo-ul ul,.typo li ul{list-style:circle}.typo-table td,.typo-table th,.typo table caption,.typo table td,.typo table th{border:1px solid #ddd;padding:.5em 1em;color:#666}.typo-table th,.typo table th{background:#fbfbfb}.typo-table thead th,.typo table thead th{background:hsla(0,0%,95%,.7)}.typo table caption{border-bottom:none}.typo-input,.typo-textarea{-webkit-appearance:none;border-radius:0}.typo-em,.typo em,caption,legend{color:#000;font-weight:inherit}.typo-em{position:relative}.typo-em:after{position:absolute;top:.65em;left:0;width:100%;overflow:hidden;white-space:nowrap;content:"\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB"}.typo img{max-width:100%}.common-content{font-weight:400;color:#353535;line-height:1.75rem;white-space:normal;word-break:normal;font-size:1rem}.common-content img{display:block;max-width:100%;background-color:#eee}.common-content audio,.common-content video{width:100%;background-color:#eee}.common-content center,.common-content font{margin-top:1rem;display:inline-block}.common-content center{width:100%}.common-content pre{margin-top:1rem;padding-left:0;padding-right:0;position:relative;overflow:hidden}.common-content pre code{font-size:.8rem;font-family:Consolas,Liberation Mono,Menlo,monospace,Courier;display:block;width:100%;box-sizing:border-box;padding-left:1rem;padding-right:1rem;overflow-x:auto}.common-content hr{border:none;margin-top:1.5rem;margin-bottom:1.5rem;border-top:1px solid #f5f5f5;height:1px;background:none}.common-content b,.common-content h1,.common-content h2,.common-content h3,.common-content h4,.common-content h5,.common-content strong{font-weight:700}.common-content h1,.common-content h2{font-size:1.125rem;margin-bottom:.45rem}.common-content h3,.common-content h4,.common-content h5{font-size:1rem;margin-bottom:.45rem}.common-content p{font-weight:400;color:#353535;margin-top:.15rem}.common-content .orange{color:#ff5a05}.common-content .reference{font-size:1rem;color:#888}.custom-rich-content h1{margin-top:0;font-weight:400;font-size:15.25px;border-bottom:1px solid #eee;line-height:2.8}.custom-rich-content li,.custom-rich-content p{font-size:14px;color:#888;line-height:1.6}table.hljs-ln{margin-bottom:0;border-spacing:0;border-collapse:collapse}table.hljs-ln,table.hljs-ln tbody,table.hljs-ln td,table.hljs-ln tr{box-sizing:border-box}table.hljs-ln td{padding:0;border:0}table.hljs-ln td.hljs-ln-numbers{min-width:15px;color:rgba(27,31,35,.3);text-align:right;white-space:nowrap;cursor:pointer;user-select:none}table.hljs-ln td.hljs-ln-code,table.hljs-ln td.hljs-ln-numbers{font-family:SFMono-Regular,Consolas,Liberation Mono,Menlo,Courier,monospace;font-size:12px;line-height:20px;vertical-align:top}table.hljs-ln td.hljs-ln-code{position:relative;padding-right:10px;padding-left:10px;overflow:visible;color:#24292e;word-wrap:normal;white-space:pre}video::-webkit-media-controls{overflow:hidden!important}video::-webkit-media-controls-enclosure{width:calc(100% + 32px);margin-left:auto}.button-cancel{color:#888;border:1px solid #888;border-radius:3px;margin-right:12px}.button-cancel,.button-primary{-ms-flex-positive:1;flex-grow:1;height:35px;display:inline-block;font-size:15px;text-align:center;line-height:36px}.button-primary{color:#fff;background-color:#ff5a05;border-radius:3px}@font-face{font-family:iconfont;src:url(//at.alicdn.com/t/font_372689_bwwwtosxtzp.eot);src:url(//at.alicdn.com/t/font_372689_bwwwtosxtzp.eot#iefix) format("embedded-opentype"),url(//at.alicdn.com/t/font_372689_bwwwtosxtzp.woff) format("woff"),url(//at.alicdn.com/t/font_372689_bwwwtosxtzp.ttf) format("truetype"),url(//at.alicdn.com/t/font_372689_bwwwtosxtzp.svg#iconfont) format("svg")}@font-face{font-family:player-font;src:url(//at.alicdn.com/t/font_509397_1cyjv4o90qiod2t9.eot);src:url(//at.alicdn.com/t/font_509397_1cyjv4o90qiod2t9.eot#iefix) format("embedded-opentype"),url(//at.alicdn.com/t/font_509397_1cyjv4o90qiod2t9.woff) format("woff"),url(//at.alicdn.com/t/font_509397_1cyjv4o90qiod2t9.ttf) format("truetype"),url(//at.alicdn.com/t/font_509397_1cyjv4o90qiod2t9.svg#player-font) format("svg")}.iconfont{font-family:iconfont!important;font-size:16px;font-style:normal;-webkit-font-smoothing:antialiased;-webkit-text-stroke-width:.2px;-moz-osx-font-smoothing:grayscale}html{background:#fff;min-height:100%;-webkit-tap-highlight-color:rgba(0,0,0,0)}body{width:100%}body.fixed{overflow:hidden;position:fixed;width:100vw;height:100vh}i{font-style:normal}a{word-wrap:break-word;-webkit-tap-highlight-color:rgba(0,0,0,0)}a:hover{text-decoration:none}.fade-enter-active,.fade-leave-active{transition:opacity .3s}.fade-enter,.fade-leave-to{opacity:0}.MathJax,.MathJax_CHTML,.MathJax_MathContainer,.MathJax_MathML,.MathJax_PHTML,.MathJax_PlainSource,.MathJax_SVG{outline:0}.ios-app-switch .js-audit{display:none}._loading_wrap_{position:fixed;width:100vw;height:100vh;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999}._loading_div_class_,._loading_wrap_{display:-ms-flexbox;display:flex;-ms-flex-pack:center;justify-content:center;-ms-flex-align:center;align-items:center}._loading_div_class_{word-wrap:break-word;padding:.5rem .75rem;text-align:center;z-index:9999;font-size:.6rem;max-width:60%;color:#fff;border-radius:.25rem;-ms-flex-direction:column;flex-direction:column}._loading_div_class_ .message{color:#353535;font-size:16px;line-height:3}.spinner{animation:circle-rotator 1.4s linear infinite}.spinner *{line-height:0;box-sizing:border-box}@keyframes circle-rotator{0%{transform:rotate(0deg)}to{transform:rotate(270deg)}}.path{stroke-dasharray:187;stroke-dashoffset:0;transform-origin:center;animation:circle-dash 1.4s ease-in-out infinite,circle-colors 5.6s ease-in-out infinite}@keyframes circle-colors{0%{stroke:#ff5a05}to{stroke:#ff5a05}}@keyframes circle-dash{0%{stroke-dashoffset:187}50%{stroke-dashoffset:46.75;transform:rotate(135deg)}to{stroke-dashoffset:187;transform:rotate(450deg)}}.confirm-box-wrapper,.confirm-box-wrapper .mask{position:absolute;top:0;left:0;right:0;bottom:0}.confirm-box-wrapper .mask{background:rgba(0,0,0,.6)}.confirm-box-wrapper .confirm-box{position:fixed;top:50%;left:50%;width:267px;background:#fff;transform:translate(-50%,-50%);border-radius:7px}.confirm-box-wrapper .confirm-box .head{margin:0 18px;font-size:18px;text-align:center;line-height:65px;border-bottom:1px solid #d9d9d9}.confirm-box-wrapper .confirm-box .body{padding:18px;padding-bottom:0;color:#353535;font-size:12.5px;max-height:150px;overflow:auto}.confirm-box-wrapper .confirm-box .foot{display:-ms-flexbox;display:flex;-ms-flex-direction:row;flex-direction:row;padding:18px}.confirm-box-wrapper .confirm-box .foot .button-cancel{border:1px solid #d9d9d9}.hljs{display:block;overflow-x:auto;padding:.5em;color:#333;background:#f8f8f8}.hljs-comment,.hljs-quote{color:#998;font-style:italic}.hljs-keyword,.hljs-selector-tag,.hljs-subst{color:#333;font-weight:700}.hljs-literal,.hljs-number,.hljs-tag .hljs-attr,.hljs-template-variable,.hljs-variable{color:teal}.hljs-doctag,.hljs-string{color:#d14}.hljs-section,.hljs-selector-id,.hljs-title{color:#900;font-weight:700}.hljs-subst{font-weight:400}.hljs-class .hljs-title,.hljs-type{color:#458;font-weight:700}.hljs-attribute,.hljs-name,.hljs-tag{color:navy;font-weight:400}.hljs-link,.hljs-regexp{color:#009926}.hljs-bullet,.hljs-symbol{color:#990073}.hljs-built_in,.hljs-builtin-name{color:#0086b3}.hljs-meta{color:#999;font-weight:700}.hljs-deletion{background:#fdd}.hljs-addition{background:#dfd}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}
+
+
+
+
+    </style>
+    <style type="text/css">
+        .button-cancel[data-v-87ffcada]{color:#888;border:1px solid #888;border-radius:3px;margin-right:12px}.button-cancel[data-v-87ffcada],.button-primary[data-v-87ffcada]{-webkit-box-flex:1;-ms-flex-positive:1;flex-grow:1;height:35px;display:inline-block;font-size:15px;text-align:center;line-height:36px}.button-primary[data-v-87ffcada]{color:#fff;background-color:#ff5a05;border-radius:3px}.pd[data-v-87ffcada]{padding-left:1.375rem;padding-right:1.375rem}.article[data-v-87ffcada]{max-width:70rem;margin:0 auto}.article .article-unavailable[data-v-87ffcada]{color:#fa8919;font-size:15px;font-weight:600;line-height:24px;border-radius:5px;padding:12px;background-color:#f6f7fb;margin-top:20px}.article .article-unavailable .iconfont[data-v-87ffcada]{font-size:12px}.article .main[data-v-87ffcada]{padding:1.25rem 0;margin-bottom:52px}.article-title[data-v-87ffcada]{color:#353535;font-weight:400;line-height:1.65rem;font-size:1.34375rem}.article-info[data-v-87ffcada]{color:#888;font-size:.9375rem;margin-top:1.0625rem}.article-content[data-v-87ffcada]{margin-top:1.0625rem}.article-content.android video[data-v-87ffcada]::-webkit-media-controls-fullscreen-button{display:none}.copyright[data-v-87ffcada]{color:#b2b2b2;padding-bottom:20px;margin-top:20px;font-size:13px}.audio-player[data-v-87ffcada]{width:100%;margin:20px 0}.to-comment[data-v-87ffcada]{overflow:hidden;padding-top:10px;margin-bottom:-30px}.to-comment a.button-primary[data-v-87ffcada]{float:right;height:20px;font-size:12px;line-height:20px;padding:4px 8px;cursor:pointer}.article-comments[data-v-87ffcada]{margin-top:2rem}.article-comments h2[data-v-87ffcada]{text-align:center;color:#888;position:relative;z-index:1;margin-bottom:1rem}.article-comments h2[data-v-87ffcada]:before{border-top:1px dotted #888;content:"";position:absolute;top:56%;left:0;width:100%;z-index:-1}.article-comments h2 span[data-v-87ffcada]{font-size:15.25px;font-weight:400;padding:0 1rem;background:#fff;display:inline-block}.article-sub-bottom[data-v-87ffcada]{z-index:10;cursor:pointer}.switch-btns[data-v-87ffcada]{height:76px;cursor:pointer;padding-top:24px;padding-bottom:24px;border-bottom:10px solid #f6f7fb;position:relative}.switch-btns[data-v-87ffcada]:before{content:" ";height:1px;background:#e8e8e8;position:absolute;top:0;left:0;-webkit-box-sizing:border-box;box-sizing:border-box;left:1.375rem;right:1.375rem}.switch-btns .btn[data-v-87ffcada]{height:38px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center}.switch-btns .btn .tag[data-v-87ffcada]{-webkit-box-flex:0;-ms-flex:0 0 62px;flex:0 0 62px;text-align:center;color:#888;font-size:14px;border-radius:10px;height:22px;line-height:22px;background:#f6f7fb;font-weight:400}.switch-btns .btn .txt[data-v-87ffcada]{margin-left:10px;-webkit-box-flex:1;-ms-flex:1 1 auto;flex:1 1 auto;color:#888;font-size:15px;height:22px;line-height:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400}@media (max-width:769px){.article .breadcrumb[data-v-87ffcada]{padding-top:10px;padding-bottom:10px}}
+
+
+
+
+
+    </style>
+
+    <style type="text/css">
+        .comment-item{list-style-position:inside;width:100%;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:horizontal;-webkit-box-direction:normal;-ms-flex-direction:row;flex-direction:row;margin-bottom:1rem}.comment-item a{border-bottom:none}.comment-item .avatar{width:2.625rem;height:2.625rem;-ms-flex-negative:0;flex-shrink:0;border-radius:50%}.comment-item .info{margin-left:.5rem;-webkit-box-flex:1;-ms-flex-positive:1;flex-grow:1}.comment-item .info .hd{width:100%;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:horizontal;-webkit-box-direction:normal;-ms-flex-direction:row;flex-direction:row;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center}.comment-item .info .hd .username{color:#888;font-size:15.25px;font-weight:400;line-height:1.2}.comment-item .info .hd .control{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:horizontal;-webkit-box-direction:normal;-ms-flex-direction:row;flex-direction:row;-webkit-box-align:center;-ms-flex-align:center;align-items:center}.comment-item .info .hd .control .btn-share{color:#888;font-size:.75rem;margin-right:1rem}.comment-item .info .hd .control .btn-praise{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:horizontal;-webkit-box-direction:normal;-ms-flex-direction:row;flex-direction:row;-webkit-box-align:center;-ms-flex-align:center;align-items:center;font-size:15.25px;text-decoration:none}.comment-item .info .hd .control .btn-praise i{color:#888;display:inline-block;font-size:.75rem;margin-right:.3rem;margin-top:-.01rem}.comment-item .info .hd .control .btn-praise i.on,.comment-item .info .hd .control .btn-praise span{color:#ff5a05}.comment-item .info .bd{color:#353535;font-size:15.25px;font-weight:400;white-space:normal;word-break:break-all;line-height:1.6}.comment-item .info .time{color:#888;font-size:9px;line-height:1}.comment-item .info .reply .reply-hd{font-size:15.25px}.comment-item .info .reply .reply-hd span{margin-left:-12px;color:#888;font-weight:400}.comment-item .info .reply .reply-hd i{color:#ff5a05;font-size:15.25px}.comment-item .info .reply .reply-content{color:#353535;font-size:15.25px;font-weight:400;white-space:normal;word-break:break-all}.comment-item .info .reply .reply-time{color:#888;font-size:9px}
+
+
+
+
+    </style>
+
+    <style>
+
+        .myheader a {
+            display: inline-block;
+            float: left;
+            width: 25%;
+            text-align: center;
+        }
+
+        .myheader::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+    </style>
+</head>
+<body>
+<div class="myheader">
+    <a href="http://conyli.cc/pro1.html">程序员修养</a>
+    <a href="http://conyli.cc/pro2.html">编程语言</a>
+    <a href="http://conyli.cc/pro3.html">理论学科</a>
+    <a href="http://conyli.cc/pro4.html">系统知识</a>
+</div>
+<div id="app">
+    <div data-v-87ffcada="" class="article" id="watermark">
+        <div data-v-87ffcada="" class="main main-app">
+            <h1 data-v-87ffcada="" class="article-title pd">
+                72讲程序员练级攻略（2018）：程序员修养
+            </h1>
+            <div data-v-87ffcada="" class="article-content typo common-content pd"><img data-v-87ffcada=""
+                                                                                        src="https://static001.geekbang.org/resource/image/e5/82/e58ba9b3fff815cac4ece87461545682.jpg">
+
+
+                <div data-v-87ffcada="" id="article-content" class="">
+                    <div class="text">
+                        <p>在完成上述的入门知识学习之后，我们要向专业的计算机软件开发进军了。但是在学习那些专业的知识前，我们先要抽一部分的篇幅来说一下程序员的修养。这是程序员的工程师文化，也就是程序员的价值观，因为如果你的技术修养不够的话，你学再多的知识也是没有用的。</p>
+<p>要了解程序员的修养，你可以先从Quora上的这个贴子开始 “<a href="https://www.quora.com/What-are-some-of-the-most-basic-things-every-programmer-should-know">What are some of the most basic things every programmer should know?</a>”，我摘录一些在这里供你参考。</p>
+<ul>
+<li>Bad architecture causes more problems than bad code.</li>
+<li>You will spend more time thinking than coding.</li>
+<li>The best programmers are always building things.</li>
+<li>There’s always a better way.</li>
+<li>Code reviews by your peers will make all of you better.</li>
+<li>Fewer features for better code is always the right answer in the end.</li>
+<li>If it’s not tested, it doesn’t work.</li>
+<li>Don’t reinvent the wheel, library code is there to help.</li>
+<li>Code that’s hard to understand is hard to maintain.</li>
+<li>Code that’s hard to maintain is next to useless.</li>
+<li>Always know how your business makes money, that determines who gets paid what.</li>
+<li>If you want to feel important as a software developer, work at a tech company.</li>
+</ul>
+<p>然后是 《<a href="https://97-things-every-x-should-know.gitbooks.io/97-things-every-programmer-should-know/content/en/index.html">97 Things Every Programmer Should Know</a>》，其中有97个非常不错的编程方面的建议。这篇文章是比较经典的，别被&quot;97&quot;吓住，你可以快速浏览一下，会让你有不同的感觉的。另外，在工作一段时间后再来读，你会更有感觉。</p>
+<h1>英文能力</h1>
+<p>必须指出，再往下走，有一个技能非常重要，那就是英文。如果对这个技能发怵的话，那么你可能无缘成为一个程序员高手了。因为我们所有的计算机技术全部来自于西方国家，所以如果你要想成为一个高手的话，那么必须到信息的源头去。英文的世界真是有价值的信息的集散地。你可以在那里，到官网上直接阅读手册，到StackOverflow上问问题，到YouTube上看很多演讲和教学，到GitHub上参与社区，用Google查询相关的知识，到国际名校上参加公开课……</p>
+<p>如果你的英文能力有问题的话，那么基本上来说，你无法成为一个高手。因此，学好英文是非常有必要的，我说的不只是读写，还有听和说。相信你在学校里学过英文，有一定的基础。所以，我给你下面的这些建议。</p>
+<!-- [[[read_end]]] -->
+<ol>
+<li>
+<p>坚持Google英文关键词，而不是在Google里搜中文。</p>
+</li>
+<li>
+<p>在GitHub上只用英文。用英文写代码注释，写Code Commit信息，用英文写Issue和Pull Request，以及用英文写Wiki。</p>
+</li>
+<li>
+<p>坚持到YouTube上每天看5分钟的视频。YouTube上有相关的机器字幕，实在不行就打开字幕。</p>
+</li>
+<li>
+<p>坚持用英文词典而不是中文的。比如：<a href="https://dictionary.cambridge.org/">剑桥英语词典</a> 或是 <a href="http://www.dictionary.com/">Dictionary.com</a> 。你可以安装一个Chrome插件 <a href="https://chrome.google.com/webstore/detail/google-dictionary-by-goog/mgijmajocgfcbeboacabfgobmjgjcoja">Google Dictionary</a>。</p>
+</li>
+<li>
+<p>坚持用英文的教材而不是中文的。比如：<a href="http://www.bbc.co.uk/learningenglish/">BBC 的 Learning English</a> ，或是到一些ESL网站上看看，如 <a href="https://www.rong-chang.com/">ESL: English as a Second Language</a> 上有一些课程。</p>
+</li>
+<li>
+<p>花钱参加一些线上的英文课程，用视频和老外练习。</p>
+</li>
+</ol>
+<h1>问问题的能力</h1>
+<p>提问的智慧（<a href="http://www.catb.org/~esr/faqs/smart-questions.html">How To Ask Questions The Smart Way</a>）一文最早是由Eric Steven Raymond所撰写的，详细描述了发问者事前应该做好什么，而什么又是不该做的。作者认为这样能让问题容易令人理解，而且发问者自己也能学到较多东西。</p>
+<p>此文一经发出，就广受好评，被广泛转载并奉为经典。该文也有 <a href="http://doc.zengrong.net/smart-questions/cn.html">简体中文翻译版</a> 被流传着，所以在华人界也是篇很有名的文章。有两个著名的缩写STFW（Search the fxxking web）以及RTFM（Read the fxxking manual）就是出自本文。</p>
+<p>另外，还有一个经典的问题叫 <a href="http://xyproblem.info/">X-Y Problem</a>。对我来说，这是一个很容易犯的错误，所以，你也要小心避免（我曾经在我的Coolshell上写过这个事《<a href="https://coolshell.cn/articles/10804.html">X-Y问题</a>》）。</p>
+<p>然后，你可以到StackOverflow上看看如何问问题的一些提示-- “<a href="https://meta.stackexchange.com/questions/7931/faq-for-stack-exchange-sites">FAQ for StackExchange Site</a>”。</p>
+<p>作为一个程序员，不做伸手党，你必须要读一读这几篇文章，并努力践行。</p>
+<h1>写代码的修养</h1>
+<p>除了《代码大全》外，你还需要补充一些如何写好代码的知识，有以下几本书推荐。</p>
+<ul>
+<li>
+<p>《<a href="https://book.douban.com/subject/4262627/">重构：改善既有代码的设计</a>》，这本书是Martin Fowler的经典之作。这本书的意义不仅仅在于&quot;改善既有代码的设计&quot;，也指导了我们如何从零开始构建代码的时候避免不良的代码风格。这是一本程序员必读的书。</p>
+</li>
+<li>
+<p>《<a href="https://book.douban.com/subject/2248759/">修改代码的艺术</a>》，这本书是继《重构》之后探讨修改代码技术的又一里程碑式的著作，而且从涵盖面和深度上都超过了前两部经典（《代码大全》和《重构》）。作者将理解、测试和修改代码的原理、技术和最新工具（自动化重构工具、单元测试框架、仿对象、集成测试框架等），与解依赖技术和大量开发和设计优秀代码的原则、最佳实践相结合，许多内容非常深入。这本书可以让你不仅能掌握最顶尖的修改代码技术，还可以大大提高对代码和软件开发的领悟力。</p>
+</li>
+<li>
+<p>《<a href="https://book.douban.com/subject/4199741/">代码整洁之道</a>》，这本书提出一种观念：代码质量与其整洁度成正比。干净的代码，既在质量上较为可靠，也为后期维护和升级奠定了良好基础。本书作者给出了一系列行之有效的整洁代码操作实践。这些实践在本书中体现为一条条规则（或称&quot;启示&quot;），并辅以来自现实项目正反两面的范例。</p>
+</li>
+<li>
+<p>《<a href="https://book.douban.com/subject/11614538/">程序员的职业素养</a>》，这本书是编程大师Bob大叔40余年编程生涯的心得体会，讲解成为真正专业的程序员需要什么样的态度、原则，需要采取什么样的行动。作者以自己以及身边的同事走过的弯路、犯过的错误为例，意在为后来人引路，助其职业生涯迈上更高台阶。</p>
+</li>
+</ul>
+<p>另外，作为一个程序员，Code Review是非常重要的程序员修养。 Code Review对我的成长非常有帮助，我认为没有Code Review的公司都没有必要呆（因为不做Code Review的公司一定是不尊重技术的）。下面有几篇我觉得还不错的Code Review的文章，供你参考。</p>
+<ul>
+<li><a href="https://medium.com/@palantir/code-review-best-practices-19e02780015f">Code Review Best Practices</a></li>
+<li><a href="https://dzone.com/articles/how-google-does-code-review">How Google Does Code Review</a></li>
+<li><a href="https://thenewstack.io/linkedin-code-review/">LinkedIn’s Tips for Highly Effective Code Review</a></li>
+</ul>
+<p>除了Code Review之外，Unit Test也是程序员的一个很重要的修养。写Unit Test的框架一般来说都是从JUnit衍生出来的，比如CppUnit之类的。学习JUnit使用的最好方式就是到其官网上看 <a href="https://junit.org/junit5/docs/current/user-guide/">JUnit User Guide</a>（<a href="http://sjyuan.cc/junit5/user-guide-cn/">中文版</a>）。然后，有几篇文章你可以看看（也可以自行Google）：</p>
+<ul>
+<li><a href="https://stackify.com/unit-testing-basics-best-practices/">You Still Don’t Know How to Do Unit Testing</a></li>
+<li><a href="https://dzone.com/articles/unit-testing-best-practices">Unit Testing Best Practices: JUnit Reference Guide</a></li>
+<li><a href="http://www.kyleblaney.com/junit-best-practices/">JUnit Best Practices</a></li>
+</ul>
+<h1>安全防范</h1>
+<p>在代码中没有最基本的安全漏洞问题，也是我们程序员必须要保证的重要大事，尤其是对外暴露Web服务的软件，其安全性就更为重要了。对于在Web上经常出现的安全问题，有必要介绍一下 <a href="https://www.owasp.org/index.php/Main_Page">OWASP -  Open Web Application Security Project</a>。</p>
+<p>OWASP是一个开源的、非盈利的全球性安全组织，致力于应用软件的安全研究。其被视为Web应用安全领域的权威参考。2009年，国际信用卡数据安全技术PCI标准将其列为必要组件，美国国防信息系统局、欧洲网络与信息安全局、美国国家安全局等政府机构所发布的美国国家和国际立法、标准、准则和行业实务守则参考引用了OWASP。</p>
+<p>美国联邦贸易委员会（FTC）强烈建议所有企业需遵循OWASP十大Web弱点防护守则。所以，对于<a href="<a href="https://www.owasp.org/index.php/Category:OWASP_T">https://www.owasp.org/index.php/Category:OWASP_T</a> op_Ten_Project">OWASP Top 10项目</a> 是程序员非常需要关注的最基本的也是最严重的安全问题，现在其已经成了一种标准，这里是其中文版《<a href="https://www.owasp.org/images/d/dc/OWASP_Top_10_2017_%E4%B8%AD%E6%96%87%E7%89%88v1.3.pdf">OWASP Top 10 2017 PDF 中文版</a>》。</p>
+<p>下面是安全编程方面的一些Guideline。</p>
+<ul>
+<li><a href="https://security.berkeley.edu/secure-coding-practice-guidelines">伯克立大学的Secure Coding Practice Guidelines</a>。</li>
+<li><a href="https://wiki.sei.cmu.edu/confluence/display/seccode/SEI+CERT+Coding+Standards">卡内基梅隆大学的 SEI CERT Coding Standards</a>。</li>
+</ul>
+<p>此外，有一篇和HTTP相关的安全文章也是每个程序员必须要读的——《<a href="https://www.keycdn.com/blog/http-security-headers/">Hardening Your HTTP Security Headers</a>》。</p>
+<p>最后想说的是&quot;防御性编程&quot;，英文叫<a href="https://en.wikipedia.org/wiki/Defensive_programming">Defensive Programming</a>，它是为了保证对程序的不可预见的使用，不会造成程序功能上的损坏。它可以被看作是为了减少或消除墨菲定律效力的想法。防御式编程主要用于可能被滥用，恶作剧或无意地造成灾难性影响的程序上。下面是一些文章。</p>
+<ul>
+<li><a href="https://medium.com/web-engineering-vox/the-art-of-defensive-programming-6789a9743ed4">The Art of Defensive Programming</a>。</li>
+<li>当然，也别太过渡了，这篇文章可以看看，<a href="https://medium.com/@cvitullo/overly-defensive-programming-e7a1b3d234c2">Overly defensive programming</a>。</li>
+</ul>
+<h1>软件工程和上线</h1>
+<p>系统上线是一件比较严肃的事，这表明你写的软件不是跑在自己的机器上的玩具，或是实验室里的实验品，而是交互给用户使用的，甚至是用户付费的软件。对于这样的软件或系统，我们需要遵守一些上线规范，比如，需要认真测试，并做上线前检查，以及上线后监控。下面是几个简单的规范，供你参考。</p>
+<ul>
+<li>
+<p>关于测试，推荐两本书。</p>
+<ul>
+<li>
+<p>《<a href="https://book.douban.com/subject/4187479/">完美软件：对软件测试的各种幻想</a>》，这本书重点讨论了与软件测试有关的各种心理问题及其表现与应对方法。作者首先阐述软件测试之所以如此困难的原因–人的思维不是完美的，而软件测试的最终目的就是发现对改善软件产品和软件开发过程有益的信息，故软件测试是一个信息获取的过程。</p>
+</li>
+<li>
+<p>《<a href="https://book.douban.com/subject/25742200/">Google软件测试之道</a>》，描述了测试解决方案，揭示了测试架构是如何设计、实现和运行的，介绍了软件测试工程师的角色；讲解了技术测试人员应该具有的技术技能；阐述了测试工程师在产品生命周期中的职责；讲述了测试管理，并对在Google的测试历史上或者主要产品上发挥了重要作用的工程师的访谈，这令那些试图建立类似Google的测试流程或团队的人受益很大。</p>
+</li>
+</ul>
+</li>
+<li>
+<p>当你的系统要上线时，你是不是已经做好上线的准备了？这里有两个Checklist供你做上线前的一些检查。</p>
+<ul>
+<li><a href="https://github.com/mtdvio/going-to-production/blob/master/serverside-checklist.md">Server Side checklist</a></li>
+<li><a href="https://github.com/mtdvio/going-to-production/blob/master/spa-checklist.md">Single Page App Checklist</a></li>
+</ul>
+</li>
+<li>
+<p>《<a href="https://www.datadoghq.com/blog/monitoring-101-collecting-data/">Monitoring 101</a>》这是一篇运维方面的入门文章，告诉你最基本的监控线上运行软件的方法和实践。</p>
+</li>
+</ul>
+<h1>小结</h1>
+<p>好了，总结一下今天分享的主要内容。程序员修养看似与程序员练级关系不大，实际上却能反映出程序员的工程师特质和价值观，决定了这条路你到底能走多远。<strong>有修养的程序员才可能成长为真正的工程师和架构师，而没有修养的程序员只能沦为码农</strong>。</p>
+<p>因此，在这篇文章中，我指出了我认为比较重要的几个方面：英文能力、问问题的能力、写代码的修养、安全防范意识、软件工程和上线规范等。这些能力的训练和培养将为后续的学习和发展夯实基础。</p>
+<h1>附录：编程规范</h1>
+<p>我们在写代码时，最好参考一些已有的最佳实践。为什么要有编程规范和最佳实践，要让所有人按一定的规范来编程呢？有下面几个主要原因。</p>
+<ul>
+<li>可以让你的代码很规整，这有利于代码易读性，从而可以更容易地维护。</li>
+<li>提升开发效率，我们知道，效率来自于结构化，而不是杂乱。</li>
+<li>可以让你的软件避免一些容易掉坑的陷阱，也让Bug更少，质量更高。</li>
+<li>可以让团队成员更高效率地协作。</li>
+</ul>
+<p>如果一个程序员没有这类规范和最佳实践的沉淀，那么是很难成为真正的程序员的，只能沦为码农。</p>
+<p>当然，对于一些代码风格方面的东西，比如左大括号是否要换行，缩进是用tab还是空格等等，我觉得没有对错，只要团队统一就好了。</p>
+<p>下面，我罗列了一堆各种语言的编程规范，供你参考。</p>
+<h2>编程语言相关</h2>
+<p><strong>C语言</strong></p>
+<ul>
+<li><a href="http://homepages.inf.ed.ac.uk/dts/pm/Papers/nasa-c-style.pdf">NASA C Style</a>。</li>
+<li><a href="https://users.ece.cmu.edu/~eno/coding/CCodingStandard.html">C Coding Standard</a>。</li>
+<li><a href="https://en.wikibooks.org/wiki/C_Programming/Structure_and_style">C Programming/Structure and style</a>。</li>
+<li><a href="https://www.kernel.org/doc/html/latest/process/coding-style.html">Linux kernel coding style</a>。</li>
+<li><a href="https://www.gnu.org/prep/standards/html_node/Writing-C.html">GNU Coding Standard</a>，GNU的编码规范。</li>
+</ul>
+<p><strong>C++语言</strong></p>
+<ul>
+<li><a href="http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines">C++ Core Guidelines</a>，这个文档是各种C++的大拿包括原作者在内在持续讨论更新的和C++语言相关的各种最佳实践。</li>
+<li><a href="https://google.github.io/styleguide/cppguide.html">Google C++ Style Guide</a>。</li>
+</ul>
+<p><strong>Go语言</strong></p>
+<ul>
+<li><a href="https://golang.org/doc/effective_go.html">Effective Go</a> ，Go的语法不复杂，所以，Go语言的最佳实践只需要看这篇官方文档就够了。</li>
+</ul>
+<p><strong>Java语言</strong></p>
+<ul>
+<li><a href="http://www.oracle.com/technetwork/java/codeconvtoc-136057.html">Code Conventions for the Java™ Programming Language</a> ，Java官方的编程规范。</li>
+<li><a href="https://google.github.io/styleguide/javaguide.html">Google Java Style Guide</a>，Google的Java编码规范。</li>
+</ul>
+<p><strong>JavaScript语言</strong></p>
+<ul>
+<li><a href="http://jstherightway.org">JavaScript The Right Way</a> ，一个相对比较容读的JavaScript编程规范，其中不但有代码规范，还有设计模式，测试工具，编程框架，游戏引擎……</li>
+<li><a href="https://google.github.io/styleguide/jsguide.html">Google JavaScript Style Guide</a>，Google公司的JavaScript的编码规范，一个非常大而全的编程规范。</li>
+<li><a href="https://github.com/airbnb/javascript">Airbnb JavaScript Style Guide</a>，Airbnb的JavaScript编程规范。没Google的这么大而全，但是也很丰富了。</li>
+<li><a href="http://contribute.jquery.org/style-guide/js/">jQuery Core Style Guide</a>，jQuery的代码规范。</li>
+<li><a href="https://github.com/ryanmcdermott/clean-code-javascript">JavaScript Clean Code</a>，前面推荐过的《代码整洁之道》一书中的JavaScript的实践 。</li>
+</ul>
+<p>还有一些其它相对比较简单的JavaScript编程规范。</p>
+<ul>
+<li><a href="https://addyosmani.com/blog/javascript-style-guides-and-beautifiers/">JavaScript Style Guides And Beautifiers</a> ，这是一篇推荐JavaScript编程规范的文章，你可以看看。</li>
+<li><a href="https://www.w3schools.com/js/js_conventions.asp">JavaScript Style Guide and Coding Conventions</a>，这是W3Schools的JavaScript。</li>
+<li><a href="http://crockford.com/javascript/code.html">Code Conventions for the JavaScript</a>。</li>
+</ul>
+<p><strong>PHP语言</strong></p>
+<ul>
+<li><a href="http://www.php-fig.org/psr/">PHP FIG</a>，PHP编码规范及标准推荐。</li>
+<li><a href="http://www.phptherightway.com">PHP The Right Way</a>，除了编码规范之外的各种PHP的最佳实践，还包括一些设计模式，安全问题，以及服务部署，Docker虚拟化以及各种资源。</li>
+<li><a href="https://github.com/jupeter/clean-code-php">Clean Code PHP</a>，《代码整洁之道》的PHP实践。</li>
+</ul>
+<p><strong>Python语言</strong></p>
+<ul>
+<li><a href="https://www.python.org/dev/peps/pep-0008/">Style Guide for Python Code</a>，Python官方的编程码规范。</li>
+<li><a href="https://google.github.io/styleguide/pyguide.html">Google Python Style Guide</a>，Google公司的Python编码规范。</li>
+<li><a href="http://docs.python-guide.org/en/latest/">The Hitchhiker’s Guide to Python</a>，这不只是Python的编程规范，还是Python资源的集散地，强烈推荐。</li>
+</ul>
+<p><strong>Ruby语言</strong></p>
+<ul>
+<li><a href="https://github.com/airbnb/ruby">Ruby Style Guide</a>，Airbnb公司的Ruby编程规范。</li>
+<li><a href="https://github.com/bbatsov/ruby-style-guide">Ruby Style Guide</a> 。</li>
+</ul>
+<p><strong>Rust语言</strong></p>
+<ul>
+<li><a href="https://github.com/rust-lang-nursery/fmt-rfcs/blob/master/guide/guide.md">Rust Style Guide</a>。</li>
+<li><a href="http://aturon.github.io">Rust Guidelines</a> 开源社区里最好的Rust编程规范。</li>
+</ul>
+<p><strong>Scala语言</strong></p>
+<ul>
+<li><a href="http://docs.scala-lang.org/style/">Scala Style Guide</a>，Scala官方的编程规范。</li>
+<li><a href="https://github.com/databricks/scala-style-guide">Databricks Scala Guide</a> - Databricks的Scala编程规范。</li>
+<li><a href="https://github.com/alexandru/scala-best-practices">Scala Best Practices</a>。</li>
+</ul>
+<p><strong>Shell语言</strong></p>
+<ul>
+<li><a href="https://google.github.io/styleguide/shell.xml">Google Shell Style Guide</a>，Google的Shell脚本编程规范。</li>
+</ul>
+<p><strong>Node.js相关</strong></p>
+<ul>
+<li><a href="https://docs.npmjs.com/misc/coding-style">npm-coding-style</a>。</li>
+<li><a href="https://github.com/Microsoft/nodejs-guidelines">Microsoft + Node.js Guidelines</a>。</li>
+<li><a href="https://github.com/felixge/node-style-guide">Node.js Style Guide</a>。</li>
+</ul>
+<p><strong>Mozilla的编程规范</strong></p>
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Coding_Style">Mozilla Coding Style Guide</a>，其中包括C、C++、Java、Python、JavaScript、Makefile和SVG等编程规范。</li>
+</ul>
+<h2>前端开发相关</h2>
+<ul>
+<li>
+<p><a href="https://cssguidelin.es">CSS Guidelines</a>，CSS容易学，但是不好写，这篇规范会教你如何写出一个健全的、可管理的，并可以扩展的CSS。</p>
+</li>
+<li>
+<p><a href="https://smacss.com/">Scalable and Modular Architecture for CSS</a>，这是一本教你如何写出可扩展和模块化的CSS的电子书，非常不错。</p>
+</li>
+<li>
+<p><a href="https://github.com/bendc/frontend-guidelines">Frontend Guidelines</a>，一些和HTML、CSS、JavaScript相关的最佳实践。</p>
+</li>
+<li>
+<p><a href="https://sass-guidelin.es">Sass Guidelines</a>，Sass作为CSS的补充，其要让CSS变得更容易扩展。然而，也变得更灵活，这意味着可以被更容易滥用。这里这篇&quot;富有主见&quot;的规范值得你一读。</p>
+</li>
+<li>
+<p><a href="https://github.com/airbnb/css">Airbnb CSS / Sass Styleguide</a>， Airbnb的CSS/Sass规范。</p>
+</li>
+<li>
+<p>说了Sass就不得不说LESS，这里有几篇和LESS相关的：<a href="https://gist.github.com/radermacher/f84b24af816111faf0ef">LESS Coding Guidelines</a>、<a href="https://github.com/odoo/odoo/wiki/LESS-coding-guidelines">LESS Coding Guidelines</a>、<a href="http://devdocs.magento.com/guides/v2.0/coding-standards/code-standard-less.html">LESS coding standard</a>。</p>
+</li>
+<li>
+<p><a href="https://github.com/marcobiedermann/html-style-guide">HTML Style Guide</a>，一个教你如何写出性能更高，结构更好，容易编程和扩展的HTML的规范。</p>
+</li>
+<li>
+<p><a href="http://codeguide.co">HTML + CSS Code Guide</a>，如何写出比较灵活、耐用、可持续改进的HTML和CSS的规范。</p>
+</li>
+<li>
+<p><a href="https://github.com/polarmobile/coffeescript-style-guide">CoffeeScript Style Guide</a>，CoffeeScript的最佳实践和编程规范。</p>
+</li>
+<li>
+<p><a href="https://google.github.io/styleguide/htmlcssguide.html">Google HTML/CSS Style Guide</a>，Google的HTML/CSS的编程规范。</p>
+</li>
+<li>
+<p><a href="https://www.smashingmagazine.com/2011/01/guidelines-for-responsive-web-design/">Guidelines for Responsive Web Design</a> ，响应式Web设计的规范和最佳实践。</p>
+</li>
+<li>
+<p><a href="https://standards.usa.gov">U.S. Web Design Standards</a>，这是美国政府网端要求的一些UI交互可视化的一些规范。</p>
+</li>
+</ul>
+<p>最后是一个前端开发的各种注意事项列表，非常有用。</p>
+<ul>
+<li><a href="https://github.com/thedaviddias/Front-End-Checklist">Front-End Checklist</a> ，一个前端开发的Checklist，其中包括HTML、CSS和JavaScript，还和图片、字体、SEO、性能相关，还包括关一些和安全相关的事项，这个列表真的是太好了。</li>
+</ul>
+<h2>移动端相关</h2>
+<p><strong>Kotlin</strong></p>
+<ul>
+<li><a href="https://kotlinlang.org/docs/reference/coding-conventions.html">Coding Conventions</a>。</li>
+</ul>
+<p><strong>Objective-C语言</strong></p>
+<ul>
+<li>
+<p><a href="https://github.com/github/objective-c-style-guide">Objective-C Style guide</a>，Style guide &amp; coding conventions for Objective-C projects。</p>
+</li>
+<li>
+<p><a href="https://google.github.io/styleguide/objcguide.xml">Google Objective-C Style Guide</a>。</p>
+</li>
+<li>
+<p><a href="https://github.com/NYTimes/objective-c-style-guide">NYTimes Objective-C Style Guide</a> ，The Objective-C Style Guide used by The New York Times。</p>
+</li>
+</ul>
+<p><strong>Swift语言</strong></p>
+<ul>
+<li><a href="https://swift.org/documentation/api-design-guidelines/">API Design Guidelines</a>。</li>
+<li><a href="https://github.com/github/swift-style-guide">Swift</a> - 一个Swift的相关编程规范的教程。</li>
+<li><a href="https://github.com/raywenderlich/swift-style-guide">Swift style guide</a>。</li>
+<li><a href="https://github.com/linkedin/swift-style-guide">Swift Style Guide</a> - LinkedIn的官方 Swift编程规范。</li>
+<li><a href="https://github.com/metova/swift-style-guide">Metova’s Swift style guide</a>。</li>
+<li><a href="https://github.com/xmartlabs/Swift-Style-Guide">Xmartlabs Swift Style Guide</a>，Xmartlabs的 Swift编程规范。</li>
+</ul>
+<h2>API相关</h2>
+<ul>
+<li><a href="http://stateless.co/hal_specification.html">HAL</a>，一个简单的API规范教程。</li>
+<li><a href="https://github.com/Microsoft/api-guidelines">Microsoft REST API Guidelines</a>，微软软的Rest API规范。</li>
+<li><a href="http://apiguide.readthedocs.io/en/latest/">API Design Guide</a>。</li>
+<li><a href="https://hackernoon.com/restful-api-designing-guidelines-the-best-practices-60e1d954e7c9">RESTful API Designing guidelines - The best practices</a>。</li>
+<li><a href="http://jsonapi.org/recommendations">JSON API - Recommendations</a>，JSON相关的API的一些推荐实践。</li>
+<li><a href="https://github.com/shieldfy/API-Security-Checklist">API Security Checklist</a> ，API的安全问题的检查列表。</li>
+</ul>
+<h2>开发工具相关</h2>
+<p><strong>Markdown相关</strong></p>
+<ul>
+<li><a href="https://github.com/google/styleguide/blob/gh-pages/docguide/style.md">Google Markdown Style Guide</a>。</li>
+<li><a href="http://www.cirosantilli.com/markdown-style-guide/">Markdown Style Guide</a>。</li>
+</ul>
+<p><strong>JSON</strong></p>
+<ul>
+<li><a href="https://google.github.io/styleguide/jsoncstyleguide.xml">Google JSON Style Guide</a>。</li>
+<li><a href="http://www.w3resource.com/slides/json-style-guide.php">JSON Style Guide</a>。</li>
+</ul>
+<p><strong>Git相关</strong></p>
+<ul>
+<li><a href="https://github.com/agis/git-style-guide">Git Style Guide</a>。</li>
+<li><a href="https://github.com/git/git/blob/master/Documentation/CodingGuidelines">Few Rules from Git Documentation</a>。</li>
+</ul>
+<p><strong>正则表达式相关</strong></p>
+<ul>
+<li><a href="https://github.com/regexhq">RegexHQ</a>。</li>
+<li><a href="https://github.com/zeeshanu/learn-regex">Learn regex the easy way</a>。</li>
+</ul>
+<p>下面是《程序员练级攻略（2018）》系列文章的目录。</p>
+<ul>
+<li><a href="https://time.geekbang.org/column/article/8136">开篇词</a></li>
+<li>入门篇
+<ul>
+<li><a href="https://time.geekbang.org/column/article/8216">零基础启蒙</a></li>
+<li><a href="https://time.geekbang.org/column/article/8217">正式入门</a></li>
+</ul>
+</li>
+<li>修养篇
+<ul>
+<li><a href="https://time.geekbang.org/column/article/8700">程序员修养</a></li>
+</ul>
+</li>
+<li>专业基础篇
+<ul>
+<li><a href="https://time.geekbang.org/column/article/8701">编程语言</a></li>
+<li><a href="https://time.geekbang.org/column/article/8887">理论学科</a></li>
+<li><a href="https://time.geekbang.org/column/article/8888">系统知识</a></li>
+</ul>
+</li>
+<li>软件设计篇
+<ul>
+<li><a href="https://time.geekbang.org/column/article/9369">软件设计</a></li>
+</ul>
+</li>
+<li>高手成长篇
+<ul>
+<li><a href="https://time.geekbang.org/column/article/9759">Linux系统、内存和网络（系统底层知识）</a></li>
+<li><a href="https://time.geekbang.org/column/article/9851">异步I/O模型和Lock-Free编程（系统底层知识）</a></li>
+<li><a href="https://time.geekbang.org/column/article/10216">Java底层知识</a></li>
+<li><a href="https://time.geekbang.org/column/article/10301">数据库</a></li>
+<li><a href="https://time.geekbang.org/column/article/10603">分布式架构入门（分布式架构）</a></li>
+<li><a href="https://time.geekbang.org/column/article/10604">分布式架构经典图书和论文（分布式架构）</a></li>
+<li><a href="https://time.geekbang.org/column/article/11232">分布式架构工程设计(分布式架构)</a></li>
+<li><a href="https://time.geekbang.org/column/article/11116">微服务</a></li>
+<li><a href="https://time.geekbang.org/column/article/11665">容器化和自动化运维</a></li>
+<li><a href="https://time.geekbang.org/column/article/11669">机器学习和人工智能</a></li>
+<li><a href="https://time.geekbang.org/column/article/12271">前端基础和底层原理（前端方向）</a></li>
+<li><a href="https://time.geekbang.org/column/article/12389">前端性能优化和框架（前端方向）</a></li>
+<li><a href="https://time.geekbang.org/column/article/12486">UI/UX设计（前端方向）</a></li>
+<li><a href="https://time.geekbang.org/column/article/12561">技术资源集散地</a></li>
+</ul>
+</li>
+</ul>
+<p><img src="https://static001.geekbang.org/resource/image/fc/e9/fcc761001867c60f526665e237f831e9.jpg" alt="" /></p>
+
+                    </div>
+                </div>
+
+            </div>
+            <div data-v-87ffcada="" class="article-comments pd"><h2 data-v-87ffcada=""><span
+                    data-v-87ffcada="">精选留言</span></h2>
+                <ul data-v-87ffcada="">
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/4d/97/abb7bfe3.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">CoolSummer</span>
+                            </div>
+                            <div class="bd">我就问一句：罗列的这些书您都都看完了吗？ <br></div>
+                            <span class="time">2018-06-15 16:41</span>
+
+                            <div class="reply">
+                                <div class="reply-hd"><span>作者回复</span></div>
+                                <p class="reply-content">是的，我都看过的。</p>
+                                <p class="reply-time">2018-06-15 20:45</p>
+                            </div>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/10/ea/ff/ab3ca0b3.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">ZoriChen</span>
+                            </div>
+                            <div class="bd"># 程序员练级攻略<br>## 入门教程<br>### 入门教程1：体会编程是什么<br>* 与孩子一起学编程<br>* Codecademy: Learn Python<br>* People Can Program<br><br>### 入门教程2：做一个网页<br>* MDN Web开发入门<br><br><br>## Python &amp; <br>* Python编程快速上手<br>* Python编程：从入门到实践（优先）<br><br><br>## JavaScript<br>* MDN JavaScript教程<br>* W3Schools JavaScript教程<br>* JavaScript全栈教程（廖雪峰）<br><br><br>## Linux<br>* W3Schools Linux教程<br><br><br>## Visual Studio Code<br>* Visual Studio Code中文手册<br><br><br>## Web编程入门<br>### 前端基础<br>* MDN CSS文档<br>* MDN HTML文档<br>* W3Schools JavaScript HTML DOM文档<br><br>### 后端基础<br>* Python<br>* Node.js<br>* PHP (W3Schools PHP教程)<br><br>### 学习要点<br>* 学习HTML基本语法<br>* 学习CSS如何选中HTML元素并应用基本样式<br>* 学习查看网页结构，并动态修改<br>* 配置LEMP-Ubuntu&#47;Nginx&#47;PHP&#47;MySQL环境<br>* PHP连接本地&#47;远程数据库MySQL<br><br>### 实践项目<br>* 做一个Blog或者BBS系统<br><br><br>## 编程技能Java<br>### 编程技巧<br>* 代码大全<br><br>### 编程语言<br>* Java核心技术（卷1）<br>* Head First Java<br>* Spring in Action<br>* Spring Boot实战<br><br>### 操作系统<br>* 鸟哥的Linux私房菜<br><br>### 网络协议<br>* MDN HTTP文档<br><br>### 数据库设计<br>* 慕课网 数据库设计的那些事<br>* MySQL官方文档<br>* MySQL必知必会<br><br>### 前端方面<br>* 与JavaScript相关的jQuery<br>* 与CSS相关的Bootstrap<br>* JavaScript的Ajax请求后端的API接口方式<br>* JavaScript的Promise模式<br><br>### 字符编码<br>* ASCII（关于字符编码，你所需要知道的）<br>* Unicode<br><br><br>## 编程工具<br>* 编程IDE<br>* 版本管理工具Git<br>* 调试前端工具<br>* 数据库设计工具<br><br>### 实践项目<br>* 投票系统<br><br><br>## 程序员修养<br>### 英文能力<br><br>### 提问能力<br><br>### 代码修养<br>* 重构：改善既有代码的设计<br>* 修改代码的艺术<br>* 代码整洁之道<br>* 程序员的职业素养<br>* Code Review<br>* Unit Test<br><br>### 安全防范<br>### 软件工程&amp;上线<br>* 完美软件：对软件测试的各种幻想<br>* Google软件测试之道<br>### 编程规范<br><br> <br></div>
+                            <span class="time">2018-06-09 18:57</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/5e/90/5f79859b.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">Maiza</span>
+                            </div>
+                            <div class="bd">木有 .net 不开心 。。。。 <br></div>
+                            <span class="time">2018-06-07 10:29</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/11/6e/93/6fef7aaa.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">石头</span>
+                            </div>
+                            <div class="bd">程序员的软能力：英文、问问题、写代码、安全规范、软件工程与测试、编程规范 <br></div>
+                            <span class="time">2018-06-14 08:32</span>
+
+                            <div class="reply">
+                                <div class="reply-hd"><span>作者回复</span></div>
+                                <p class="reply-content">总结的不错</p>
+                                <p class="reply-time">2018-06-15 21:00</p>
+                            </div>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/10/13/34/abb7bfe3.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">小鱼儿</span>
+                            </div>
+                            <div class="bd">居然没有C# <br></div>
+                            <span class="time">2018-06-07 08:52</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/10/4e/2f/66321381.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">google666s</span>
+                            </div>
+                            <div class="bd">订阅专栏最大受益就是各种学习资源汇总，评论区也有很多给力的资源推荐，师傅领进门，修行靠个人，加油💪 <br></div>
+                            <span class="time">2018-06-13 21:39</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/43/bf/30f3f890.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">Silence</span>
+                            </div>
+                            <div class="bd">信息量太大了。。。 <br></div>
+                            <span class="time">2018-06-07 23:45</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="http://thirdwx.qlogo.cn/mmopen/vi_32/Q0j4TwGTfTKKwVeiaKznShmzGFwjicibw8toGiaAuXLsv9RnJGfGxqGrgP1hnWVocxn1rFMWLNTxIjW7My1iaeRMRAA/132" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">qq779527421</span>
+                            </div>
+                            <div class="bd">耗子叔，我现在嵌入式开发，你的文章每一篇我都要读好多遍才能记住结构，彻底读懂。这属于正常现象吗？这不能说明我很菜吧。 <br></div>
+                            <span class="time">2018-06-11 21:58</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/76/5c/416bcce6.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">郑然</span>
+                            </div>
+                            <div class="bd">一直想问耗子哥一个问题，这么丰富的引用材料耗子哥是如何获取并积累的？尤其是大量的英文材料。 <br></div>
+                            <span class="time">2018-06-07 10:25</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/ac/a1/43d83698.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">云学</span>
+                            </div>
+                            <div class="bd">2016年带领团队重构了核心资源调度模块，涉及1万行代码，调试了大量case，过程艰辛，收获颇深，再看作者推荐的那些书就很有共鸣 <br></div>
+                            <span class="time">2018-06-15 09:21</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/11/93/cc/ca0c4a84.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">宋桓公</span>
+                            </div>
+                            <div class="bd">能说说Kotlin和Java吗？😁 <br></div>
+                            <span class="time">2018-06-10 15:54</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/90/60/44bf9fcc.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">D瓜哥</span>
+                            </div>
+                            <div class="bd">耗子哥，阿里的Java代码规范再配上IDEA插件也非常棒！ <br></div>
+                            <span class="time">2018-06-07 13:15</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/87/6b/0b6cd39a.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">朱月俊</span>
+                            </div>
+                            <div class="bd">看完懵逼了，真是大牛。 <br></div>
+                            <span class="time">2018-11-20 01:13</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/12/90/64/91c2bbe0.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">JakeWang</span>
+                            </div>
+                            <div class="bd">努力学好英语！ <br></div>
+                            <span class="time">2018-11-09 23:45</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/ef/dd/599d77c0.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">hexinzhe</span>
+                            </div>
+                            <div class="bd">前面还好，这篇把我看跪了，要是能把这篇过了，收获会无法想象 <br></div>
+                            <span class="time">2018-11-01 12:54</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/11/15/02/66f65388.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">雷霹雳的爸爸</span>
+                            </div>
+                            <div class="bd">对耗子叔这篇没写成英文这事，感到五味杂陈 <br></div>
+                            <span class="time">2018-06-08 04:17</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/50/34/fefb125f.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">笨笨熊</span>
+                            </div>
+                            <div class="bd">非常期待专业基础篇 <br></div>
+                            <span class="time">2018-06-07 08:24</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/13/2b/ec/af6d0b10.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">caohuan</span>
+                            </div>
+                            <div class="bd">耗子哥 提到没有 Code Review的公司不值得在里面卖力，说得对，不然 怎么我一直还是码农。<br>今天 get 到 英语、提问、程序修养、软件工程和上线 等需要提高的素质 <br></div>
+                            <span class="time">2018-11-09 12:32</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/13/2b/ec/af6d0b10.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">caohuan</span>
+                            </div>
+                            <div class="bd">好多干活 都是 以前没接到的，5年工作经验的老鸟 在耗子哥的专栏中回溯下 <br></div>
+                            <span class="time">2018-11-08 18:34</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/9b/a8/abb7bfe3.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">怀群</span>
+                            </div>
+                            <div class="bd">很有帮助，把整体框架都搭出来了，比自己盲目探索节省不少时间，剩下的交给我来填充内容。 <br></div>
+                            <span class="time">2018-09-12 09:25</span>
+
+                        </div>
+                    </li>
+
+
+
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

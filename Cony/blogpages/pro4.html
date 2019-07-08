@@ -1,0 +1,484 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport"
+          content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
+    <meta name="format-detection" content="telephone=no">
+    <style type="text/css">
+
+#watermark {
+
+  position: relative;
+  overflow: hidden;
+}
+
+#watermark .x {
+  position: absolute;
+  top: 800;
+  left: 400;
+  color: #3300ff;
+  font-size: 50px;
+  pointer-events: none;
+  opacity:0.5;
+  filter:Alpha(opacity=50);
+  -webkit-transform: rotate(45deg);
+  -moz-transform: rotate(45deg);
+}
+    </style>
+
+
+    <style type="text/css">
+ html{color:#333;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;text-rendering:optimizelegibility;font-family:Helvetica Neue,PingFang SC,Verdana,Microsoft Yahei,Hiragino Sans GB,Microsoft Sans Serif,WenQuanYi Micro Hei,sans-serif}html.borderbox *,html.borderbox :after,html.borderbox :before{box-sizing:border-box}article,aside,blockquote,body,button,code,dd,details,dl,dt,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,input,legend,li,menu,nav,ol,p,pre,section,td,textarea,th,ul{margin:0;padding:0}article,aside,details,figcaption,figure,footer,header,menu,nav,section{display:block}audio,canvas,video{display:inline-block}body,button,input,select,textarea{font:300 1em/1.8 PingFang SC,Lantinghei SC,Microsoft Yahei,Hiragino Sans GB,Microsoft Sans Serif,WenQuanYi Micro Hei,Helvetica,sans-serif}button::-moz-focus-inner,input::-moz-focus-inner{padding:0;border:0}table{border-collapse:collapse;border-spacing:0}fieldset,img{border:0}blockquote{position:relative;color:#999;font-weight:400;border-left:1px solid #1abc9c;padding-left:1em;margin:1em 3em 1em 2em}@media only screen and (max-width:640px){blockquote{margin:1em 0}}abbr,acronym{border-bottom:1px dotted;font-variant:normal}abbr{cursor:help}del{text-decoration:line-through}address,caption,cite,code,dfn,em,th,var{font-style:normal;font-weight:400}ol,ul{list-style:none}caption,th{text-align:left}q:after,q:before{content:""}sub,sup{font-size:75%;line-height:0;position:relative}:root sub,:root sup{vertical-align:baseline}sup{top:-.5em}sub{bottom:-.25em}a{color:#1abc9c}a:hover{text-decoration:underline}.typo a{border-bottom:1px solid #1abc9c}.typo a:hover{border-bottom-color:#555;color:#555}.typo a:hover,a,ins{text-decoration:none}.typo-u,u{text-decoration:underline}mark{background:#fffdd1;border-bottom:1px solid #ffedce;padding:2px;margin:0 5px}code,pre,pre tt{font-family:Courier,Courier New,monospace}pre{background:hsla(0,0%,97%,.7);border:1px solid #ddd;padding:1em 1.5em;display:block;-webkit-overflow-scrolling:touch}hr{border:none;border-bottom:1px solid #cfcfcf;margin-bottom:.8em;height:10px}.typo-small,figcaption,small{font-size:.9em;color:#888}b,strong{font-weight:700;color:#000}[draggable]{cursor:move}.clearfix:after,.clearfix:before{content:"";display:table}.clearfix:after{clear:both}.clearfix{zoom:1}.textwrap,.textwrap td,.textwrap th{word-wrap:break-word;word-break:break-all}.textwrap-table{table-layout:fixed}.serif{font-family:Palatino,Optima,Georgia,serif}.typo-dl,.typo-form,.typo-hr,.typo-ol,.typo-p,.typo-pre,.typo-table,.typo-ul,.typo dl,.typo form,.typo hr,.typo ol,.typo p,.typo pre,.typo table,.typo ul,blockquote{margin-bottom:1rem}h1,h2,h3,h4,h5,h6{font-family:PingFang SC,Helvetica Neue,Verdana,Microsoft Yahei,Hiragino Sans GB,Microsoft Sans Serif,WenQuanYi Micro Hei,sans-serif;color:#000;line-height:1.35}.typo-h1,.typo-h2,.typo-h3,.typo-h4,.typo-h5,.typo-h6,.typo h1,.typo h2,.typo h3,.typo h4,.typo h5,.typo h6{margin-top:1.2em;margin-bottom:.6em;line-height:1.35}.typo-h1,.typo h1{font-size:2em}.typo-h2,.typo h2{font-size:1.8em}.typo-h3,.typo h3{font-size:1.6em}.typo-h4,.typo h4{font-size:1.4em}.typo-h5,.typo-h6,.typo h5,.typo h6{font-size:1.2em}.typo-ul,.typo ul{margin-left:1.3em;list-style:disc}.typo-ol,.typo ol{list-style:decimal;margin-left:1.9em}.typo-ol ol,.typo-ol ul,.typo-ul ol,.typo-ul ul,.typo li ol,.typo li ul{margin-bottom:.8em;margin-left:2em}.typo-ol ul,.typo-ul ul,.typo li ul{list-style:circle}.typo-table td,.typo-table th,.typo table caption,.typo table td,.typo table th{border:1px solid #ddd;padding:.5em 1em;color:#666}.typo-table th,.typo table th{background:#fbfbfb}.typo-table thead th,.typo table thead th{background:hsla(0,0%,95%,.7)}.typo table caption{border-bottom:none}.typo-input,.typo-textarea{-webkit-appearance:none;border-radius:0}.typo-em,.typo em,caption,legend{color:#000;font-weight:inherit}.typo-em{position:relative}.typo-em:after{position:absolute;top:.65em;left:0;width:100%;overflow:hidden;white-space:nowrap;content:"\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB\30FB"}.typo img{max-width:100%}.common-content{font-weight:400;color:#353535;line-height:1.75rem;white-space:normal;word-break:normal;font-size:1rem}.common-content img{display:block;max-width:100%;background-color:#eee}.common-content audio,.common-content video{width:100%;background-color:#eee}.common-content center,.common-content font{margin-top:1rem;display:inline-block}.common-content center{width:100%}.common-content pre{margin-top:1rem;padding-left:0;padding-right:0;position:relative;overflow:hidden}.common-content pre code{font-size:.8rem;font-family:Consolas,Liberation Mono,Menlo,monospace,Courier;display:block;width:100%;box-sizing:border-box;padding-left:1rem;padding-right:1rem;overflow-x:auto}.common-content hr{border:none;margin-top:1.5rem;margin-bottom:1.5rem;border-top:1px solid #f5f5f5;height:1px;background:none}.common-content b,.common-content h1,.common-content h2,.common-content h3,.common-content h4,.common-content h5,.common-content strong{font-weight:700}.common-content h1,.common-content h2{font-size:1.125rem;margin-bottom:.45rem}.common-content h3,.common-content h4,.common-content h5{font-size:1rem;margin-bottom:.45rem}.common-content p{font-weight:400;color:#353535;margin-top:.15rem}.common-content .orange{color:#ff5a05}.common-content .reference{font-size:1rem;color:#888}.custom-rich-content h1{margin-top:0;font-weight:400;font-size:15.25px;border-bottom:1px solid #eee;line-height:2.8}.custom-rich-content li,.custom-rich-content p{font-size:14px;color:#888;line-height:1.6}table.hljs-ln{margin-bottom:0;border-spacing:0;border-collapse:collapse}table.hljs-ln,table.hljs-ln tbody,table.hljs-ln td,table.hljs-ln tr{box-sizing:border-box}table.hljs-ln td{padding:0;border:0}table.hljs-ln td.hljs-ln-numbers{min-width:15px;color:rgba(27,31,35,.3);text-align:right;white-space:nowrap;cursor:pointer;user-select:none}table.hljs-ln td.hljs-ln-code,table.hljs-ln td.hljs-ln-numbers{font-family:SFMono-Regular,Consolas,Liberation Mono,Menlo,Courier,monospace;font-size:12px;line-height:20px;vertical-align:top}table.hljs-ln td.hljs-ln-code{position:relative;padding-right:10px;padding-left:10px;overflow:visible;color:#24292e;word-wrap:normal;white-space:pre}video::-webkit-media-controls{overflow:hidden!important}video::-webkit-media-controls-enclosure{width:calc(100% + 32px);margin-left:auto}.button-cancel{color:#888;border:1px solid #888;border-radius:3px;margin-right:12px}.button-cancel,.button-primary{-ms-flex-positive:1;flex-grow:1;height:35px;display:inline-block;font-size:15px;text-align:center;line-height:36px}.button-primary{color:#fff;background-color:#ff5a05;border-radius:3px}@font-face{font-family:iconfont;src:url(//at.alicdn.com/t/font_372689_bwwwtosxtzp.eot);src:url(//at.alicdn.com/t/font_372689_bwwwtosxtzp.eot#iefix) format("embedded-opentype"),url(//at.alicdn.com/t/font_372689_bwwwtosxtzp.woff) format("woff"),url(//at.alicdn.com/t/font_372689_bwwwtosxtzp.ttf) format("truetype"),url(//at.alicdn.com/t/font_372689_bwwwtosxtzp.svg#iconfont) format("svg")}@font-face{font-family:player-font;src:url(//at.alicdn.com/t/font_509397_1cyjv4o90qiod2t9.eot);src:url(//at.alicdn.com/t/font_509397_1cyjv4o90qiod2t9.eot#iefix) format("embedded-opentype"),url(//at.alicdn.com/t/font_509397_1cyjv4o90qiod2t9.woff) format("woff"),url(//at.alicdn.com/t/font_509397_1cyjv4o90qiod2t9.ttf) format("truetype"),url(//at.alicdn.com/t/font_509397_1cyjv4o90qiod2t9.svg#player-font) format("svg")}.iconfont{font-family:iconfont!important;font-size:16px;font-style:normal;-webkit-font-smoothing:antialiased;-webkit-text-stroke-width:.2px;-moz-osx-font-smoothing:grayscale}html{background:#fff;min-height:100%;-webkit-tap-highlight-color:rgba(0,0,0,0)}body{width:100%}body.fixed{overflow:hidden;position:fixed;width:100vw;height:100vh}i{font-style:normal}a{word-wrap:break-word;-webkit-tap-highlight-color:rgba(0,0,0,0)}a:hover{text-decoration:none}.fade-enter-active,.fade-leave-active{transition:opacity .3s}.fade-enter,.fade-leave-to{opacity:0}.MathJax,.MathJax_CHTML,.MathJax_MathContainer,.MathJax_MathML,.MathJax_PHTML,.MathJax_PlainSource,.MathJax_SVG{outline:0}.ios-app-switch .js-audit{display:none}._loading_wrap_{position:fixed;width:100vw;height:100vh;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999}._loading_div_class_,._loading_wrap_{display:-ms-flexbox;display:flex;-ms-flex-pack:center;justify-content:center;-ms-flex-align:center;align-items:center}._loading_div_class_{word-wrap:break-word;padding:.5rem .75rem;text-align:center;z-index:9999;font-size:.6rem;max-width:60%;color:#fff;border-radius:.25rem;-ms-flex-direction:column;flex-direction:column}._loading_div_class_ .message{color:#353535;font-size:16px;line-height:3}.spinner{animation:circle-rotator 1.4s linear infinite}.spinner *{line-height:0;box-sizing:border-box}@keyframes circle-rotator{0%{transform:rotate(0deg)}to{transform:rotate(270deg)}}.path{stroke-dasharray:187;stroke-dashoffset:0;transform-origin:center;animation:circle-dash 1.4s ease-in-out infinite,circle-colors 5.6s ease-in-out infinite}@keyframes circle-colors{0%{stroke:#ff5a05}to{stroke:#ff5a05}}@keyframes circle-dash{0%{stroke-dashoffset:187}50%{stroke-dashoffset:46.75;transform:rotate(135deg)}to{stroke-dashoffset:187;transform:rotate(450deg)}}.confirm-box-wrapper,.confirm-box-wrapper .mask{position:absolute;top:0;left:0;right:0;bottom:0}.confirm-box-wrapper .mask{background:rgba(0,0,0,.6)}.confirm-box-wrapper .confirm-box{position:fixed;top:50%;left:50%;width:267px;background:#fff;transform:translate(-50%,-50%);border-radius:7px}.confirm-box-wrapper .confirm-box .head{margin:0 18px;font-size:18px;text-align:center;line-height:65px;border-bottom:1px solid #d9d9d9}.confirm-box-wrapper .confirm-box .body{padding:18px;padding-bottom:0;color:#353535;font-size:12.5px;max-height:150px;overflow:auto}.confirm-box-wrapper .confirm-box .foot{display:-ms-flexbox;display:flex;-ms-flex-direction:row;flex-direction:row;padding:18px}.confirm-box-wrapper .confirm-box .foot .button-cancel{border:1px solid #d9d9d9}.hljs{display:block;overflow-x:auto;padding:.5em;color:#333;background:#f8f8f8}.hljs-comment,.hljs-quote{color:#998;font-style:italic}.hljs-keyword,.hljs-selector-tag,.hljs-subst{color:#333;font-weight:700}.hljs-literal,.hljs-number,.hljs-tag .hljs-attr,.hljs-template-variable,.hljs-variable{color:teal}.hljs-doctag,.hljs-string{color:#d14}.hljs-section,.hljs-selector-id,.hljs-title{color:#900;font-weight:700}.hljs-subst{font-weight:400}.hljs-class .hljs-title,.hljs-type{color:#458;font-weight:700}.hljs-attribute,.hljs-name,.hljs-tag{color:navy;font-weight:400}.hljs-link,.hljs-regexp{color:#009926}.hljs-bullet,.hljs-symbol{color:#990073}.hljs-built_in,.hljs-builtin-name{color:#0086b3}.hljs-meta{color:#999;font-weight:700}.hljs-deletion{background:#fdd}.hljs-addition{background:#dfd}.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}
+
+
+
+
+    </style>
+    <style type="text/css">
+        .button-cancel[data-v-87ffcada]{color:#888;border:1px solid #888;border-radius:3px;margin-right:12px}.button-cancel[data-v-87ffcada],.button-primary[data-v-87ffcada]{-webkit-box-flex:1;-ms-flex-positive:1;flex-grow:1;height:35px;display:inline-block;font-size:15px;text-align:center;line-height:36px}.button-primary[data-v-87ffcada]{color:#fff;background-color:#ff5a05;border-radius:3px}.pd[data-v-87ffcada]{padding-left:1.375rem;padding-right:1.375rem}.article[data-v-87ffcada]{max-width:70rem;margin:0 auto}.article .article-unavailable[data-v-87ffcada]{color:#fa8919;font-size:15px;font-weight:600;line-height:24px;border-radius:5px;padding:12px;background-color:#f6f7fb;margin-top:20px}.article .article-unavailable .iconfont[data-v-87ffcada]{font-size:12px}.article .main[data-v-87ffcada]{padding:1.25rem 0;margin-bottom:52px}.article-title[data-v-87ffcada]{color:#353535;font-weight:400;line-height:1.65rem;font-size:1.34375rem}.article-info[data-v-87ffcada]{color:#888;font-size:.9375rem;margin-top:1.0625rem}.article-content[data-v-87ffcada]{margin-top:1.0625rem}.article-content.android video[data-v-87ffcada]::-webkit-media-controls-fullscreen-button{display:none}.copyright[data-v-87ffcada]{color:#b2b2b2;padding-bottom:20px;margin-top:20px;font-size:13px}.audio-player[data-v-87ffcada]{width:100%;margin:20px 0}.to-comment[data-v-87ffcada]{overflow:hidden;padding-top:10px;margin-bottom:-30px}.to-comment a.button-primary[data-v-87ffcada]{float:right;height:20px;font-size:12px;line-height:20px;padding:4px 8px;cursor:pointer}.article-comments[data-v-87ffcada]{margin-top:2rem}.article-comments h2[data-v-87ffcada]{text-align:center;color:#888;position:relative;z-index:1;margin-bottom:1rem}.article-comments h2[data-v-87ffcada]:before{border-top:1px dotted #888;content:"";position:absolute;top:56%;left:0;width:100%;z-index:-1}.article-comments h2 span[data-v-87ffcada]{font-size:15.25px;font-weight:400;padding:0 1rem;background:#fff;display:inline-block}.article-sub-bottom[data-v-87ffcada]{z-index:10;cursor:pointer}.switch-btns[data-v-87ffcada]{height:76px;cursor:pointer;padding-top:24px;padding-bottom:24px;border-bottom:10px solid #f6f7fb;position:relative}.switch-btns[data-v-87ffcada]:before{content:" ";height:1px;background:#e8e8e8;position:absolute;top:0;left:0;-webkit-box-sizing:border-box;box-sizing:border-box;left:1.375rem;right:1.375rem}.switch-btns .btn[data-v-87ffcada]{height:38px;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center}.switch-btns .btn .tag[data-v-87ffcada]{-webkit-box-flex:0;-ms-flex:0 0 62px;flex:0 0 62px;text-align:center;color:#888;font-size:14px;border-radius:10px;height:22px;line-height:22px;background:#f6f7fb;font-weight:400}.switch-btns .btn .txt[data-v-87ffcada]{margin-left:10px;-webkit-box-flex:1;-ms-flex:1 1 auto;flex:1 1 auto;color:#888;font-size:15px;height:22px;line-height:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400}@media (max-width:769px){.article .breadcrumb[data-v-87ffcada]{padding-top:10px;padding-bottom:10px}}
+
+
+
+
+
+    </style>
+
+    <style type="text/css">
+        .comment-item{list-style-position:inside;width:100%;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:horizontal;-webkit-box-direction:normal;-ms-flex-direction:row;flex-direction:row;margin-bottom:1rem}.comment-item a{border-bottom:none}.comment-item .avatar{width:2.625rem;height:2.625rem;-ms-flex-negative:0;flex-shrink:0;border-radius:50%}.comment-item .info{margin-left:.5rem;-webkit-box-flex:1;-ms-flex-positive:1;flex-grow:1}.comment-item .info .hd{width:100%;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:horizontal;-webkit-box-direction:normal;-ms-flex-direction:row;flex-direction:row;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center}.comment-item .info .hd .username{color:#888;font-size:15.25px;font-weight:400;line-height:1.2}.comment-item .info .hd .control{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:horizontal;-webkit-box-direction:normal;-ms-flex-direction:row;flex-direction:row;-webkit-box-align:center;-ms-flex-align:center;align-items:center}.comment-item .info .hd .control .btn-share{color:#888;font-size:.75rem;margin-right:1rem}.comment-item .info .hd .control .btn-praise{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:horizontal;-webkit-box-direction:normal;-ms-flex-direction:row;flex-direction:row;-webkit-box-align:center;-ms-flex-align:center;align-items:center;font-size:15.25px;text-decoration:none}.comment-item .info .hd .control .btn-praise i{color:#888;display:inline-block;font-size:.75rem;margin-right:.3rem;margin-top:-.01rem}.comment-item .info .hd .control .btn-praise i.on,.comment-item .info .hd .control .btn-praise span{color:#ff5a05}.comment-item .info .bd{color:#353535;font-size:15.25px;font-weight:400;white-space:normal;word-break:break-all;line-height:1.6}.comment-item .info .time{color:#888;font-size:9px;line-height:1}.comment-item .info .reply .reply-hd{font-size:15.25px}.comment-item .info .reply .reply-hd span{margin-left:-12px;color:#888;font-weight:400}.comment-item .info .reply .reply-hd i{color:#ff5a05;font-size:15.25px}.comment-item .info .reply .reply-content{color:#353535;font-size:15.25px;font-weight:400;white-space:normal;word-break:break-all}.comment-item .info .reply .reply-time{color:#888;font-size:9px}
+
+
+
+
+    </style>
+    <style>
+
+        .myheader a {
+            display: inline-block;
+            float: left;
+            width: 25%;
+            text-align: center;
+        }
+
+        .myheader::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+    </style>
+</head>
+<body>
+<div class="myheader">
+    <a href="http://conyli.cc/pro1.html">程序员修养</a>
+    <a href="http://conyli.cc/pro2.html">编程语言</a>
+    <a href="http://conyli.cc/pro3.html">理论学科</a>
+    <a href="http://conyli.cc/pro4.html">系统知识</a>
+</div>
+<div id="app">
+
+
+    <div data-v-87ffcada="" class="article" id="watermark">
+        <p class="x">所有最新极客时间课程请加QQ1046877154</p>
+        <div data-v-87ffcada="" class="main main-app">
+            <h1 data-v-87ffcada="" class="article-title pd">
+                75讲程序员练级攻略（2018）：系统知识
+            </h1>
+            <div data-v-87ffcada="" class="article-content typo common-content pd"><img data-v-87ffcada=""
+                                                                                        src="https://static001.geekbang.org/resource/image/53/08/53341cf658e057604ead43e4437d9708.jpg">
+
+
+                <div data-v-87ffcada="" id="article-content" class="">
+                    <div class="text">
+                        <p>进入专业的编程领域，学习系统知识是非常关键的一部分。</p>
+<p>首先推荐的是翻译版图书《<a href="https://book.douban.com/subject/5333562/">深入理解计算机系统</a>》，原书名为《Computer Systems A Programmer’s Perspective》。不过，这本书叫做《程序员所需要了解的计算机知识》更为合适。</p>
+<p>本书的最大优点是为程序员描述计算机系统的实现细节，帮助其在大脑中构造一个层次型的计算机系统。从最底层的数据在内存中的表示到流水线指令的构成，到虚拟存储器，到编译系统，到动态加载库，到最后的用户态应用。通过掌握程序是如何映射到系统上，以及程序是如何执行的，你能够更好地理解程序的行为为什么是这样的，以及效率低下是如何造成的。</p>
+<p><strong>再强调一下，这本书是程序员必读的一本书！</strong></p>
+<p>然后就是美国计算机科学家 <a href="https://zh.wikipedia.org/wiki/%E7%90%86%E6%9F%A5%E5%BE%B7%C2%B7%E5%8F%B2%E8%92%82%E6%96%87%E6%96%AF">理查德·史蒂文斯（Richard Stevens）</a> 的三套巨经典无比的书。（理查德·史蒂文斯于1999年9月1日离世，终年48岁。死因不详，有人说是滑雪意外，有人说是攀岩意外，有人说是滑翔机意外。总之，家人没有透露。大师的 <a href="http://www.kohala.com/start/">个人主页</a> 今天还可以访问。）</p>
+<ul>
+<li>《<a href="https://book.douban.com/subject/1788421/">Unix高级环境编程</a>》。</li>
+<li>《Unix网络编程》 <a href="https://book.douban.com/subject/1500149/">第1卷 套接口API</a> 、<a href="https://book.douban.com/subject/4118577/">第2卷 进程间通信</a> 。</li>
+<li>《<a href="https://book.douban.com/subject/1088054/">TCP/IP详解 卷I 协议</a>》。</li>
+</ul>
+<!-- [[[read_end]]] -->
+<p>这几书的地位我就不多说了，你可以自己看相关的书评。但是，这三本书可能都不容易读，一方面是比较厚，另一方面是知识的密度太大了，所以，读起来有点枯燥和乏味。但是，这没办法，你得忍住。</p>
+<p>这里要重点说一下《TCP/IP详解》这本书，是一本很奇怪的书。这本书迄今至少被 <a href="http://portal.acm.org/citation.cfm?id=161724">近五百篇学术论文引用过</a> 。这本写给工程师看的书居然被各种学院派的论文来引用，也是很神奇的一件事了。而且，虽然理查德·史蒂文斯不是TCP的发明人，但是这本书中把这个协议深入浅出地讲出来，还画了几百张时序图，也是令人叹为观止了。</p>
+<p>如果你觉得上面这几本经典书比较难啃，你可以试试下面这些通俗易懂的（当然，如果读得懂上面那三本的，下面的这些也就不需要读了）。</p>
+<ul>
+<li>《<a href="https://book.douban.com/subject/4141733/">Linux C编程一站式学习</a>》。</li>
+<li>《<a href="https://book.douban.com/subject/25911735/">TCP/IP网络编程</a>》。</li>
+<li>《<a href="https://book.douban.com/subject/24737674/">图解TCP/IP</a>》，这本书其实并不是只讲了TCP/IP，应该是叫《计算机网络》才对，主要是给想快速入门的人看的。</li>
+<li>《<a href="http://www.tcpipguide.com/free/index.htm">The TCP/IP Guide</a>》，这本书在豆瓣上的评分9.2，这里给的链接是这本书的HTML英文免费版的，里面的图画得很精彩。</li>
+</ul>
+<p>另外，学习网络协议不单只是看书，你最好用个抓包工具看看这些网络包是什么样的。所以，这里推荐一本书《<a href="https://book.douban.com/subject/21691692/">Wireshark数据包分析实战</a>》。在这本书中，作者结合一些简单易懂的实际网络案例，图文并茂地演示使用Wireshark进行数据包分析的技术方法，可以让我们更好地了解和学习网络协议。当然，也拥有了一定的黑客的技能。</p>
+<p>看完《Unix高级环境编程》后，你可以趁热打铁看看《<a href="https://book.douban.com/subject/25809330/">Linux/Unix系统编程手册</a>》或是罗伯特·拉姆（Robert Love）的 <a href="http://igm.univ-mlv.fr/~yahya/progsys/linux.pdf">Linux System Programming 英文电子版</a> 。其中文翻译版<a href="https://book.douban.com/subject/25828773/">Linux系统编程</a> 也值得一读，虽然和《Unix高级环境编程》很像，不过其主要突出的是Linux的一些关键技术和相关的系统调用。</p>
+<p>关于TCP的东西，你还可以看看下面这一系列的文章。</p>
+<ul>
+<li><a href="http://www.saminiir.com/lets-code-tcp-ip-stack-1-ethernet-arp/">Let’s code a TCP/IP stack, 1: Ethernet &amp; ARP</a></li>
+<li><a href="http://www.saminiir.com/lets-code-tcp-ip-stack-2-ipv4-icmpv4/">Let’s code a TCP/IP stack, 2: IPv4 &amp; ICMPv4</a></li>
+<li><a href="http://www.saminiir.com/lets-code-tcp-ip-stack-3-tcp-handshake/">Let’s code a TCP/IP stack, 3: TCP Basics &amp; Handshake</a></li>
+<li><a href="http://www.saminiir.com/lets-code-tcp-ip-stack-4-tcp-data-flow-socket-api/">Let’s code a TCP/IP stack, 4: TCP Data Flow &amp; Socket API</a></li>
+<li><a href="http://www.saminiir.com/lets-code-tcp-ip-stack-5-tcp-retransmission/">Let’s code a TCP/IP stack, 5: TCP Retransmission</a></li>
+</ul>
+<p><strong>对于系统知识，我认为主要有以下一些学习要点。</strong></p>
+<ul>
+<li>用这些系统知识操作一下文件系统，实现一个可以拷贝目录树的小程序。</li>
+<li>用fork / wait / waitpid写一个多进程的程序，用pthread写一个多线程带同步或互斥的程序。比如，多进程购票的程序。</li>
+<li>用signal / kill / raise / alarm / pause / sigprocmask实现一个多进程间的信号量通信的程序。</li>
+<li>学会使用gcc和gdb来编程和调试程序（参看我的《<strong>用gdb调试程序</strong>》<a href="https://blog.csdn.net/haoel/article/details/2879">一</a>、<a href="https://blog.csdn.net/haoel/article/details/2880">二</a>、<a href="https://blog.csdn.net/haoel/article/details/2881">三</a>、<a href="https://blog.csdn.net/haoel/article/details/2882">四</a>、<a href="https://blog.csdn.net/haoel/article/details/2883">五</a>、<a href="https://blog.csdn.net/haoel/article/details/2884">六</a>、<a href="https://blog.csdn.net/haoel/article/details/2885">七</a>）。</li>
+<li>学会使用makefile来编译程序（参看我的《<strong>跟我一起写makefile</strong>》<a href="https://blog.csdn.net/haoel/article/details/2886">一</a>、<a href="https://blog.csdn.net/haoel/article/details/2887">二</a>、<a href="https://blog.csdn.net/haoel/article/details/2888">三</a>、<a href="https://blog.csdn.net/haoel/article/details/2889">四</a>、<a href="https://blog.csdn.net/haoel/article/details/2890">五</a>、<a href="https://blog.csdn.net/haoel/article/details/2891">六</a>、<a href="https://blog.csdn.net/haoel/article/details/2892">七</a>、<a href="https://blog.csdn.net/haoel/article/details/2893">八</a>、<a href="https://blog.csdn.net/haoel/article/details/2894">九</a>、<a href="https://blog.csdn.net/haoel/article/details/2895">十</a>、<a href="https://blog.csdn.net/haoel/article/details/2896">十一</a>、<a href="https://blog.csdn.net/haoel/article/details/2897">十二</a>、<a href="https://blog.csdn.net/haoel/article/details/2898">十三</a>、<a href="https://blog.csdn.net/haoel/article/details/2899">十四</a>）。</li>
+<li>Socket的进程间通信。用C语言写一个1对1的聊天小程序，或是一个简单的HTTP服务器。</li>
+</ul>
+<h1>C10K 问题</h1>
+<p>然后，当你读完《Unix网络编程》后，千万要去读一下 “<a href="http://www.kegel.com/c10k.html">C10K Problem</a> （<a href="https://www.oschina.net/translate/c10k">中文翻译版</a>）”。提出这个问题的人叫丹·凯格尔（Dan Kegel），目前工作在美国Google公司。</p>
+<p>他从1978年起开始接触计算机编程，是Winetricks的作者，也是Wine 1.0的管理员，同时也是Crosstool（ 一个让 gcc/glibc 编译器更易用的工具套件）的作者。还是Java JSR 51规范的提交者并参与编写了Java平台的NIO和文件锁，同时参与了RFC 5128标准中有关NAT穿越（P2P打洞）技术的描述和定义。</p>
+<p>C10K问题本质上是操作系统处理大并发请求的问题。对于Web时代的操作系统而言，对于客户端过来的大量的并发请求，需要创建相应的服务进程或线程。这些进程或线程多了，导致数据拷贝频繁（缓存I/O、内核将数据拷贝到用户进程空间、阻塞）， 进程/线程上下文切换消耗大，从而导致资源被耗尽而崩溃。这就是C10K问题的本质。</p>
+<p>了解这个问题，并了解操作系统是如何通过多路复用的技术来解决这个问题的，有助于你了解各种I/O和异步模型，这对于你未来的编程和架构能力是相当重要的。</p>
+<p>另外，现在，整个世界都在解决C10M问题，推荐看看 <a href="http://highscalability.com/blog/2013/5/13/the-secret-to-10-million-concurrent-connections-the-kernel-i.html">The Secret To 10 Million Concurrent Connections -The Kernel Is The Problem, Not The Solution</a> 一文。</p>
+<h1>实践项目</h1>
+<p>我们已经学习完了编程语言、理论学科和系统知识三部分内容，下面就来做几个实践项目，小试牛刀一下。实现语言可以用C、C++或Java。</p>
+<p>实现一个telnet版本的聊天服务器，主要有以下需求。</p>
+<ul>
+<li>每个客户端可以用使用<code>telnet ip:port</code>的方式连接到服务器上。</li>
+<li>新连接需要用用户名和密码登录，如果没有，则需要注册一个。</li>
+<li>然后可以选择一个聊天室加入聊天。</li>
+<li>管理员有权创建或删除聊天室，普通人员只有加入、退出、查询聊天室的权力。</li>
+<li>聊天室需要有人数限制，每个人发出来的话，其它所有的人都要能看得到。</li>
+</ul>
+<p>实现一个简单的HTTP服务器，主要有以下需求。</p>
+<ul>
+<li>解释浏览器传来的HTTP协议，只需要处理URL path。</li>
+<li>然后把所代理的目录列出来。</li>
+<li>在浏览器上可以浏览目录里的文件和下级目录。</li>
+<li>如果点击文件，则把文件打开传给浏览器（浏览器能够自动显示图片、PDF，或HTML、CSS、JavaScript以及文本文件）。</li>
+<li>如果点击子目录，则进入到子目录中，并把子目录中的文件列出来。</li>
+</ul>
+<p>实现一个生产者/消费者消息队列服务，主要有以下需求。</p>
+<ul>
+<li>消息队列采用一个Ring-buffer的数据结构。</li>
+<li>可以有多个topic供生产者写入消息及消费者取出消息。</li>
+<li>需要支持多个生产者并发写。</li>
+<li>需要支持多个消费者消费消息（只要有一个消费者成功处理消息就可以删除消息）。</li>
+<li>消息队列要做到不丢数据（要把消息持久化下来）。</li>
+<li>能做到性能很高。</li>
+</ul>
+<h1>小结</h1>
+<p>到今天，我们已经学习完了专业编程方面最为重要的三部分内容：编程语言、理论学科和系统知识，我们针对这些内容做个小结。如果想看完我推荐的那些书和知识，并能理解和掌握，我估计怎么也得需要4-5年的时间。嗯，是的，就是一个计算机科学系科班出身的程序员需要学习的一些东西。这其中，最重要的是下面这几点。</p>
+<p><strong>编程语言</strong>。以工业级的C、C++、Java这三门语言为主，这三门语言才是真正算得上工业级的编程语言，因为有工业级的标准化组织在控制着这几门语言，而且也有工业级的企业应用。尤其是Java，还衍生出了大量的企业级架构上的开源生态。你至少需要掌握C语言和Java语言，这对你以后面对各式各样的编程语言是非常重要的。</p>
+<p>此外，还推荐学习Go语言，它已成为云计算领域事实上的标准语言，尤其是在Docker、Kubernetes等项目中。而且，Go语言在国内外一些知名公司中有了一定的应用和实践，并且其生态圈也越来越好。</p>
+<p><strong>算法和数据结构</strong>。这个太重要了，尤其是最基础的算法和数据结构，这是任何一个称职的程序员都需要学习和掌握的。你必需要掌握。</p>
+<p><strong>计算机的相关系统</strong>。你至少要掌握三个系统的基础知识，一个是操作系统，一个是网络系统，还有一个是数据库系统。它们分别代表着计算机基础构架的三大件——计算、存储、网络。</p>
+<p>如果你能够走到这里，把前面的那些知识都了解了（不用精通，因为精通是需要时间和实践来慢慢锤炼出来的，所以，你也不用着急），那么你已经是一个非常非常合格的程序员了，而且你的潜力和可能性是非常非常高的。</p>
+<p>如果经历过这些比较枯燥的理论知识，而且你还能有热情和成就感，那么我要恭喜你了。因为你已经超过了绝大多数人，而且还是排在上游的比较抢手的程序员了。我相信你至少可以找到年薪50万以上的工作了。</p>
+<p>但是，你还需要很多的经验或是一些实践，以及一些大系统大项目的实际动手的经验。没关系，我们后面会有教你怎么实操的方法和攻略。</p>
+<p>但是，往后面走，你需要开始需要术业有专攻了。下面给一些建议的方向。</p>
+<ul>
+<li><strong>底层方向</strong>：操作系统、文件系统、数据库、网络……</li>
+<li><strong>架构方向</strong>：分布式系统架构、微服务、DevOps、Cloud Native……</li>
+<li><strong>数据方向</strong>：大数据、机器学习、人工智能……</li>
+<li><strong>前端方向</strong>：你对用户体验或是交互更感兴趣，那么你走前端的路吧。</li>
+<li><strong>其它方向</strong>：比如，安全开发、运维开发、嵌入式开发……</li>
+</ul>
+<p>这些方向你要仔细选择，因为一旦选好，就要勇往直前地走下去，当然，你要回头转别的方向也没什么问题，因为你有前面的这些基础知识在身，所以，不用害怕。只是不同的方向上会有不同的经验积累，经验积累是看书看不来的，这个是转方向的成本。</p>
+<p>下篇文章，我们将进入《软件设计篇》。敬请期待。</p>
+<p>下面是《程序员练级攻略（2018）》系列文章的目录。</p>
+<ul>
+<li><a href="https://time.geekbang.org/column/article/8136">开篇词</a></li>
+<li>入门篇
+<ul>
+<li><a href="https://time.geekbang.org/column/article/8216">零基础启蒙</a></li>
+<li><a href="https://time.geekbang.org/column/article/8217">正式入门</a></li>
+</ul>
+</li>
+<li>修养篇
+<ul>
+<li><a href="https://time.geekbang.org/column/article/8700">程序员修养</a></li>
+</ul>
+</li>
+<li>专业基础篇
+<ul>
+<li><a href="https://time.geekbang.org/column/article/8701">编程语言</a></li>
+<li><a href="https://time.geekbang.org/column/article/8887">理论学科</a></li>
+<li><a href="https://time.geekbang.org/column/article/8888">系统知识</a></li>
+</ul>
+</li>
+<li>软件设计篇
+<ul>
+<li><a href="https://time.geekbang.org/column/article/9369">软件设计</a></li>
+</ul>
+</li>
+<li>高手成长篇
+<ul>
+<li><a href="https://time.geekbang.org/column/article/9759">Linux系统、内存和网络（系统底层知识）</a></li>
+<li><a href="https://time.geekbang.org/column/article/9851">异步I/O模型和Lock-Free编程（系统底层知识）</a></li>
+<li><a href="https://time.geekbang.org/column/article/10216">Java底层知识</a></li>
+<li><a href="https://time.geekbang.org/column/article/10301">数据库</a></li>
+<li><a href="https://time.geekbang.org/column/article/10603">分布式架构入门（分布式架构）</a></li>
+<li><a href="https://time.geekbang.org/column/article/10604">分布式架构经典图书和论文（分布式架构）</a></li>
+<li><a href="https://time.geekbang.org/column/article/11232">分布式架构工程设计(分布式架构)</a></li>
+<li><a href="https://time.geekbang.org/column/article/11116">微服务</a></li>
+<li><a href="https://time.geekbang.org/column/article/11665">容器化和自动化运维</a></li>
+<li><a href="https://time.geekbang.org/column/article/11669">机器学习和人工智能</a></li>
+<li><a href="https://time.geekbang.org/column/article/12271">前端基础和底层原理（前端方向）</a></li>
+<li><a href="https://time.geekbang.org/column/article/12389">前端性能优化和框架（前端方向）</a></li>
+<li><a href="https://time.geekbang.org/column/article/12486">UI/UX设计（前端方向）</a></li>
+<li><a href="https://time.geekbang.org/column/article/12561">技术资源集散地</a></li>
+</ul>
+</li>
+</ul>
+<p><img src="https://static001.geekbang.org/resource/image/fc/e9/fcc761001867c60f526665e237f831e9.jpg" alt="" /></p>
+
+                    </div>
+                </div>
+
+            </div>
+            <div data-v-87ffcada="" class="article-comments pd"><h2 data-v-87ffcada=""><span
+                    data-v-87ffcada="">精选留言</span></h2>
+                <ul data-v-87ffcada="">
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/e4/51/6dd58d1d.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">JasonHu</span>
+                            </div>
+                            <div class="bd">已经在 Github 上整理了这系列文章中提到的书 https:&#47;&#47;github.com&#47;jasonim&#47;ebook <br></div>
+                            <span class="time">2018-06-20 12:51</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/a6/ed/0bb72ca7.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">耗子粉丝</span>
+                            </div>
+                            <div class="bd">周二周四等待耗子叔更新文章成了一种习惯！程序员练级攻略这个系列，真是太精彩了！作为计算机科班出生的半吊子！整天想着怎样读完这一系列推荐书！是不是要辞职精心研究一到两年，再去上班！纠结！这些内容真的太精彩了！ <br></div>
+                            <span class="time">2018-06-19 07:30</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/11/79/31/beac923f.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">Daemon.An</span>
+                            </div>
+                            <div class="bd">耗子叔，有一个问题想问您，就是您推荐的《深入理解计算机系统》、《Unix环境高级编程》、《TCP&#47;IP》等这些书都出了新版，但是有些已经不是原作者了；但是如果看旧版的，有些知识可能已经有点过时了。对于老版、新版之间的区别以及选择，您怎么看的呢？希望耗子叔指点迷津 <br></div>
+                            <span class="time">2018-06-19 08:50</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/9f/32/277b55a9.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">林子</span>
+                            </div>
+                            <div class="bd">这&quot;货&quot;干的有点脱水吧。。。 <br></div>
+                            <span class="time">2018-06-19 13:46</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/10/31/d7/18694dbb.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">蹦蹦逗</span>
+                            </div>
+                            <div class="bd">“如果想看完我推荐的那些书和知识，并能理解和掌握，我估计怎么也得需要 4-5 年的时间。”<br>耗子哥，“4-5年”是脱产情况下4-5年吗？ <br></div>
+                            <span class="time">2018-06-19 21:07</span>
+
+                            <div class="reply">
+                                <div class="reply-hd"><span>作者回复</span></div>
+                                <p class="reply-content">无996的在职</p>
+                                <p class="reply-time">2018-06-20 22:40</p>
+                            </div>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/50/34/fefb125f.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">笨笨熊</span>
+                            </div>
+                            <div class="bd">感谢皓哥的精彩分享。关于Wireshark抓包这两本书「Wireshark网络分析就这么简单」、「Wireshark网络分析的艺术」也很不错。 <br></div>
+                            <span class="time">2018-06-19 08:25</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/10/1a/40/f63b5142.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">墨梵</span>
+                            </div>
+                            <div class="bd">一个计算机科班出身毕业7-8年的半吊子表示，感谢耗子哥指明了方向 <br></div>
+                            <span class="time">2018-06-19 08:25</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/11/54/9a/5d8c349e.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">saiyn</span>
+                            </div>
+                            <div class="bd">郁闷啊，这么多篇都是介绍一些链接内容 <br></div>
+                            <span class="time">2018-06-19 18:23</span>
+
+                            <div class="reply">
+                                <div class="reply-hd"><span>作者回复</span></div>
+                                <p class="reply-content">对不住了。另外，这系列的文章只是画个地图。路还是要自己一步一步走的，饭还是要自己一口口吃的。</p>
+                                <p class="reply-time">2018-06-20 22:41</p>
+                            </div>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/10/3b/98/1304323f.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">少年姜太公</span>
+                            </div>
+                            <div class="bd">求教怎么找到年薪50w的工作，看招聘网一般都是月薪15~30 极限了。 <br></div>
+                            <span class="time">2018-07-26 16:58</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/10/08/7f/a0b0ac74.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">KingPoker</span>
+                            </div>
+                            <div class="bd">回头看，大学四年多多努力多重要 <br></div>
+                            <span class="time">2018-06-19 11:17</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/a6/60/ebda8d95.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">52rock</span>
+                            </div>
+                            <div class="bd">mq偶尔丢消息该怎么查 <br></div>
+                            <span class="time">2018-06-22 17:59</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/90/60/44bf9fcc.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">D瓜哥</span>
+                            </div>
+                            <div class="bd">我觉得《编码》这本书从灯光，盲文开始展开，说明信息编码的原理，然后代领大家做一个CPU，也非常通俗易懂。 <br></div>
+                            <span class="time">2018-06-19 22:57</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/10/84/3e/fcc5b4fa.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">zliweijk</span>
+                            </div>
+                            <div class="bd">计算机科班出身的半吊子感谢耗子叔的分享，一切都只是时间，觉得看书枯燥算是没热情吗？ <br></div>
+                            <span class="time">2018-06-19 21:35</span>
+
+                            <div class="reply">
+                                <div class="reply-hd"><span>作者回复</span></div>
+                                <p class="reply-content">枯燥也得咬牙啃，好多知识都这样</p>
+                                <p class="reply-time">2018-06-20 22:39</p>
+                            </div>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/92/6d/5b2b2876.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">escray</span>
+                            </div>
+                            <div class="bd">如果能在「左耳听风读者群」里面，和大家一起打磨升级就更好了。用 5-7 年的时间，成为高手 <br></div>
+                            <span class="time">2018-06-19 13:49</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/ac/a1/43d83698.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">云学</span>
+                            </div>
+                            <div class="bd">作者提到的这些经典书籍每本都涉猎过，也难得自己静下心来看这些书，我现在保持每天看书的习惯，但是理解还是有限的，毕竟工作中用的不多，转行的代价不在于看书而在于经验积累，深有感触！！ <br></div>
+                            <span class="time">2018-06-19 08:59</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/11/71/31/d17c60f7.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">冷雨</span>
+                            </div>
+                            <div class="bd">关键还是太懒了 <br></div>
+                            <span class="time">2018-06-19 08:43</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/11/a3/40/e0df3b84.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">力挽狂澜爆炸输出的臭臭宁</span>
+                            </div>
+                            <div class="bd">我觉得这篇文章最让我激动的一点就是，他给出了一些实践案例；平时也会看其他一些技术文章，但是深刻感觉到只看理论不实践很快就会忘记并且对理论也会缺乏深刻理解，特别希望有经验的人能给出一些简易但是有深度的实践案例，看完这篇文章真的很佩服作者 <br></div>
+                            <span class="time">2018-06-19 08:30</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/80/b2/c75e96e5.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">李斌</span>
+                            </div>
+                            <div class="bd">读书关键要静下心来，沉下去，特别是工作之后，比较浮躁，急于求成，忽略了基础知识！ <br></div>
+                            <span class="time">2018-10-26 09:36</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/54/41/3d352f74.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">小金库so</span>
+                            </div>
+                            <div class="bd">耗子叔提供了走向专家的方向，专业理论知识读起来确实枯燥，没办法，有方向了，耐着性子也得读 <br></div>
+                            <span class="time">2018-06-27 12:25</span>
+
+                        </div>
+                    </li>
+
+                    <li data-v-87ffcada="" class="comment-item"><img
+                            src="https://static001.geekbang.org/account/avatar/00/0f/e4/39/7cfe7e8f.jpg" class="avatar">
+                        <div class="info">
+                            <div class="hd"><span class="username">大雄逸豪</span>
+                            </div>
+                            <div class="bd">皓哥，UNIX环境高级编程，不是UNIX高级环境编程 <br></div>
+                            <span class="time">2018-06-22 10:36</span>
+
+                        </div>
+                    </li>
+
+
+
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
