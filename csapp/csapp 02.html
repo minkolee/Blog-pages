@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>第二章笔记</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">CSAPP 第二章 信息存储</h1>
+<p>第一大部分是进制之间的转换，目前主要是十六进制和二进制以及十进制之间的转换。</p>
+<h3>2.1 完成数字转换</h3>
+<ol>
+    <li>0x39A7F8，转换成二进制，就是把每位16进制展开，得到0011 1001 1010 0111 1111 1000</li>
+    <li>1100 1001 0111 1011转换为16进制，就是把每四位转换成16进制，为0xC97B</li>
+    <li>0xD5E4C，转换成二进制是 1101 0101 1110 0100 1100</li>
+    <li>二进制 1001 1011 1001 1110 1101 01，先重新分组，按照4位补齐 0010 0110 1110 0111 1011 0101，在转换成16进制，结果是26E7B5</li>
+</ol>
+<p>
+    有一种将2的整数次幂快捷转换成16进制的方式：由于2的n次方直接可以写成1加上n个0，而四个二进制的0对应一位十六进制的0。只要计算出n里边有几个4(n/4)和n的余数(n%4)，几个4就是几个16进制的0，如果正好整除，说明是16的倍数，最开头补一个1。而余数的可能值为1,2,3。余数是1的时候就是十进制的2，是2的时候是十进制的4，是3的时候就是十进制的8，直接转换成十六进制写在最前边即可。</p>
+<p>举一个例子：2的15次方，15/4 = 3, 15%4 = 3,则 2的15次方就是余数3对应的8加上3个十六进制0，结果是0x8000。</p>
+<h3>2.2 完成数字转换</h3>
+<table>
+    <thead>
+    <tr>
+        <th>n</th>
+        <th>2的n次方（十进制）</th>
+        <th>2的n次方（十六进制）</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>9</td>
+        <td>512</td>
+        <td>0x200</td>
+    </tr>
+    <tr>
+        <td>2的19次方 = 4*4+3</td>
+        <td>512*512*2 = 524288</td>
+        <td>0x80000</td>
+    </tr>
+    <tr>
+        <td>2的14次方 = 4*3+2</td>
+        <td>16384</td>
+        <td>0x4000</td>
+    </tr>
+    <tr>
+        <td>第一位是1，说明能整除。后边4个0，说明一共4*4 = 16</td>
+        <td>2的16次方 = 65536</td>
+        <td>0x10000</td>
+    </tr>
+    <tr>
+        <td>17 = 4*4+1</td>
+        <td>=16384*8 = 131072</td>
+        <td>0x20000</td>
+    </tr>
+    <tr>
+        <td>2的5次方，5= 4*1+1</td>
+        <td>32</td>
+        <td>0x20</td>
+    </tr>
+    <tr>
+        <td>第一位8表示余数3，然后是1位表示4，所以是2的7次方</td>
+        <td>128</td>
+        <td>0x80</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>2.3 转换字节到16进制</h3>
+<table>
+    <thead>
+    <tr>
+        <th>十进制</th>
+        <th>二进制</th>
+        <th>十六进制</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>0</td>
+        <td>0000 0000</td>
+        <td>0x00</td>
+    </tr>
+    <tr>
+        <td>167</td>
+        <td>1010 0111</td>
+        <td>0xA7</td>
+    </tr>
+    <tr>
+        <td>62</td>
+        <td>0011 1110</td>
+        <td>0x3E</td>
+    </tr>
+    <tr>
+        <td>188</td>
+        <td>1011 1100</td>
+        <td>0xBC</td>
+    </tr>
+    <tr>
+        <td>55</td>
+        <td>0011 0111</td>
+        <td>0x37</td>
+    </tr>
+    <tr>
+        <td>136</td>
+        <td>1000 1000</td>
+        <td>0x88</td>
+    </tr>
+    <tr>
+        <td>243</td>
+        <td>1111 0011</td>
+        <td>0xF3</td>
+    </tr>
+    <tr>
+        <td>82</td>
+        <td>0101 0010</td>
+        <td>0x52</td>
+    </tr>
+    <tr>
+        <td>172</td>
+        <td>1010 1100</td>
+        <td>0xAC</td>
+    </tr>
+    <tr>
+        <td>231</td>
+        <td>1110 0111</td>
+        <td>0xE7</td>
+    </tr>
+    </tbody>
+</table>
+<h3>2.4 十六进制加法</h3>
+<ol>
+    <li>0x503C+0x8 ，直接相加 C=12+8 = 20,进1，余4，得到 0x5044</li>
+    <li>0x503C-0x40 ，3-4不够减，借16，借完之后前一位变成F，得到0x4FFC</li>
+    <li>0x503C+64 ，64是0x40，得到0x507C</li>
+    <li>0x50EA-0x503C ，可以列竖式来计算，得到0xAE</li>
+</ol>
+
+<h1 style="text-align: center;">C语言的长度和大小端表示整数</h1>
+<p>这里要注意的是指针的长度和位数也就是字长相等，所以32位下long=4，char * 也是4；64位下long = 8，char * 也是8。</p>
+<p>其他C语言的数值的位数在32和64位X86上默认没有区别。</p>
+<p>使用64位还是32位编译，要使用<kbd>gcc -m32/-m64 main.c</kbd>来指定编译。C99还有固定的int32_t和int64_t，固定长度的类型。</p>
+<p>大端法和小端法。简单的说，就是计算机如果按照我们阅读的顺序，在内存的从小到大的地址中存放分组后的字节，就是大端法。反着来就是小端法。</p>
+<p>INTEL X86使用小端法。除了硬件之外，大小端还和操作系统有关系。</p>
+<p>通用的打印内存地址的程序：</p>
+<pre>
+typedef unsigned char *byte_pointer;
+
+void show_bytes(byte_pointer start, size_t len) {
+    size_t i = 0;
+    for (; i < len; i++) {
+        printf("%.2x ", start[i]);
+    }
+    printf("\n");
+
+}
+
+void show_int(int x) {
+    show_bytes((byte_pointer) &x, sizeof(int));
+}
+
+void show_float(float x) {
+    show_bytes((byte_pointer) &x, sizeof(float));
+}
+
+void show_double(double x) {
+    show_bytes((byte_pointer) &x, sizeof(double));
+}
+
+</pre>
+<p>由于要打印字节，一般都要使用 char *，这里要注意使用无符号整数的指针，否则会出现错误。另外长度和循环也要统一使用无符号整数互相比较，这样就不会出错。</p>
+<p>运行的时候，指针指向的是最低字节，这个程序会打印指定的数据在内存中的实际存放方式。</p>
+<p>在main函数中实验：</p>
+<pre>
+int main()
+{
+
+    int x = 12345;
+
+    float y = (float) x;
+    show_int(x);
+    show_float(y);
+
+}
+</pre>
+<p>结果是：</p>
+<pre>
+39 30 00 00
+00 e4 40 46
+</pre>
+<p>先看上边的整数，由于12345很明显是0x3039，所以显然是大端。而强制转型并不是什么都没做，可以发现机器的表示发生了变化。</p>
+<p>这说明浮点数和int有着某种对应换算关系，之后再回来看。现在可以知道，强制转型会让底层表示方法有变化，从而这些数值的操作（比如加减乘除）的方式也会有变化。</p>
+<h3>2.5 大小端表示法</h3>
+<p>很显然0x87654321的大端存放顺序就是 87 65 43 21，小端存放顺序是 21 43 65 87，所以：</p>
+<table>
+    <thead>
+    <tr>
+        <th>函数</th>
+        <th>小端</th>
+        <th>大端</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>show_bytes(valp,1)</td>
+        <td>21</td>
+        <td>87</td>
+    </tr>
+    <tr>
+        <td>show_bytes(valp,2)</td>
+        <td>21 43</td>
+        <td>87 65</td>
+    </tr>
+    <tr>
+        <td>show_bytes(valp,3)</td>
+        <td>21 43 65</td>
+        <td>87 65 43</td>
+    </tr>
+    </tbody>
+</table>
+<h3>2.6 整数与浮点数的表示</h3>
+<p>0x00359141写成二进制是：0000 0000 0011 0101 1001 0001 0100 0001。</p>
+<p>0x4A564504写成二进制是：0100 1010 0101 0110 0100 0101 0000 0100。</p>
+<p>移动一下找匹配的部分：</p>
+<pre>
+  00000000001<span style="color: red;">101011001000101000001</span>
+    010010100<span style="color: red">101011001000101000001</span>00
+</pre>
+<p>有21位相同。看上去除了最高的一位1，整数的部分都包含在float中。</p>
+
+<h1 style="text-align: center;">表示字符</h1>
+<p>ACSII字符可以被解释成带符号的char类型数值，也就是整数。正好十进制的0-9，对应十六进制的0x30-0x39，方便转换。而大小写字母的转换，在于第五位的不同。</p>
+<P>2.7的结果很显然就是打印出来61-66</P>
+
+<h1 style="text-align: center;">布尔逻辑 - 位运算</h1>
+<p>~取反，&与，|或，^异或。</p>
+<p>其他的都好懂，异或只要记住，两个数字相同就是0，不同就是1。取反和与1异或相同。与0异或结果不变，与&运算相同。而设置成1是使用|，设置成0则使用&0。</p>
+<p>除了可以对标量进行逻辑运算，对向量也可以，遵循的方法是对向量的每一个相同的位进行逻辑运算。</p>
+<h3>2.8 位向量布尔运算</h3>
+<table>
+    <thead>
+    <tr>
+        <th>运算</th>
+        <th>结果</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    <tr>
+        <td>a</td>
+        <td>01101001</td>
+    </tr>
+    <tr>
+        <td>b</td>
+        <td>01010101</td>
+    </tr>
+    <tr>
+        <td>~a</td>
+        <td>10010110</td>
+    </tr>
+    <tr>
+        <td>~b</td>
+        <td>10101010</td>
+    </tr>
+    <tr>
+        <td>a&b</td>
+        <td>01000001</td>
+    </tr>
+    <tr>
+        <td>a|b</td>
+        <td>01111101</td>
+    </tr>
+    <tr>
+        <td>a^b</td>
+        <td>00111100</td>
+    </tr>
+    </tbody>
+
+</table>
+<p>一个位和自己的异或必定是0，而0和另外一个数字异或，结果还是另外一个数字。用这个方法可以有很多简化的算法。</p>
+<p>位向量的用法很多，可以表示集合，或者取掩码。需要灵活掌握。</p>
+<h3>2.9 用三位位向量表示8种颜色的组合</h3>
+<ol>
+    <li>000 黑色的补是111 白色</li>
+    <li>001 蓝色的补是110 黄色</li>
+    <li>010 绿色的补是101 红紫色</li>
+    <li>011 蓝绿色的补是100 即红色</li>
+</ol>
+<p>另外四种颜色的补色，就是反向关系。</p>
+<p>蓝色 | 绿色 = 001 | 010 = 011 蓝绿色</p>
+<p>黄色 & 蓝绿色 = 110 & 011 = 010 绿色</p>
+<p>红色 ^ 红紫色 = 100 ^ 101 = 001 蓝色</p>
+
+<h3>2.10 异或交换变量值</h3>
+<pre>
+void in_place_swap(int *x,int *y){
+
+    *y = *x ^ *y; /* STEP 1 */
+    *x = *x ^ *y; /* STEP 2 */
+    *y = *x ^ *y; /* STEP 3 */
+}
+</pre>
+<p>各步的值如下：</p>
+<table>
+    <thead>
+    <tr>
+        <th>步骤</th>
+        <th>*x</th>
+        <th>*y</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>初始</td>
+        <td>a</td>
+        <td>b</td>
+    </tr>
+    <tr>
+        <td>第一步</td>
+        <td>a</td>
+        <td>a^b</td>
+    </tr>
+    <tr>
+        <td>第二步</td>
+        <td>b</td>
+        <td>a^b</td>
+    </tr>
+    <tr>
+        <td>第三步</td>
+        <td>b</td>
+        <td>a</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>2.11 会失败的交换元素位置：</h3>
+<pre>
+void print_array(int a[], int cnt){
+    int i = 0;
+    printf("[");
+    for (; i < cnt; i++) {
+        printf("%d", a[i]);
+        if(i!=cnt-1){
+            printf(", ");
+        }
+    }
+    printf("]\n");
+}
+
+void reverse_array(int a[], int cnt){
+    int first, last;
+
+    print_array(a, cnt);
+
+    for(first=0,last= cnt-1;
+        first<=last;
+        first++,last--){
+        in_place_swap(&a[first], &a[last]);
+    }
+
+    print_array(a, cnt);
+
+}
+</pre>
+<p>这样一个程序，如果长度为奇数，会失败：</p>
+<pre>
+int main()
+{
+    int a[] = {1, 2, 3, 4, 5, 6};
+
+    int b[] = {1, 2, 3, 4, 5, 6, 7};
+    reverse_array(a, 6);
+    reverse_array(b, 7);
+}
+</pre>
+<p>结果是：</p>
+<pre>
+[1, 2, 3, 4, 5, 6]
+[6, 5, 4, 3, 2, 1]
+[1, 2, 3, 4, 5, 6, 7]
+[7, 6, 5, 0, 3, 2, 1]
+</pre>
+<p>这是因为长度在奇数的时候，<code>&a[first]</code>与<code>&a[last]</code>两个地址会指向同一个位置，即索引为(cnt+1)/2的元素，此时如果采用这种取异或的方法，直接会导致变量变成0。</p>
+<p>修改这个方法也很简单，如果指向同一个元素的时候，不做任何工作就可以，所以直接将first=last的条件排除在for循环之外即可：</p>
+<pre>
+void reverse_array(int a[], int cnt){
+    int first, last;
+
+    print_array(a, cnt);
+
+    for(first=0,last= cnt-1;
+        <span style="color: red">first&lt;last;</span>
+        first++,last--){
+        in_place_swap(&a[first], &a[last]);
+    }
+
+    print_array(a, cnt);
+
+}
+</pre>
+<p>位向量常做的是掩码运算。掩码的特点是，如果用1去做与运算，得到的是掩码的值。如果用0去做与运算，是将其置零。</p>
+<p>想要取一个数值的某段掩码，就可以将指定的位数设置成1然后取出。而~0可以直接得到全1的掩码用于取出所有的值。</p>
+<h3>2.12 掩码取字节</h3>
+<p>x = 0x87654321，字长任何大于等于8的时候都能工作。</p>
+<p>由于对于任何字长都要大于0，因此不能考虑符号。</p>
+<pre>
+//Question A
+x & 0xFF /* 0xFF 的最低8位是1，高位不管多少，全都是0 */
+
+//Question B 取补就是异或，但是最低8位不能变。很显然取补是和1异或，而和0异或就是不变。因此有：
+x ^ (~0xFF)
+
+//Question C 最低有效字节全部设置成1，其他字节不变。设置成1就是将位于1进行或运算，结果一定是1。
+x | 0xFF
+</pre>
+<p>总之一句话，如果要不考虑字长的限制，则必须使用~来获得高位为1的掩码，而不能直接写死定长的掩码。</p>
+<h3>2.13 模拟bis和bic指令</h3>
+<p>bis指令是将掩码为1的地方强行设置为1，而其他地方不变。很显然设置为1就是用or，而且一位和0做or运算，结果不变。所以bis就是一个按位或运算。</p>
+<p>所以实现按位或就是bis函数本身，即int result = bis(x, y)</p>
+
+<p>bic是在m为1的地方，将z设置为0。实际上就是取反然后做与运算来设置为0。即 x&(~y)。</p>
+<p>这个时候翻出计算机系统要素第10页的布尔函数表，发现异或是 x.(~y) + (~x).y</p>
+<p>由于bic就是x&(~y),根据这个公式，只要bis(bic(x,y),bic(y,x))就可以得到异或了。</p>
+
+<h1 style="text-align: center;">布尔逻辑 - 逻辑运算</h1>
+<p>C语言里有 ! && ||，原理和位运算的符号不同，而且|| 带有短路效果，在第一个表达式为TRUE的时候，不会再去判断后边的表达式。</p>
+<p>依靠短路特性就可以写出很多简洁的代码比如：<code>a&&5/a</code>, <code>p&&*p++</code>。</p>
+<h3>2.14 位运算与逻辑运算的结果</h3>
+<p>x 是 0x66,也就是 01100110，y 是 0x39，也就是 00111001。</p>
+<table>
+    <thead>
+    <tr>
+        <th>表达式</th>
+        <th>值</th>
+        <th>表达式</th>
+        <th>值</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>x & y</td>
+        <td>20</td>
+        <td>x && y</td>
+        <td>01</td>
+    </tr>
+    <tr>
+        <td>x | y</td>
+        <td>7F</td>
+        <td>x || y</td>
+        <td>01</td>
+    </tr>
+    <tr>
+        <td>~x | ~y</td>
+        <td>DF</td>
+        <td>!x || !y</td>
+        <td>00</td>
+    </tr>
+    <tr>
+        <td>x & !y</td>
+        <td>00</td>
+        <td>x && ~y</td>
+        <td>01</td>
+    </tr>
+    </tbody>
+</table>
+<h3>2.15 x==y</h3>
+<p>编写一个表达式，仅使用位级和逻辑运算，当x和y相等的时候返回1，不相等的时候返回0。</p>
+<p>首先是如何判断两数字相等，如果两个数字的位全部一样，就算相等。看到相等就想到异或。如果两个数字各个位全部相等，则异或得到0。再对异或的结果使用逻辑取反，就得到1。</p>
+<p>因此表达式就是<code>!(x ^ y)</code></p>
+
+<h1 style="text-align: center;">移位</h1>
+<p>移位分为两种，逻辑移位和算术移位。其中左移都是一样的，在右边补0。</p>
+<p>而右移的时候，算术逻辑根据最高位补对应的符号位，而逻辑移位只在最高位补0。</p>
+<table>
+    <thead>
+    <tr>
+        <th colspan="2">x</th>
+        <th colspan="2">x<<3</th>
+        <th colspan="2">x>>2(逻辑)</th>
+        <th colspan="2">x>>2(算术)</th>
+    </tr>
+    <tr>
+        <th>十六进制</th>
+        <th>二进制</th>
+        <th>二进制</th>
+        <th>十六进制</th>
+        <th>二进制</th>
+        <th>十六进制</th>
+        <th>二进制</th>
+        <th>十六进制</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>0xC3</td>
+        <td>11000011</td>
+        <td>00011000</td>
+        <td>18</td>
+        <td>00110000</td>
+        <td>30</td>
+        <td>11110000</td>
+        <td>F0</td>
+    </tr>
+    <tr>
+        <td>0x75</td>
+        <td>01110101</td>
+        <td>10101000</td>
+        <td>A8</td>
+        <td>00011101</td>
+        <td>1D</td>
+        <td>00011101</td>
+        <td>1D</td>
+    </tr>
+    <tr>
+        <td>0x87</td>
+        <td>10000111</td>
+        <td>00111000</td>
+        <td>38</td>
+        <td>00100001</td>
+        <td>21</td>
+        <td>11100001</td>
+        <td>E1</td>
+    </tr>
+    <tr>
+        <td>0x66</td>
+        <td>01100110</td>
+        <td>00110000</td>
+        <td>30</td>
+        <td>00011001</td>
+        <td>19</td>
+        <td>00011001</td>
+        <td>19</td>
+    </tr>
+    </tbody>
+</table>
+
+
+
+<pre>
+
+</pre>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
