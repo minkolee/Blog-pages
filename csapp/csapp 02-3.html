@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>第二章笔记</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">CSAPP 第二章 整数运算</h1>
+<p>整数运算也分为两种，无符号整数和有符号整数。</p>
+
+<h1 style="text-align: center;">无符号加减法</h1>
+<p>无符号就是简单将两个二进制位相加。但是结果存在溢出的问题，即结果无法放到字长的限制中去。</p>
+<p>如果字长是w，则无符号数最大就是2的w次方减1，这就导致如果两个数的和如果到达2的w次方，结果实际上就少了2的w次方。比如字长为4，1001+1001，结果实际上是10010 - 10000 = 10。十进制来看就是9+9 = 9+9-16 = 2，结果里少了2的四次方。</p>
+<p>检测无符号数加法的溢出，就是先让直接加起来两个数字，由于默认会丢掉最高位。所以取剩下的部分作为结果，再和任何一个加数比较，如果结果小于加数就发生了溢出。因此可以写一个判断程序：</p>
+<h3>2.27 判断是否溢出。</h3>
+<pre>
+int uadd_ok(unsigned x, unsigned y){
+    unsigned result = x + y;
+    return result >= x;
+}
+</pre>
+<p>减法就是对无符号数求反再加。对无符号数求反，就是简单的用2的字长次方减去无符号数，就可以得到结果</p>
+<H3>2.28 无符号数求反</H3>
+<table>
+    <thead>
+    <tr>
+        <th colspan="2">x</th>
+        <th colspan="2">对x按4字长取反</th>
+    </tr>
+    <tr>
+        <th>十六进制</th>
+        <th>十进制</th>
+        <th>十进制</th>
+        <th>十六进制</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+    </tr>
+    <tr>
+        <td>5</td>
+        <td>5</td>
+        <td>2的四次方-5 = 11</td>
+        <td>B</td>
+    </tr>
+    <tr>
+        <td>8</td>
+        <td>8</td>
+        <td>2的四次方-8 = 8</td>
+        <td>8</td>
+    </tr>
+    <tr>
+        <td>D</td>
+        <td>13</td>
+        <td>2的四次方-13 = 3</td>
+        <td>3</td>
+    </tr>
+    <tr>
+        <td>F</td>
+        <td>15</td>
+        <td>2的四次方-15 = 1</td>
+        <td>1</td>
+    </tr>
+    </tbody>
+</table>
+
+<h1 style="text-align: center;">补码加减法</h1>
+<p>补码加法的核心是，在底层的操作与无符号数是一样的。只是解释不同。</p>
+<p>所以溢出存在，但是方向不同。由于无符号的溢出位置不影响原本的字长数，而补码中，实际的字长少了一位有效数字。</p>
+<p>所以存在正溢出和负溢出。用两个大的int数相加，结果的最高位如果是1，溢出到了符号位，就变成负数，相当于从结果中减去2的字长次方。</p>
+<p>反过来如果两个很大的负数相加，会发生负溢出，结果实际上被加上了2的字长次方。先来看正溢出的情况</p>
+<pre>
+int main()
+{
+    //4d7c6d00
+    int i = 1300000000;
+
+    show_bytes((byte_pointer) &i, sizeof(int));
+
+    //59682f00
+    int j = 1500000000;
+
+    show_bytes((byte_pointer) &j, sizeof(int));
+
+    //a6e49c00
+    int sum = i + j;
+
+    show_bytes((byte_pointer) &sum, sizeof(int));
+
+    printf("%d + %d = %d\n", i, j, sum);
+}
+</pre>
+<p>结果是<code>1300000000 + 1500000000 = -1494967296</code>，这个结果等于2800000000 - 4294967296（2的32次方）</p>
+<p>负溢出的情况是：</p>
+<pre>
+int main()
+{
+    //4d7c6d00
+    int i = -1300000000;
+
+    show_bytes((byte_pointer) &i, sizeof(int));
+
+    //59682f00
+    int j = -1500000000;
+
+    show_bytes((byte_pointer) &j, sizeof(int));
+
+    //a6e49c00
+    int sum = i + j;
+
+    show_bytes((byte_pointer) &sum, sizeof(int));
+
+    printf("%d + %d = %d\n", i, j, sum);
+}
+</pre>
+<p>结果是<code>-1300000000 + -1500000000 = 1494967296</code>，很显然，结果是-2800000000 + 4294967296</p>
+<p>检测补码溢出的方式是检测两个加数和结果，如果两个加数都大于0且和小于0，发生正溢出；两个加数都小于0且和大于0，发生负溢出。</p>
+<h3>2.29 补码的和</h3>
+<table>
+    <thead>
+    <tr>
+        <th>x</th>
+        <th>y</th>
+        <th>x+y 整数和</th>
+        <th>x+y 补码和</th>
+        <th>情况</th>
+    </tr>
+    </thead>
+
+    <tr>
+        <td>10100</td>
+        <td>10001</td>
+        <td>-27</td>
+        <td>5</td>
+        <td>负溢出</td>
+    </tr>
+    <tr>
+        <td>11000</td>
+        <td>11000</td>
+        <td>-16</td>
+        <td>-16</td>
+        <td>没有溢出</td>
+    </tr>
+    <tr>
+        <td>10111</td>
+        <td>01000</td>
+        <td>-1</td>
+        <td>-1</td>
+        <td>没有溢出</td>
+    </tr>
+    <tr>
+        <td>00010</td>
+        <td>00101</td>
+        <td>7</td>
+        <td>7</td>
+        <td>没有溢出</td>
+    </tr>
+    <tr>
+        <td>01100</td>
+        <td>00100</td>
+        <td>16</td>
+        <td>-16</td>
+        <td>正溢出</td>
+    </tr>
+</table>
+<h3>2.30 检测是否补码加法是否溢出的函数，直接按照判断标准写即可：</h3>
+<pre>
+int tadd_ok(int x, int y){
+    int result = x + y;
+    return !(!(x > 0 && y > 0 && result <= 0) || (x < 0 && y < 0 && result >= 0));
+}
+</pre>
+<h3>2.31 代码纠错 </h3>
+<pre>
+int tadd_ok(int x, int y){
+    int sum = x + y;
+    return (sum - x == y) && (sum - y == x);
+}
+</pre>
+<p>这个的关键在于sum之后的结果再减去x是否可以得到y。由于补码是一个循环的阿贝尔群，无论是否溢出，sum-x==y和sum-y==x永远返回true。所以这个函数的结果永远是true，也就起不到判断的作用。</p>
+<h3>2.32 代码纠错</h3>
+<p>用这个函数去判断x-y是否溢出可以吗？</p>
+<pre>
+int tsub_o(int x, int y){
+    return tadd_ok(x, -y);
+}
+</pre>
+<p>看到减号就要想到补码的正负数不是一一对应的这个问题。在y等于int的下限的时候，-y就会出问题，依然和y相等，虽然从补码的底层逻辑来看是正确的，但从整数的角度来看，逻辑是错误的。</p>
+<p>写这个函数的正确版本首先要区分y的取值范围。-2147483647=&lt;y&lt;=2147483647的时候，可以调用tadd_ok函数，但在y等于最小值的时候，直接通过判断x而不是y来返回结果。</p>
+<pre>
+int tsub_o(int x, int y){
+    if (y >= -2147483647) {
+        return tadd_ok(x, -y);
+    } else {
+        return x < 0;
+    }
+}
+</pre>
+<p>测试该函数：</p>
+<pre>
+int main()
+{
+
+    int x1 = 123;
+    int x2 = 0;
+    int x3 = -3908;
+    int y = -2147483647-1;
+
+    //x1 = 123 y = -2147483648，x1+y 不溢出，x1-y溢出
+
+    printf("%d + %d OK？ %d\n", x1, y, tadd_ok(x1, y));
+
+    printf("%d - %d OK? %d\n", x1, y, tsub_o(x1, y));
+
+    //x2=0 y = -2147483648，x2+y 不溢出，x2-y溢出
+
+    printf("%d + %d OK？ %d\n", x2, y, tadd_ok(x2, y));
+
+    printf("%d - %d OK? %d\n", x2, y, tsub_o(x2, y));
+
+    //x3=-3908 y = -2147483648，x3+y 溢出，x3-y不溢出
+
+    printf("%d + %d OK？ %d\n", x3, y, tadd_ok(x3, y));
+
+    printf("%d - %d OK? %d\n", x3, y, tsub_o(x3, y));
+
+}
+</pre>
+<p>这题一开始做的有点懵逼，就是-y=y把自己绕进去了。</p>
+<p>补码的减法也就是取逆，其实很简单，由于正负数是不对称的，上边也看到了2.32的题目。所以当x为int下限的时候，-x就是x，也就是加法的逆。 其他情况就是直接取负即可。</p>
+<h3>2.33 字长为4的补码取逆</h3>
+<table>
+    <thead>
+    <tr>
+        <th colspan="2">x</th>
+        <th colspan="2">-x</th>
+    </tr>
+    <tr>
+        <td>十六进制</td>
+        <td>十进制</td>
+        <td>十进制</td>
+        <td>十六进制</td>
+    </tr>
+    </thead>
+
+    <tbody>
+    <tr>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+    </tr>
+    <tr>
+        <td>5</td>
+        <td>5</td>
+        <td>-5</td>
+        <td>B</td>
+    </tr>
+    <tr>
+        <td>8</td>
+        <td>-8</td>
+        <td>-8</td>
+        <td>8</td>
+    </tr>
+    <tr>
+        <td>D</td>
+        <td>-3</td>
+        <td>3</td>
+        <td>3</td>
+    </tr>
+    <tr>
+        <td>F</td>
+        <td>-1</td>
+        <td>1</td>
+        <td>1</td>
+    </tr>
+    </tbody>
+</table>
+<p>取一个补码表示的数的补码，除了各个位取补再加1之外，还有一个好办法是找到最右边的1，然后把这个1左边的所有位取反。</p>
+
+<h1 style="text-align: center;">无符号和补码乘法</h1>
+<p>两个为什么放一起，是因为两者的底层操作完全相同。而且最后被截断的位也完全相同，只是解释不同。</p>
+<h3>2.34 字长3位的乘法</h3>
+<p>无符号整数的相乘，是直接用位相乘得到结果即可。补码相乘不是直接用位乘，而是先运算得到实际结果，再转换成二进制结果。</p>
+
+<table>
+
+<thead>
+    <tr>
+        <th>模式</th>
+        <th>x</th>
+        <th>y</th>
+        <th colspan="2">x乘以y</th>
+        <th colspan="2">截断之后的x乘以y</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>无符号</td>
+        <td>100</td>
+        <td>101</td>
+        <td>010100</td>
+        <td>20</td>
+        <td>100</td>
+        <td>4</td>
+    </tr>
+    <tr>
+        <td>补码</td>
+        <td>100</td>
+        <td>101</td>
+        <td>001100</td>
+        <td>12</td>
+        <td>100</td>
+        <td>-4</td>
+    </tr>
+    <tr>
+        <td>无符号</td>
+        <td>010</td>
+        <td>111</td>
+        <td>001110</td>
+        <td>14</td>
+        <td>110</td>
+        <td>6</td>
+    </tr>
+    <tr>
+        <td>补码</td>
+        <td>010</td>
+        <td>111</td>
+        <td>111110</td>
+        <td>-2</td>
+        <td>110</td>
+        <td>-2</td>
+    </tr>
+    <tr>
+        <td>无符号</td>
+        <td>110</td>
+        <td>110</td>
+        <td>100100</td>
+        <td>36</td>
+        <td>100</td>
+        <td>4</td>
+    </tr>
+    <tr>
+        <td>补码</td>
+        <td>110</td>
+        <td>110</td>
+        <td>000100</td>
+        <td>4</td>
+        <td>100</td>
+        <td>-4</td>
+    </tr>
+    </tbody>
+</table>
+<p>2.35 这个证明没能力做出来，但是代码可以记住，判断x乘以y是否溢出的代码：</p>
+<h3>2.36 使用int64_t来判断是否溢出。</h3>
+<p>思路是先将两个int转换成64位，相乘之后，判断高位是否有数字，简单的方法就是转成32位然后判断值是否相等。如果高位全部是1表示负数或者是0，则结果相等表示没有溢出。否则数值会有变化。</p>
+<pre>
+int tmult_ok64(int x, int y){
+    __int64 result = (__int64) x * (__int64) y;
+
+    return result == (int) result;
+}
+</pre>
+<h3>2.37 修改XDR库函数的溢出错误。</h3>
+<p>原来函数的核心错误是malloc的参数类型 size_t 只有32位，而数组长度乘以每个元素的大小的乘积可能会导致溢出。</p>
+<p>即使使用64位无符号整数：</p>
+<pre>uint64_t asize = ele_cnt * （uint64_t) ele_size</pre>
+<p>这句话会把ele_size转成64位无符号，ele_cnt也会转成64位无符号，然而如果溢出存在，在传给malloc函数的时候，依然会被截断成低32位。</p>
+<p>解决方法想了半天，后来看答案才恍然大悟，32位字长之下，由于寻址限制，malloc根本没有必要分配超过32位的内存数量。</p>
+<p>所以就用之前的判断溢出函数判断一下乘积是否溢出，如果溢出就返回NULL，不溢出，再交给malloc函数进行工作。</p>
+
+<h3>乘以常数的优化</h3>
+<p>刚才普通的乘法是模拟两个变量相乘。在实际乘法中，如果乘以常数，编译器通常不会直接采用乘法，而是采用移位和乘法相结合的方式。</p>
+<p>乘以2的幂，无论是无符号还是补码形式，都可以采取移位运算，之后即使溢出，其结果也和执行普通的乘法是一样的。</p>
+<p>换算成2进制的话，如果一个的位数某一个位有一个1，乘以这个数就相当于移位这个1后边的几个0。</p>
+<p>比如 110 * 100, 100的第三位有一个1，则相当于把110右移100后边的两位</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
