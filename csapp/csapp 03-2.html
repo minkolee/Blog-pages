@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>第三章笔记</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+
+</head>
+<body>
+<h1 style="text-align: center;">CSAPP 第三章 汇编指令 - 传送指令和算术指令</h1>
+<p>传送指令主要有如下:</p>
+<ol>
+    <li><a href="#con1">普通传送</a></li>
+    <li><a href="#con2">零扩展传送</a></li>
+    <li><a href="#con3">符号扩展传送</a></li>
+    <li><a href="#con4">压栈和弹栈</a></li>
+</ol>
+<p><a href="#con5">算术指令</a>比较多了,而且也都区分长度,主要从以下几个方面介绍:</p>
+<ol>
+    <li><a href="#con6">leaq 指令</a></li>
+    <li><a href="#con7">一元与二元操作</a></li>
+    <li><a href="#con8">移位操作</a></li>
+    <li><a href="#con9">特殊操作 - 乘法扩展到128位</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">数据传送指令</h2>
+<p>我们不生产数据,我们只是数据的搬运工. -MOV类指令. MOV类指令有四个变体,对应不同的数据长度.</p>
+<table>
+    <caption>MOV类指令</caption>
+    <thead>
+    <tr>
+        <th>指令</th>
+        <th>效果</th>
+        <th>说明</th>
+    </tr>
+    </thead>
+
+
+    <tr>
+        <td>MOV S D</td>
+        <td>把S移动到D</td>
+        <td>传送数据</td>
+    </tr>
+    <tr>
+        <td>movb</td>
+        <td></td>
+        <td>传送1字节</td>
+    </tr>
+    <tr>
+        <td>movw</td>
+        <td></td>
+        <td>传送2字节(一个字)</td>
+    </tr>
+    <tr>
+        <td>movl</td>
+        <td></td>
+        <td>传送4字节</td>
+    </tr>
+    <tr>
+        <td>movq</td>
+        <td></td>
+        <td>传送8字节</td>
+    </tr>
+    <tr>
+        <td>movbsq</td>
+        <td></td>
+        <td>传送绝对4字</td>
+    </tr>
+</table>
+<p>MOV的两个操作数都不能都是内存地址. 也就是说,一条MOV指令要么从内存移入寄存器,要么寄存器移入内存,要么寄存器移入寄存器,而不能直接从内存移入内存.如果操作数是寄存器,必须是寄存器里那些带名字的寄存器,而不能是仅有编号的寄存器.</p>
+<p>如果MOV传送4字节到寄存器,按照之前的规则,就会将寄存器的高四位清零. 常规mov命令只能处理32位的源操作数,将其符号扩展得到64位. 而movbsq可以直接将64位数作为源操作数, 但目的只能是寄存器.</p>
+<p>MOV系还有两个变种,就是0扩展和符号扩展传送,用于在不同大小的寄存器之间传送数据(当然,扩展意味着从小寄存器传给大寄存器)</p>
+
+<h2 style="text-align: center;">零扩展传送和符号扩展传送</h2>
+<ul>
+    <li id="con2">MOVZ 零扩展系列 源是内存地址或者寄存器 目的只能是寄存器
+        <ol>
+            <li><code>movzbw</code>, 从b扩展到w</li>
+            <li><code>movzbl</code>, 从b扩展到l</li>
+            <li><code>movzbq</code>, 从b扩展到q</li>
+            <li><code>movzwl</code>, 从w扩展到l</li>
+            <li><code>movzwq</code>, 从w扩展到q</li>
+        </ol>
+    </li>
+
+    <li id="con3">MOVS 符号扩展系列 源是内存地址或者寄存器 目的只能是寄存器
+        <ol>
+            <li><code>movsbw</code>, 从b扩展到w</li>
+            <li><code>movsbl</code>, 从b扩展到l</li>
+            <li><code>movsbq</code>, 从b扩展到q</li>
+            <li><code>movswl</code>, 从w扩展到l</li>
+            <li><code>movswq</code>, 从w扩展到q</li>
+            <li><code>movslq</code>, 从l扩展到q</li>
+            <li><code>cltq</code>, 这条指令不需要加操作数. 这条指令内置的源固定是%eax, 目标固定是%rax, 将%eax符号扩展到%rax.</li>
+        </ol>
+    </li>
+</ul>
+<p>对比一下可以发现零扩展中没有四字节扩到八字节的指令,这是因为传入32位的时候自动会将高位设置为0,就隐含了零扩展.</p>
+<h3>练习题 3.2 根据操作数确定指令后缀</h3>
+<ol>
+    <li><code>movl</code> %eax, (%rsp). 源数据是32位寄存器,所以应该是 movl</li>
+    <li><code>movw</code> (%rax), %dx. 目标是一个字,应该使用movw</li>
+    <li><code>movb</code> $0xFF, &bl. 是一个字节传送,应该使用movb</li>
+    <li><code>movb</code> (%rsp, %rdx, 4), %dl. 目标是一个字节,使用movb.</li>
+    <li><code>movq</code> (%rdx), %rax. 目标是64位寄存器, 所以使用movq</li>
+    <li><code>movw</code> %dx, (%rax) ,从一个字传送到64位寄存器,使用 movw</li>
+</ol>
+<H3>练习题 3.3 找错误</H3>
+<ol>
+    <li><code>movb $0xF, (%ebx)</code>, 取地址一定是从64位寄存器中取,所以报错</li>
+    <li><code>movl %rax, (%rsp)</code>, 操作数的长度与指令不符</li>
+    <li><code>movw (%rax), 4(%rsp)</code>, 不能都是内存地址</li>
+    <li><code>movb %al, %sl</code>, 没有叫做sl的寄存器名称</li>
+    <li><code>movq %rax, $0x123</code>, 目标是一个常数, 无法操作</li>
+    <li><code>movl %eax, %rdx</code>, 寄存器长度不一致</li>
+    <li><code>movb %si, 8(%rbp)</code>,si长度是w, 与指令的长度不符</li>
+</ol>
+<p>再回头看最开始的汇编例子, 可以发现, 对于指针的操作, 其实就是对于存在某个地方的整数使用取地址操作. </p>
+<h3>练习题 3.4 汇编编写代码</h3>
+<p>X86-64体系下, 有两个类型的指针变量:</p>
+<pre>
+src_t *sp;  //地址存储在%rdi中
+dest_t *dp; //地址存储在%rsi中
+</pre>
+<p>要根据不同的类型编写对应的汇编语句来实现下边这条语句, 中转寄存器可以使用%rax及其更短的系列:</p>
+<pre>
+*dp = (dest_t) *sp;
+</pre>
+<table>
+    <thead>
+    <tr>
+        <th>src_t的类型</th>
+        <th>dest_t的类型</th>
+        <th>指令</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>long</td>
+        <td>long</td>
+        <td>long代表8字节,目标的字节数也是8,无需转换长度, 则这指令是:
+            <br>movq (%rdi),%rax
+            <br>movq %rax, (%rsi)</td>
+    </tr>
+    <tr>
+        <td>char</td>
+        <td>int</td>
+        <td>把char转换成int, 很显然需要进行符号扩展. 想要把char装入到%rax中, 很显然需要先扩展符号到32位, 之后写到目标寄存器中
+            <br>movsbl (%rdi), %eax
+            <br>movl %eax, (%rsi)
+
+        </td>
+    </tr>
+    <tr>
+        <td>char</td>
+        <td>unsigned</td>
+        <td>把char写入到unsigned中去,其实就是先把char要转换成unsigned int, 这个过程就要用到符号扩展
+            <br>movsbl (%rdi), %eax
+            <br>movl %eax, (%rsi)
+        </td>
+    </tr>
+    <tr>
+        <td>unsigned char</td>
+        <td>long</td>
+        <td>这个需要把字节扩展成四字,由于是unsigned, 那就用零扩展. 注意零扩展没有扩展到64位的指令,只有32位,就相当于64位的零扩展了.
+            <br>movzbl (%rdi), %rax
+            <br>movq %rax, (%rsi)
+        </td>
+    </tr>
+    <tr>
+        <td>int</td>
+        <td>char</td>
+        <td>这里要弄明白的是, 原始字节还是要读出来的, 但是只传送低位字节, 不能只从原始位置读一个字,读的反而是高位
+            <br>movl (%rdi), %eax
+            <br>movb %al, (%rsi)
+        </td>
+    </tr>
+    <tr>
+        <td>unsigned </td>
+        <td>unsigned char</td>
+        <td>这个与上边的本质是一样的, 在移动的时候不管unsigned不unsigned
+            <br>movl (%rdi), %al
+            <br>movb %al, (%rsi)
+        </td>
+    </tr>
+    <tr>
+        <td>char</td>
+        <td>short</td>
+        <td>这个很显然要进行符号扩展
+            <br>movsbw (%rdi), %ax
+            <br>movw %ax , (%rsi)
+        </td>
+    </tr>
+    </tbody>
+</table>
+<p>由此可见, 汇编指令不管目标操作数如何, 在读的时候必须先完整的读入原来的内容,再进行操作, 根据这个原则来选取对应的指令. 对于要截断的数字也是如此, 不能因为只要低位就只读入1个字节.</p>
+
+<h3>练习题 3.5 将汇编翻译成C语言代码</h3>
+<p>一个函数原型<code>void decode1(long *xp, long *yp, long *zp);</code>的汇编语句如下:</p>
+<pre>
+decode1:
+    movq (%rdi), %r8
+    movq (%rsi), %rcx
+    movq (%rdx), %rax
+    movq %r8, (%rsi)
+    movq %rcx, (%rdx)
+    movq %rax, (%rdi)
+    ret
+</pre>
+<p>这个函数的三个参数按顺序一开始保存在 %rdi, %rsi, %rdx中.</p>
+<p>一条条分析:</p>
+<ol>
+    <li>第一条, 对指针*xp取值, 放入 %r8寄存器中, 可以翻译成 long temp1 = *xp</li>
+    <li>第二条, 对指针*yp取值, 放入 %rcx寄存器中, 可以翻译成 long temp2 = *yp</li>
+    <li>第三条, 对指针*zp取值, 放入 %rax寄存器中, 可以翻译成 long temp3 = *zp</li>
+    <li>第四条, 把%r8寄存器里的值, 放入yp指针指向的地址中, 可以翻译成 *yp = temp1</li>
+    <li>第五条, 把%rcx寄存器里的值, 放入zp指针指向的地址中, *zp = temp2</li>
+    <li>第六条, 把%rax寄存器里的值, 放入xp指针指向的地址中, *xp = temp3</li>
+</ol>
+<p>这个函数的作用就是传入三个long指针 xp,yp,zp, 函数结束之后, *yp的值是*xp的初始值, *zp的值是*yp的初始值, *xp的值是*zp的初始值. 将前边直接翻译的6行优化一下, 写成C语言就是:</p>
+<pre>
+void decode1(long *xp, long *yp, long *zp){
+    long temp = *zp;
+    *zp = *yp;
+    *yp = *xp;
+    *xp = temp;
+}
+</pre>
+
+<h2 style="text-align: center;" id="con4">压栈和弹栈</h2>
+<p>首先要明白栈的底层的表示. 在X86里, 栈是从大地址往小地址的方向增长的, 一个程序所用的栈被存放在内存的某个区域.</p>
+<p>操作栈主要涉及到两个指令和一个寄存器:</p>
+<ol>
+    <li><code>push</code>,先把%rsp 栈指针寄存器的值减少对应的长度, 然后取其地址, 将该操作数的值写入栈中. </li>
+    <li><code>pop</code>, 其后接一个操作数, 是将该操作数的值从栈里弹出, 并写入到之后的操作数中. 然后%rsp寄存器的值会增加对应的长度.</li>
+    <li><code>%rsp</code>, 不管何时, %rsp中保存着当前运行的程序的栈顶的地址</li>
+</ol>
+<p>注意push指令之后%rsp的值会先变化, 再写入值. 而取数的时候是先取出来, 然后%rsp的值才会变动.</p>
+<p>从%rbp寄存器中压一个四字入栈的指令<code>pushq</code>可以分解为:</p>
+<pre>
+subq $8, %rsp
+push %rbp, (%rsp)
+</pre>
+<p>这两条指令效果一样, 然而在可执行文件中, pushq仅仅一个字节, 而上边这两条需要8个字节长度.</p>
+<p><code>popq</code>可以分解为:</p>
+<pre>
+movq (%rsp), %rax
+addq %$8, %rsp
+</pre>
+<p>可以注意到, 始终操作完整的%rsp, 这是因为在之前已经知道, 操作地址一定要是完整的寄存器名称.</p>
+<p>而且还应该知道, 栈的内存也可以通过正常的方法访问,比如已经知道 %rsp内的地址是0x100, 如果想读第二个四字, 就可以使用 8(%rsp)来直接读取栈里的第二个四字.</p>
+
+
+<h2 style="text-align: center;" id="con5">算术指令</h2>
+<p>算术指令类比较多,除了<code>leaq</code>之外,所有的指令类都有b,w,l,q结尾的四条具体指令.</p>
+<table>
+    <caption>算术指令类</caption>
+    <thead>
+    <tr>
+        <th>指令</th>
+        <th>效果</th>
+        <th>描述</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>leaq S D</code></td>
+        <td>把S放入D中</td>
+        <td>这并不是加载有效地址,实际上是把S放入到D中, S可以是一个计算后的结果, 经常用来描述计算, 所以leaq经常使用寻址计算的规律完成一些算术运算.</td>
+    </tr>
+    <tr>
+        <td><code>INC D</code></td>
+        <td>让D增加1</td>
+        <td>D增加1之后的结果,依然存储在D中</td>
+    </tr>
+    <tr>
+        <td><code>DEC D</code></td>
+        <td>D--</td>
+        <td>结果也存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>NEG D</code></td>
+        <td>取负</td>
+        <td>结果依然存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>NOT D</code></td>
+        <td>取反(补)</td>
+        <td>结果还是存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>ADD S, D</code></td>
+        <td>把S 和 D 相加</td>
+        <td>结果存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>SUB S, D</code></td>
+        <td>D-S</td>
+        <td>结果存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>IMUL S, D</code></td>
+        <td>D * S</td>
+        <td>结果存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>XOR S, D</code></td>
+        <td>D和S做异或运算</td>
+        <td>结果存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>OR S, D</code></td>
+        <td>D和S做或运算</td>
+        <td>结果存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>AND S, D</code></td>
+        <td>D和S做与运算</td>
+        <td>结果存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>SAL k, D</code></td>
+        <td>D左移k位</td>
+        <td>结果存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>SHL k, D</code></td>
+        <td>D左移k位,和 SAL相同</td>
+        <td>结果存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>SAR k, D</code></td>
+        <td>算术右移</td>
+        <td>即补符号位, 结果存放在D中</td>
+    </tr>
+    <tr>
+        <td><code>SHR k, D</code></td>
+        <td>逻辑右移</td>
+        <td>即补0, 结果存放在D中</td>
+    </tr>
+    </tbody>
+</table>
+<h3 id="con6">练习 3.6 leaq的灵活使用</h3>
+<p>%rax存放的值是x, %rcx中的值是y, 填写下列指令执行后 %rdx中的值:</p>
+<table>
+    <thead>
+    <tr>
+        <th>表达式</th>
+        <th>%rdx</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>leaq 6(%rax) ,%rdx</td>
+        <td>x+6</td>
+    </tr>
+    <tr>
+        <td>leaq (%rax, %rcx), %rdx</td>
+        <td>x+y</td>
+    </tr>
+    <tr>
+        <td>leaq (%rax, %rcx, 4), %rdx</td>
+        <td>x+4y</td>
+    </tr>
+    <tr>
+        <td>leaq 7(%rax, %rax, 8)</td>
+        <td>9x+7</td>
+    </tr>
+    <tr>
+        <td>leaq 0xA(, %rcx, 4), %rdx</td>
+        <td>4y+10</td>
+    </tr>
+    <tr>
+        <td>leaq 9(%rax, %rcx, 2) %rdx</td>
+        <td>x + 2y + 9</td>
+    </tr>
+    </tbody>
+</table>
+<h3>练习 3.7 看汇编写C代码</h3>
+<pre>
+long scale2(long x, long y, long z){
+    long t = __________
+    return t;
+}
+</pre>
+<p>对应的汇编代码是:</p>
+<pre>
+scale2:
+    leaq (%rdi, %rdi, 4), %rax
+    leaq (%rax, %rsi, 2), %rax
+    leaq (%rax, %rdx, 8), %rax
+</pre>
+<p>三个参数依次存放在%rdi, %rsi和%rdx中.</p>
+<p>来一步步看其中的结果:</p>
+<ol>
+    <li>第一步, 计算 5x , 存放在 %rax中</li>
+    <li>第二步, 计算5x + 2y, 存放在%rax中</li>
+    <li>第三步, 计算5x + 2y + 8z, 存放在%rax中</li>
+</ol>
+<p>最后的返回值就是5x + 2y + 8z</p>
+
+<p id="con7">算术指令还有一个突出的特点是有一部分指令只有一个操作数,这叫做一元操作指令.</p>
+<p>一元操作指令的操作数既可以是寄存器,也可以是内存地址. 比如 incq(%rsp)会使栈顶的8字节元素+1.</p>
+<p>而另外一部分算术指令的二元操作也比较特别, 第二个操作数既是源(之一)也是目标, 所以第一个操作数可以是立即数,寄存器或者内存地址, 第二个操作数只能是寄存器或者内存地址, 不能是立即数.</p>
+<h3>练习 3.8 一元和二元操作</h3>
+<p>已知下列内存位置,寄存器和其中的值:</p>
+<table>
+    <thead>
+    <tr>
+        <th>地址</th>
+        <th>值</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>0x100</td>
+        <td>0xFF</td>
+    </tr>
+    <tr>
+        <td>0x108</td>
+        <td>0xAB</td>
+    </tr>
+
+    <tr>
+        <td>0x110</td>
+        <td>0x13</td>
+    </tr>
+    <tr>
+        <td>0x118</td>
+        <td>0x11</td>
+    </tr>
+    <tr>
+        <td>%rax</td>
+        <td>0x100</td>
+    </tr>
+    <tr>
+        <td>%rcx</td>
+        <td>0x1</td>
+    </tr>
+    <tr>
+        <td>%rdx</td>
+        <td>0x3</td>
+    </tr>
+    </tbody>
+</table>
+<p>写出下边指令的会被更新的寄存器或者内存位置,以及更新的值:</p>
+<table>
+    <thead>
+    <tr>
+        <td>指令</td>
+        <td>目的</td>
+        <td>值</td>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>addq %rcx, (%rax)</td>
+        <td>取%rax地址中的值加上%rcx的值,再写入到 %rax的地址中去,所以目的是 0x100的内存位置</td>
+        <td>值是 0xFF+ 0x1 = 0x100</td>
+    </tr>
+    <tr>
+        <td>subq %rdx, 8(%rax)</td>
+        <td>表示从 %rax+8的地址中减去%rdx, 再写入到%rax+8的位置中去,所以目标位置是 0x108的地址</td>
+        <td>值是 0xAB - 3 = 0xA8</td>
+    </tr>
+    <tr>
+        <td>imulq $16 , (%rax, %rdx ,8)</td>
+        <td>寻址得到0x100+0x18 = 0x118,所以目标位置就是0x118的内存地址</td>
+        <td>值是0x11*16 = 0x110</td>
+    </tr>
+    <tr>
+        <td>incq 16(%rax)</td>
+        <td>地址是 0x100+0x10 = 0x110</td>
+        <td>值是0x14</td>
+    </tr>
+    <tr>
+        <td>decq %rcx</td>
+        <td>目标就是%rcx寄存器</td>
+        <td>结果是0x0</td>
+    </tr>
+    <tr>
+        <td>subq %rdx, %rax</td>
+        <td>目标就是%rax寄存器</td>
+        <td>值是 0x100 - 0x3 = 0xFD</td>
+    </tr>
+    </tbody>
+</table>
+
+<p id="con8">还有一类指令是移位操作.先要给出一个移位量, 再给出要移位的操作数. 注意移位量可以是一个立即数, 也可以是单字节的%cl寄存器, 其他寄存器不能用于移位. 目的操作数可以是寄存器或者内存地址.</p>
+<p>然后一个特殊之处在于, 对于w位的数据进行移位, 并不是直接使用%cl的值, 而是使用%cl的低m位的值, 这个m就是2的m次幂等于当前操作位数的大小, 大于m的位会被忽略.所以移位的对应关系是:</p>
+<ol>
+    <li><code>salb</code>, 长度是8位,所以只看%cl的后三位, 所以最多移动7位</li>
+    <li><code>sall</code>, 长度是16位,所以只看%cl的后四位,所以最多移动15位</li>
+    <li><code>sald</code>, 长度是32位,所以只看%cl的后五位,所以最多移动31位</li>
+    <li><code>salq</code>, 长度是32位,所以只看%cl的后六位,所以最多移动63位</li>
+</ol>
+<h3>练习3.9 根据C语言写出汇编代码</h3>
+<pre>
+long shift_left4_rightn(long x, long n){
+    x <<= 4;
+    x >>= n;
+    return x;
+}
+</pre>
+<p>这个函数对应的汇编代码是:</p>
+<pre>
+// x in %rdi, n in %rsi
+shift_left4_rightn:
+    movq %rdi, %rax;
+    ________________
+    movq %esi, %ecx;
+    ________________
+</pre>
+<p>这里的第一条位移是一个已知的立即数,而且不超过long最长可以移动的63位, 所以可以直接将其移位即可. 则第一条指令就是 SAL $4, %rax</p>
+<p>第二条指令要注意,移动的是参数n的低7位, 所以要通过寄存器%cl来移动, 指令就是 SAR %cl, %rax</p>
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

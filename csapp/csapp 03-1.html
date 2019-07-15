@@ -7,14 +7,611 @@
     <title>第三章笔记</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
-    <style>
 
-    </style>
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第三章 程序的机器表示</h1>
+<h1 style="text-align: center;">CSAPP 第三章 汇编初步和寄存器</h1>
 
-<h2 style="text-align: center;">汇编初步</h2>
+<h2 style="text-align: center;">获取源程序对应的汇编程序</h2>
+<p>如果想要获取自己编写的源程序对应的汇编程序,基本步骤是:</p>
+<ol>
+    <li>将自己的文件用GCC转换成目标代码</li>
+    <li>使用反汇编器得到格式良好的汇编代码</li>
+</ol>
+<p>其中第一步, 也可以直接使用GCC转换成汇编代码,可以指定优化的级别.</p>
+<p>按照书上写了这么一个程序:</p>
+<pre>
+long mult2(long, long);
+
+
+void multstore(long x, long y, long *dest){
+    long t = mult2(x, y);
+    *dest = t;
+}
+</pre>
+<p>然后放到虚拟机的Linux 64位中, 运行<kbd>gcc -Og -S mstore.c</kbd>编译成汇编文件, -Og选项是基本上按照C语言的级别进行编译, 不进行过多的优化. </p>
+<p>再对C源文件进行编译: <kbd>gcc -Og -c mstore.c</kbd>, 得到一个目标文件.</p>
+<p>查看汇编文件的内容, 如下:</p>
+<pre>
+	.file	"mstore.c"
+	.text
+	.globl	multstore
+	.type	multstore, @function
+multstore:
+.LFB0:
+	.cfi_startproc
+	pushq	%rbx
+	.cfi_def_cfa_offset 16
+	.cfi_offset 3, -16
+	movq	%rdx, %rbx
+	call	mult2
+	movq	%rax, (%rbx)
+	popq	%rbx
+	.cfi_def_cfa_offset 8
+	ret
+	.cfi_endproc
+.LFE0:
+	.size	multstore, .-multstore
+	.ident	"GCC: (GNU) 4.8.5 20150623 (Red Hat 4.8.5-36)"
+	.section	.note.GNU-stack,"",@progbits
+
+</pre>
+<p>这里以.开头的都是指示汇编器和链接器工作的伪指令,实际的指令是那些不以.开头,也就是multstore中的部分:</p>
+<pre>
+multstore:
+	pushq	%rbx
+	movq	%rdx, %rbx
+	call	mult2
+	movq	%rax, (%rbx)
+	popq	%rbx
+	ret
+</pre>
+<p>实际上可以直接对编译过的目标文件在linux下使用反汇编器来得到格式良好的汇编代码, 执行<kbd>objdump -d mstore.o >> assem.txt</kbd>, 然后把这个文件拿到windows底下来查看:</p>
+<pre>
+mstore.o:     file format elf64-x86-64
+
+Disassembly of section .text:
+
+0000000000000000 &lt;multstore>:
+   0:	53                   	push   %rbx
+   1:	48 89 d3             	mov    %rdx,%rbx
+   4:	e8 00 00 00 00       	callq  9 &lt;multstore+0x9>
+   9:	48 89 03             	mov    %rax,(%rbx)
+   c:	5b                   	pop    %rbx
+   d:	c3                   	retq
+</pre>
+<p>前边是转换程序的说明, 这是一个elf64, 即linux下的64位可执行文件. 关键是下边的几行, 可以看到这个目标文件里在callq的地方留下了函数的名称, 这是未来链接器要替换成地址的地方.</p>
+
+<p>再来继续试验,编写一个使用这个函数的main函数,来实际生成链接后的可执行文件: </p>
+<pre>
+#include &lt;stdio.h>
+
+void multstore(long ,long, long *);
+
+int main()
+{
+    long d;
+    multstore(2, 3, &d);
+    printf("2 * 3 -> %ld\n", d);
+    return 0;
+}
+
+long mult2(long a, long b){
+    long s = a * b;
+    return s;
+}
+</pre>
+<p>然后与刚才的mstore.c放到一起,编译成可执行文件: <kbd>gcc -Og -o prog main.c mstore.c</kbd>. </p>
+<p>然后对可执行文件执行反汇编: <kbd>objdump -d prog >> prog.txt</kbd>, 文件内容如下:</p>
+<pre>
+prog:     file format elf64-x86-64
+
+
+Disassembly of section .init:
+
+00000000004003c8 &lt;_init>:
+  4003c8:	48 83 ec 08          	sub    $0x8,%rsp
+  4003cc:	48 8b 05 25 0c 20 00 	mov    0x200c25(%rip),%rax        # 600ff8 &lt;__gmon_start__>
+  4003d3:	48 85 c0             	test   %rax,%rax
+  4003d6:	74 05                	je     4003dd &lt;_init+0x15>
+  4003d8:	e8 43 00 00 00       	callq  400420 &lt;.plt.got>
+  4003dd:	48 83 c4 08          	add    $0x8,%rsp
+  4003e1:	c3                   	retq
+
+Disassembly of section .plt:
+
+00000000004003f0 &lt;.plt>:
+  4003f0:	ff 35 12 0c 20 00    	pushq  0x200c12(%rip)        # 601008 &lt;_GLOBAL_OFFSET_TABLE_+0x8>
+  4003f6:	ff 25 14 0c 20 00    	jmpq   *0x200c14(%rip)        # 601010 &lt;_GLOBAL_OFFSET_TABLE_+0x10>
+  4003fc:	0f 1f 40 00          	nopl   0x0(%rax)
+
+0000000000400400 &lt;printf@plt>:
+  400400:	ff 25 12 0c 20 00    	jmpq   *0x200c12(%rip)        # 601018 &lt;printf@GLIBC_2.2.5>
+  400406:	68 00 00 00 00       	pushq  $0x0
+  40040b:	e9 e0 ff ff ff       	jmpq   4003f0 &lt;.plt>
+
+0000000000400410 &lt;__libc_start_main@plt>:
+  400410:	ff 25 0a 0c 20 00    	jmpq   *0x200c0a(%rip)        # 601020 &lt;__libc_start_main@GLIBC_2.2.5>
+  400416:	68 01 00 00 00       	pushq  $0x1
+  40041b:	e9 d0 ff ff ff       	jmpq   4003f0 &lt;.plt>
+
+Disassembly of section .plt.got:
+
+0000000000400420 &lt;.plt.got>:
+  400420:	ff 25 d2 0b 20 00    	jmpq   *0x200bd2(%rip)        # 600ff8 &lt;__gmon_start__>
+  400426:	66 90                	xchg   %ax,%ax
+
+Disassembly of section .text:
+
+0000000000400430 &lt;_start>:
+  400430:	31 ed                	xor    %ebp,%ebp
+  400432:	49 89 d1             	mov    %rdx,%r9
+  400435:	5e                   	pop    %rsi
+  400436:	48 89 e2             	mov    %rsp,%rdx
+  400439:	48 83 e4 f0          	and    $0xfffffffffffffff0,%rsp
+  40043d:	50                   	push   %rax
+  40043e:	54                   	push   %rsp
+  40043f:	49 c7 c0 e0 05 40 00 	mov    $0x4005e0,%r8
+  400446:	48 c7 c1 70 05 40 00 	mov    $0x400570,%rcx
+  40044d:	48 c7 c7 1d 05 40 00 	mov    $0x40051d,%rdi
+  400454:	e8 b7 ff ff ff       	callq  400410 &lt;__libc_start_main@plt>
+  400459:	f4                   	hlt
+  40045a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+0000000000400460 &lt;deregister_tm_clones>:
+  400460:	b8 37 10 60 00       	mov    $0x601037,%eax
+  400465:	55                   	push   %rbp
+  400466:	48 2d 30 10 60 00    	sub    $0x601030,%rax
+  40046c:	48 83 f8 0e          	cmp    $0xe,%rax
+  400470:	48 89 e5             	mov    %rsp,%rbp
+  400473:	77 02                	ja     400477 &lt;deregister_tm_clones+0x17>
+  400475:	5d                   	pop    %rbp
+  400476:	c3                   	retq
+  400477:	b8 00 00 00 00       	mov    $0x0,%eax
+  40047c:	48 85 c0             	test   %rax,%rax
+  40047f:	74 f4                	je     400475 &lt;deregister_tm_clones+0x15>
+  400481:	5d                   	pop    %rbp
+  400482:	bf 30 10 60 00       	mov    $0x601030,%edi
+  400487:	ff e0                	jmpq   *%rax
+  400489:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+0000000000400490 &lt;register_tm_clones>:
+  400490:	b8 30 10 60 00       	mov    $0x601030,%eax
+  400495:	55                   	push   %rbp
+  400496:	48 2d 30 10 60 00    	sub    $0x601030,%rax
+  40049c:	48 c1 f8 03          	sar    $0x3,%rax
+  4004a0:	48 89 e5             	mov    %rsp,%rbp
+  4004a3:	48 89 c2             	mov    %rax,%rdx
+  4004a6:	48 c1 ea 3f          	shr    $0x3f,%rdx
+  4004aa:	48 01 d0             	add    %rdx,%rax
+  4004ad:	48 d1 f8             	sar    %rax
+  4004b0:	75 02                	jne    4004b4 &lt;register_tm_clones+0x24>
+  4004b2:	5d                   	pop    %rbp
+  4004b3:	c3                   	retq
+  4004b4:	ba 00 00 00 00       	mov    $0x0,%edx
+  4004b9:	48 85 d2             	test   %rdx,%rdx
+  4004bc:	74 f4                	je     4004b2 &lt;register_tm_clones+0x22>
+  4004be:	5d                   	pop    %rbp
+  4004bf:	48 89 c6             	mov    %rax,%rsi
+  4004c2:	bf 30 10 60 00       	mov    $0x601030,%edi
+  4004c7:	ff e2                	jmpq   *%rdx
+  4004c9:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+00000000004004d0 &lt;__do_global_dtors_aux>:
+  4004d0:	80 3d 55 0b 20 00 00 	cmpb   $0x0,0x200b55(%rip)        # 60102c &lt;_edata>
+  4004d7:	75 11                	jne    4004ea &lt;__do_global_dtors_aux+0x1a>
+  4004d9:	55                   	push   %rbp
+  4004da:	48 89 e5             	mov    %rsp,%rbp
+  4004dd:	e8 7e ff ff ff       	callq  400460 &lt;deregister_tm_clones>
+  4004e2:	5d                   	pop    %rbp
+  4004e3:	c6 05 42 0b 20 00 01 	movb   $0x1,0x200b42(%rip)        # 60102c &lt;_edata>
+  4004ea:	f3 c3                	repz retq
+  4004ec:	0f 1f 40 00          	nopl   0x0(%rax)
+
+00000000004004f0 &lt;frame_dummy>:
+  4004f0:	48 83 3d 28 09 20 00 	cmpq   $0x0,0x200928(%rip)        # 600e20 &lt;__JCR_END__>
+  4004f7:	00
+  4004f8:	74 1e                	je     400518 &lt;frame_dummy+0x28>
+  4004fa:	b8 00 00 00 00       	mov    $0x0,%eax
+  4004ff:	48 85 c0             	test   %rax,%rax
+  400502:	74 14                	je     400518 &lt;frame_dummy+0x28>
+  400504:	55                   	push   %rbp
+  400505:	bf 20 0e 60 00       	mov    $0x600e20,%edi
+  40050a:	48 89 e5             	mov    %rsp,%rbp
+  40050d:	ff d0                	callq  *%rax
+  40050f:	5d                   	pop    %rbp
+  400510:	e9 7b ff ff ff       	jmpq   400490 &lt;register_tm_clones>
+  400515:	0f 1f 00             	nopl   (%rax)
+  400518:	e9 73 ff ff ff       	jmpq   400490 &lt;register_tm_clones>
+
+000000000040051d &lt;main>:
+  40051d:	48 83 ec 18          	sub    $0x18,%rsp
+  400521:	48 8d 54 24 08       	lea    0x8(%rsp),%rdx
+  400526:	be 03 00 00 00       	mov    $0x3,%esi
+  40052b:	bf 02 00 00 00       	mov    $0x2,%edi
+  400530:	e8 26 00 00 00       	callq  40055b &lt;multstore>
+  400535:	48 8b 74 24 08       	mov    0x8(%rsp),%rsi
+  40053a:	bf 00 06 40 00       	mov    $0x400600,%edi
+  40053f:	b8 00 00 00 00       	mov    $0x0,%eax
+  400544:	e8 b7 fe ff ff       	callq  400400 &lt;printf@plt>
+  400549:	b8 00 00 00 00       	mov    $0x0,%eax
+  40054e:	48 83 c4 18          	add    $0x18,%rsp
+  400552:	c3                   	retq
+
+0000000000400553 &lt;mult2>:
+  400553:	48 89 f8             	mov    %rdi,%rax
+  400556:	48 0f af c6          	imul   %rsi,%rax
+  40055a:	c3                   	retq
+
+000000000040055b &lt;multstore>:
+  40055b:	53                   	push   %rbx
+  40055c:	48 89 d3             	mov    %rdx,%rbx
+  40055f:	e8 ef ff ff ff       	callq  400553 &lt;mult2>
+  400564:	48 89 03             	mov    %rax,(%rbx)
+  400567:	5b                   	pop    %rbx
+  400568:	c3                   	retq
+  400569:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+0000000000400570 &lt;__libc_csu_init>:
+  400570:	41 57                	push   %r15
+  400572:	41 89 ff             	mov    %edi,%r15d
+  400575:	41 56                	push   %r14
+  400577:	49 89 f6             	mov    %rsi,%r14
+  40057a:	41 55                	push   %r13
+  40057c:	49 89 d5             	mov    %rdx,%r13
+  40057f:	41 54                	push   %r12
+  400581:	4c 8d 25 88 08 20 00 	lea    0x200888(%rip),%r12        # 600e10 &lt;__frame_dummy_init_array_entry>
+  400588:	55                   	push   %rbp
+  400589:	48 8d 2d 88 08 20 00 	lea    0x200888(%rip),%rbp        # 600e18 &lt;__init_array_end>
+  400590:	53                   	push   %rbx
+  400591:	4c 29 e5             	sub    %r12,%rbp
+  400594:	31 db                	xor    %ebx,%ebx
+  400596:	48 c1 fd 03          	sar    $0x3,%rbp
+  40059a:	48 83 ec 08          	sub    $0x8,%rsp
+  40059e:	e8 25 fe ff ff       	callq  4003c8 &lt;_init>
+  4005a3:	48 85 ed             	test   %rbp,%rbp
+  4005a6:	74 1e                	je     4005c6 &lt;__libc_csu_init+0x56>
+  4005a8:	0f 1f 84 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+  4005af:	00
+  4005b0:	4c 89 ea             	mov    %r13,%rdx
+  4005b3:	4c 89 f6             	mov    %r14,%rsi
+  4005b6:	44 89 ff             	mov    %r15d,%edi
+  4005b9:	41 ff 14 dc          	callq  *(%r12,%rbx,8)
+  4005bd:	48 83 c3 01          	add    $0x1,%rbx
+  4005c1:	48 39 eb             	cmp    %rbp,%rbx
+  4005c4:	75 ea                	jne    4005b0 &lt;__libc_csu_init+0x40>
+  4005c6:	48 83 c4 08          	add    $0x8,%rsp
+  4005ca:	5b                   	pop    %rbx
+  4005cb:	5d                   	pop    %rbp
+  4005cc:	41 5c                	pop    %r12
+  4005ce:	41 5d                	pop    %r13
+  4005d0:	41 5e                	pop    %r14
+  4005d2:	41 5f                	pop    %r15
+  4005d4:	c3                   	retq
+  4005d5:	90                   	nop
+  4005d6:	66 2e 0f 1f 84 00 00 	nopw   %cs:0x0(%rax,%rax,1)
+  4005dd:	00 00 00
+
+00000000004005e0 &lt;__libc_csu_fini>:
+  4005e0:	f3 c3                	repz retq
+
+Disassembly of section .fini:
+
+00000000004005e4 &lt;_fini>:
+  4005e4:	48 83 ec 08          	sub    $0x8,%rsp
+  4005e8:	48 83 c4 08          	add    $0x8,%rsp
+  4005ec:	c3                   	retq
+</pre>
+<p>现在肯定看不懂, 不过其中有这段: </p>
+<pre>
+000000000040055b &lt;multstore>:
+  40055b:	53                   	push   %rbx
+  40055c:	48 89 d3             	mov    %rdx,%rbx
+  40055f:	e8 ef ff ff ff       	callq  <span style="color: red">400553</span> &lt;mult2>
+  400564:	48 89 03             	mov    %rax,(%rbx)
+  400567:	5b                   	pop    %rbx
+  400568:	c3                   	retq
+  400569:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+<span style="color: red">0000000000400553</span> &lt;mult2>:
+  400553:	48 89 f8             	mov    %rdi,%rax
+  400556:	48 0f af c6          	imul   %rsi,%rax
+  40055a:	c3                   	retq
+</pre>
+<p>可以看到, 链接器把调用函数的地址换成了实际的mult2的地址400553. 其他的等学完这一章, 估计付出一些头发的代价就可以看懂了. </p>
+
+
+<h2 style="text-align: center;">X86体系中的寄存器</h2>
+<p>X86体系是从16位结构中扩展而来, 所以在汇编里, word表示16位数据类型. 称32位为双字 double words, 64位为四字 quad words.</p>
+<p>C语言的基本数据类型对应的汇编代码后缀如下:</p>
+<table>
+    <thead>
+    <tr>
+        <th>数据类型</th>
+        <th>Intel 数据类型</th>
+        <th>汇编代码后缀</th>
+        <th>字节大小</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>char</td>
+        <td>字节</td>
+        <td>b</td>
+        <td>1</td>
+    </tr>
+    <tr>
+        <td>short</td>
+        <td>字</td>
+        <td>w</td>
+        <td>2</td>
+    </tr>
+    <tr>
+        <td>int</td>
+        <td>双字</td>
+        <td>l</td>
+        <td>4</td>
+    </tr>
+    <tr>
+        <td>long</td>
+        <td>四字</td>
+        <td>q</td>
+        <td>8</td>
+    </tr>
+    <tr>
+        <td>char*</td>
+        <td>指针</td>
+        <td>q</td>
+        <td>8</td>
+    </tr>
+    <tr>
+        <td>float</td>
+        <td>单精度</td>
+        <td>s</td>
+        <td>4</td>
+    </tr>
+    <tr>
+        <td>double</td>
+        <td>双精度</td>
+        <td>l</td>
+        <td>8</td>
+    </tr>
+    </tbody>
+</table>
+<p>这里的汇编代码后缀表示汇编代码的指令会有变种, 指示了操作数的大小, 比如 movb是传送一个字节, movq是传送64位 . 还需要注意后缀l同时表示了long和double,这不会有问题,因为浮点数使用的指令和寄存器完全不同.</p>
+<p>再来看存储整数数据和指针的寄存器, 每个CPU都包含16个64位的寄存器,而且有着特定的名称.由于寄存器的演化, 一个寄存器实际上可以拆分成不同长度的寄存器,这就可以兼容原来的指令.这些寄存器如下:</p>
+<table>
+    <tr>
+        <th>完整长度寄存器名称</th>
+        <th>2字寄存器</th>
+        <th>单字寄存器</th>
+        <th>低位字节寄存器</th>
+        <th>用途</th>
+    </tr>
+    <tr>
+        <td>%rax</td>
+        <td>%eax</td>
+        <td>%ax</td>
+        <td>%al</td>
+        <td>返回值</td>
+    </tr>
+    <tr>
+        <td>%rbx</td>
+        <td>%ebx</td>
+        <td>%bx</td>
+        <td>%bl</td>
+        <td>被调用者保存</td>
+    </tr>
+    <tr>
+        <td>%rcx</td>
+        <td>%ecx</td>
+        <td>%cx</td>
+        <td>%cl</td>
+        <td>第四个参数</td>
+    </tr>
+    <tr>
+        <td>%rdx</td>
+        <td>%edx</td>
+        <td>%dx</td>
+        <td>%dl</td>
+        <td>第三个参数</td>
+    </tr>
+    <tr>
+        <td>%rsi</td>
+        <td>%esi</td>
+        <td>%si</td>
+        <td>%sil</td>
+        <td>第二个参数</td>
+    </tr>
+    <tr>
+        <td>%rdi</td>
+        <td>%edi</td>
+        <td>%di</td>
+        <td>%dil</td>
+        <td>第一个参数</td>
+    </tr>
+    <tr>
+        <td>%rbp</td>
+        <td>%ebp</td>
+        <td>%bp</td>
+        <td>%bpl</td>
+        <td>被调用者保存</td>
+    </tr>
+    <tr>
+        <td>%rsp</td>
+        <td>%esp</td>
+        <td>%sp</td>
+        <td>%spl</td>
+        <td>栈指针</td>
+    </tr>
+    <tr>
+        <td>%r8</td>
+        <td>%r8d</td>
+        <td>%r8w</td>
+        <td>%r8b</td>
+        <td>第五个参数</td>
+    </tr>
+    <tr>
+        <td>%r9</td>
+        <td>%r9d</td>
+        <td>%r9w</td>
+        <td>%r9b</td>
+        <td>第六个参数</td>
+    </tr>
+    <tr>
+        <td>%r10</td>
+        <td>%r10d</td>
+        <td>%r10w</td>
+        <td>%r10b</td>
+        <td>调用者保存</td>
+    </tr>
+    <tr>
+        <td>%r11</td>
+        <td>%r11d</td>
+        <td>%r11w</td>
+        <td>%r11b</td>
+        <td>调用者保存</td>
+    </tr>
+    <tr>
+        <td>%r12</td>
+        <td>%r12d</td>
+        <td>%r12w</td>
+        <td>%r12b</td>
+        <td>被调用者保存</td>
+    </tr>
+    <tr>
+        <td>%r13</td>
+        <td>%r13d</td>
+        <td>%r13w</td>
+        <td>%r13b</td>
+        <td>被调用者保存</td>
+    </tr>
+    <tr>
+        <td>%r14</td>
+        <td>%r14d</td>
+        <td>%r14w</td>
+        <td>%r14b</td>
+        <td>被调用者保存</td>
+    </tr>
+    <tr>
+        <td>%r15</td>
+        <td>%r15d</td>
+        <td>%r15w</td>
+        <td>%r15b</td>
+        <td>被调用者保存</td>
+    </tr>
+</table>
+<p>可以看到,从%r8开始的寄存器命名都比较规律,这是因为这一部分是后来扩展出来的64位寄存器,而之前的8个寄存器还是采用了和过去的名称同类的名称.不同长度的指令,实际上是操作对应长度的低位开始的寄存器.</p>
+<p>如果一个命令操作小于64位寄存器, 如果指令生成的数字为1或者2字节,则寄存器的高位不会变化,如果生成的数字是4字节,则会将寄存器的高位全部置0.</p>
+<p>除了%rsp这个特别的栈指针之外,其他的寄存器使用比较灵活,但有一组编程规范或者说使用这些寄存器的套路.</p>
+<p>之后就来看看汇编指令的基础,就是指令与对应的操作数的关系.</p>
+
+<h2 style="text-align: center;">汇编指令的操作数</h2>
+<p>操作数可以分为三类:</p>
+<ol>
+    <li>立即值, 用来表示常数, 用$开头.可以直接写整数,汇编器会将其编译成对应的二进制格式.</li>
+    <li>寄存器, 即寄存器的名称, 代表某个寄存器内部的值.</li>
+    <li>内存引用, 代表某个内存地址的值, 也就是寻址或者说是取地址运算, 用括号包起来一个值, 这个值可以是常量, 取得的值或者是计算所得.</li>
+</ol>
+<p>寻址的模式,最通用的模式是 <code>计算出的内存地址 = 立即数偏移量 + 基址寄存器 + 变址寄存器 * 比例因子s</code>. 其中s可能为1,2,4或8.</p>
+<p>其他寻址模式都是这种通用模式的简化,省略了某些部分.在引用了复杂的数据结构的时候, 就会碰到复杂的寻址模式.</p>
+<h3>练习3.1 取值</h3>
+<p>下列内存地址和寄存器存放了值:</p>
+<table>
+    <thead>
+    <tr>
+        <th>地址</th>
+        <th>值</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>内存地址 0x100</td>
+        <td>0xFF</td>
+    </tr>
+    <tr>
+        <td>内存地址 0x104</td>
+        <td>0xAB</td>
+    </tr>
+    <tr>
+        <td>内存地址 0x108</td>
+        <td>0x13</td>
+    </tr>
+    <tr>
+        <td>内存地址 0x10C</td>
+        <td>0x11</td>
+    </tr>
+    <tr>
+        <td>%rax</td>
+        <td>0x100</td>
+    </tr>
+    <tr>
+        <td>%rcx</td>
+        <td>0x1</td>
+    </tr>
+    <tr>
+        <td>%rdx</td>
+        <td>0x3</td>
+    </tr>
+    </tbody>
+</table>
+<p>填一下下列操作数的值:</p>
+<table>
+    <thead>
+    <tr>
+        <th>操作数</th>
+        <th>值</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>%rax</td>
+        <td>寄存器名称就是值,即 0x100</td>
+    </tr>
+    <tr>
+        <td>0x104</td>
+        <td>不是常数也不是寄存器,表示寻绝对地址,结果是0xAB</td>
+    </tr>
+    <tr>
+        <td>$0x108</td>
+        <td>常数 0x108</td>
+    </tr>
+    <tr>
+        <td>(%rax)</td>
+        <td>将%rax寄存器中的内容当做地址寻址,结果是 0xFF</td>
+    </tr>
+    <tr>
+        <td>4(%rax)</td>
+        <td>表示基址+偏移量地址,为 %rax中的 0x100地址加4,即 0x104地址,结果为0xAB</td>
+    </tr>
+    <tr>
+        <td>9(%rax, %rdx)</td>
+        <td>表示变址寻址, 为 9+ 0x100 + 0x3 = 0x10C, 所以值是0x11</td>
+    </tr>
+    <tr>
+        <td>260(%rcx, %rdx) </td>
+        <td>计算后的地址是 260 + 1 + 3 = 0x108, 值是0x13</td>
+    </tr>
+    <tr>
+        <td>0xFC(,%rcx,4)</td>
+        <td>这是比例变址寻址,结果是 0xFC + 4 = 0x100, 值是 0xFF</td>
+    </tr>
+    <tr>
+        <td>(%rax, %rdx, 4)</td>
+        <td>这也是比例变址寻址,计算后的内存是 0x100 + 4*3 = 0x10C,值是0x11</td>
+    </tr>
+    </tbody>
+</table>
+<p>其实这里理解也很简单, 操作数只要不是寄存器的名称,或者是以$开头的常数,全部代表寻址.</p>
+<p>CSAPP的汇编指令采取的是ATT的写法, 即 指令 源操作数 目标操作数. 知道了这些, 就可以来看汇编指令了.</p>
+
+
+
+
+
+
+
+
 
 
 
