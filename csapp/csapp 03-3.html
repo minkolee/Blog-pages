@@ -10,14 +10,419 @@
 
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第三章 汇编指令 - </h1>
+<h1 style="text-align: center;">CSAPP 第三章 汇编指令 - 控制</h1>
+<p>控制语句就是分支, 具体到代码上, 需要看的是如何通过汇编指令进行条件判断和跳转, 以及表达循环, 还有switch语句.</p>
+<ol>
+    <li>条件判断: <a href="#con1">条件码</a></li>
+    <li>条件判断: <a href="#con2">跳转指令</a></li>
+</ol>
 
 
+<h2 id="con1">条件码</h2>
+<p>条件码是一些特殊的寄存器, 在每次算术或者逻辑运算之后更新, 也有特殊的指令可以操作这些寄存器. 很多条件分支指令, 就是通过检测这些寄存器的值来实现的.</p>
+<p>常用的条件码有:</p>
+<ol>
+    <li>CF 进位标志, 最近的操作使最高位产生进位</li>
+    <li>ZF 零标志, 最近的操作的结果得到0</li>
+    <li>SF 符号标志, 最近的操作结果是负数</li>
+    <li>OF 溢出标志, 最近的操作导致补码溢出,正负溢出都算</li>
+</ol>
+<p>在上一节里的所有算术操作的指令, 除了 leaq之外, 其结果都会自动更新这几个寄存器的值.</p>
+<p>除了这些算术操作,还有两个特殊的指令<code>CMP</code>和<code>TEST</code>, 这两个指令不会更改任意一个操作数对应的寄存器或者内存值, 只会根据操作结果更新条件码.</p>
+<ol>
+    <li><code>CMP S1, S2</code>, 计算S2-S1的结果, 根据结果更新条件码. 即如果S1=S2, 零标志会被设置为1, 如果不相同, 则可以利用其它标志判断两数大小关系.</li>
+    <li><code>TEST S1, S2</code>, 计算S2&S1的结果, 根据结果更新条件码. 常用的套路是两个操作数一样, 这样就可以通过条件码得到这个数是正数,零还是负数.</li>
+</ol>
+<p>条件码寄存器通常不会直接读取, 而是依靠一个指令SET. 该指令根据当前条件码寄存器的各种组合方式, 将一个字节设置为0或者1. 注意这个指令的操作数只能是一个字节或者寄存器的单字节版本. 如果要得到32或者64位结果,
+    要先把其他位置清零.</p>
+<p>SET类指令的后缀的意思不再是长度,而是某些条件. 条件比较多, 用到的时候可以查询.</p>
+<table>
+    <thead>
+    <tr>
+        <th>指令</th>
+        <th>同作用的其他指令</th>
+        <th>效果</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>sete D</td>
+        <td>setz</td>
+        <td>相等, ZF = 0的时候, 设置D为1. 以下都是当条件成立的时候设置为1, 否则设置为0</td>
+    </tr>
+    <tr>
+        <td>setne</td>
+        <td>setnz</td>
+        <td>不相等, ZF不等于0</td>
+    </tr>
+    <tr>
+        <td>sets</td>
+        <td></td>
+        <td>SF表示结果为负数</td>
+    </tr>
+    <tr>
+        <td>setns</td>
+        <td></td>
+        <td>SF结果为非负数</td>
+    </tr>
+    <tr>
+        <td>setg</td>
+        <td>setnle</td>
+        <td>有符号的大于</td>
+    </tr>
+    <tr>
+        <td>setge</td>
+        <td>setnl</td>
+        <td>有符号的大于等于</td>
+    </tr>
+    <tr>
+        <td>setl</td>
+        <td>setnge</td>
+        <td>有符号的小于</td>
+    </tr>
+    <tr>
+        <td>setle</td>
+        <td>setng</td>
+        <td>有符号的小于等于</td>
+    </tr>
+    <tr>
+        <td>seta</td>
+        <td>setnbe</td>
+        <td>无符号大于</td>
+    </tr>
+    <tr>
+        <td>setae</td>
+        <td>setnb</td>
+        <td>无符号大于等于</td>
+    </tr>
+    <tr>
+        <td>setb</td>
+        <td>setnae</td>
+        <td>无符号小于</td>
+    </tr>
+    <tr>
+        <td>setbe</td>
+        <td>setna</td>
+        <td>无符号小于等于</td>
+    </tr>
+    </tbody>
+</table>
+<p>一个简单的比较第一个参数是否小于第二个参数的程序:</p>
+<pre>
+int comp(long a, long b){
+    return a < b;
+}
+// a in %rdi, b in %rsi
+</pre>
+<p>写成汇编如下:</p>
+<pre>
+comp:
+    cmpq %rsi %rdi  被减数最后, 减数在前, 这条执行的是 a - b. 其实也可以认为 compq s1 s2 等于比较s2和s1,后边的条件大于就是指的s2>s1,以此类推
+    setl %al        上一条指令执行完之后条件码更新, 如果a-b<0, 根据条件码设置%rax寄存器的最低字节为1. 如果不满足条件, 就设置0.
+    movbl %al %eax  将%al零扩展更新到32位寄存器, 同时把高位清0. 这里返回的是int, 32位字节足够. 但是也一样会高位清0.
+    ret
+</pre>
+<h3>练习3.13 找出汇编代码对应的原来的数据类型</h3>
+<ol style="list-style-type: upper-alpha">
+    <li>
+    <pre>
+    cmpl  %esi, %edi
+    setl  %al
+    </pre>
+    首先这是一个比较32位的指令, 然后调用的是有符号的小于比较, 所以应该是两个有符号数进行比较. 由于一方有无符号就是无符号比较, 因此不能是无符号的32位. 由于两个数据类型相同, 应该是int 与 int
+    </li>
+    <li>
+    <pre>
+    cmpw  %si, %di
+    setge %al
+    </pre>
+    这是一个比较字的大小, 就是16位长度, 然后是有符号大于等于.因此也不是无符号数字. 所以是 short 类型
+    </li>
+    <li>
+    <pre>
+    cmpb  %sil, %dil
+    setbe %al
+    </pre>
+    这个指令比较字节大小, 然后是无符号比较. 由于无符号数参与比较会转换另外一个为无符号数, 所以是 unsigned char
+    </li>
+    <li>
+    <pre>
+    cmpq  %rsi, %rdi
+    setne %al
+    </pre>
+    比较64位长度, 然后判断是否不相等. 由于无符号比较会互相转换, 因此数据类型可能为 char*, long, unsigned long
+    </li>
+</ol>
 
+<h3>练习3.14 找出汇编代码对应的数据类型</h3>
+<pre>
+int test(data_t a){
+    return a TEST 0;
+}
+</pre>
+<p>针对这个伪代码, 判断下列汇编语句对应的data_t的数据类型:</p>
+<ol style="list-style-type: upper-alpha">
+    <li>
+    <pre>
+    testq  %rdi, %rdi
+    setge  %al
+    </pre>
+    这个例子就是自己和自己与, 然后调用有符号, 那应该就是 long 类型
+    </li>
+    <li>
+    <pre>
+    testw  %di, %di
+    sete   %al
+    </pre>
+    16位长, 是否等于0, 这个和符号无关, 因此可以是 short 或者 unsigned short
+    </li>
+    <li>
+    <pre>
+    testb  %dil, %dil
+    seta   %al
+    </pre>
+    一个字节长度, 使用无符号比较, 则应该是 unsigned char
+    </li>
+    <li>
+    <pre>
+    testl  %edi, %edi
+    setle  %al
+    </pre>
+    双字长度, 32位. setle是带符号的小于, 所以是 int
+    </li>
+</ol>
 
+<h2 id="con2">跳转指令</h2>
+<p>跳转指令就是<code>jmp</code>指令, 其后的操作数有两种: 一是标号, 会被汇编器转成对应汇编指令的地址, 这是直接跳转; 还一种是间接跳转, 即寄存器或者内存的值, 表示跳转到该位置.</p>
+<p>两种指令的写法是:</p>
+<ol>
+    <li><code>jmp .L1</code>, 跳转到 L1 标号</li>
+    <li><code>jmp *%rax</code>, 跳转到%rax的值代表的目标</li>
+    <li><code>jmp *(%rax)</code>, 跳转到%rax中的指针指向的内存地址中的的目标</li>
+</ol>
+<p>这里的目标也是一个数字, 但不是用来解释成内存地址, 而是一个程序计数器的指向.</p>
+<p>除了jmp指令之外, JUMP类的其他指令是根据条件码来跳转, 条件跳转只能是直接跳转, 不能是间接跳转.</p>
+<p>JUMP类指令如下:</p>
+<table>
+    <thead>
+    <tr>
+        <td>指令</td>
+        <td>同义名</td>
+        <td>跳转条件</td>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>jmp Label</td>
+        <td>直接跳转</td>
+        <td>无条件跳转</td>
+    </tr>
+    <tr>
+        <td>jmp *操作数</td>
+        <td>间接跳转</td>
+        <td>无条件跳转</td>
+    </tr>
+    <tr>
+        <td>je Label</td>
+        <td>jz</td>
+        <td>相等或者为0时跳转, 只能间接跳转, 下同, 都省略Label字样</td>
+    </tr>
+    <tr>
+        <td>jne</td>
+        <td>jnz</td>
+        <td>不相等, 非0的时候跳转</td>
+    </tr>
+    <tr>
+        <td>js</td>
+        <td></td>
+        <td>为负数的时候跳转</td>
+    </tr>
+    <tr>
+        <td>jns</td>
+        <td></td>
+        <td>非负数的时候跳转</td>
+    </tr>
+    <tr>
+        <td>jg</td>
+        <td>jnle</td>
+        <td>大于的时候跳转</td>
+    </tr>
+    <tr>
+        <td>jge</td>
+        <td>jnl</td>
+        <td>大于等于的时候跳转</td>
+    </tr>
+    <tr>
+        <td>jl</td>
+        <td>jnge</td>
+        <td>小于的时候跳转</td>
+    </tr>
+    <tr>
+        <td>jle</td>
+        <td>jng</td>
+        <td>小于等于的时候跳转</td>
+    </tr>
+    <tr>
+        <td>ja</td>
+        <td>jnbe</td>
+        <td>无符号大于的时候跳转</td>
+    </tr>
+    <tr>
+        <td>jae</td>
+        <td>jnb</td>
+        <td>无符号大于等于的时候跳转</td>
+    </tr>
+    <tr>
+        <td>jb</td>
+        <td>jnae</td>
+        <td>无符号小于的时候跳转</td>
+    </tr>
+    <tr>
+        <td>jbe</td>
+        <td>jna</td>
+        <td>无符号小于等于的时候跳转</td>
+    </tr>
+    </tbody>
+</table>
+<p>跳转的目标究竟是什么, 非常重要. 在汇编代码中, 一般直接跳转的目标用符号书写, 会被最终转换成与程序计数器相对的编码, 可能是目标指令所在的地址与跳转指令后边那条指令地址的差, 也可能是绝对地址, 直接指定程序计数器的值.</p>
+<p>所谓程序计数器相对的编码, 在执行跳转指令的时候, 程序计数器指向的是下一条的地址, 因此只需要给出要跳转到的地址与下一条地址之间的偏移量即可. 之后用下一条指令的地址 与 跳转值进行计算就可以得到要跳转的地方.</p>
+<p>而jmp 指令之后接的大小数字, 要按照补码的形式去解释.</p>
+<h3>练习 3.15 跳转的目标</h3>
+<ol>
+    <li>
+        <pre>
+            400f3a: 74 02   je XXXX
+            4003fc: ff d0   callq *%rax
+        </pre>
+        可以看到74指令之后接着02, 表示下一行指令的地址+2 , 即 0x4003fc+2 = 0x4003fe
+    </li>
+    <li>
+        <pre>
+            40042f: 74 f4   je XXXX
+            400431: 5d      pop %rbp
+        </pre>
+        可以看到74指令之后接着f4, 表示下一行指令的地址为补码的-12 , 即 0x400431 - 12 = 400425
+    </li>
+    <li>
+        <pre>
+            XXXXXX: 77 02   ja 400547
+            XXXXXX: 5d      pop %rbp
+        </pre>
+        先算出下一行指令的地址, 为400547-2 = 0x400545
+        由于跳转指令是两字节, 所以跳转指令的地址是 0x400545-2 = 0x400543
+    </li>
+    <li>
+        <pre>
+            4005e8: e9 73 ff ff ff   jmpq XXXXXXXX
+            4005ed: 90               nop
+        </pre>
+        73 ff ff ff 的小端法补码表示的是十进制-141, 然后用4005ed - 141 = 0x400560
+    </li>
+</ol>
+<p>C语言的条件分支加上Goto语句, 可以很方便的对应到汇编的条件分支上, 普遍用的套路是测试一个表达式, 然后根据表达式的结果进行跳转即可.</p>
+<h3>练习 3.16 写出汇编风格的C代码</h3>
+<pre>
+//在 a 大于 p 指针指向的数值的时候, 将数值更新为 a
+void cond(long a, long *p){
+    if(p && a > *p){
+        *p = a;
+    }
+}
+</pre>
+<p>对应的汇编是:</p>
+<pre>
+a in %rdi, p in %rsi
+cond:
+    testq  %rsi, %rsi  测试 p
+    je     .L1         如果是0就跳转到L1标号
 
+    compq  %rdi, (%rsi)  比较*p 和 a
+    jge    .L1           如果*p >= a, 即不满足 a > *p,跳转到L1标号
 
+    movq   %rdi, (%rsi)  *p = a
+  .L1:
+    rep; ret
+</pre>
+<p>这个按照汇编来可以写出相应的C代码, 由于条件本身还需要一次逻辑运算, 所以实际上会有两条比较语句, 一条用来测试指针是否为0, 另外一条用来比较 a 和 *p 的值:</p>
+<pre>
+void cond_assembly(long a, long *p){
+    if(!p)
+        goto ends;
+    if(a <= *p)
+        goto ends;
+    *p = a;
 
+  ends:
+    return;
+}
+</pre>
+<h3>练习题 3.17 按照新套路重写函数</h3>
+<pre>
+long absdiff_se(long x, long y) {
+
+    long result;
+
+    if (x < y)
+        goto true;
+    ge_cnt++;
+    result = x - y;
+    goto done;
+
+    true:
+    lt_cnt++;
+    result = y - x;
+
+    done:
+    return result;
+}
+</pre>
+<p>由于一开始的测试表达式是 x < y, 就直接使用这个表达式, 判断为true的时候到true标号, 接下来处理false的部分, 最后都跳转到 done标号来返回结果.</p>
+<h3>练习题 3.18 根据汇编编写C代码</h3>
+<p>汇编代码如下, 三个参数x, y, z按顺序依次放在 %rdi, %rsi, %rdx中:</p>
+<pre>
+test:
+    leaq  (%rdi, %rsi), %rax   这行等于long temp1 = x + y
+    addq  %rdx, %rax           这行等于temp1 = temp1 + z
+    cmpq  $-3, %rdi            这行等于是比较 x 和 -3
+    jge   .L2                  jge表示有符号大于等于, 然后跳转到 .L2标号, 结合上一条指令就表示  x >= 3 的时候跳转. 则往下的部分就是 x<3的情况对应的代码
+
+    现在已知: .L2处理 大于等于3的情况. 以下处理x < 3的情况
+
+    cmpq  %rdx, %rsi           比较y:z
+    jge   .L3                  表示 y >= z , 跳转到 .L3标号 往下的部分就是 x<3 且 y&lt;z的情况
+    movq  %rdi, %rax           把%rdi的值也就是x 放到temp 中, 即 temp1 = x
+    imulq %rsi, %rax           然后temp1 = temp1 * y
+    ret                        返回%rax中的值, 此时等于 x * y
+
+  .L3:
+    movq  %rsi, %rax           此时x<3 ,y>z, 这条指令让 temp1 = y
+    imulq %rdx, %rax           temp1 = temp1 * z
+    ret                        此时返回值是 y*z
+
+  .L2:
+    cmpq  %2, %rdi             进到L2分支的条件是 x>=3, 此时再比较 x:2
+    jle   .L4                  如果x<=2, 直接到L4
+    movq  %rdi, %rax           temp1 = x
+    imulq %rdx, %rax           temp1 = x * z
+  .L4
+    rep; ret
+</pre>
+<p>然后写出这个代码</p>
+<pre>
+long test(long x, long y, long z){
+    long val = x + y + z;
+    if(x<-3){
+        if(y&lt;z){
+            val = x * y;
+        } else {
+            val = y * z;
+        }
+    } else if(x>2){
+        val = x * z;
+    }
+    return val;
+}
+</pre>
 
 
 
