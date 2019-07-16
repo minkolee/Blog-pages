@@ -10,11 +10,12 @@
 
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第三章 汇编指令 - 控制</h1>
-<p>控制语句就是分支, 具体到代码上, 需要看的是如何通过汇编指令进行条件判断和跳转, 以及表达循环, 还有switch语句.</p>
+<h1 style="text-align: center;">CSAPP 第三章 汇编指令 - 条件分支</h1>
+<p>控制语句就是分支,和循环. 今天先来看看分支的相关指令.</p>
 <ol>
     <li>条件判断: <a href="#con1">条件码</a></li>
     <li>条件判断: <a href="#con2">跳转指令</a></li>
+    <li>条件判断: <a href="#con3">条件传送</a></li>
 </ol>
 
 
@@ -423,27 +424,76 @@ long test(long x, long y, long z){
     return val;
 }
 </pre>
+<h2 id="con3">条件传送</h2>
+<p>所谓条件传送, 就是测试条件码满足情况的时候, 使用传送指令相同的效果来操作值. 采用条件码分支对于现代CPU效率比较低, 所以会提前计算出结果的值然后进行分支预测.</p>
+<p>既然都计算出结果的值了, 那么使用条件传送就会简便一些. 不过条件传送在求值的时候可能引发副作用或者异常的时候, 就不能使用了, 此时就必须使用条件传送.</p>
+<p>条件传送的指令有两个操作数, 第一个操作数是寄存器或者内存地址, 第二个操作数必须是寄存器. 而且源和目的值必须是16位, 32位或者64位, 不能传送字节. 这是和普通传送指令有区别的地方.</p>
+<h3>练习题 3.19 分支预测惩罚计算</h3>
+<p>分支行为可预测的执行时间是16个时钟周期, 模式随机的时候大概是31个时钟周期, 计算预测错误处罚的时钟周期, 和函数的执行周期</p>
+<p>设预测错误的时钟周期是x, 则预测错误的时候, 实际执行时间是16+x, 模式随机的时候各有50%的概率执行, 则可以得到:</p>
+<p>0.5 * 16 + 0.5 * (16 + x) = 31</p>
+<p>可以得到 x = 30, 即预测错误处罚的时间是30个时钟周期. 函数分支预测错误的时候, 执行周期 = 16+30 = 46</p>
+<h3>练习题 3.20 补充宏定义</h3>
+<pre>
+#define OP
 
+long arith(long x){
+    return x OP 8;
+}
+</pre>
+<p>x在%rdi寄存器中. 对应的汇编代码如下:</p>
+<pre>
+arith:
+    leaq    7(%rdi), %rax    long temp = x+7
+    testq   %rdi, %rdi       测试 x
+    cmovns  %rdi, %rax       x 非负数的情况下, 传送 x 到 %rax 中, 即temp = x
+    sarq    $3, %rax         把 temp 算术右移3位
+    ret
+</pre>
+<p>从分析来看可以知道, 这段代码的核心分支是 x 非负数就把x右移3位, 如果x是负数, 就把 x+7 的结果右移3位.</p>
+<p>所以可以发现宏应该是 x >= 0? x+7:x /</p>
+<h3>练习 3.21 补充C代码</h3>
+<p>有一个函数: 两个long类型参数, x 在 %rdi 寄存器, y 在 %rsi 寄存器.</p>
+<pre>
+test:
+    leaq    0(,%rdi,8), %rax    long temp = 8 * x
+    testq   %rsi, %rsi          测试y
+    jle     .L2                 y小于或等于0, 这个是什么意思. 之后跳转
+    movq    %rsi, %rax          测试不通过的情况下的代码 , temp = y
+    subq    %rdi, %rax          temp = temp - x
+    movq    %rdi, %rdx          long temp2 = x
+    andq    %rsi, %rdx          temp2 = temp2 & y
+    cmpq    %rsi, %rdi          比较 x : y
+    comvge  %rdx, %rax          x>=y 的情况下, %rax 的值是 %rdx的值, 也就是 x & y
+    ret
+  .L2:
+    addq    %rsi, %rdi          x = x + y
+    cmpq    %-2,  %rsi          比较 y 和 -2
+    cmovle  %rdi, %rax          y <= -2 的时候, %rax 是 x + y
+    ret                         L2标号分支返回x + y
+</pre>
+<p>然后可以根据条件分支来补全C程序:</p>
+<pre>
+long testmove(long x, long y){
+    long val = 8 * x;
 
+    if (y > 0) {
+        if (x >= y) {
+            val = x & y;
+        } else {
+            val = y - x;
+        }
 
+    } else if (y <= -2) {
+        val = x + y;
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return val;
+}
+</pre>
+<p>注意单独测试 y 的时候的jle表示小于等于0.</p>
+<p>顺利看完了条件, 感觉还可以, 都能理解. 下边是循环了.</p>
+<p>今天看CSAPP的公开课, 记录下一条很重要的话. 想要学会这门课, 课本至少看三遍. 当问问题的时候, 先把课本仔细读一读, 再把题目仔细读一读, 还没有弄清楚. 再去问问题.</p>
 
 
 
