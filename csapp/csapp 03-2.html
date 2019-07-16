@@ -23,7 +23,7 @@
     <li><a href="#con6">leaq 指令</a></li>
     <li><a href="#con7">一元与二元操作</a></li>
     <li><a href="#con8">移位操作</a></li>
-    <li><a href="#con9">特殊操作 - 乘法扩展到128位</a></li>
+    <li><a href="#con9">特殊操作 - 128位扩展</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">数据传送指令</h2>
@@ -516,6 +516,96 @@ shift_left4_rightn:
 </pre>
 <p>这里的第一条位移是一个已知的立即数,而且不超过long最长可以移动的63位, 所以可以直接将其移位即可. 则第一条指令就是 SAL $4, %rax</p>
 <p>第二条指令要注意,移动的是参数n的低7位, 所以要通过寄存器%cl来移动, 指令就是 SAR %cl, %rax</p>
+<h3>练习 3.10 通过汇编代码写出函数代码</h3>
+<pre>
+long arith2(long x, long y, long z)
+arith2:
+    orq %rsi, %rdi
+    sarq $3, %rdi
+    notq %rdi
+    movq %rdx, %rax
+    subq %rdi, %rax
+    ret
+</pre>
+<p>逐个语句来分析:</p>
+<ol>
+    <li>这个是用%rsi和%rdi进行或运算, 结果放在%rdi中, 即 long t1 = x|y</li>
+    <li>算术右移3 结果放在%rdi中, 即 long t2 = t1 >> 3</li>
+    <li>取反, 即 long t3 = ~t2</li>
+    <li>将%rdx 移动到%rax中, 这个就是long t4 = z</li>
+    <li>这个是从%rax中减去%rdi, 也就是此时的t3, 结合上一条看, 就是 long t4 = z - t3</li>
+</ol>
+<h3>练习 3.11 汇编代码分析</h3>
+<pre>xorq %rdx, %rdx</pre>
+<p>这个代码就是把%rdx中的值与自己进行异或运算, 结果再放到%rdx中, 由于一个值和自己的异或等于0, 因此这是一个生成全0的位的操作.</p>
+<p>这个操作如果直接表达的话, 就是 movq $0, %rdx. </p>
+<p>这个没有亲自试验,看了答案, xorq的字节数比较少,只有3个字节. 而movq要七字节. 另外还一个方法就是只异或32位,也会同时把高4字节置0.</p>
+
+<p>还有一类特殊算术操作, 实际上提供了128位的支持, 这就是乘法和除法.</p>
+<ol>
+    <li><code>imulq S</code>, 注意,这和之前的imul指令类不同, 是单操作数. 这暗含了另外一个操作数的就是%rax, 然后把结果的低64位放入%rax中, 高64位放入%rdx中, 这是固定的. 而两操作数的imul则只计算64位的乘法. 为何两操作数的imul不区分高低位, 是因为截取到64位的时候,补码和无符号的运算相同.</li>
+    <li><code>mulq S</code>, 两个64位相乘, 得到128位的无符号乘法. 同样也暗含另外一个操作数在%rax中, 结果存放在高位%rdx和地位%rax中.</li>
+    <li><code>clto</code>, 这个指令没有操作数, 是将%rax中的64位按照符号扩展到%rdx, 两个寄存器拼成一个128位数值.</li>
+    <li><code>idivq S</code>, 这个是有符号数的除法指令, 操作数S是除数, 被除数固定使用%rax作为低64字节, %rdx作为高64字节. 除法进行完之后,商存储在%rax中, 而余数存储在%rdx中.</li>
+    <li><code>divq S</code>, 无符号的除法指令, 隐含条件与有符号一样. </li>
+</ol>
+<p>大多数64位应用里, 其实比较多的还是64位的被除数, 64位被除数需要放在%rax中, 在除法进行之前, 需要将%rax的符号位扩展到%rdx中, 这可以用一条无操作数的指令<code>cqto</code>来完成.</p>
+<p>可以看出, 实际上被除数都要用到%rax 和 %rdx两个寄存器.执行完除法之后, 可以直接从%rax中得到商, %rdx中得到余数.</p>
+<p>64无符号除法的%rdx一般会直接预先设置为0.</p>
+<h3>练习 3.12 无符号64位除法的商和余数</h3>
+<pre>
+void uremdiv(unsigned long x, unsigned long y, unsigned long *qp, unsigned long *rp) {
+    unsigned long q = x / y;
+    unsigned long r = x % y;
+    *qp = q;
+    *rp = r;
+}
+// x in %rdi, y in %rsi, qp in %rdx, rp in %rcx
+</pre>
+<p>这是无符号的除法, 需要将%rdx的值在除法指令前设置为0, 汇编代码如下:</p>
+<pre>
+uremdiv:
+    movq %rdx, %r8     把qp的地址放进%r8存储器
+    movq %rdi, %rax    把x的值放进%rax, 准备被除数
+    movl $0, %edx      设置%rdx为0, 只需要设置低32位, 高32位也变成0
+    divq %rsi         x/y
+    movq %rax, (%r8)   把商传递到qp指针指向的内存位置
+    movq %rdx, (%rcx)  把余数传递给rp指针指向的内存位置
+    ret
+</pre>
+<p>数据传送和算术指令都看完了, 有了这些指令, 可以编写出数据操作的指令, 相当于刚学完一门编程语言的数据类型部分.</p>
+<p>下边就是控制语句部分, 即分支和循环.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
