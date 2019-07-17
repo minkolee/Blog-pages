@@ -18,49 +18,209 @@
     <li>条件判断: <a href="#con3">for循环</a></li>
     <li>条件判断: <a href="#con4">switch语句</a></li>
 </ol>
+<p>汇编指令并没有直接的指令对应循环, 而是用条件测试和跳转组合起来实现循环的效果. 汇编代码主要基于两种基本的循环模式. 先来看两种基本循环模式的第一种:</p>
 
+<h2 style="text-align: center;" id="con1">do-while循环</h2>
+<p>do-while循环的基本模式是:</p>
+<pre>
+do {
+    body-statement
+} while(test-expr);
+</pre>
+<p>这个循环的效果是执行一次body之后, 测试test-expr条件表达式的值, 为真则继续循环.</p>
+<p>靠近汇编的角度, 这种语句会被翻译成如下结构的语句: </p>
+<pre>
+loop:
+    body-statement;
+    t = test-expr;
+    if(t)
+        goto loop;
+</pre>
+<p>这种语句就很接近汇编了, 其中的关键点在于更新条件表达式的语句.</p>
+<h3>练习 3.22 阶乘的大小</h3>
+<ol>
+    <li>32位 int 能表示的最大的n的阶乘, n 是多少? 32位int最大的正数是2147483647 , 直接运行程序列出来部分结果就可以知道 n = 12 还没溢出, 而13就溢出了, 因为最后两位不是00
+        <pre>
+    1 : 1
+    2 : 2
+    3 : 6
+    4 : 24
+    5 : 120
+    6 : 720
+    7 : 5040
+    8 : 40320
+    9 : 362880
+    10 : 3628800
+    11 : 39916800
+    12 : 479001600
+    13 : 1932053504
+    14 : 1278945280
+    15 : 2004310016
+    16 : 2004189184
+    </pre>
+    </li>
+    <li>64位的long也类似的列出来:
+        <pre>
+    1 : 1
+    2 : 2
+    3 : 6
+    4 : 24
+    5 : 120
+    6 : 720
+    7 : 5040
+    8 : 40320
+    9 : 362880
+    10 : 3628800
+    11 : 39916800
+    12 : 479001600
+    13 : 6227020800
+    14 : 87178291200
+    15 : 1307674368000
+    16 : 20922789888000
+    17 : 355687428096000
+    18 : 6402373705728000
+    19 : 121645100408832000
+    20 : 2432902008176640000
+    21 : -4249290049419214848
+    </pre>
+        可见最大n = 20.
+    </li>
+</ol>
+<h3>练习 3.23 已知C和汇编, 代码, x 一开始存放在%rdi中:</h3>
+<pre>
+long dw_loop(long x){
+    long y = x * x;
+    long *p = &x;
+    long n = 2 * x;
+    do {
+        x += y;
+        (*p)++;
+        n--;
+    } while (n > 0);
+    return x;
+}
+</pre>
+<pre>
+long dw_loop(long x)
+dw_loop:
+    movq   %rdi, %rax               把x复制到%rax中, 由于x是局部变量, 其实这句就相当于*p = &x, 操作x就是操作%rax寄存器
+    movq   %rdi, %rcx               把x复制到%rcx中
+    imulq  %rdi, %rcx               设置%rcx的值为 x * x, 所以%rcx中存放的是局部变量y = x * x
+    leaq   (%rdi, %rdi), %rdx       %rdx的值为 x+x, 则n存放在%rdx中
 
+  .L2:
+    leaq   1(%rcx, %rax), %rax      让x = x + y + 1 ? 这是一条指令把两条活都干了, 先是 x = x + y , 然后 x = x + 1.
+    subq   $1, %rdx                 n = n - 1
+    testq  %rdx, %rdx               测试%rdx 也就是 n
+    jg     .L2                      n>0 则跳转到 .L2
+    rep;ret                         返回%rax中的值
+</pre>
+<p>通过分析可以知道, y 存放在 %rcx 中, n 存放在%rdx中.</p>
+<p>编译器通过将x复制到 %rax中 来直接操作, 然后使用leaq 指令合并了两行代码的计算, 相比解引用指针效率要高很多.</p>
 
+<h2 style="text-align: center;" id="con2">普通while循环</h2>
+<p>do-while循环其实和汇编代码的对应非常直接.while循环就没有那么直接, while循环的一般模式是:</p>
+<pre>
+while(test-expr){
+    body-statement
+}
+</pre>
+<p>这个有两种翻译方法. 第一种与do-while很像, 但直接跳到测试条件的部分:</p>
+<pre>
+        //直接跳到测试语句
+        goto test;
+    //循环体, 执行完之后又到测试条件语句处
+    loop:
+        body-statement
+    //测试条件, 满足就跳到循环体
+    test:
+        t = test-expr;
+        if(t)
+            goto loop;
+    </pre>
+<p>这个本质上就是一个直接跳到测试条件的do-while循环.</p>
+<h3>练习3.24 根据汇编填写C程序</h3>
+<pre>
+long loop_while(long a, long b)
+a in %rdi, b in %rsi
+loop_while:
+    movl   $1, %eax            向%rax里放入1 long result = 1
+    jmp    .L2                 跳转到L2
 
+  .L3:
+    leaq   (%rdi, %rsi), %rdx  long temp = x + y
+    imulq  %rdx, %rax          result = result * temp
+    addq   $1, %rdi            a++
 
+  .L2:
+    cmpq   %rsi, %rdi          比较a : b
+    jl     .L3                 如果a < b, 跳转到 L3
+    rep; ret                   返回%rax
+</pre>
+<p>根据汇编来补充C代码:</p>
+<pre>
+long loop_while(long a, long b){
+    // 一开始设置result = 1
+    long result = 1;
 
+    //这个条件就是L2中测试条件, 只要符合就跳转到L3
+    while(a < b){
+        //循环体是L3做的事情
+        result = result * (a + b);
+        a = a + 1;
+    }
+    return result;
+}
+</pre>
 
+<p>第二种翻译方法采取了先进行判断条件分支, 不成立就跳过循环, 成立就进入循环的过程. 这个模式是:</p>
+<pre>
+t = test-expr;
 
+if(!t)
+    goto done:
 
+loop:
+    body-statment
+    if(t)
+        goto loop:
 
+done:
+</pre>
+<p>可以看到, 就相当于在do-while之前先判断一次, 就成了普通的while循环. 毕竟do-while和普通while就差了要不要先执行一次, 如果在do-while之前先执行一次, 那么就相当于是一个普通的while了.</p>
+<h3>练习 3.25 已知汇编命令, 补全C代码</h3>
+<p>参数 a 在 %rdi, b 在 %rsi 中.</p>
+<pre>
+loop_while2:
+    testq   %rsi, %rsi      测试b
+    jle     .L8             b<=0的时候跳转 L8
+    movq    %rsi, %rax      long result = b
 
+  .L7:
+    imulq   %rdi, %rax      result = result * a
+    subq    %rdi, %rsi      b = b - a
+    testq   %rsi, %rsi      测试 b 后的值
+    jg      .L7             如果大于0, 跳回L7, 即一直循环
+    rep; ret                当 b-a<=0 的时候, 就返回%rax中的值
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  .L8:
+    movq    %rsi, %rax      result = b
+    ret
+</pre>
+<p>这个逻辑实际上第一次测试B的时候, b<=0就直接 结束了, 所以第一次测试必须 b>0 才能进入循环. 在循环内部, 则是每次测试 b-=a之后的值,直到b-a<=0就结束循环:</p>
+<pre>
+long loop_while2(long a, long b){
+    //无论直接跳到L8还是进入循环, %rax都要用到b的值
+    long result = b;
+    // 循环条件就是 L7中的测试条件, 即 %rsi 的值大于0
+    while (b > 0) {
+        //循环体的内容
+        result = result * a;
+        b = b - a;
+    }
+    return result;
+}
+</pre>
 
 
 
