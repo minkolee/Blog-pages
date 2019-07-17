@@ -173,7 +173,7 @@ long loop_while(long a, long b){
 }
 </pre>
 
-<p>第二种翻译方法采取了先进行判断条件分支, 不成立就跳过循环, 成立就进入循环的过程. 这个模式是:</p>
+<p>第二种翻译方法叫做 guarded-do 模式, 其实就是先进行判断条件分支, 不成立就跳过循环, 成立就进入循环. 这个模式是:</p>
 <pre>
 t = test-expr;
 
@@ -188,6 +188,7 @@ loop:
 done:
 </pre>
 <p>可以看到, 就相当于在do-while之前先判断一次, 就成了普通的while循环. 毕竟do-while和普通while就差了要不要先执行一次, 如果在do-while之前先执行一次, 那么就相当于是一个普通的while了.</p>
+
 <h3>练习 3.25 已知汇编命令, 补全C代码</h3>
 <p>参数 a 在 %rdi, b 在 %rsi 中.</p>
 <pre>
@@ -221,6 +222,168 @@ long loop_while2(long a, long b){
     return result;
 }
 </pre>
+
+<h3>练习 3.26 根据汇编写出C代码</h3>
+<pre>
+// x in %rdi
+long fun_a(unsigned long x)
+
+fun_a:
+    movl   $0, eax      这句相当于long val = 0
+    jmp    .L5          无条件跳转, 而没有先测试条件, 说明编译器采用的是跳转到中间的方式
+
+  .L6:
+    xorq   %rdi, %rax   val = val ^ x
+    shrq   %rdi         逻辑右移1位, 最高位补0
+
+  .L5:
+    testq  %rdi, %rdi   测试x
+    jne    .L6          x 不是 0 的时候, 跳转L6, 所以L6是循环体
+    andl   $1, %eax     此时%eax的值与1做与运算, 结果存在%eax中, 实际上的结果就是%eax的最低位
+    ret                 返回%rax的值
+</pre>
+<p>根据分析写出的代码是:</p>
+<pre>
+long funa(unsigned long x){
+    long val = 0;
+
+    while( x!=0 ){
+        val = val ^ x;
+        x >>= 1;
+    }
+
+    val = val & 0x1;
+    return val;
+}
+</pre>
+<p>代码是写出来了, 但是半天没看明白意思. 看了答案才明白是计算奇偶性....</p>
+
+<h2 style="text-align: center;" id="con3">for循环</h2>
+<p>普通的for循环如下:</p>
+<pre>
+for(init-expr; test-expr; update-expr)
+</pre>
+<p>实际上可以翻译成如下的while循环:</p>
+<pre>
+init-expr:
+
+while(test-expr){
+    ......
+
+    update-expr
+}
+</pre>
+<p>可以看的其实就是一个初始化表达式, 之后加上一个while循环, 因此翻译成汇编的话, 就是在while循环之前设置一个初始化循环表达式. 其后就是while语句的翻译, 有着上边的两种不同翻译方法.</p>
+<h3>练习 3.27 把例子转换成guarded-do模式</h3>
+<pre>
+long fact_for_while(long n){
+    long i = 2;
+    long result = 1;
+    while (i <= n) {
+        result *= i;
+        i++;
+    }
+    return result;
+}
+</pre>
+<p>这一段翻译成guarded-do的时候,首先就要测试条件表达式, 如果成功的话进入循环 ,然后在循环体执行完毕之后, 再测试表达式.</p>
+<pre>
+long fact_for_while_guarded_do(long n){
+    long i = 2;
+    long result = 1;
+
+    if(i>n)
+        goto done;
+
+  loop:
+    result *= i;
+    i++;
+    if(i<=n)
+        goto loop;
+
+  done:
+    return result;
+}
+</pre>
+<h3>练习 3.28 根据汇编写出C代码</h3>
+<pre>
+long fun_b(unsigned long x)
+x in %rdi
+
+fun_b:
+    movl   $64, %edx        %edx寄存器中存入64, 就是0x40
+    movl   $0, %eax         这句对应 long val = 0
+
+  .L10:
+    movq   %rdi, %rcx       long temp = x
+    andl   $1, %ecx         temp = temp ^ 0x1   x的最低位
+    addq   %rax, %rax       val = val * 2
+    orq    %rcx, %rax       val = val | temp    最低位如果是1 ,就是真
+    shrq   %rdi             逻辑右移1位, x>>=1
+    subq   $1, %rdx         装入64的寄存器 减去 1
+    jne    .L10             %rdx 不是 0 的情况下 继续循环, 是0的情况下终止循环
+    rep; ret
+</pre>
+<p>根据汇编代码补齐得到的结果是:</p>
+<pre>
+long fun_b(unsigned long x){
+    long val = 0;
+    long i;
+
+    for(i=64; i>0; i--){
+        long temp = x;
+        temp = temp ^ 0x1;
+        val = val * 2;
+        val = val | temp;
+        x >>= 1;
+    }
+}
+</pre>
+<p>由于在之前的表达式, i 的初始值是确定的常数即64, 所以没有使用初始表达式.</p>
+<p>手工演算了一下, 这个函数实际上是把x按位给反向排列了一下, 比如10011, 会变成11001. 函数的逻辑是最低一位拿过来, 然后乘以2, 再去加上移位后的最低一位,不断重复直到全部位移完.</p>
+
+<h3>练习3.29 带有continue语句的for</h3>
+<p>首先考虑一下continue语句的左右. continue语句的作用是直接跳到下一次循环的开头. 然而要注意的是, 对于汇编代码, 并不能使用continue直接跳过循环开始处的标号, 因为更新条件的语句也在汇编体内. </p>
+<p>因此应当考虑将更新条件的语句放在循环体最后, 如果遇到continue语句就直接跳转到更新条件语句.</p>
+<p>用goto语句来模拟题目中的循环, 应该写成如下:</p>
+<pre>
+long sum = 0;
+long i;
+
+i=0;
+
+goto test;
+
+loop-normal:
+    sum +=i;
+loop-continue:
+    i++;
+test:
+    if(i < 10) {
+        if(i&1){
+            goto loop-continue;
+        }
+        goto loop-normal:
+    }
+
+done:
+</pre>
+<p>可见改写的方式, 就是把loop-normal的部分单独分离出去, 如果启动了continue, 就只进行更新i的操作, 如果未启动continue, 则执行不含continue的完整的循环体.</p>
+<p>CSAPP的答案其实是一样的,就是在循环体里单独分出一部分是update, 在循环体的最下边, 翻译成汇编基本和我的一样.</p>
+
+<h2 style="text-align: center;" id="con4">switch</h2>
+<p>swtich 语句可以用一连串if-else 语句实现, 但是这么做的话效率很低. 通常编译器是采取创建一个数组的方式, 其中每个元素是要跳转的地址, 然后根据测试条件直接按照索引找到地址进行跳转.</p>
+<p>这样的好处是所用时间基本一致, 而不会进行大量的分支判断.</p>
+<p>有意思的是, GCC扩展了C语言, 加入了&&运算符用来取得指向标号的指针, 然后组成一个指针数组. 这样就可以用测试的值运算后得到的值直接进行索引来跳转.</p>
+<p>扩展后的C语句与汇编的对应关系就非常容易看出来了.</p>
+
+
+
+
+
+
+
+
 
 
 
