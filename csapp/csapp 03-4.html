@@ -400,18 +400,77 @@ goto *jt[index]
     ...
 </pre>
 <p>所以可以知道, index等于几, 就从L4的开头找几倍8的倍数的地址, 就相当于使用数组索引了. 其实就是再度跳转到对应的汇编代码位置向下执行.</p>
-<h3>练习题 3.30</h3>
+<h3>练习题 3.30 </h3>
+<pre>
+void switch2(long x, long *dest)
 
+x in %rdi
 
+switch2:
+    addq    $1, %rdi           x = x + 1, 由于会将索引控制在从0开始, 所以x的最小值是-1
+    cmpq    $8, %rdi           比较x - 8, 则其实就是 x+1-8>0, 则原始的x最大标号是7
+    ja      .L2                超过8, 跳转到L2, 可见L2相当于default
+    jmp     *.L4(, %rdi, 8)    没有超过8, 进入跳转表
 
+</pre>
+<p>然后按顺序往下看, 对应关系如下:</p>
+<pre>
+.L4
+    quad:   .L9    -1
+    quad:   .L5    0
+    quad:   .L6    1
+    quad:   .L7    2
+    quad:   .L2    3 注意, L2为default, 所以不存在此情况
+    quad:   .L7    4
+    quad:   .L8    5
+    quad:   .L2    6 注意, 无此标号, 因为L2对应default
+    quad:   .L5    7
+</pre>
+<h3>练习题 3.31</h3>
+<p>根据汇编代码补全C 函数:</p>
+<pre>
+void switcher(long a, long b, long c, long *dest)
+a in %rdi, b in %rsi, c in %rdx, dest in %rcx
 
+switcher:
+    cmpq    $7, %rdi        比较x和7 , 可见 a 最小 为 0, 最大为7
+    ja      .L2             如果超过,就转到L2也就是default.
+    jmp     *.L4(, $rdi, 8) 进入跳转表
+</pre>
+<p>然后就要仔细观察跳转表和语句的结构:</p>
+<p>首先看到对应索引 1, 3, 6的L2是default, 所以case 中不会有1, 3, 6 三个值, 只剩下 0,2,4,5,7.然后查看L7的代码发现没有jmp, 说明是fallthrough ,则L7对应的case 5
+    就是第一个case.
+</p>
+<p>之后标号剩下 0,2,4,7, 可以看到2和7都跳到L5, 所以中间的连续两个case是 2 和 7.</p>
+<p>现在只剩下0和4.仔细观察可以发现 索引4的时候直接跳到结束, 只有可能是最后一个Case E的情况, 而看L3对应的0, 还在继续处理C, 因此是CASE B的对应.</p>
+<pre>
+void swticher(long a, long b, long c, long *dest){
+    long val;
+    switch(a){
+        case 5:
+            c = b ^ 0xF;
 
+        case 0:
+            val = c + 112;
 
+        case 2:
+        case 7:
+            val = (b + c) << 2;
+            break;
 
+        case 4:
+            val = a;
+            break;
 
+        default:
+            val = b;
+    }
 
-
-
+    *dest = val;
+}
+</pre>
+<p>感觉这题目不仅是考代码, 连逻辑推理也一并考了....</p>
+<p>循环和Switch搞定了, 汇编的基础代码, 后边过程, 感觉又要掉头发了.....</p>
 
 
 
