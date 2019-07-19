@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>第三章笔记</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+
+</head>
+<body>
+<h1 style="text-align: center;">CSAPP 第三章 过程</h1>
+<p>过程是怎么实现的. 过程在不同的语言中的表现形式不同, 比如函数, 方法等.但其底层都有一些共同的特性, 假设过程P调用过程Q:</p>
+<ol>
+    <li>传递控制: 进入Q的时候, 程序计数器的地址很显然要被设置成Q的起始指令所在的内存. 在返回的时候,则需要将程序计数器设置为P调用Q的指令之后的那条指令的地址.</li>
+    <li>传递数据: P要将参数传递给Q, Q要想办法把结果返回给P</li>
+    <li>分配和释放内存:Q在开始执行之前,要为其分配空间; 执行结束之后,必须释放空间</li>
+</ol>
+<ol>
+    <li><a href="#con1">运行时栈</a></li>
+    <li><a href="#con2">转移控制</a></li>
+    <li><a href="#con3">数据传送</a></li>
+    <li><a href="#con4">递归</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">运行时栈</h2>
+<p>如果过程需要的存储空间超过了寄存器的大小,就会在栈上分配空间. 分配的部分叫做这个过程的栈帧(Stack Frame). 一般不超过6个的参数都可以通过寄存器传递.
+超过的部分则保存在调用者的栈帧中.此外在调用的时候,栈帧最下边是一个返回地址, 指示当返回的时候到哪里去继续执行.
+</p>
+<p>所有的参数都可以保存在寄存器中或者通过寄存器传递, 则就不会需要栈帧.</p>
+<p>看到这里虽然还没有具体看后边的流程, 但终于从理论上彻底明白了栈帧, 还有变量作用域的问题. 当前栈帧里找不到, 如果之前有定义, 肯定是到上边的栈帧中去寻找.</p>
+
+<h2 style="text-align: center;" id="con2">转移控制</h2>
+<p>先是两个指令, 就是调用和返回指令:</p>
+<ol>
+    <li><code>call Label or *Operand</code>, 可以跟标号或者操作数. 执行callq指令的时候, 会在当前栈里压入callq之后那条指令的地址.
+    然后将PC设置成Q的第一条指令.
+    </li>
+
+    <li><code>ret</code>, 返回指令. 从前边已经知道, 如果过程返回值, 那个值就会放在%rax寄存器当中. ret指令还一个作用是会把callq之后
+    那条指令的地址从栈里弹出, 然后把程序计数器设置成这条指令的地址.</li>
+</ol>
+<p>X86-64里这两条指令也可以写成<code>callq</code>和<code>retq</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
