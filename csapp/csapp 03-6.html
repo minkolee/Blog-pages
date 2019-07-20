@@ -18,6 +18,162 @@
 </ol>
 
 <h2 style="text-align: center;" id="con1">数组</h2>
+<p>感觉CSAPP这里实际上是把C语言的数组和汇编语言一起讲了.</p>
+<p>声明一个数组<code>T A[N]</code>实际上的意义如下:</p>
+<ol>
+    <li>分配N个T类型大小的连续空间</li>
+    <li>指向这个连续空间的第一个T类型大小的指针叫做A, A中的地址就是这个数组的第一个元素. 按照索引往后查找的时候, 只需要用地址加上偏移量乘以T的大小, 就是索引为偏移量的元素位置.</li>
+</ol>
+<p>所以使用操作数作为内存引用的方式, 就可以很方便的计算出内存地址.</p>
+<h3>练习题 3.36</h3>
+<table>
+    <thead>
+    <tr>
+        <th>数组</th>
+        <th>元素大小</th>
+        <th>整个数组的大小</th>
+        <th>起始地址</th>
+        <th>元素i</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>short S[7]</td>
+        <td>2</td>
+        <td>14</td>
+        <td>xs</td>
+        <td>xs+2i</td>
+    </tr>
+    <tr>
+        <td>short *T[3]</td>
+        <td>8</td>
+        <td>24</td>
+        <td>xt</td>
+        <td>xt+8i</td>
+    </tr>
+    <tr>
+        <td>short **U[6]</td>
+        <td>8</td>
+        <td>48</td>
+        <td>xu</td>
+        <td>xu+8i</td>
+    </tr>
+    <tr>
+        <td>int V[8]</td>
+        <td>4</td>
+        <td>32</td>
+        <td>xv</td>
+        <td>xv+4i</td>
+    </tr>
+    <tr>
+        <td>double *W[4]</td>
+        <td>8</td>
+        <td>32</td>
+        <td>xw</td>
+        <td>xw+8i</td>
+    </tr>
+    </tbody>
+</table>
+<p>C语言的指针运算, 可以把指针直接加上某个数值i, 而指针的实际运算, 则会加上指针的数据类型乘以i.</p>
+<p>对于指针运算, 如果需要计算指针的地址, 可以使用leaq指令; 如果需要通过指针取数, 则需要通过mov指令等可以引用内存的指令才可以.</p>
+<h3>练习题 3.37</h3>
+<p>有short类型数组S的地址xs存放在%rdx, 整数索引存放在%rcx中. 填写下列表格, 如果是指针就存在%rax中, 如果是short数据就存在%ax中.</p>
+<table>
+    <thead>
+    <tr>
+        <th>表达式</th>
+        <th>类型</th>
+        <th>值</th>
+        <th>汇编代码</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>S+1</td>
+        <td>short*</td>
+        <td>xs+2</td>
+        <td>leaq 2(%rdx), %rax</td>
+    </tr>
+    <tr>
+        <td>S[3]</td>
+        <td>short</td>
+        <td>M[xs+2*3]</td>
+        <td>movw 6(%rdx), %ax</td>
+    </tr>
+    <tr>
+        <td>&s[i]</td>
+        <td>short*</td>
+        <td>xs+2i</td>
+        <td>leaq (%rdx, %rcx, 2), %rax</td>
+    </tr>
+    <tr>
+        <td>S[4*i + 1]</td>
+        <td>short</td>
+        <td>M[xs+8i+2]</td>
+        <td>movw 2(%rdx, %rcx, 8), %ax</td>
+    </tr>
+    <tr>
+        <td>S+i-5</td>
+        <td>short*</td>
+        <td>xs+2i-10</td>
+        <td>leaq -10(%rdx, %rcx, 2), %rax</td>
+    </tr>
+    </tbody>
+</table>
+<p>这里要注意的是, 凡是索引的运算, 对应到指针上的时候, 都要乘以数据元素的大小才可以.</p>
+<p>有了单个数组的表示方法, 对于嵌套数组比如 int Ap[5][3], 可以想象为5行3元素数组, 即5行3列, 每一行内的数据是紧接着上一行开始存放的, 即排列完A[0][0]- A[0][2]之后, 紧接着排布A[1][0] - A[1][2].</p>
+<p>要访问多维元素的数组元素, 就要根据数组开始时候的地址, 然后根据索引号, 先按照行号算出行的开始位置, 再根据列号计算出具体元素的位置.</p>
+<p><code>T D[R][C]</code>为例, 数组起始地址为xd, T的大小是L, 要访问实际索引为 <code>D[i][j]</code> 的元素, 计算如下:</p>
+<ol>
+    <li>由于i表示行号, 所以先定位到i行的起始地址, 可以用xd加上i乘以一行的长度, 一行的长度是C * L, 则第i行的起始地址是 <code>xd + i * C * L</code></li>
+    <li>之后需要根据j来定位具体元素, 所以再从起始地址加上<code>j*L</code>即可.</li>
+    <li>最终的地址就是 <code>xd + i * C * L + j * L = xd + L * (i * C + j)</code></li>
+</ol>
+<p>简单的说, 其实和一维数组没有区别, 就是从数组起始地址, 根据行和列算出要查找的元素的偏移量, 然后乘以元素长度即可.</p>
+<h3>练习 3.38 根据汇编倒推P和Q两个二维数组的列和行</h3>
+<pre>
+long sum_element(long i, long j){
+    return P[i][j] + Q[j][i];
+}
+
+i in %rdi, j in %rsi
+
+sum_element:
+    leaq   0(,%rdi, 8),  %rdx       %rdx = 8i
+    subq   %rdi, %rdx               这个是计算 %rdx - i = 7i
+    addq   %rsi, %rdx               这个是计算 %rdx = 7i+j
+    leaq   (%rsi, %rsi, 4), %rax    %rax = 5j
+    addq   %rax, %rdi               %rdi = i + 5j
+    movq   Q(, %rdi, 8), %rax       取地址是 (5j+i)*8 + Q, 可见对于Q来讲, 每行元素的数量为5, 所以M = 5
+    movq   P(, %rdx, 8), %rax       取地址是 (7i+j)*8 + P, 可见对于P来讲, 每行元素是7, 所以N = 7
+</pre>
+<p>这个练习题主要就是运用了在放大之前, 有一个乘积的肯定是用实际行号乘以每行的元素多少来计算行首偏移量, 而直接取用实际索引的, 是实际的列. 而每行数量实际上是声明里的列长度, 注意不要被绕晕了.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 <h2 style="text-align: center;" id="con2">联合</h2>
