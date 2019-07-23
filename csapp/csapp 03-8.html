@@ -7,7 +7,12 @@
     <title>第三章笔记</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
-
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
 </head>
 <body>
 <h1 style="text-align: center;">CSAPP 第三章 浮点数</h1>
@@ -15,6 +20,10 @@
 <ol>
     <li><a href="#con1">浮点寄存器</a></li>
     <li><a href="#con2">浮点数指令 - 传送和转换操作</a></li>
+    <li><a href="#con3">浮点数指令 - 寄存器分配</a></li>
+    <li><a href="#con4">浮点数指令 - 浮点数的运算和浮点常数</a></li>
+    <li><a href="#con5">浮点数指令 - 浮点数的位级操作</a></li>
+    <li><a href="#con6">浮点数指令 - 浮点数比较</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">浮点寄存器</h2>
@@ -31,13 +40,452 @@
 </ol>
 <p>前两个指令只能用在寄存器和内存互相传送, 最后两个指令用于寄存器间互相传送, a表示对齐.</p>
 <p>然后是转换指令. 之前的整型数据, 改变数据类型只是给编译器所用, 整型数据的底层表示不会改变. 但在浮点数中, 将整型和浮点数互相转换, 是会发生变化的.</p>
+<p>先是浮点数转换成整数的操作, 就像之前手工操作的一样, 是采取先计算好对应的幂 ,然后舍入到最靠近0的数来将浮点数转换成整数</p>
+<ol>
+    <li><code>vcvttss2si X/M32 R32</code>, 单精度转32位整数</li>
+    <li><code>vcvttsd2si X/M64 R32</code>, 双精度转32位整数</li>
+    <li><code>vcvttss2siq X/M32 R64</code>, 单精度转64位整数</li>
+    <li><code>vcvttsd2siq X/M64 R64</code>, 双精度转64位整数</li>
+</ol>
+<p>这四个指令的第一个操作数可以是Xmm寄存器或者其他通用寄存器, 第二个操作数也就是目标寄存器必须是通用整型寄存器</p>
+<p>把整数转换成浮点则是三操作数指令:</p>
+<ol>
+    <li><code>vcvtsi2ss M32/R32 X X</code>, 把32位整数转换为单精度浮点</li>
+    <li><code>vcvtsi2sd M32/R32 X X</code>, 把32位整数转换为双精度浮点</li>
+    <li><code>vcvtsi2ssq M64/R64 X X</code>, 把64位整数转换为单精度浮点</li>
+    <li><code>vcvtsi2sdq M64/R64 X X</code>, 把64位整数转换为双精度浮点</li>
+</ol>
+<p>这其中的第二个操作数影响结果的高位字节, 但不影响低位字节, 所以对于浮点数转换没有任何影响, 一般也设置成和目标寄存器一样的寄存器.</p>
+<p>可以发现, 相比于整数需要关心传送的长度和所使用的寄存器, 浮点数的传送指令不需要关心所使用的寄存器, 统一都使用Xmm系列寄存器, 只需要根据长度来操作即可.</p>
+<p>而浮点数的互相转换, 单精度数在GCC里会使用将XMM的内容排列成一个向量再扩充为双精度的方法, 完成之后XMM的低64位就是所需的双精度数.</p>
+<p>双精度数也是向量操作, 会先把高位和低位都换成和低位一样的双精度数, 然后同时转换成单精度, 把两个单精度都放在低64位中, 并把高位清零.</p>
+<p>可以看到浮点寄存器相比整型寄存器, 一些向量操作很有意思.</p>
+<h3>练习 3.50 确定代码中的对应关系</h3>
+<p>有如下函数:</p>
+<pre>
+double fcvt2(int *ip, float *fp, double *dp, long l) {
+    int i = *ip;
+    float f = *fp;
+    double d = *dp;
+    *ip = (int)     val1;
+    *fp = (float)   val2;
+    *dp = (double)  val3;
+    return (double) val4;
+}
+</pre>
+<p>和对应的汇编代码, 确认 val1-val4 是哪个变量:</p>
+<pre>
+double fcvt2(int *ip, float *fp, double *dp, long l)
+ip in %rdi, fp in %rsi, dp in %rdx, l in %rcx
+fcvt2:
+    movl        (%rdi), %eax        把i的值放入%eax
+    vmovss      (%rsi), %xmm0       传送单精度数, 把f 放入%xmm0
+    vcvttsd2si  (%rdx), %r8d        这个指令是双精度转32位整数, 放入 %r8d, 注意, 转换成int的只有 val1, 所以val1 就是 d
+    movl        %r8d, (%rdi)        将转换后的int值写入到ip对应的内存位置, 结合上一句, 很显然 val1 确实就是 d
+    vcvtsi2ss   %eax, %xmm1, %xmm1  转换32位整数为单精度浮点, %eax中是i, 结合程序代码看, 转换为float的只有 val2, 也就是 i
+    vmovss      %xmm1, (%rsi)       将转换后的单精度数写入fp对应的地址, 显然 val2 = i
+    vcvtsi2sdq  %rcx, %xmm1, %xmm1  这是把64位整数转换为双精度浮点, 注意%rcx 中是l,所以这个是转换的l, 要看写入到哪里才能确定
+    vmovsd      %xmm1, (%rdx)       把转换后的l写入到dp对应的地址, 所以val3 = l
+    vunpcklps   %xmm0, %xmm0, %xmm0 把单精度的f准备转换成双精度
+    vcvtps2pd   %xmm0, %xmm0        和上一句一起看, 是将f转换为双精度浮点
+    ret                             最后返回, 则很显然, val4 = f
+</pre>
+<p>映射关系是:</p>
+<ol>
+    <li>val1 = d</li>
+    <li>val2 = i</li>
+    <li>val3 = l</li>
+    <li>val4 = f</li>
+</ol>
+<h3>练习 3.51 写出转换指令</h3>
+<p>有如下程序:</p>
+<pre>
+dest_t cvt(src_t x){
+    dest_t y = (dest_t) x;
+    return y;
+}
+</pre>
+<p>根据x和y的类型, 写出对应代码, 如果x是整数, 就存放在%rdi中, 如果是浮点数 , 就存放在%xmm0中. 返回值如果是整数, 就存放在%rax系列中, 如果是浮点数, 就存放在%xmm0中.</p>
+<table>
+    <thead>
+    <tr>
+        <th>x的类型</th>
+        <th>y的类型</th>
+        <th>指令</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>long</td>
+        <td>double</td>
+        <td>vcvtsi2sdq %rdi, %xmm0, %xmm0</td>
+    </tr>
+    <tr>
+        <td>double</td>
+        <td>int</td>
+        <td>vcvttsd2si %xmm0, %eax</td>
+    </tr>
+    <tr>
+        <td>double</td>
+        <td>float</td>
+        <td>vcvtsd2ss %xmm0, %xmm0, %xmm0</td>
+    </tr>
+    <tr>
+        <td>long</td>
+        <td>float</td>
+        <td>vcvtsi2ssq %rdi, %xmm0, %xmm0</td>
+    </tr>
+    <tr>
+        <td>float</td>
+        <td>long</td>
+        <td>vcvttss2siq %xmm0, %rax</td>
+    </tr>
+    </tbody>
+</table>
 
+<h2 style="text-align: center;" id="con3">浮点数指令 - 寄存器分配</h2>
+<p>在过程中使用到浮点数的时候, 之前浮点寄存器的时候可以看到, %xmm0 - %xmm7可以传送8个浮点参数, 和整型参数一样, 超过的部分可以通过栈来传递.</p>
+<p>%xmm0同时也是返回浮点数的寄存器.</p>
+<p>所有的浮点寄存器都是由调用者保存的, 也就是说过程可以任意操作所有浮点寄存器, 无需恢复状态.</p>
+<p>如果参数是整型和浮点混合, 实际上就是单独提取出所有的整型和浮点参数, 再分别按照寄存器顺序排列.</p>
+<h3>练习 3.52 确定参数的寄存器分配</h3>
+<ol style="list-style-type: upper-alpha">
+    <li><code>double g1(double a, long b, float c, int d)</code>, 参数分别为浮点, 整型, 浮点, 整型, 寄存器排布为
+        a in %xmm0, b in %rdi, c in %xmm1, d in %esi
+    </li>
+    <li><code>double g2(int a, double *b, float *c, long d)</code>, 四个参数都是整型或者指针, 所以全部排布在整型寄存器中:
+        a in %edi, b in %rsi, c in %rdx, d in %rcx
+    </li>
+    <li><code>double g3(double *a, double b, int c, float d)</code>, 四个参数是指针, 浮点, int, 浮点, 寄存器排布为:
+        a in %rdi, b in %xmm0, c in %esi, d in %xmm1
+    </li>
+    <li><code>double g3(float a, int *b, float c, double d)</code>, 四个参数是浮点, 指针, 浮点, 浮点, 寄存器排布为:
+        a in %xmm0, b in %rdi, c in %xmm1, d in %xmm2
+    </li>
+</ol>
 
+<h2 style="text-align: center;" id="con4">浮点数指令 - 浮点数的运算和浮点常数</h2>
+<p>浮点数的运算也有加减乘除等标量运算, 根据运算的内容不同, 每个指令有一个或二个源操作数S1, S2, 一个目标操作数D. 第一个源操作数可以是内存或者寄存器, 第二个源操作数和目标操作数必须是寄存器.</p>
+<table>
+    <thead>
+    <tr>
+        <th>单精度</th>
+        <th>双精度</th>
+        <th>效果</th>
+        <th>描述</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>vaddss</td>
+        <td>vaddsd</td>
+        <td>三操作数, S1+S2的结果存放到D</td>
+        <td>浮点数相加</td>
+    </tr>
+    <tr>
+        <td>vsubss</td>
+        <td>vsubsd</td>
+        <td>三操作数, S2-S1的结果存放到D中</td>
+        <td>浮点数减</td>
+    </tr>
+    <tr>
+        <td>vmulss</td>
+        <td>vmulsd</td>
+        <td>三操作数, S2*S1的结果存放到D中</td>
+        <td>浮点数乘</td>
+    </tr>
+    <tr>
+        <td>vdivss</td>
+        <td>vdivsd</td>
+        <td>三操作数, S2/S1的结果存放到D中</td>
+        <td>浮点数除</td>
+    </tr>
+    <tr>
+        <td>vmaxss</td>
+        <td>vmaxsd</td>
+        <td>三操作数, 取S2和S1中较大的数放入D中</td>
+        <td>浮点数取较大数</td>
+    </tr>
+    <tr>
+        <td>vminss</td>
+        <td>vminsd</td>
+        <td>三操作数, 取S2和S1的较小值, 结果放入D中</td>
+        <td>浮点数取较小数</td>
+    </tr>
+    <tr>
+        <td>sqrtss</td>
+        <td>sqrtsd</td>
+        <td>两操作数, 取S1的平方根放入D中</td>
+        <td>浮点数开方</td>
+    </tr>
+    </tbody>
+</table>
+<p>在运算的时候, 整数通过整数寄存器传递, 而浮点数通过浮点寄存器传递, 在浮点数和整数进行运算的时候, 会先按照上边的指令将整数转换成浮点数再进行操作. 这就从底层理解了类型转换的原理.</p>
+<h3>练习 3.53 根据代码确定参数的类型</h3>
+<p>有如下函数:</p>
+<pre>
+double funct1(art1_t p, arg2_t q, arg3_t r, arg4_t s){
+    return p/(q+r) - s;
+}
+</pre>
+<p>对应的汇编代码是:</p>
+<pre>
+double funct1(art1_t p, arg2_t q, arg3_t r, arg4_t s)
+funct1:
+    vcvtsi2ssq      %rsi, %xmm2, %xmm2      把第二个整型寄存器中的四字节整型转换为单精度浮点. 这里从寄存器里能看出来, 使用%rsi, 放入到%xmm2说明有两个整型, 两个浮点
+    vaddss          %xmm0, %xmm2, %xmm0     单精度浮点数相加, 这里应该计算的是 q + r , 由此可以判断 %xmm0 是单精度浮点数. 但q和r哪一个是整数转换的, 还不好说
+    vcvtsi2ss       %edi, %xmm2, %xmm2      把32位整数转换成单精度浮点, 放在 %xmm2中
+    vdivss          %xmm0, %xmm2, %xmm0     用 p/(q+r) 的结果放入%xmm0中, 所以可以知道 p一定是32位整数类型
+    vunpcklps       %xmm0, %xmm0, %xmm0
+    vcvtps2pd       %xmm0, %xmm0            这两句把p/(q+r)的结果转换成双精度浮点数
+    vsubsd          %xmm1, %xmm0, %xmm0     可知%xmm1中的变量是一个双精度浮点数, 可以直接减. 即 s 是双精度浮点数.
+    ret
+</pre>
+<p>通过分析, 可以知道 p的类型是int, s 是double, 而 q 和 r , 一个是long , 一个是float, 顺序不一定. 但在寄存器中的顺序固定, 第一个参数寄存器是int, 第二个是long.
+    第一个浮点寄存器是float ,第二个是long.</p>
+<h3>练习 3.54 根据汇编代码写出C代码</h3>
+<pre>
+double funct2(double w, int x, float y,long z)
+w in %xmm0, x in %edi, y in %xmm1, z in %rsi
 
+funct2:
+    vcvtsi2ss       %edi, %xmm2, %xmm2      把 x 转换成 float类型, 可以写成 float temp = (float) x
+    vmulss          %xmm1, %xmm2, %xmm1     y = y * temp
+    vunpcklps       %xmm1, %xmm1, %xmm1
+    vcvtps2pd       %xmm1, %xmm2            把单精度 y 转换为双精度 , 存放在 %xmm2中, double temp2 = (double) y
+    vcvtsi2sdq      %rsi, %xmm1, %xmm1      把 z 转换为双精度, 放在 %xmm1中 double temp3 = (double) z
+    vdivsd          %xmm1, %xmm0, %xmm0     w = w/temp3
+    vsudsd          %xmm0, %xmm2, %xmm0     return  y - w/temp3
+    ret
+</pre>
+<p>根据汇编代码可以写出C代码如下:</p>
+<pre>
+double funct2(double w, int x, float y,long z){
+    float temp = (float) x;
+    y = y * temp;
+    double temp2 = (double) y;
+    double temp3 = (double) z;
+    w = w/temp3;
+    return y - w;
+}
+</pre>
+<p>去掉所有临时变量, 得到:</p>
+<pre>
+double funct2(double w, int x, float y,long z){
+    return y * x - w / z;
+}
+</pre>
+<p>这里所有的浮点指令的操作数不能是常数, 必须先要把常数保存起来, 在使用的时候读取才可以.</p>
+<p>看书里的例子:</p>
+<pre>
+double cel2fahr(double temp){
+    return 1.8 * temp + 32.0;
+}
+</pre>
+<p>这一个函数, 其中的常量有两个, 一个是1.8, 一个是32.0. 生成的代码如下:</p>
+<pre>
+double cel2fahr(double temp)
+temp in %xmm0
 
+cel2fahr:
+    //这里的%rip是指令地址寄存器, 不能够直接操作
+    vmulsd      .LC2(%rip), %xmm0, %xmm0
+    vaddsd      .LC3(%rip), %xmm0, %xmm0
+    ret
+  .LC2
+    .long   3435973837
+    .long   1073532108
 
+  .LC3
+    .long   0
+    .long   1077936128
+</pre>
+<p>从代码来看, 很显然LC2标号对应的是1.8, 而.LC3对应的常量是32.0. 转换的方法是第一个long对应低位4字节,第二个long对应高位四字节. </p>
+<p>将LC2重新排布之后, 可以得到 3f fc cc cc cc cc cc cd, 转换成二进制是:</p>
+<pre>
+3    f    f    c    c    c    c    c    c    c    c    c    c    c    c    d
+<span style="color: red">0</span><span style="color: #0FA0CE">011 1111 1111</span> <span style="color: orange">1100 1100 1100 1100 1100 1100 1100 1100 1100 1100 1100 1100 1101</span>
+</pre>
+<p>可以看到阶码部分是 011 1111 1111 = 1023, 阶码要减去双精度的偏置值1023, 阶码就是0, 即不用做什么幂变化. 由于这个是规格化数, 有个隐含的1, 实际值是 1.[1100], 就是1.8</p>
+<h3>练习 3.55 浮点常量是如何表示的</h3>
+<p>LC3也重新排布一下, 得到 4040000000000000, 二进制是: </p>
+<pre>
+4    0    4    0    ......
+<span style="color: red">0</span><span style="color: #0FA0CE">100 0000 0100 </span>0000 ......
+</pre>
+<p>可以看到阶码部分是 100 0000 0100 = 1028, 减去偏置值 1023 = 5, 由于是规格化数, 有个隐含的1, 所以结果就是 2的5次方的浮点数表示 = 32.0</p>
 
+<h2 style="text-align: center;" id="con5">浮点数指令 - 浮点数的位级操作</h2>
+<p>浮点代码的位操作会更新寄存器内的全部位. 主要指令有:</p>
+<table>
+    <thead>
+    <tr>
+        <th>单精度</th>
+        <th>双精度</th>
+        <th>效果</th>
+        <th>描述</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>vxorps</td>
+        <td>xorpd</td>
+        <td>三操作数, 将 S1 S2 异或的结果放入D</td>
+        <td>位级异或运算</td>
+    </tr>
+    <tr>
+        <td>vandps</td>
+        <td>andpd</td>
+        <td>三操作数, 将 S1 S2 进行与运算的结果放入D</td>
+        <td>位级与运算</td>
+    </tr>
+    </tbody>
+</table>
+<p>这些指令一旦执行, 就对所有XMM寄存器里所有的位进行运算. CSAPP这里只关系标量, 所以只取低位, 结果也是一样的.</p>
+<h3>练习 3.56 根据汇编补全C代码</h3>
+<p>有如下过程:</p>
+<pre>
+double simplefun(double x){
+    return EXPR(x);
+}
+</pre>
+<p>看每个情况的代码是什么意思:</p>
+<ol style="list-style-type: upper-alpha">
+    <li>
+        <pre>
+            vmovsd      .LC1(%rip), %xmm1
+            vandpd      %xmm1, %xmm0, %xmm0
+          .LC2:
+            .long 4294967295
+            .long 2147483647
+            .long 0
+            .long 0
+        </pre>
+    第一行指令是传送双精度数, 所以要看一下传送了什么东西: LC2中的值实际上是 00000000 00000000 7fffffff ffffffff. 看低64位的话, 这是01111.... <br>
+    将x和这串数字进行与运算的结果, 实际上就是将x的最高位符号位置0, 其他位不变, 所以这是一个将浮点数x转换成正数或者说是绝对值的过程.
+    </li>
 
+    <li>
+        <pre>
+            vxorpd  %xmm0, %xmm0, %xmm0
+        </pre>
+        这个是将%xmm与自身进行异或运算, 可以知道, 结果是一串0, 所以这个是将寄存器内的浮点数清理成+0
+    </li>
+
+    <li>
+        <pre>
+            vmovsd      .LC2(%rip), %xmm1
+            vxorpd      %xmm1, %xmm0 ,%xmm0
+          .LC2:
+            .long 0
+            .long -2147483648
+            .long 0
+            .long 0
+        </pre>
+        这个也需要重新排布LC2看看位级表示: 00000000 00000000 80000000 00000000, 用这个LC2去和 x 进行异或运算, 可以知道 与 0 进行异或, 不改变原来的位. 与1进行异或, 会改变原来的位.<br>
+        所以这个函数的意义就是返回将第64位也就是最高位取反的功能, 也就是改变double x 的符号位.
+    </li>
+</ol>
+
+<h2 style="text-align: center;" id="con6">浮点数指令 - 浮点数比较</h2>
+<p>浮点数比较大小有两条指令:</p>
+<table>
+    <thead>
+    <tr>
+        <th>指令</th>
+        <th>基于</th>
+        <th>描述</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    <tr>
+        <td>ucomiss S1, S2</td>
+        <td>比较S2 : S1</td>
+        <td>比较单精度值</td>
+    </tr>
+    <tr>
+        <td>ucomisd S1, S2</td>
+        <td>比较 S2 : S1</td>
+        <td>比较双精度值</td>
+    </tr>
+    </tbody>
+</table>
+<p>这个比较和之前比较整数的写法类似, 实际上是比较第二个操作数减去第一个操作数的结果. 其中S1可以是寄存器也可以是内存, S2必须是浮点寄存器.</p>
+<p>比较浮点数的时候所采用的条件码与整型不太一样, 由于IEEE中有NaN的规定, 因此对于浮点数, 任何一方出现NaN的情况, 有一个奇偶标志位PF就会被设置成1. 如果不是1, 则说明S2和S1正常比较, 如果PF为1, 表示无序.</p>
+<table>
+    <thead>
+    <tr>
+        <th>S2 : S1</th>
+        <th>进位标志CF</th>
+        <th>零标志位ZF</th>
+        <th>奇偶标志PF</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    <tr>
+        <td>无序的</td>
+        <td>1</td>
+        <td>1</td>
+        <td>1</td>
+    </tr>
+    <tr>
+        <td>S2&lt;S1</td>
+        <td>1</td>
+        <td>0</td>
+        <td>0</td>
+    </tr>
+    <tr>
+        <td>S2=S1</td>
+        <td>0</td>
+        <td>1</td>
+        <td>0</td>
+    </tr>
+    <tr>
+        <td>S2>S1</td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+    </tr>
+    </tbody>
+</table>
+<p>除了奇偶标志位之外, 其他的所有判断的情况, 都可以使用<span style="color: red">无符号比较的条件跳转指令</span>. 判断奇偶标志位的跳转指令是<code>jp</code>.</p>
+<p>练习3.57 根据汇编代码补全C代码</p>
+<pre>
+double funct3(int *ap, double b, long c, float *dp)
+p in %rdi, b in %xmm0, c in %rsi, dp in %rdx
+
+funct3:
+    vmovss      (%rdx), %xmm1           传送单精度到%xmm1中, float temp = *dp
+    vcvtsi2sd   (%rdi), %xmm2, %xmm2    转换*ap为双精度数, double temp2 = (double) *ap
+    vucomisd    %xmm2, %xmm0            比较 b : temp2
+    jbe L8                              b<=temp2的时候跳转L8
+    vcvtsi2ssq  %rsi, %xmm0, %xmm0      把 c 转换为单精度数 float temp3 = (float) c
+    vmulss      %xmm1, %xmm0, %xmm1     temp = temp * temp3
+    vunpcklps   %xmm1, %xmm1, %xmm1
+    vcvtps2pd   %xmm1, %xmm0            这两句是将temp的结果转换成double返回
+    ret
+
+  .L8:
+    vaddss      %xmm1, %xmm1, %xmm1     temp = temp * 2
+    vcvtsi2ssq  %rsi, %xmm0, %xmm0      float temp3 = (float) c
+    vaddss      %xmm1, %xmm0, %xmm0     temp3 = temp3 + temp
+    vunpcklps   %xmm1, %xmm1, %xmm1
+    vcvtps2pd   %xmm1, %xmm0            这两句是将temp的结果转换成double返回
+    ret
+</pre>
+<p>根据分析, 写出代码:</p>
+<pre>
+double funct3(int *ap, double b, long c, float *dp){
+    if(b<=(*ap)){
+        return 2 * (*dp) + c;
+    } else {
+        return (*dp) * c;
+    }
+}
+</pre>
+<p>第三章也看完了, 竟然也全部看懂了. 第四章的流水线看着挺刺激的. 慢慢加油看吧.</p>
 
 
 
