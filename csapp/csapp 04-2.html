@@ -15,22 +15,113 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第四章 处理器体系结构</h1>
+<h1 style="text-align: center;">CSAPP 第四章 HCL</h1>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con1">HCL和布尔表达式</a></li>
+    <li><a href="#con2">多路复用器</a></li>
+    <li><a href="#con3">集合</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">HCL和布尔表达式</h2>
+<p>对于看过<a href="https://book.douban.com/subject/1998341/" target="_blank">计算机系统要素</a>的我, 这一部分的很多概念就很熟悉了. GO!</p>
+<p>HCL类似于用布尔表达式来书写门电路的组合方式, 像这个<code>bool eq = (a && b) || (!a && !b);</code>. 离散数学中提到, 不管多复杂的逻辑电路, 只要有了and or not三个算子, 就是完备的, 可以拼接出来.</p>
+<h3>练习 4.9 写出xor的HCL表达式</h3>
+<p>在<a href="https://book.douban.com/subject/1998341/" target="_blank">计算机系统要素</a>里有一张表列出了所有简单的布尔逻辑的表达式:</p>
+<p><img src="http://img.conyli.cc/blogs/bool_function.png" alt="bool_function" title="bool_function"></p>
+<p>这里的<code>+</code>号表示or, <code>·</code>或者写在一起表示and, 上横线表示not. 根据XOR的表达式, 可以很容易的写出来:</p>
+<pre>
+bool xor = (a && !b) || (!a && b)
+再注意观察eq的结果, 可以发现, 给eq接一个非门, 也是一样的效果
+</pre>
+<p>HCL语言看上去很像C语言表达式, 相比C语言, HCL有一些特点:</p>
+<ol>
+    <li>HCL的值是持续响应的, 并不是像语句一样遇到才求值</li>
+    <li>C的判断条件是不是0都是真, 而是0就是假. HCL中的值只有0和1代表高低电压, 不存在其他值.</li>
+    <li>C表达式有短路作用, 而HCL一直响应输入变化, 不存在求值与否的问题.</li>
+    <li>将所有输入都假设为数据类型是int的字来解释, 其实底层是没有数据类型一说的, 这样假设是为了说起来方便.</li>
+    <li>允许比较字是否相等, 即 bool eq = (A==B)</li>
+</ol>
+<h3>练习 4.10 用异或电路来实现相等电路</h3>
+<p>使用异或电路也比较简单, 如果两个位相等, 则输出是0, 两个位不相等,输出是1. 先把每个字的每两个位接到异或电路上, 然后再把所有的输出接到一个或门上, 这样只要有任意两个位不相等,则输出是1, 然后再接一个非门即可.</p>
+<h2 style="text-align: center;" id="con2">多路复用器</h2>
+<p>多路复用器也很熟悉了, 就是从多个信号中选择一个, 从N个中选几个, 最少需要能表示N的2的几次方对应的输入电路来进行选择.</p>
+<p>对于多路复用器, HCL的表达式如下:</p>
+<pre>
+[
+    select1 : expr1;
+    select2 : expr2;
+    select3 : expr3;
+        .
+        .
+        .
+    selectN : exprN;
+]
+</pre>
+<p>selectN是选择表达式, 即这个表达式如果为1, 就被选中, 之后的输出结果就是对应的exprN. 注意, 逻辑电路在同一时刻必定有一个输出, 所以MUX2一般会写成:</p>
+<pre>
+word out = [
+    s: A;
+    1: B;
+]
+</pre>
+<p>这不是写错了, 而是说 s=1 的时候就输出A ,如果 s=0的时候, 就会输出B. 这相当于默认情况, 很多表达式都以1结尾.</p>
+<p>如果是4路MUX, 就可以用两路信号的布尔值来表示, 其实就是11, 10, 01, 00 四种情况:</p>
+<pre>
+word out4 = [
+    !s1 && !s0 : A;  00的情况
+    !s1        : B;  01的情况, 由于第一种情况要求!s1和!s0都为真, 既然不满足条件, 说明两个里边至多一个为真, 因此这里无需判断!s0
+    !s0        : C;  10的情况, 和上一行一样, 无需判断!s1
+    1          : D;  11, 默认情况, 也就是!s1和!s0都是0的情况.
+]
+</pre>
+<h3>练习 4.11 逻辑游戏</h3>
+<p>比较三个数的大小, 先比较两个数, 再比较第三个数</p>
+<p>第一行能确定A最小, 如果A 不是最小, 只需要比较 B和C即可:</p>
+<pre>
+word min3 = [
+    A <= B && A <= C : A;
+    B <= C           : B;
+    1                : C;
+]
+</pre>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h3>练习 4.12 找中间值</h3>
+<p>这个类似于比较大小, 返回中间值:</p>
+<pre>
+word middle3 = [
+    A <= B && B <= C : B;
+    C <= B && B <= A : B;
+    B <= A && A <= C : A;
+    C <= A && A <= B : A;
+    1: C;  前两个情况都不满足,就是C了
+]
+</pre>
+<h2 style="text-align: center;" id="con3">集合</h2>
 
-<h2 style="text-align: center;" id="con3"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con4"></h2>
 
