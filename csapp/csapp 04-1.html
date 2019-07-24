@@ -15,28 +15,375 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第四章 处理器体系结构</h1>
+<h1 style="text-align: center;">CSAPP 第四章 Y86-64指令集</h1>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">简化的计算机模型和指令集</a></li>
+    <li><a href="#con2">异常代码</a></li>
+    <li><a href="#con3">特殊指令 - %rsp入栈出栈</a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">简化的计算机模型和指令集</h2>
+<p>为了研究处理器的架构, CSAPP设计了一套简化的计算机模型和对应的指令集叫做Y86-64. 主要特点如下:</p>
+<ol>
+    <li>15个寄存器, 不包括%r15. 这样内部寻址可以用0-15来选择寄存器. %rsp依然用作栈指针</li>
+    <li>每个寄存器都报保存64位=8字节值, 机器里操作的所有值也都是8字节长</li>
+    <li>三个一位的条件码: ZF SF 和 OF</li>
+    <li>程序计数器 PC</li>
+    <li>有一个状态码 Stat 用于表示程序状态</li>
+    <li>DMEM 内存, 这里把内存当成一个连续的虚拟内存, 内存使用基址+偏移量方式寻找, 不支持复杂的寻址运算, 其实就相当于直接用固定基础地址寻址.</li>
+</ol>
+<p>同时也对指令集进行了简化: </p>
+<ol>
+    <li>movq被分成了四个详细指令, 用于更好的跟踪程序. irmovq, rrmovq, mrmovq, rmmovq. 第一个字母表示源, 第二个字母表示目标. i = 立即数, r = 寄存器, m = 内存</li>
+    <li>运算指令有四个, addq, subq, andq, xorq, 只能对寄存器进行操作. 这些指令会同时设置条件码.</li>
+    <li>7个跳转指令, jmp, jle, jl, je, jne, jge, jg. </li>
+    <li>6个条件传送指令, cmovle, cmovl, cmove, cmovne, cmovge, cmovg. 这些指令与寄存器传送指令rrmovq一样, 只能在寄存器之间传送.</li>
+    <li>call 和 ret 与 原来的一样, 将地址入栈和出栈</li>
+    <li>pushq 和 popq 实现入栈和出栈</li>
+    <li>halt 停止指令执行, 状态码会设置成HLT</li>
+</ol>
+<p>指令集的编码采用一字节长的指令, 对于有多个同类指令, 字节的低四位指示是哪个具体指令. 之后的第二字节高四位是第一个操作数寄存器, 第四位是第二个操作数寄存器, 如果没有, 就用0xF来表示, 之后根据指令不同, 可以跟8字节的操作数, 用来表示常数, 地址等:</p>
+<ol>
+    <li><code>halt</code> 0000 0000, 这条是前边说的halt指令</li>
+    <li><code>nop</code> 0001 0000, 这个是nop指令, 即什么也不做, 继续取下一条指令</li>
+    <li><code>rrmovq rA, rB</code> 0010 0000 rA rB, 这是寄存器传送, 字节编码是20, rA和rB是寄存器地址, 比如从%rbx传送到%rax, 指令就是 20 03 01</li>
+    <li><code>irmovq V, rB</code> 0011 0000 0xF rB V, 这条指令是将立即数传入指定寄存器, 很显然源寄存器没有, 用0xF表示, 立即数放在第三个字节开始的8个字节中, 这样这条指令长10个字节</li>
+    <li><code>rmmovq rA, D(rB)</code> 0100 0000 rA rB D, 这条指令是将寄存器传入内存, 很显然要取地址, 地址会在最后加上8位的立即数D来表示</li>
+    <li><code>mrmovq rA, D(rB)</code> 0101 0000 D(rA) rB D, 这条指令的数据结构和上边一条一样, 但是指令从40 变成了 50</li>
+    <li><code>OPq rA, rB</code> 0110 ???? rA rB, 这个表示操作类的四条指令, 指令字节低位使用0-3表示四条不同的指令.</li>
+    <li><code>jxx Dest</code> 0110 ???? Dest, 跳转类之类, 指令字节低位使用0-6表示7条不同的指令. 后边跟上8字节的地址</li>
+    <li><code>cmovxx rA rB</code> 0010 ???? rA rB, 条件传送, 这里注意, ????是0-6共7个, 不是只有6个条件传送吗, 是因为 0010 0000 表示 rrmovq, 也就是不去判断标志位的无条件传送. 剩下的6个才是有条件的传送.</li>
+    <li><code>call Dest</code> 1000 0000 Dest, 调用指令, 压之后的地址入栈并且跳转. 指令字节为80</li>
+    <li><code>ret</code> 1001 0000, 无操作数, 返回指令, 弹出栈中的地址到PC</li>
+    <li><code>pushq rA</code> 1010 0000 rA 0xF, 将rA寄存器中的值放入栈中, 由于无需使用第二个寄存器, 所以设置为0xF</li>
+    <li><code>popq rA</code> 1011 0000 rA 0xF, popq指令要注意一下, 是将值弹出到源寄存器的位置, 由于无需使用第二个寄存器, 所以设置为0xF</li>
+</ol>
+<p>通过上边的指令集, 可以发现, 只要指令使用了寄存器, 两个寄存器地址必须成对出现. 操作数始终跟在寄存器的后边, 如果指令不需要寄存器, 就无需寄存器部分.</p>
+<p>其中涉及到寻址的比如rmmovq等过程, rB寄存器内的值表示偏移量, 后边的D是表示立即数的值, 不是计算后的值.</p>
+<p>几个指令类的具体代码对应关系如下:</p>
+<table>
+    <thead>
+    <tr>
+        <th colspan="2">整数操作</th>
+        <th colspan="4">分支指令</th>
+        <th colspan="4">传送指令</th>
+    </tr>
+    <tr>
+        <th>指令</th>
+        <th>字节编码</th>
+        <th>指令</th>
+        <th>字节编码</th>
+        <th>指令</th>
+        <th>字节编码</th>
+        <th>指令</th>
+        <th>字节编码</th>
+        <th>指令</th>
+        <th>字节编码</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>addq</td>
+        <td>60</td>
+        <td>jmp</td>
+        <td>70</td>
+        <td>jne</td>
+        <td>74</td>
+        <td>rrmovq</td>
+        <td>20</td>
+        <td>cmovne</td>
+        <td>24</td>
+    </tr>
+    <tr>
+        <td>subq</td>
+        <td>61</td>
+        <td>jle</td>
+        <td>71</td>
+        <td>jge</td>
+        <td>75</td>
+        <td>cmovle</td>
+        <td>21</td>
+        <td>cmovge</td>
+        <td>25</td>
+    </tr>
+    <tr>
+        <td>andq</td>
+        <td>62</td>
+        <td>jl</td>
+        <td>72</td>
+        <td>jg</td>
+        <td>76</td>
+        <td>cmovl</td>
+        <td>22</td>
+        <td>cmovg</td>
+        <td>26</td>
+    </tr>
+    <tr>
+        <td>xorq</td>
+        <td>63</td>
+        <td>je</td>
+        <td>73</td>
+        <td></td>
+        <td></td>
+        <td>cmove</td>
+        <td>23</td>
+        <td></td>
+        <td></td>
+    </tr>
+    </tbody>
+</table>
+<p>寄存器的编码是:</p>
+<table>
+    <thead>
+    <tr>
+        <th>寄存器</th>
+        <th>编码</th>
+    </tr>
+    </thead>
 
-<h2 style="text-align: center;" id="con2"></h2>
+    <tr>
+        <td>%rax</td>
+        <td>0</td>
+    </tr>
+    <tr>
+        <td>%rcx</td>
+        <td>1</td>
+    </tr>
+    <tr>
+        <td>%rdx</td>
+        <td>2</td>
+    </tr>
+    <tr>
+        <td>%rbx</td>
+        <td>3</td>
+    </tr>
+    <tr>
+        <td>%rsp</td>
+        <td>4</td>
+    </tr>
+    <tr>
+        <td>%rbp</td>
+        <td>5</td>
+    </tr>
+    <tr>
+        <td>%rsi</td>
+        <td>6</td>
+    </tr>
+    <tr>
+        <td>%rdi</td>
+        <td>7</td>
+    </tr>
+    <tr>
+        <td>%r8-%r14</td>
+        <td>8-E</td>
+    </tr>
+    <tr>
+        <td>无寄存器</td>
+        <td>F</td>
+    </tr>
+</table>
+<p>指令对于数字部分, 依然采取小端法格式, 所以在书写的时候, 就是字节的反序. 现在就知道了这个Y86-64的所有指令.</p>
+<h3>练习 4.1 确定下列指令序列的字节编码, .pos 0x100表示程序起始地址是0x100</h3>
+<ol>
+    <li><code>irmovq $15, $rbx</code>, irmovq的指令是30, 由于是操作立即数, 寄存器的部分是 F3, 之后跟上8字节的立即数15, 注意小端法要反向排布字节<br>
+    字节序列就是 30 F3 0F 00 00 00 00 00 00 00
+    </li>
+    <li><code>rrmovq %rbx, %rcx</code>, 这条指令就是 20 31</li>
+    <li><code>rmmovq %rcx, -3(%rbx)</code>, 首先是指令和寄存器部分 40 13, 后边的D表示-3, 即ff ff ff ff ff ff ff fd<br>
+    所以字节编码是 40 13 fd ff ff ff ff ff ff ff</li>
 
-<h2 style="text-align: center;" id="con3"></h2>
+    <li><code>addq %rbx, %rcx</code>, 60 31</li>
+    <li><code>jmp loop</code>, 最后这条loop要计算一下指令的地址, 第一条指令的起始地址是 0x100, 10字节长, 指令结束在0x109, 下一条指令2字节, 从 0x10A-0x10B. 再下一条指令是 0x10C开始的10字节, 0x10C-0x115.   <br>
+        所以jmp要jmp 到 0x10C的位置.
+    </li>
+</ol>
+<p>最后的汇编代码如下:</p>
+<pre>
+0x100 30 F3 0F 00 00 00 00 00 00 00
+0x10A 20 31
+0x10C 40 13 fd ff ff ff ff ff ff ff
+0x116 60 31
+0x118 70 0C 01 00 00 00 00 00 00
+</pre>
+<H3>练习 4.2 将字节指令翻译成汇编指令</H3>
+<ol>
+    <li><code>0x100: 30 f3 fc ff ff ff ff ff ff ff 40 63 00 08 00 00 00 00 00 00</code>, 这一条先从前往后解读, 30指令是irmovq, 第一个寄存器是0xf, 第二个寄存器是3号寄存器, 没问题, 后边跟一个8字节立即数V,
+    这个V按正常顺序字节排布是ffff ffff ffff fffc也就是-4. 所以这条指令是 irmovq $-4,%rbx <br>
+    之后的指令是rmmovq, 寄存器分别是6号和 3号, 其后跟的是地址, 按照正常排布是0800 = 2048, 所以这条指令是 rmmovq %rsi, 2048(%rbx)</li>
+    <li><code>0x200: a0 6f 80 0c 02 00 00 00 00 00 00 00 30 f3 0a 00 00 00 00 00 00 00 90</code>, 开始是a0指令, 是一个pushq, 6f表示6号寄存器和无需寄存器. 其后的80指令要被解释成call, 之后是一个地址0x020C;
+    再之后是00指令即HLT, 执行到这里就停机了. 后边的30指令是irmovq, 3号寄存器, 立即数是0a也就是10, 最后一条指令是90 指令 ret.</li>
+    <li><code>50 54 07 00 00 00 00 00 00 00 10 f0 b0 1f</code>, 开始指令是mrmovq, 5号寄存器和4号寄存器, 其后是偏移量7. 之后的指令是nop, 再之后是f0, 没有这个指令</li>
+    <li><code>61 13 73 00 04 00 00 00 00 00 00 00</code>, 61指令是subq, 1号寄存器和3号寄存器; 之后是73指令je, 之后是地址0400; 再下一条指令是halt</li>
+    <li><code>63 62 a0 f0</code>, 63指令是xorq, 两个寄存器是6号和2号, a0指令是 pushq, 之后的寄存器第一个就是f, 指令错误.</li>
+</ol>
+<h2 style="text-align: center;" id="con2">异常代码</h2>
+<p>了解了指令集之后, 还需要了解异常代码, 定义的异常代码如下:</p>
+<table>
+    <thead>
+    <tr>
+        <th>值</th>
+        <th>名称</th>
+        <th>含义</th>
+    </tr>
+    </thead>
+    <tr>
+        <td>1</td>
+        <td>AOK</td>
+        <td>正常操作</td>
+    </tr>
+    <tr>
+        <td>2</td>
+        <td>HLT</td>
+        <td>执行了HLT命令</td>
+    </tr>
+    <tr>
+        <td>3</td>
+        <td>ADR</td>
+        <td>非法地址</td>
+    </tr>
+    <tr>
+        <td>4</td>
+        <td>INS</td>
+        <td>非法指令</td>
+    </tr>
+</table>
+<p>在这个设计中, 正常情况下一直是AOK, 只要遇到AOK以外的异常就让处理器停止执行程序. 实际的处理器中, 是会被配置成执行预先的异常处理指令.</p>
+<h3>练习4.3 用iaddq重写sum函数</h3>
+<p>由于可以直接将常数加上去, 所以每次循环中的常量8 和 1, 也不需要一开始就将常数保存至 %r8 和 %r9寄存器. 改写后sum函数去掉原来的第2行和第三行,然后修改原来的第10行和第11行如下:</p>
+<pre>
+iaddq $8, %rdi
+iaddq $-1, %rsi
+</pre>
+<h3>练习4.4 用Y86-64语言写程序</h3>
+<pre>
+long rsum(long *start, long count) {
+    if (count <= 0) {
+        return 0;
+    }
+    return *start + rsum(start + 1, count - 1);
+}
+</pre>
+<p>可以先写出X86的汇编:</p>
+<pre>
+long rsum(long *start, long count)
+start in %rdi, count in %rsi
 
-<h2 style="text-align: center;" id="con4"></h2>
+rsum:
+    xorq %rax, %rax         %rax置0
+    test %rsi, %rsi         测试count
+    jle  L2                 小于等于0则跳转到L2
 
-<h2 style="text-align: center;" id="con5"></h2>
+    pushq %rbp
+    movq (%rdi), %rbx       把start的值保存到%rbp中
+    addq $8, %rdi           准备参数 start + 1
+    subq $1, %rsi           准备参数 count - 1
+    callq rsum              调用新过程
+    addq %rbx, %rax         将保存的start的值加到返回值上
+    popq %rbx               恢复%rbp的值
+    ret                     返回%rax
+  .L2
+    rep; ret                返回0, 直接返回0的情况下, 没有用到%rbp, 所以也无需弹栈
+</pre>
+<p>然后改成Y86的汇编代码, 操作常数需要使用寄存器中转, 在进入判断之前, 还需要使用一个 andq 来设置标志位, 标红的部分为改动的部分:</p>
+<pre>
+long rsum(long *start, long count)
+start in %rdi, count in %rsi
 
-<h2 style="text-align: center;" id="con6"></h2>
+rsum:
+    xorq %rax, %rax         %rax置0
+    <span style="color: red">andq %rsi, %rsi</span>         测试count
+    jle  L2                 小于等于0则跳转到L2
+
+    pushq %rbp
+    <span style="color: red">mrmovq (%rdi), %rbx</span>     把start的值保存到%rbp中
+    <span style="color: red">irmovq $1, %r8</span>          准备常量1到%r8寄存器
+    <span style="color: red">irmovq $8, %r9</span>          准备常量8到%r9寄存器
+    addq <span style="color: red">%r9</span>, %rdi          准备参数 start + 1
+    subq <span style="color: red">%r8</span>, %rsi          准备参数 count - 1
+    callq rsum              调用新过程
+    addq %rbx, %rax         将保存的start的值加到返回值上
+    popq %rbx               恢复%rbp的值
+    ret                     返回%rax
+  .L2
+    rep; ret                返回0, 直接返回0的情况下, 没有用到%rbp, 所以也无需弹栈
+</pre>
+<h3>练习4.5 求数组的中元素的绝对值之和.</h3>
+<p>在内循环中使用条件跳转, 其实就是再判断一次元素的值, 如果大于等于0就使用原来的值, 如果小于就使用subq减去这个值. 这里简单采取跳转的方式.</p>
+<pre>
+sum:
+    irmovq      $8, %r8         准备常数8
+    irmovq      $1, %r9         准备常数1
+    xorq        %rax,%rax       sum=0
+    andq        %rsi, %rsi      测试%rsi
+    jmp         test            无条件跳转进循环
+
+.loop:
+    mrmovq      (%rdi), %r10    获取*start的值放入%r10
+    andq        %r10, %r10      测试*start的值
+    jl          L2              如果小于0, 跳转到L2
+    addq        %r10, %rax      sum += *start
+
+.L3:
+    addq        %r8, %rdi       start ++
+    subq        %r9, %rsi       count --
+
+.test:
+    jne         loop
+    ret
+
+.L2:
+    subq        %r10, %rax      当*start小于0的时候, sum-=*start, 相当于加上绝对值
+    jmp         L3              无条件跳回L3
+</pre>
+<p>和答案的实现方式不同, 但是结果一样.</p>
+<h3>练习4.6 求数组的中元素的绝对值之和</h3>
+<p>但是这次使用条件传送, 其实也很简单, 先准备好-x的值, 然后判断*start是否小于0来进行条件传送.</p>
+<pre>
+sum:
+    irmovq      $8, %r8         准备常数8
+    irmovq      $1, %r9         准备常数1
+    xorq        %rax,%rax       sum=0
+    andq        %rsi, %rsi      测试%rsi
+    jmp         test            无条件跳转进循环
+
+.loop:
+    mrmovq      (%rdi), %r10    获取*start的值放入%r10
+    xorq        %r11, %r11      %r11清零
+    subq        %r10, %r11      向%r11中放入-x
+    andq        %r10, %r10      测试*start的值
+    cmovl       %r11, %r10      如果*start小于0 , 就传送-x 到 %r10寄存器
+    addq        %r10, %rax      sum += *start
+
+    addq        %r8, %rdi       start ++
+    subq        %r9, %rsi       count --
+
+.test:
+    jne         loop
+    ret
+</pre>
+<p>答案这里比我高明一些, 因为subq同时设置条件码, 直接用cmovg判断 -x>0, 即x<0的情况, 就传送%r11 到 %10即可.</p>
+<h2 style="text-align: center;" id="con3">特殊指令 - %rsp入栈出栈</h2>
+<p>还有一条特殊的指令需要注意一下, 就是把栈指针压入栈会如何. 这条指令是 <code>pushq %rsp</code>, 问题是pushq本身会把%rsp的值-8, 那到底压入的是在执行这条指令之前%rsp-8之前的数字还是之后的数字呢?</p>
+<h3>练习 4.7 判断pushq %rsp哪个值</h3>
+<p>在用到栈之前, 将当前的栈指针保存进了%rax, push之后再弹出来, 保存到了%rdx中, 最后用%rax-%rdx, 结果总是0, 说明pushq %rsp ,保存的是当前的%rsp,而不是减去8之后的结果.</p>
+<h3>练习 4.8 判断popq %rsp的值</h3>
+<p>popq也有类似的问题, 是先把栈指针+8, 还是不+8呢, 这个练习的试验证明, 弹出的时候就是原来的值 ,不会进行+8的操作.</p>
+<p>综合4.7和4.8的结果, push压入%rsp的时候, 都不会对已经存在的%rsp进行修改, 压入之后再将%rsp+8, 而popq 会直接将%rsp设置为栈里的值.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
