@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>第四章笔记</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+
+        ol  {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">CSAPP 第四章 Y86-64的顺序实现</h1>
+
+<ol>
+    <li><a href="#con1">将处理指令的过程抽象为阶段</a></li>
+    <li><a href="#con2">OPq系列指令和 rrmovq ,irmovq指令</a></li>
+    <li><a href="#con3">rmmovq 和 mrmovq 指令</a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">将处理抽象为阶段</h2>
+<p>要设计一个处理器, 需要将指令分为不同的阶段, 根据不同的阶段来优化. 各个阶段有:</p>
+<ol>
+    <li><strong>取指令 fetch</strong>. 即读取指令字节, 地址为程序计数器的值. 读取的指令, 根据之前的指令集, 可以知道, 取出的指令从1-10字节不等. 这里把指令字节的前四位叫做icode, 后四位叫做ifun. 将之后的寄存器指示字节的高四位叫做rA, 低四位叫做rB.
+        根据具体指令的不同, 也可能取的是一个8字节的值, 叫做valC. 只要取了指令, 根据指令的长度, 会计算出下一条指令的长度等于PC的值加上当前指令的长度, 这个新地址叫做valP.</li>
+    <li><strong>译码 decode</strong>, 根据 rA 和 rB 指明的寄存器, 从寄存器文件中读取最多两个操作数, 对应rA的叫做valA, 对应rB的叫做valB</li>
+    <li><strong>执行 execute</strong>, 在这个阶段之前, valA, valB, icode, ifun, valC都必须准备好. 然后会将这些值送入ALU. ALU根据送入的内容, 会产生输出, 叫做valE. 看指令可以知道, 除了产生一个值之外, 还可能决定跳转, 更新条件码, 等等. 更新寄存器也在这个阶段.</li>
+    <li><strong>访存 memory</strong>, ALU及寄存器电路更新完毕之后, 这个阶段可以将数据写入内存, 或者从内存读出数据, 读出的值叫做valM.</li>
+    <li><strong>写回 memory</strong>, 最多写两个结果到寄存器.</li>
+    <li><strong>更新程序计数器 PC update</strong>, 将PC设置成下一条指令的地址.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">OPq系列指令和 rrmovq ,irmovq指令</h2>
+<p>这一系列指令无需操作内存, 来看一看三者的执行过程:</p>
+<table>
+    <thead>
+    <tr>
+        <th>阶段</th>
+        <th>Opq rA, rB</th>
+        <th>rrmovq rA, rB</th>
+        <th>irmovq V, rB</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>取指令</td>
+        <td>
+            从程序计数器的地址中取出icode:ifun, 由于是单字节, 下一条程序计数器的地址 +1: M1[PC] => icode:ifun <br>
+            取单字节, 表示两个寄存器, 下一条程序计数器的地址 +1: M1[PC+1] => rA : rB <br>
+            取完了两字节的指令, 得到下一条程序计数器的地址是 PC + 2, 此时知道了valP的值:  PC + 2 => valP
+         </td>
+        <td>由于rrmovq和OPq操作的都是两个寄存器, 因此这一阶段和OPq相同.</td>
+        <td>irmovq相比前两个操作, 除了读入之前两个操作的两字节之外, 还需要读入额外的8字节操作数valC: <br>
+            M8[PC+2] => valC <br>
+            valP => PC + 10
+        </td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td>从寄存器中读出valA和valB: <br>
+        R[rA] => valA <br>
+        R[rB] => valB <br>
+        </td>
+        <td>由于rrmovq只需要知道rA的值,因此只取rA的值: <br>
+        R[rA] => valA
+        </td>
+        <td>由于valA是不用操作的, valB是目标, 所以无需译码</td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td>将valB 和 valA 送入ALU进行操作, 得到 valE: valA OP valB => valE <br>
+        同时我们的Y86还会在此时设定条件码: Set CC</td>
+        <td>此时由于无需计算valA, 实际的操作就是valA + 0, 不改变valA: <br>
+        valA + 0 => valE
+        </td>
+        <td>无需记性计算, 只是把valC 放入 valB, 所以valE就是valC:<br>
+        valC + 0 => valE
+        </td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td>仅操作寄存器, 无需访存</td>
+        <td>仅操作寄存器, 无需访存</td>
+        <td>这个也无需访存</td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>要把valE写入到 rB中: valE => R[rB]</td>
+        <td>要把valE写入到 rB中: valE => R[rB]</td>
+        <td>要把valE写入到 rB中: valE => R[rB], 这三条操作都是对rB操作, 所以是一样的</td>
+    </tr>
+    <tr>
+        <td>更新PC</td>
+        <td>更新程序计数器: valP => PC</td>
+        <td>更新程序计数器: valP => PC</td>
+        <td>同样需要更新程序计数器: valP => PC, 这条指令长度是10字节</td>
+    </tr>
+    </tbody>
+</table>
+<h3>练习 4.13 描述irmovq指令的具体执行过程</h3>
+<table>
+    <thead>
+    <tr>
+        <th rowspan="2">阶段</th>
+        <th>通用</th>
+        <th>具体</th>
+    </tr>
+    <tr>
+        <th>irmovq V, rB</th>
+        <th>irmovq $128, %rsp</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>取指令</td>
+        <td>
+            icode:ifun <- M1[PC] <br>
+            rA:rB <- M1[PC+1] <br>
+            <br>
+            valP <- PC + 2
+        </td>
+        <td>icode:ifun <- M1[0x016] = 3:0 <br>
+            rA:rB <- M1[0x016+1] = f:4 <br>
+            valC <- M8[0x016+2] = 0x80 <br>
+            valP <- 0x016+A = 0x020
+        </td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td></td>
+        <td>这个是从立即数传送到寄存器, 无需取寄存器值</td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td>valE <- 0 + valC</td>
+        <td>valE <- 128 = 128</td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td></td>
+        <td>立即数和寄存器操作, 无需访问内存</td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>R[rB] <- valE</td>
+        <td>R[%rsp] <- valE = 128 <br>
+        ZF = 0, SF = 0, OF = 0
+        </td>
+    </tr>
+    <tr>
+        <td>更新PC</td>
+        <td>PC <- valP</td>
+        <td>PC <- valP = 0x20</td>
+    </tr>
+    </tbody>
+</table>
+<p>执行完该指令的效果是, PC加上10, %rsp 的值变成128.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

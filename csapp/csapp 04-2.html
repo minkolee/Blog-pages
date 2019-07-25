@@ -15,15 +15,13 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第四章 HCL</h1>
+<h1 style="text-align: center;">CSAPP 第四章 HCL语言</h1>
 
 <ol>
     <li><a href="#con1">HCL和布尔表达式</a></li>
     <li><a href="#con2">多路复用器</a></li>
     <li><a href="#con3">集合</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">存储器和时钟</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">HCL和布尔表达式</h2>
@@ -101,6 +99,29 @@ word middle3 = [
 ]
 </pre>
 <h2 style="text-align: center;" id="con3">集合</h2>
+<p>书中的例子, 用了一个信号code来对应高位和低位. code是两位的信号, 有四种变化, 即11 10 01 00, 分别对应code为 3 2 1 0的情况, 取高位为s1, 低位为s0.</p>
+<p>可以发现, 当code 为 3 和 2的时候, 高位都是1, 当code为 3 和 1的时候, 低位都是1. </p>
+<p>所以可以将s1 和 s2的表达式写作:</p>
+<pre>
+bool s1 = code == 2 || code == 3
+bool s0 = code == 1 || code == 3
+</pre>
+<p>还可以进一步简化成:</p>
+<pre>
+bool s1 = code in {2, 3}
+bool s0 = code in {1, 3}
+</pre>
+
+<h2 style="text-align: center;" id="con4">存储器和时钟</h2>
+<p>这里的部分刷新了我的观点. 之前在做计算机系统要素中的题目的时候, 一个存储器是只连读写端的. </p>
+<p>时钟寄存器是依靠时钟来控制加载和输入的值. 在Y86-64系统中, 程序计数器PC, 条件码CC和程序状态Stat是用时钟来控制的. 在每个时钟周期的上升沿, 输入信号就加载到寄存器中, 新输出也会变成输入信号. 直到下一个时钟周期上升沿, 再改变.</p>
+<p>时钟寄存器实际上是电路中不同部分之间的屏障, 即一块电路的状态改变, 不会立刻将状态改变传播到所有电路中.</p>
+<p>寄存器有两个读端口, 给定srcA 和 srcB两个地址输入, 就可以获取valA和valB两个输出. 此外还有一个W端口, 给定目标地址 dstW 和 输入信号 valW, 在下一次时钟周期上升沿, 就可以写入寄存器. 如果同时读端口就在读dstW对应的寄存器, 其数值会变成刚写入的valW.</p>
+<p>如果此时不需要写寄存器和读寄存器, 地址线路都会被设置成0xF.</p>
+<p>随机访问存储器和寄存器原理相似, 但是结构略微不同. 只有一个输出端口. 然后有地址和数据输入, 此外还有读写信号控制是否读写. 在每个时钟周期上升沿, 根据读写信号控制来控制是否写入, 而不像寄存器默认直接写入.
+根据所选择的地址进行输出.
+</p>
+<p>现实中的存储器系统要更复杂, 现在先假设只有寄存器文件和一个简单的随机访问存储器,就是内存. 再包括一个只读的随机访问存储器, 用来存储程序指令, 在运行的过程中只读. 现实中随机访问存储器也是双端的, 一端读, 一端读写.</p>
 
 
 
@@ -109,25 +130,6 @@ word middle3 = [
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-
-<h2 style="text-align: center;" id="con6"></h2>
 
 
 
