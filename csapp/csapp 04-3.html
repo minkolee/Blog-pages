@@ -25,9 +25,9 @@
     <li><a href="#con1">将处理指令的过程抽象为阶段</a></li>
     <li><a href="#con2">OPq系列指令和 rrmovq ,irmovq指令</a></li>
     <li><a href="#con3">rmmovq 和 mrmovq 指令</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">pushq 和 popq 指令</a></li>
+    <li><a href="#con5">跳转指令 call 和 ret</a></li>
+    <li><a href="#con6">条件传送系列指令 call 和 ret</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">将处理抽象为阶段</h2>
@@ -38,7 +38,7 @@
     <li><strong>译码 decode</strong>, 根据 rA 和 rB 指明的寄存器, 从寄存器文件中读取最多两个操作数, 对应rA的叫做valA, 对应rB的叫做valB</li>
     <li><strong>执行 execute</strong>, 在这个阶段之前, valA, valB, icode, ifun, valC都必须准备好. 然后会将这些值送入ALU. ALU根据送入的内容, 会产生输出, 叫做valE. 看指令可以知道, 除了产生一个值之外, 还可能决定跳转, 更新条件码, 等等. 更新寄存器也在这个阶段.</li>
     <li><strong>访存 memory</strong>, ALU及寄存器电路更新完毕之后, 这个阶段可以将数据写入内存, 或者从内存读出数据, 读出的值叫做valM.</li>
-    <li><strong>写回 memory</strong>, 最多写两个结果到寄存器.</li>
+    <li><strong>写回</strong>, 这个阶段指的是写寄存器, 而不是写内存. 最多写两个结果到寄存器.</li>
     <li><strong>更新程序计数器 PC update</strong>, 将PC设置成下一条指令的地址.</li>
 </ol>
 
@@ -168,48 +168,502 @@
 </table>
 <p>执行完该指令的效果是, PC加上10, %rsp 的值变成128.</p>
 
+<h2 style="text-align: center;" id="con3">rmmovq 和 mrmovq 指令</h2>
+<p>这两个指令相比前边的指令, 最大的特点的带上了内存读写, 也就是存在访存操作. 因为有了访存操作, 在之前需要计算出内存地址, 这个是在执行阶段计算的. 其他的步骤基本上相同.</p>
+<table>
+    <thead>
+    <tr>
+        <th>阶段</th>
+        <th>rmmovq rA, D(rB)</th>
+        <th>mrmovq D(rB), rA</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>取指令</td>
+        <td colspan="2">两个取指令都是一样的: <br>
+        取指令: icode:ifun <= M1[PC] <br>
+        取寄存器: rA:rB <= M1[PC+1], 注意mrmovq解释寄存器的顺序相反 <br>
+        取偏移量常数: valC <= M1[PC+2] <br>
+        指令是10字节长度, 计算出新的PC地址: valP = PC + 10
+        </td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td>取出valA和valB, 因为valA是要写入的值, valB是基地址, 都要用到</td>
+        <td>只要取出valB即可, 因为valB的值是基地址, 要计算出实际的内存地址. rA则是目标对象 ,无需取出valA.</td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td colspan="2">两者这里是一样的, 都需要通过valC和valB计算出实际内存地址: <br>
+        valE = valB + valC
+        </td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td>这条指令需要把valA写入valE对应的内存地址: <br>
+        valA => M8[valE]
+        </td>
+        <td>这条指令先要从计算出的内存地址中取出valM <br>
+        M8[valE] => valM</td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>这个指令无需写回寄存器</td>
+        <td>将刚刚取出的valM写入寄存器: <br>
+            valM => R[rA]</td>
+    </tr>
+    <tr>
+        <td>更新PC</td>
+        <td colspan="2">PC <= valP</td>
+    </tr>
+    </tbody>
+</table>
+<p>根据265页第5行的rmmovq 的指令跟踪如下:</p>
+<table>
+    <thead>
+    <tr>
+        <td rowspan="2">阶段</td>
+        <td>具体</td>
+    </tr>
+    <tr>
+        <td>rmmovq %rsp, 100(%rbx)</td>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>取指令</td>
+        <td>指令是4043, icode:ifun = 4:0 <br>
+        寄存器是 rA : rB = 4:3, 分别是%rsp, %rbx <br>
+        取常数 valC = 100 <br>
+        10字节长度指令: valP = PC + 10 = 0x02a</td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td>这个阶段需要两个码都译出来: <br>
+        R[rA] => valA <br>
+        R[rB] => valB <br>
+        </td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td>valA无需再计算, 关键是计算地址: <br>
+        valE = valB + valC</td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td>要把valA写入到valE地址内: <br>
+        valA => M8[valE]</td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>无需写回寄存器操作</td>
+    </tr>
+    <tr>
+        <td>更新PC</td>
+        <td>0x02a => PC</td>
+    </tr>
+    </tbody>
+</table>
+<p>现在已经把我们指令集中的无条件传送的系列和OPq系列都看完了, 基本上差异不大, 主要是在访存阶段.</p>
 
+<h2 style="text-align: center;" id="con4">pushq 和 popq 指令</h2>
+<p>这两个指令相比之前的, 就有一些复杂了, 因为相比上边的指令, 还多了要操作%rsp寄存器的过程. 这里要注意X86-64, 也是我们的Y86-64遵循的惯例, 先读内存, 再更新%rsp.</p>
+<table>
+    <thead>
+    <tr>
+        <th>阶段</th>
+        <th>pushq</th>
+        <th>popq</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>取指令</td>
+        <td colspan="2">两个取指令都是一样的: <br>
+            取指令: icode:ifun <= M1[PC] <br>
+            取寄存器: rA:rB <= M1[PC+1], 注意mrmovq解释寄存器的顺序相反 <br>
+            指令是2字节长度, 计算出新的PC地址: valP = PC + 2
+        </td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td>pushq的译码要注意, 在指令里取出来的rB是F, 但是这里实际操作需要从rA中取到valA, 因为这是要压栈的数据. 此外还自动从当前的%rsp中取出当前的栈地址, 当做valB <br>
+        M8[rA] => valA <br>
+        M8[%rsp] => valB</td>
+        <td>popq这里更特别, 由于是从栈里取数, 现在寄存器中的值是什么无需关心, 这里取两次%rsp的值分别放入valA和valB: <br>
+        R[%rsp] => valA <br>
+        R[%rsp] => valB <br>
+        </td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td>
+            想一想之前的要求, 在写入内存之后, 更新栈指针. 要先计算出来写入内存之后新的栈顶指针. 由于栈顶指向的是第一个元素, 所以要算出来新的栈顶地址: <br>
+            valB - 8 => valE
+        </td>
+        <td>对比一下pushq, 当前的%rsp指向的是当前的栈顶, 要先计算出来弹栈之后的下一个栈顶地址: <br>
+        valB + 8 => valE
+        </td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td>访存对于两个指令来说很关键, 压栈就是将valA压入新的栈顶对应的地址:<br>
+            valA => M8[valE]
+        </td>
+        <td><span style="color: red">弹栈这里要注意, 是从原来的栈顶, 也就是valA中读出数据, 不是valE</span><br>
+            M8[valA] => valM</td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>这里要注意, 写回的时候写哪个? 显然是更新过的栈指针valE <br>
+        valE => R[%rsp]
+        </td>
+        <td>这里要注意, 写回栈指针用的也是更新过的栈指针valE <br>
+            valE => R[%rsp] <br>
+        此外由于是弹栈, 还需要将读取的valM写入到rA寄存器中来: <br>
+            valM => R[rA]
+            注意这是有顺序的, valM后发生
+        </td>
+    </tr>
+    <tr>
+        <td>更新PC</td>
+        <td colspan="2">这2个指令都是2字节, 所以 newPC <= PC + 2</td>
+    </tr>
+    </tbody>
+</table>
+<p>对比了这两个指令的时候, 注意两个指令在valA和valB上的操作, 将没有使用到的值都载入了%rsp的值, 然后通过valE计算出新的栈顶.</p>
+<p>在具体操作内存的时候, 压栈是直接用新的栈顶压栈, 再将新栈顶写回寄存器. 弹栈则是用老栈顶读数据, 将新栈顶和读出的数据写回寄存器.</p>
+<p>从两者整体来看, 都是先操作内存, 再操作%rsp. 符合一开始说的惯例要求.</p>
+<h3>练习4.14 popq 指令的处理情况:</h3>
+<p>在popq之前, 可以发现已经执行过一次pushq, 则当前的栈顶地址是第4条指令设置的%rsp 128 - 8 = 120</p>
+<table>
+    <thead>
+    <tr>
+        <td rowspan="2">阶段</td>
+        <td>具体</td>
+    </tr>
+    <tr>
+        <td>popq %rax</td>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>取指令</td>
+        <td>指令是b00f, icode:ifun = b:0 <br>
+            寄存器是 rA : rB = 0:f, 分别是%rax, 无寄存器 <br>
+            2字节长度指令: valP = 0x02A + 2 = 0x02C</td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td>注意没有使用到的valA和valB: <br>
+            R[%rsp] => valA = 120<br>
+            R[%rsp] => valB = 120<br>
+        </td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td>计算弹栈后的栈顶指针<br>
+            valE = valB + 8 = 120 + 8 = 128</td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td>要从原来的栈顶地址120中读出valM: <br>
+            M8[120] => valM = 9, valM实际上是上一条压入的%rdx的值, 就是9</td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>需要两个写回, 写栈指针和数据: <br>
+        9 => R[%rax] <br>
+        128 => R[%rsp], 向%rsp中写入128
+        </td>
+    </tr>
+    <tr>
+        <td>更新PC</td>
+        <td>0x02E => PC</td>
+    </tr>
+    </tbody>
+</table>
+<h3>练习题 4.15 如果第6行指令改成pushq %rsp会如何呢?</h3>
+<p>也来按照逻辑跟踪一下:</p>
+<table>
+    <thead>
+    <tr>
+        <td rowspan="2">阶段</td>
+        <td>具体</td>
+    </tr>
+    <tr>
+        <td>pushq %rsp</td>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>取指令</td>
+        <td>指令是a04f, icode:ifun = b:0 <br>
+            寄存器是 rA : rB = 4:f, 分别是%rsp, 无寄存器 <br>
+            2字节长度指令: valP = 0x02a + 2 = 0x02c</td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td>注意此时的%rsp中是128, 两个数都取到, 但是一个是用来压入栈, 一个去计算新的栈顶地址: <br>
+            R[%rsp] => valA = 128<br>
+            R[%rsp] => valB = 128<br>
+        </td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td>计算压后的栈顶指针<br>
+            valE = valB - 8 = 120</td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td>注意压入栈的是valA的值128: <br>
+            M8[120] <= 128
+        </td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>压栈需要写回新的栈地址<br>
+            120(valE) => R[%rsp], 向%rsp中写入120
+        </td>
+    </tr>
+    <tr>
+        <td>更新PC</td>
+        <td>0x02C => PC</td>
+    </tr>
+    </tbody>
+</table>
+<p>可以看到, 压入栈的是128(valA), 也即%rsp的原来地址, 与4.7的结果是一致的.</p>
+<h3>练习题 4.15 如果第6行指令改成pushq %rsp, 然后第7行指令改成 popq %rsp 会如何呢?</h3>
+<p>在执行完第6条指令的时候, %rsp中的值是120, 而栈顶中的值是128. 然后继续看popq指令:</p>
+<table>
+    <thead>
+    <tr>
+        <td rowspan="2">阶段</td>
+        <td>具体</td>
+    </tr>
+    <tr>
+        <td>popq %rsp</td>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>取指令</td>
+        <td>指令是b04f, icode:ifun = b:0 <br>
+            寄存器是 rA : rB = 0:f, 分别是%rsp, 无寄存器 <br>
+            2字节长度指令: valP = 0x02C + 2 = 0x02E</td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td>注意没有使用到的valA和valB: <br>
+            R[%rsp] => valA = 120<br>
+            R[%rsp] => valB = 120<br>
+        </td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td>计算弹栈后的栈顶指针<br>
+            valE = valB + 8 = 120 + 8 = 128</td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td>要从原来的栈顶地址120中读出valM: <br>
+            M8[120] => valM = 128</td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>需要两个写回, 写栈指针和数据: <br>
+            128(valE) => R[%rsp], 向%rsp中写入128 <br>
+            128(valM) => R[%rsp] <br>
+            这里注意, 写valM的是后发生的, 所以最终执行完, 就是将%rsp设置成从内存读出的值
+        </td>
+    </tr>
+    <tr>
+        <td>更新PC</td>
+        <td>0x02E => PC</td>
+    </tr>
+    </tbody>
+</table>
+<p>可见由于valM最后执行, 所以最终就是直接将%rsp设置成读出的值. 和4.7 中的结论是一致的.</p>
 
+<h2 style="text-align: center;" id="con5">跳转指令 call 和 ret</h2>
+<p>跳转指令以及call和ret指令的特点是无需寄存器指令字节. 跳转指令比较特别的地方在于会在执行阶段更新一个Cnd信号, 用于表示跳转判断的结果. 由于跳转的本质就是更新程序计数器, 所以在更新PC的阶段, 会根据CC码来判断要将跳转的地址写入PC, 还是仅仅更新PC到下一条指令的地址.</p>
+<p>call 和 ret 则是包含了操作栈的指令, 实际上整个指令的后半段都是在操作栈, 所以要在学了push和pop之后再来看这两个指令.</p>
+<table>
+    <thead>
+    <tr>
+        <td>阶段</td>
+        <td>jxx Dest</td>
+        <td>call Dest</td>
+        <td>ret</td>
+    </tr>
+    </thead>
+    <tr>
+        <td>取指令</td>
+        <td>
+            M1[PC] => icode:ifun <br>
+            valC => M8[PC+1] 取跳转地址<br>
+            valP = PC +9, 9字节长的指令
+        </td>
+        <td>与jxx 指令完全相同: <br>
+            M1[PC] => icode:ifun <br>
+            valC => M8[PC+1]<br>
+            valP = PC +9, 9字节长的指令
 
+        </td>
+        <td>ret指令是1字节指令, 无需取常数: <br>
+            M1[PC] => icode:ifun <br>
+            valP = PC +1
+        </td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td>jxx无需译码, 因为不需要操作寄存器和内存, 要跳转的地址valC和下一条指令地址valP均已知</td>
+        <td>call包含了压栈操作, 按照压栈的流程, valA由于没有, 就用不到, 但是要把当前栈地址取出来: <br>
+        R[%rsp] => valB</td>
+        <td>ret包含了弹栈操作, 所以是valA和valB都要设置成%rsp <br>
+        R[%rsp] => valA <br>
+        R[%rsp] => valB <br>
+        </td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td>jxx的执行阶段会根据跳转功能, 检测对应的条件码, 然后更新Cnd码 <br>
+            Cond(CC, ifun) => Cnd 信号
+        </td>
+        <td>压栈, 所以栈指针-8 <br>
+        valE = valB - 8
+        </td>
+        <td>弹栈, 栈指针+8 <br>
+        valE = valB + 8</td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td>完全不需要访存</td>
+        <td>压栈, 将下一条地址压入栈中, 下一条地址是已经计算出的valP <br>
+        valP => M8[%rsp]
+        </td>
+        <td>弹栈, 用原始的栈指针去读valM, valM就是将跳转的地址<br>
+            valM = M8[valA]
+        </td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>也无需写回</td>
+        <td>更新%rsp 为 -8 之后的数字 <br>
+        valE => R[%rsp]
+        </td>
+        <td>将栈地址更新到 +8 的地址, 由于不涉及其他寄存器, 无需将值写入其他寄存器, 只更新栈指针寄存器: <br>
+        valE => R[%rsp]
+        </td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>这里很关键, 根据Cnd信号, 决定是把下一条地址写入PC(即不跳转), 还是把常数地址valC写入PC(即执行跳转): <br>
+        Cnd? valC: valP => PC
+        </td>
+        <td>由于压完了当前下一条地址, 下边就要跳转了, 所以是把常数valC 写入 PC: <br>
+        valC => PC
+        </td>
+        <td>从内存中读取了要跳转的地址 valM, 很显然要把valM 写入 PC: <br>
+            valM => PC
+        </td>
+    </tr>
+</table>
+<p>可以看到, 上边这个几个指令的精髓操作PC. jxx利用了条件判断来写PC, call 和 ret 则是将压栈弹栈与更新PC结合起来.</p>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con3"></h2>
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-
-<h2 style="text-align: center;" id="con6"></h2>
-
-
-
-
-
-
-
-
-
-
-
+<h2 style="text-align: center;" id="con6">条件传送系列指令 call 和 ret</h2>
+<p>条件传送这里是用一个练习题来做的, 相比rrmovq来说, 条件传送其实就是加上一个判断, 然后用判断来决定是否更新寄存器的值. </p>
+<p>练习 4.17 用rrmovq修改成cmovXX的阶段</p>
+<table>
+    <thead>
+    <tr>
+        <td>阶段</td>
+        <td>rrmovq rA, rB</td>
+        <td>cmovXX rA, rB</td>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>取指令</td>
+        <td>icode:ifun <= M1[PC] <br>
+        rA: rB <= M1[PC+1] <br>
+        valP <= PC+2
+        </td>
+        <td>这个阶段是一样的,是2字节指令</td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td>valA => R[rA]</td>
+        <td>这里要把两个码都译出来, 决定用哪一个进行传送</td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td>valE = 0 + valA</td>
+        <td>valE = 0 + valA <br>
+            除了计算valE之外, 条件传送的关键在于根据条件码来设置Cnd: <br>
+        Cnd = Cond(CC, ifun)</td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td>无需访存</td>
+        <td>无需访存</td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>R[rB] => valE</td>
+        <td>这里的关键是要根据Cnd来决定用valE写回rB, 还是不做操作: <br>
+        Cnd? valE => R[rB]
+        </td>
+    </tr>
+    <tr>
+        <td>更新PC</td>
+        <td>valP => PC</td>
+        <td>valP => PC</td>
+    </tr>
+    </tbody>
+</table>
+<h3>练习 4.18 跟踪call 指令的具体阶段</h3>
+<p>在执行call指令之前, %rsp依然是128.</p>
+<table>
+    <thead>
+    <tr>
+        <td>阶段</td>
+        <td>call 0x041</td>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>取指令</td>
+        <td>icode:ifun = M1[0x037] = 8:0 <br>
+        valC = M8[0x038] = 0x41<br>
+        valP = 0x037+9 = 0x040
+        </td>
+    </tr>
+    <tr>
+        <td>译码</td>
+        <td>valB = R[%rsp] = 128</td>
+    </tr>
+    <tr>
+        <td>执行</td>
+        <td>valE = valB - 8 = 120</td>
+    </tr>
+    <tr>
+        <td>访存</td>
+        <td>0x040(valP) => M[120]</td>
+    </tr>
+    <tr>
+        <td>写回</td>
+        <td>120(valE) => R[%rsp]</td>
+    </tr>
+    <tr>
+        <td>更新PC</td>
+        <td>0x41(valC) => PC</td>
+    </tr>
+    </tbody>
+</table>
+<p>这条指令执行完之后, 就是把0x040压入栈, 栈指针更新到120, 然后将PC的值设置成0x41.</p>
+<p>目前已经把指令集中的所有指令都分解成了阶段.</p>
 
 
 
