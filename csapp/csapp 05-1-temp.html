@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>第五章笔记</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">CSAPP 第五章 优化程序性能</h1>
+
+<ol>
+    <li><a href="#con1"></a></li>
+    <li><a href="#con2">表示程序性能</a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">表示程序性能</h2>
+<p>有什么指标用来表示程序性能呢, 不同的程序执行的时间不同. 但可以用一个统一的CPE来表示, 就是程序执行中的变量系数.</p>
+<h3>练习题5.2 比较CPE</h3>
+<ol>
+    有三个版本的函数执行时钟周期的次数的最小二乘拟合:
+    <li>60+35n</li>
+    <li>136+4n</li>
+    <li>157+1.25n</li>
+</ol>
+<p>三个版本执行时间在n值为几的时候是最低的?</p>
+<p>实际上, 这是三个一元一次表示的直线, 只要计算出交点, 就可以知道n的取值.</p>
+<p> 60+35n = 136+4n , 大概计算出 n = 2, 可见n = 1-2的时候, 版本1要比版本2快.</p>
+<p> 60+35n = 157+1.25n , 大概计算出 n = 2 , 可见n 等于 1 和 2的时候, 版本1最快.</p>
+<p>然后比较版本2和版本3 136+4n = 157+1.25n, 计算出 n = 7, 经过比较可以知道 n 在3-7的范围内, 版本2最快.</p>
+<p>n大于等于8的时候, 版本三最快.</p>
+<p>所谓CPE, 就是这个一元一次方程的系数, 也就是去掉常数执行的时间之外, 真正影响执行效率的系数.</p>
+
+<p>CSAPP使用了一个简单的向量结构的例子和对其的操作, 来教学如何优化程序的运行.</p>
+<p>这个向量结构是一个带有向量的长度指示和一个数组来定义的:</p>
+<pre>
+typedef long data_t;
+
+typedef struct {
+    long len;
+    data_t *data;
+} vec_rec, *vec_ptr;
+
+</pre>
+<p>然后是创建向量和读取向量的函数:</p>
+<pre>
+//创建新向量的函数
+vec_ptr new_vec(long len){
+    //分配内存空间
+    vec_ptr result = (vec_ptr) malloc(sizeof(vec_rec));
+    //如果分配不成功, 返回 NULL
+    data_t *data = NULL;
+    if(!result){
+        return NULL;
+    }
+
+    result->len = len;
+
+    //如果长度大于0, 就分配相应长度的空间, 如果分配不成功, 释放刚才的result指针
+    if (len > 0) {
+        data = (data_t *) calloc(len, sizeof(data_t));
+        if(!data){
+            free((void *) result);
+            return NULL;
+        }
+    }
+
+    result->data = data;
+    return result;
+}
+
+//从向量结构中读取指定索引的值的函数, 如果成功读取就返回1,  读取失败就返回0
+int get_vec_element(vec_ptr v, long index, data_t *dest) {
+    //如果索引越界,返回0
+    if (index < 0 || index >= v->len) {
+        return 0;
+    }
+    *dest = v->data[index];
+    return 1;
+}
+
+//获取向量长度的函数
+long vec_length(vec_ptr v){
+    return v->len;
+}
+</pre>
+<p>在测试代码性能的时候, 使用如下函数, 这是一个可以将整个向量内的所有元素相乘或者相加的函数:</p>
+<pre>
+//通过define IDENT是0或者1, OP是+或者*, 可以方便的计算和和乘
+#define IDENT 0
+#define OP +
+
+void combine1(vec_ptr v,data_t *dest){
+    long i;
+    *dest = IDENT;
+
+    for (i = 0; i < vec_length(v);i++) {
+        data_t val;
+        //读取第i的索引的值到val中
+        get_vec_element(v, i, &val);
+        //将val根据OP累计到*dest中
+        *dest = *dest OP val;
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con3">消除循环的低效</h2>
+<p>仔细观察combine1, 对于过程来说, 这个向量的长度实际上没有变化, 无需在循环中每次都调用过程vec_length(v)来获取长度, 只要在程序开始的时候获取一次, 然后每次都使用这个变量就可以了.</p>
+<p>所以将其中的代码移出循环:</p>
+<pre>
+void combine2(vec_ptr v,data_t *dest){
+    //用局部变量存储向量长度
+    long length = vec_length(v);
+
+    long i;
+    *dest = IDENT;
+
+    for (i = 0; i < length;i++) {
+        data_t val;
+        get_vec_element(v, i, &val);
+        *dest = *dest OP val;
+    }
+}
+</pre>
+<p>在移动了之后, 代码的效率大概提升了30%. 这种优化要注意的是, 移出循环的代码不能够对循环依赖的内容产生影响, 否则移出之后, 代码的逻辑会发生变化. 一些为了使用其副作用的函数是不能简单的移出循环的.</p>
+<p>所以在编写程序的时候特别要注意, 是不是存在看起来无足轻重, 但实际上具有渐进低效率的小代码. 一个简单的循环可能就会造成n的平方级别的复杂度影响.</p>
+<h3>练习5.3 判断函数被调用的次数</h3>
+<p>有四个函数:</p>
+<ol>
+    <li><code>long min(long x, long y){ return x &lt; y ? x : y; }</code>, 返回两个数的较小值</li>
+    <li><code>long max(long x, long y){ return x &lt; y ? y : x; }</code>, 返回两个数的较大值</li>
+    <li><code>void incr(long *xp, long v) { *xp += v; }</code>,  将v加到xp指向的值上</li>
+    <li><code>long square(long x){ return x*x;}</code>,  返回x的平方值</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
