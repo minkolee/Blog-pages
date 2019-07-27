@@ -15,50 +15,266 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第五章 优化程序性能</h1>
+<h1 style="text-align: center;">CSAPP 第五章 不依靠具体机器的优化</h1>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">编译器的优化能力和局限性</a></li>
+    <li><a href="#con2">表示程序性能</a></li>
+    <li><a href="#con3">消除循环的低效</a></li>
+    <li><a href="#con4">减少过程调用</a></li>
+    <li><a href="#con5">消除内存引用</a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">编译器的优化能力和局限性</h2>
+<p>编译器的一大安全的优化特点, 就是需要考虑程序所有的情况, 否则运行时可能会出问题. 比如在操作指针的时候, 如果两个参数相同, 其结果可能和希望的不同. 如果编译器无法确定, 则必须假设两个指针有可能指向同一个地方,
+    那么就限制了优化策略.</p>
+<h3>例 5.1 内存别名</h3>
+<p>所谓内存别名, 指的就是两个指针指向同一个位置.</p>
+<pre>
+void swap(long *xp, long *yp){
+    *xp = *xp + *yp;
+    *yp = *xp - *yp;
+    *xp = *xp - *yp;
+}
+</pre>
+<p>这个函数如果两个指针参数相等, 结果无论原来的值是什么, 结果都会把那个值清零.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">表示程序性能</h2>
+<p>有什么指标用来表示程序性能呢, 不同的程序执行的时间不同. 但可以用一个统一的CPE来表示, 就是程序执行中的变量系数.</p>
+<h3>练习题5.2 比较CPE</h3>
+<ol>
+    有三个版本的函数执行时钟周期的次数的最小二乘拟合:
+    <li>60+35n</li>
+    <li>136+4n</li>
+    <li>157+1.25n</li>
+</ol>
+<p>三个版本执行时间在n值为几的时候是最低的?</p>
+<p>实际上, 这是三个一元一次表示的直线, 只要计算出交点, 就可以知道n的取值.</p>
+<p> 60+35n = 136+4n , 大概计算出 n = 2, 可见n = 1-2的时候, 版本1要比版本2快.</p>
+<p> 60+35n = 157+1.25n , 大概计算出 n = 2 , 可见n 等于 1 和 2的时候, 版本1最快.</p>
+<p>然后比较版本2和版本3 136+4n = 157+1.25n, 计算出 n = 7, 经过比较可以知道 n 在3-7的范围内, 版本2最快.</p>
+<p>n大于等于8的时候, 版本三最快.</p>
+<p>所谓CPE, 就是这个一元一次方程的系数, 也就是去掉常数执行的时间之外, 真正影响执行效率的系数.</p>
 
-<h2 style="text-align: center;" id="con3"></h2>
+<p>CSAPP使用了一个简单的向量结构的例子和对其的操作, 来教学如何优化程序的运行.</p>
+<p>这个向量结构是一个带有向量的长度指示和一个数组来定义的:</p>
+<pre>
+typedef long data_t;
 
-<h2 style="text-align: center;" id="con4"></h2>
+typedef struct {
+    long len;
+    data_t *data;
+} vec_rec, *vec_ptr;
 
-<h2 style="text-align: center;" id="con5"></h2>
+</pre>
+<p>然后是创建向量和读取向量的函数:</p>
+<pre>
+//创建新向量的函数
+vec_ptr new_vec(long len){
+    //分配内存空间
+    vec_ptr result = (vec_ptr) malloc(sizeof(vec_rec));
+    //如果分配不成功, 返回 NULL
+    data_t *data = NULL;
+    if(!result){
+        return NULL;
+    }
 
-<h2 style="text-align: center;" id="con6"></h2>
+    result->len = len;
+
+    //如果长度大于0, 就分配相应长度的空间, 如果分配不成功, 释放刚才的result指针
+    if (len > 0) {
+        data = (data_t *) calloc(len, sizeof(data_t));
+        if(!data){
+            free((void *) result);
+            return NULL;
+        }
+    }
+
+    result->data = data;
+    return result;
+}
+
+//从向量结构中读取指定索引的值的函数, 如果成功读取就返回1,  读取失败就返回0
+int get_vec_element(vec_ptr v, long index, data_t *dest) {
+    //如果索引越界,返回0
+    if (index < 0 || index >= v->len) {
+        return 0;
+    }
+    *dest = v->data[index];
+    return 1;
+}
+
+//获取向量长度的函数
+long vec_length(vec_ptr v){
+    return v->len;
+}
+</pre>
+<p>在测试代码性能的时候, 使用如下函数, 这是一个可以将整个向量内的所有元素相乘或者相加的函数:</p>
+<pre>
+//通过define IDENT是0或者1, OP是+或者*, 可以方便的计算和和乘
+#define IDENT 0
+#define OP +
+
+void combine1(vec_ptr v,data_t *dest){
+    long i;
+    *dest = IDENT;
+
+    for (i = 0; i < vec_length(v);i++) {
+        data_t val;
+        //读取第i的索引的值到val中
+        get_vec_element(v, i, &val);
+        //将val根据OP累计到*dest中
+        *dest = *dest OP val;
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con3">消除循环的低效</h2>
+<p>仔细观察combine1, 对于过程来说, 这个向量的长度实际上没有变化, 无需在循环中每次都调用过程vec_length(v)来获取长度, 只要在程序开始的时候获取一次, 然后每次都使用这个变量就可以了.</p>
+<p>所以将其中的代码移出循环:</p>
+<pre>
+void combine2(vec_ptr v,data_t *dest){
+    //用局部变量存储向量长度
+    long length = vec_length(v);
+
+    long i;
+    *dest = IDENT;
+
+    for (i = 0; i < length;i++) {
+        data_t val;
+        get_vec_element(v, i, &val);
+        *dest = *dest OP val;
+    }
+}
+</pre>
+<p>在移动了之后, 代码的效率大概提升了30%. 这种优化要注意的是, 移出循环的代码不能够对循环依赖的内容产生影响, 否则移出之后, 代码的逻辑会发生变化. 一些为了使用其副作用的函数是不能简单的移出循环的.</p>
+<p>所以在编写程序的时候特别要注意, 是不是存在看起来无足轻重, 但实际上具有渐进低效率的小代码. 一个简单的循环可能就会造成n的平方级别的复杂度影响.</p>
+<h3>练习5.3 判断函数被调用的次数</h3>
+<p>有四个函数:</p>
+<ol>
+    <li><code>long min(long x, long y){ return x &lt; y ? x : y; }</code>, 返回两个数的较小值</li>
+    <li><code>long max(long x, long y){ return x &lt; y ? y : x; }</code>, 返回两个数的较大值</li>
+    <li><code>void incr(long *xp, long v) { *xp += v; }</code>, 将v加到xp指向的值上</li>
+    <li><code>long square(long x){ return x*x;}</code>, 返回x的平方值</li>
+</ol>
+<p>判断三个代码片段调用这些函数的次数, 分析如下:</p>
+<ol style="list-style-type: upper-alpha">
+    <li>
+        <pre>
+        for(i = min(x, y); i < max(x, y); incr(&i, 1)
+            t += square(i);
+        </pre>
+        首先需要看循环执行了多少次, 无论哪个比较小, 执行循环的次数都是 |x-y|次, 每一次循环都会计算除了min之外的三个函数, 因为他们是在循环体内更新和判断的 <br>
+        而判断条件会多计算一次, 要比incr的次数多一次
+    </li>
+
+    <li>
+        <pre>
+        for(i = max(x,y) - 1, i>= min(x,y); incr(&i, -1)
+            t += square(i);
+        </pre>
+        这个和上一个一样, 也是执行了 |x-y| 次, 除了max函数是初始的条件计算一次. min会计算91次, 剩下的计算90次
+    </li>
+
+    <li>
+        <pre>
+            long low = min(x,y)
+            long high = max(x,y)
+            for(i = low; i &lt; high; incr(&i, 1)
+                t += square(i);
+        </pre>
+        很显然, 一开始调用了一次min和max, 之后不再使用min和max, 只有 incr 和 square 使用了|x-y|次
+    </li>
+</ol>
+<table>
+    <thead>
+    <tr>
+        <th>代码</th>
+        <th>min</th>
+        <th>max</th>
+        <th>incr</th>
+        <th>square</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>A.</td>
+        <td>1</td>
+        <td>91</td>
+        <td>90</td>
+        <td>90</td>
+    </tr>
+    <tr>
+        <td>B.</td>
+        <td>91</td>
+        <td>1</td>
+        <td>90</td>
+        <td>90</td>
+    </tr>
+    <tr>
+        <td>C</td>
+        <td>1</td>
+        <td>1</td>
+        <td>90</td>
+        <td>90</td>
+    </tr>
+    </tbody>
+</table>
+
+<h2 style="text-align: center;" id="con4">减少过程调用</h2>
+<p>仔细观察combine2, 里边每次循环都需要使用到 get_vec_element 这个过程. 实际上, 我们在参数中获取了vec_ptr v这个参数, 可以通过v获取数组的指针, 然后通过length来直接操作指针即可, 这样就省去了每次调用过程的固定开销, 为此可以编写combine3函数如下:</p>
+<pre>
+void combine3(vec_ptr v, data_t *dest) {
+    long length = vec_length(v);
+    long i;
+    *dest = IDENT;
+
+    //直接获取数组的首元素指针, 不再调用函数
+    data_t *ptr = v->data;
+
+    for (i = 0; i < length; i++) {
+        *dest = *dest OP ptr[i];
+    }
+}
+</pre>
+<p>注意, 这是为了优化程序的性能. 如果有着较高的模块化需求, 实际上是在破坏模块化. 但这里主要是为了性能提升.</p>
+<p>理论上, 这会进一步提高效率, 因为省去了call  ret 和加载过程的一系列必须的指令. 不过实际上对于这段代码, 没有提高效率, 这是因为分支预测可以有效的预测到执行成功的情况. 只有最后一次预测错误, 所以错误惩罚很小. 总体时间几乎没有变动.</p>
+<p>但如果函数执行的结果非常难以预测, 这样就能进一步提高效率.</p>
+
+<h2 style="text-align: center;" id="con5">消除内存引用</h2>
+<p>继续观察combine3, 可以发现, 每次dest的值发生变化的时候, 必须先从dest中读出值, 然后相加, 再写入到dest中去. 在整个计算的过程中, dest本身一直相当于一个临时变量, 在每次循环中被更改.</p>
+<p>然而, 读取内存的开销要比读取寄存器大的多. 完全可以设置一个临时变量, 让编译器通过寄存器来保存这个临时变量, 等到循环结束的时候, 将临时变量的值写入dest. 这样只执行了一次写操作.</p>
+<p>根据这样的思路, 可以编写出combine4函数:</p>
+<pre>
+void combine4(vec_ptr v, data_t *dest) {
+    long length = vec_length(v);
+    long i;
+    data_t *ptr = v->data;
+
+    //这行不要了, 无需读出dest
+    //*dest = IDENT;
+
+    //创建临时变量
+    data_t total = IDENT;
 
 
+    for (i = 0; i < length; i++) {
+        total = total OP ptr[i];
+    }
 
+    //只写一次dest
+    *dest = total;
 
+}
+</pre>
+<p>经过这样处理之后, 可以看到程序的性能有了显著的提高, 这说明开销很大的内存访问, 能减少就尽量减少, 争取让计算都在寄存器内完成.</p>
+<h3>练习 5.4 比较两个级别的优化代码</h3>
+<p>寄存器在-O2生成的代码的作用相当于一个临时变量, 用于不断累积相乘的0, 最后一次性将%xmm0写回到dest的地址. 在-O1中, %xmm0的作用是每次存放读出的dest, 然后进行运算.</p>
+<p>很显然, -O2级别生成的代码是类似于combine4而不是combine3函数的,所以没有忠实的实现combine3.</p>
+<p>但是-O2的代码相比combine4, 还有一个问题就是循环中每次都会使用 vmovsd %xmm0, (%rbx) 来更新dest, 而combine4中, 更新dest是在循环结束之后, 这就造成了 -O2 级别优化的代码相比combine4, 性能还是略有不足.</p>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<p>通过上边的几个技巧, 可以在不依赖目标机器的任何特性下, 就可以通过降低执行过程的开销, 来大幅度的提高性能.</p>
+<p>如果想要进一步优化, 就必须了解目标机器的特点, 利用指令集和并行计算的能力, 进一步将程序优化.</p>
 
 
 
