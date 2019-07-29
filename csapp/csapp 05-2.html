@@ -15,15 +15,16 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第四章 依赖处理器的优化</h1>
+<h1 style="text-align: center;">CSAPP 第五章 依赖处理器的优化</h1>
 
 <ol>
     <li><a href="#con1">现代处理器</a></li>
     <li><a href="#con2">处理器的抽象模型-关键路径</a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con3">循环展开</a></li>
+    <li><a href="#con4">并行计算</a></li>
+    <li><a href="#con5">优化的限制因素</a></li>
+    <li><a href="#con6">内存性能</a></li>
+    <li><a href="#con7">章节总结</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">现代处理器</h2>
@@ -98,49 +99,244 @@
 <p>由于执行单元可以互相利用彼此的计算结果, 因此要将每次的运算抽象出来之后, 可以发现一条关键路径, 也就是必须执行的最长操作时间的一条路径, 能够减少这条路径所用的时间, 就能够有效的减少整个程序执行的时间.</p>
 <p>所以优化的时候, 可以依赖容量, 也就是可以同时执行相同操作的执行单元, 将路径分拆成与执行单元相同的数量, 可以有效的提高计算速度.</p>
 <h3>练习 5.5 求多项式的和转换成程序的效率</h3>
+<pre>
+double poly(double a[], double x, long degree){
+    long i;
+    double result = a[0];
+    double xpwr = x;
+
+    for (i = 1; i <= degree; i++) {
+        result += a[i] * xpwr;
+        xpwr = xpwr * x;
+    }
+    return result;
+}
+</pre>
+<p>对于次数 n ,可以知道循环一共执行 n 次, 其中 每一次循环, 执行两次乘法运算, 一次加法运算, 所以一共执行了 2n 次乘法, n 次加法.</p>
+<p>可以知道,两个不同的临时变量在累积result 和 xpwr的值 , 而核心的关键是计算 xpwr的值, 所以其延迟接近与浮点乘法的延迟5. </p>
+<h3>练习 5.6 改进的多项式算法</h3>
+<p>改进的多项式展开求和方法, 从数组的末尾开始, 不断用x乘以之前的和: </p>
+<pre>
+double polyh(double a[], double x, long degree){
+    long i;
+    double result = a[degree];
+    for (i = degree - 1; i >= 0; i--) {
+        result = a[i] + x * result;
+    }
+    return result;
+}
+</pre>
+<p>在一次循环中, 执行了一次加法和一次乘法, 因此总的数量是 n 次加法和 n 次乘法. 但是实际并没有缩短, 这是因为必须先执行浮点乘法 再 计算 浮点加法, 延迟 = 5 + 3 = 8. </p>
+<p>练习5.5中的函数关键路径上只有一个乘法, 所以反而比5.5还要慢.</p>
+
+<h2 style="text-align: center;" id="con3">循环展开</h2>
+<p>知道了关键路径上的函数, 可以画出关键路径寄存器上的计算. 如果有助于减少关键路径寄存器上的计算, 就可以提高程序性能. 一般通过循环展开, 可以减少循环开销, 让循环内的计算逐步成为制约的瓶颈.</p>
+<p>所谓循环展开, 就是本来以步长为1进行操作, 现在可以变成以步长为n来进行操作, 在循环内部需要计算n次, 然后对循环的末尾进行一些处理. 在大量的循环中, 展开循环可以有效的降低每次循环的开销.</p>
+<p>以2次循环展开为例, 可以继续改进求和函数, 到combine5版本:</p>
+<pre>
+void combine5(vec_ptr v, data_t *dest){
+    long i;
+    long length = vec_length(v);
+    long limit = length - 1;
+    data_t *data = v->data;
+
+    data_t acc = IDENT;
+
+    //按照步长2来循环, 为了控制循环不用越界, 必须将length-1之后和i比较, 这样在处理循环尾部的时候可以方便.
+    for (i = 0; i < limit; i += 2) {
+        acc = (acc OP data[i]) OP data[i + 1];
+    }
+
+    //如果limit是奇数比如5, 则原始length是6, 从0开始0, 2 , 4, 6 , 到 i= 6 的时候就会结束循环, 此时会正常加完了 i[0]到i[5]
+    //如果limit是偶数比如4, 则原始length是5, 从0开始0, 2, 4, 到i=4的时候就会结束循环, 此时已经加完了i[0]到i[3], 还差一个i[4], 所以要处理一下循环尾部
+    for (; i < length; i++) {
+        acc = acc OP data[i];
+    }
+
+    *dest = acc;
+}
+</pre>
+<p>分析执行, 可以发现其实虽然循环减半了, 但是每次循环中需要执行两个关键路径, 对于长度length来说, 总的执行次数没有变少, 还是length次执行, 只是循环开销变少了, 因此CPE的极限还是延迟.</p>
 
 
+<h2 style="text-align: center;" id="con4">并行计算</h2>
+<p>有没有进一步的办法提高程序性能呢, 观察之前提到过的吞吐量, 发现整数加法和浮点乘法的上限都可以同时进行两个计算.</p>
+<p>观察我们的程序, 整个过程是可结合可交换的, 因此可以采取同时计算两个临时变量, 然后将结果拼起来, 这样理论性能可以再提高一倍.</p>
+<p>上边的如果说是 2 次循环展开, 这里等于是将一次计算展开成 2 次, 合起来就叫做 2 x 2 展开, 根据这个思路写一个combine6函数:</p>
+<pre>
+void combine6(vec_ptr v, data_t *dest){
+    long i;
+    long length = vec_length(v);
+    long limit = length - 1;
+    data_t *data = v->data;
 
+    //两个临时变量
+    data_t acc0 = IDENT;
+    data_t acc1 = IDENT;
 
+    //依然按照2次循环展开
+    for (i = 0; i < limit; i += 2) {
+        acc0 = acc0 OP data[i];
+        acc1 = acc1 OP data[i + 1];
+    }
 
+    //循环结束的时候加在哪一个变量上都行, 因为是可结合可交换的
+    for (; i < length; i++) {
+        acc0 = acc0 OP data[i];
+    }
 
+    //将两个临时变量拼起来
+    *dest = acc0 + acc1;
 
+}
+</pre>
+<p>经过测试, 打破了延迟的下限, 说明并行计算起到了效果.</p>
+<p>此外还有一种重新结合变换: 观察combine5函数的如下部分:</p>
+<pre>
+for (i = 0; i < limit; i += 2) {
+    acc = (acc OP data[i]) OP data[i + 1];
+}
+</pre>
+<p>很显然, acc的结果需要先和data[i]计算, 再和data[i+1]进行计算, 如果可以先合并值, 然后再和变量进行运算, 改写成这样:</p>
+<pre>
+for (i = 0; i < limit; i += 2) {
+    acc = acc OP (data[i] OP data[i + 1]);
+}
+</pre>
+<p>这样操作之后, 实际上关键路径上就只剩下了一次对于临时变量的操作. 这种展开的性能, 和combine6是几乎一样的.</p>
+<p>注意, 由于浮点运算是不可结合的, 因此未必能优化成这样, 但是整数运算是可结合的, 因此我们的得出结论, 就是要尽量少操作临时变量和合理展开循环.</p>
+<h3>练习题5.8 不同指令的计算效率</h3>
+<pre>
+double aprod(double a[], long n) {
+    long i;
+    double x, y, z;
+    double r = 1;
+    for (i = 0; i < n - 2; i += 3) {
+        x = a[i];
+        y = a[i + 1];
+        z = a[i + 2];
+        <span style="color: red">r = r * x * y * z;</span>
+    }
 
+    for (; i < n; i++) {
+        r *= a[i];
+    }
+    return r;
+}
+</pre>
+<p>很显然, 这是一个3循环展开, 计算一个数组里边所有的元素的乘积的函数, 对于标红这一行可以写成不同的结合, 确定相关CPE的下限:</p>
+<ol>
+    <li><code>r = ((r * x) * y) * z;</code></li>
+    <li><code>r = (r * (x * y)) * z;</code></li>
+    <li><code>r = r * ((x * y) * z);</code></li>
+    <li><code>r = r * (x * (y * z));</code></li>
+    <li><code>r = (r * x) * (y * z);</code></li>
+</ol>
+<ol>
+    <li>很显然, 关键路径上临时变量被计算了三次乘法, 考虑到这是三次循环展开, 所以总的计算次数是n次, 而且没有并行, 因此CPE下限就是5</li>
+    <li>这相当于3 x 1a 展开, 关键路径上临时变量只计算了两次, 因此理论性能是 CPE* 2/3 = 3.33</li>
+    <li>这相当于充分的利用了并行能力, 因此CPE的极限是 5/3 = 1.67</li>
+    <li>这种情况和上一个是相同的</li>
+    <li>这个也是计算了两次, 和第二种情况相同</li>
+</ol>
 
+<h2 style="text-align: center;" id="con5">优化的限制因素</h2>
+<p>在之前可以知道, 还有吞吐量的限制, 并不能无限展开来获取更好的效率.除此之外, 还有一些因素影响:</p>
+<ol>
+    <li>寄存器溢出. 如果并行所需的变量超过了寄存器的存储能力, 寄存器会和内存通信用栈来存储变量, 那么维护多个临时变量用于并行计算的效果就会变差, 因为与内存通信的周期在200左右, 相比寄存器0-1周期的速度, 要差很多.</li>
+    <li>分支预测错误惩罚, 对于一般像判断数组越界的调用, 处理器可以有效的将判断设置为预测判断成功, 这样只有最后一次会导致错误惩罚, 这就是为什么再一开始减少过程调用发现并没有改善性能的原因. 如果一个分支可以合理的预测(比如循环多次直到满足某个条件才结束的循环, 一般处理器都会预测每次是成功的.), 则这个地方一般不会构成性能瓶颈.</li>
+    <li>将条件跳转改成条件传送, 这个需要单独说一下.</li>
+</ol>
+<p>条件跳转改成条件传送其实很简单, 由于处理器会预测分支, 与其预测跳转后执行的代码, 不如直接计算出需要的值, 然后根据条件传送来更新值即可.</p>
+<p>常见的if语句, 如果改成三元运算符, 则内部很可能就生成条件传送而不是条件跳转语句, 这在大批量的比较中, 会极大的提高效率.</p>
+<h3>练习5.9 重写更高效的代码</h3>
+<pre>
+//合并归并排序的数组
+void merge(long src1[], long src2[], long dest[], long n) {
+    long i1 = 0;
+    long i2 = 0;
+    long id = 0;
 
+    //将两个数组的元素按照大小顺序放进dest[]
+    while (i1 < n && i2 < n) {
+        if (src1[i1] < src2[i2]) {
+            dest[id++] = src1[i1++];
+        } else {
+            dest[id++] = src2[i2++];
+        }
+    }
 
+    //两个数组比较完成之后, 将剩余的部分按顺序放进去
+    while (i1 < n) {
+        dest[id++] = src1[i1++];
+    }
 
+    while(i2 < n) {
+        dest[id++] = src2[i2++];
+    }
+}
+</pre>
+<p>这段代码可以发现, 有三个循环, 后边两个循环符合之前说的与固定的值进行比较, 完全可以交给CPU的分支预测, 无需进行优化.</p>
+<p>瓶颈在于第一个循环中的两个数组的元素比较, 这个非常难说每一次是哪个大, 所以考虑将其中的if-eles改写成条件传送: </p>
+<pre>
+while (i1 < n && i2 < n) {
+    dest[id++] = src1[i1] < src2[i2] ? src1[i1++] : src2[i2++];
+}
+</pre>
 
+<h2 style="text-align: center;" id="con6">内存性能</h2>
+<p>除了执行单元和流水线的能力之外, 加载单元的延迟也很重要, 因为在操作数据之前, 必须要先获得数据, 这是无论如何都不能仅在执行单元内部加速就可以实现的.</p>
+<p>由于Haswell处理器的加载单元只有2个, 因此任何时候都不可能把CPE降低到0.5以下. </p>
+<p>此外存储器还包括写和读两个方面, 如果仅仅是写, 不涉及到读取存储器, 即写和读不依赖, 则CPE都可以等于延迟. 但一旦内存读出的值依赖与上一次写入的值, 每次都要进行一个写-读循环的时候, 处理速度就会大幅减缓, 这意味着要想办法减少对于同一块内存区域的互相依赖.</p>
+<h3>练习 5.10 内存引用对于性能的影响</h3>
+<p>有一个复制数组的代码, src是一个长度为1000的数组, 初始化为 a[i]=i :</p>
+<pre>
+void copy_array(long *src, long *dest, long n){
+    long i;
+    for (i = 0; i < n; i++) {
+        dest[i] = src[i];
+    }
+}
+</pre>
+<p>单从这个函数来看, 如果src和dest是完全不同的两个数组, 从src中读取, 然后写入dest, 读写的内存区域并不相关, 其性能应该基本接近于延迟.</p>
+<p>copy_array(a+1, a, 999)的性能: 很显然, src是同一个数组从索引1开始,长度999的部分; dest数组实际上是从0开始的999长度的部分. 可以发现, 从src读取的值, 然后写入到dest中, 其实也是对不同的内存区域进行操作, 互相不影响. 所以A的CPE是比较接近与1.</p>
+<p>copy_array(a, a+1, 999)的问题就来了: 从第二次循环开始, src读出的值, 依赖与刚刚写入的值, 因此性能会大幅下降. 其结果是全部设置成0.</p>
+<p>copy_array(a, a, 999)的性能其实读取之后就写入, 不会出现读出的值依赖与写入的值, 所以其CPE应该和第一种情况类似.</p>
+<h3>练习5.11 为何性能很差?</h3>
+<p>有如下汇编代码:</p>
+<pre>
+.L5:                                        loop:
+    vmovss -4(%rsi, %rax, 4), %xmm0             Get p[i-1]
+    vaddss (%rdi, %rax, 4), %xmm0, %xmm0        Add a[i]
+    vmovss %xmm0, (%rsi, %rax, 4)               Store at p[i]
+    addq   $1, %rax                             Increment i
+    cmpq   %rdx, %rax                           Compare i:cnt
+    jne    .L5                                  If !=, goto loop
+</pre>
+<p>可以看到, 关键路径上使用了两次load, 一次add然后在写入, 写入的还要再读出, 所以造成了性能下降.</p>
+<p>通过观察代码的结果可以发现, 实际上执行后的结果是p[1] = p[0] + a[1], 而p[2] = p[1]+a[2] = p[0]+a[1]+a[2], 所以p[i] = p[0] + a[1]+.....a[i], 这个程序只需要读一次p[0], 然后累加数组a的值并且写入就行了.</p>
+<h3>练习 5.12 改写代码</h3>
+<p>实际上根本没有必要再每次读出%xmm0寄存器的值, 只要先将p[i-1]放入%xmm0寄存器, 然后每次对其加上a[i]就是要写入p[i]的值, 改写后的代码是:</p>
+<pre>
+vomvss -4(%rsi, %rax, 4), %xmm0             进入循环之前读取p[i-1]
+.L5:
+    vaddss (%rdi, %rax, 4), %xmm0, %xmm0    p[i-1]+=a[i]
+    vmovss %xmm0, (%rsi, %rax, 4)           存入p[i]
+    addq   $1, %rax                         i++
+    cmpq   %rdx, %rax                       比较
+    jne    .L5                              循环
+</pre>
 
-
-<h2 style="text-align: center;" id="con3"></h2>
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-
-<h2 style="text-align: center;" id="con6"></h2>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<h2 style="text-align: center;" id="con7">总结</h2>
+<p>在还没有到高级语言抽象和算法的程度上, 就可以根据底层的因素来优化程序了, 主要的优化要点如下:</p>
+<ol>
+    <li>消除连续和反复的函数调用</li>
+    <li>消除不必要的内存引用</li>
+    <li>展开循环</li>
+    <li>使用多个累积临时变量, 充分利用机器的吞吐和指令级并行</li>
+    <li>重写条件操作为条件传送指令</li>
+</ol>
+<p>在有些时候, 优化代码会导致破坏程序结构和增加边界检测的复杂程序, 因此也要灵活的使用.</p>
 
 
 
