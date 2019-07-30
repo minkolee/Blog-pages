@@ -17,11 +17,12 @@
 <body>
 <h1 style="text-align: center;">CSAPP 第七章 链接</h1>
 <p>进入全书的第二部分了, 之前想都没想过, 能一路读下来还都懂了. 第一部分讲的实际上是程序和硬件之间的关系, 第二部分讲的是程序和操作系统之间的关系.</p>
+<p>第七章链接先翻了一遍, 这本书实际上是在说C语言以文件作为模块, 不同模块之间是如何互相组合成可执行文件的. 换成C语言的教学的话, 这一章主要就是在讲C语言的全局变量声明, 外部变量和static变量的关系.</p>
 
 <ol>
     <li><a href="#con1">什么是链接</a></li>
-    <li><a href="#con2">编译和链接</a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con2">目标文件结构与符号表</a></li>
+    <li><a href="#con3">符号解析</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
@@ -64,7 +65,7 @@ int sum(int *a, int n){
 </ol>
 <p>为了理解链接, 其实就是理解链接器的这两步工作.</p>
 
-<h2 style="text-align: center;" id="con2">目标文件</h2>
+<h2 style="text-align: center;" id="con2">目标文件结构与符号表</h2>
 <p>目标文件有三种:</p>
 <ol>
     <li>可重定位目标文件, 就是汇编器生成的文件, 还需要进一步链接才能够形成可执行文件</li>
@@ -72,7 +73,7 @@ int sum(int *a, int n){
     <li>共享目标文件, 这是特殊的可重定位目标文件, 可以在加载或者执行的时候动态的加载进内存并链接. 这个其实就是动态链接库.so</li>
 </ol>
 <p>目标文件有着不同的格式, 在Windows系统下是PE格式, Mac系统下是Mach-O格式, 而在Linux下是ELF格式.</p>
-<p>先来看看可重定位目标文件结构, 以用的最多的ELF文件格式为例:</p>
+<p>先来看看可重定位目标文件结构, 也就是GCC编译成的.o文件, 这是ELF格式的可重定向目标文件, 其内部格式包括一个ELF头,10个节和节头部表, 其中索引0是ELF头, 索引1-10是节:</p>
 <table>
     <tr>
         <td>索引0 ELF头 以一个特定的16字节序列开始, 描述了生成该文件的系统的字长和字节顺序. 剩下的部分帮助链接器语法分析和解释目标文件. 其中包括ELF头大小, 目标文件三种类型之一, 机器类型, 节头部表的偏移, 以及表中条目的大小和数量.
@@ -159,17 +160,68 @@ Symbol table '.symtab' contains 11 entries:
         <th>节</th>
     </tr>
     </thead>
+    <tr>
+        <td>buf</td>
+        <td>是外部变量, 所以存在于符号表中</td>
+        <td>用extern修饰的外部变量</td>
+        <td>swap.o</td>
+        <td>以及初始化的全局变量, 在.data中</td>
+    </tr>
+    <tr>
+        <td>bufp0</td>
+        <td>也是全局变量, 已经被初始化, 也存在于符号表中</td>
+        <td>全局变量</td>
+        <td>swap.o</td>
+        <td>.data</td>
+    </tr>
+    <tr>
+        <td>bufp1</td>
+        <td>存在</td>
+        <td>全局变量</td>
+        <td>swap.o</td>
+        <td>尚未初始化的全局变量, 所以是在COMMON中</td>
+    </tr>
+    <tr>
+        <td>swap</td>
+        <td>函数名,是全局的</td>
+        <td>在swap.o中符号类型是全局FUNC</td>
+        <td>swap.o</td>
+        <td>.text</td>
+    </tr>
+    <tr>
+        <td>temp</td>
+        <td>这个是局部变量而且没有static修饰, 所以不存在于符号表中</td>
+        <td>无</td>
+        <td>无</td>
+        <td>无</td>
+    </tr>
 </table>
+<p>了解了符号表之后, 就可以来学习链接器两个工作的第一个工作: 符号解析了.</p>
+
+<h2 style="text-align: center;" id="con3">符号解析 - 符号解析的规则</h2>
+<p>从符号表可以知道, 除了被static修饰的符号之外, 剩下的全局变量和函数都可能涉及到其他模块, 因此必须有一个解析的方法.</p>
+<p>Linux下解析的方法是:</p>
+<ol>
+    <li>先将符号分为强和弱. 函数和已经初始化的全局变量是强符号, 未初始化的全局变量是弱符号.</li>
+    <li>不允许有多个重名的强符号, 如果有会报错</li>
+    <li>如果有一个强符号和若干个弱符号重名, 会选择强符号</li>
+    <li>如果有多个弱符号同名, 会随机挑选一个</li>
+</ol>
+<h3>练习 7.2 说明如何解析符号</h3>
+<ol style="list-style-type: upper-alpha">
+    <li>模块1中是main函数的定义, 模块2中是main函数原型声明. 所以REF(main.1) -> DEF(main.1), 而REF(main.2) -> DEF(main.1)</li>
+    <li>可以看到, 强符号出现冲突.所以会产生错误</li>
+    <li>强符号 double x 会覆盖弱符号, 所以 REF(x.1) -> DEF(x.2), REF(x.2) -> DEF(x.2)</li>
+</ol>
+
+<h2 style="text-align: center;" id="con4">符号解析 - 静态库链接</h2>
+<p>所谓静态库, 就是在链接过程中, 把需要的库文件直接放入到当前可执行文件内部的链接方式. 在加载和运行时无需进一步的链接.</p>
+<p>在Linux系统中, 静态库以一个存档(.a文件)的方式存放, 是一组可重定位目标文件的集合. 在之前的Head First C已经接触了如何将程序打包成静态库.</p>
+<p>库的名称必须叫做libxxxx.a, 然后在GCC命令行引用库的时候可以简写为 -lxxxx</p>
+<p>举个简单的例子:</p>
 
 
 
-
-
-
-
-<h2 style="text-align: center;" id="con3"></h2>
-
-<h2 style="text-align: center;" id="con4"></h2>
 
 <h2 style="text-align: center;" id="con5"></h2>
 
