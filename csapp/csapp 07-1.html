@@ -22,10 +22,10 @@
 <ol>
     <li><a href="#con1">什么是链接</a></li>
     <li><a href="#con2">目标文件结构与符号表</a></li>
-    <li><a href="#con3">符号解析</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con3">符号解析 - 符号解析的规则</a></li>
+    <li><a href="#con4">符号解析 - 静态库</a></li>
+    <li><a href="#con5">符号解析 - 解析静态库的方式</a></li>
+    <li><a href="#con6">重定位</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">什么是链接</h2>
@@ -214,28 +214,160 @@ Symbol table '.symtab' contains 11 entries:
     <li>强符号 double x 会覆盖弱符号, 所以 REF(x.1) -> DEF(x.2), REF(x.2) -> DEF(x.2)</li>
 </ol>
 
-<h2 style="text-align: center;" id="con4">符号解析 - 静态库链接</h2>
+<h2 style="text-align: center;" id="con4">符号解析 - 静态库</h2>
 <p>所谓静态库, 就是在链接过程中, 把需要的库文件直接放入到当前可执行文件内部的链接方式. 在加载和运行时无需进一步的链接.</p>
 <p>在Linux系统中, 静态库以一个存档(.a文件)的方式存放, 是一组可重定位目标文件的集合. 在之前的Head First C已经接触了如何将程序打包成静态库.</p>
 <p>库的名称必须叫做libxxxx.a, 然后在GCC命令行引用库的时候可以简写为 -lxxxx</p>
-<p>举个简单的例子:</p>
+<p>举个简单的例子, 和当时学Head First C几乎一样:</p>
+<pre>
+//addvec.c
+#include "vector.h"
 
+int addcnt = 0;
+void addvec(int *x, int *y, int *z, int n){
+    int i;
+    addcnt++;
+    for (i = 0; i < n; i++) {
+        z[i] = x[i] + y[i];
+    }
+}
+</pre>
+<pre>
+//mulvec.c
+#include "vector.h"
 
+int multcnt = 0;
+void multvec(int *x, int *y, int *z, int n){
+    int i;
+    multcnt++;
+    for (i = 0; i < n; i++) {
+        z[i] = x[i] * y[i];
+    }
+}
+</pre>
+<p>将上述两个文件通过 <kbd>gcc -c addvec.c mulvec.c</kbd> 生成两个可重定位目标文件, 然后再执行:</p>
+<pre>ar rcs libvector.a addvec.o mulvec.o</pre>
+<p>然后有一个主文件 main2.c:</p>
+<pre>
+#include &lt;stdio.h>
+#include "vector.h"
 
+int x[2] = {1, 2};
+int y[2] = {3, 4};
+int z[2];
 
-<h2 style="text-align: center;" id="con5"></h2>
+int main(){
+    addvec(x, y, z, 2);
+    printf("z=[%d,%d]", z[0], z[1]);
+}
+</pre>
+<p>将刚才生成的库文件 libvector.a 和main2.c 放在一起, 去掉其他文件和main中的头文件, 然后执行编译:</p>
+<pre>gcc -static main2.c ./libvector.a</pre>
+<p>就可以成功编译, 如果将libvector.a放到系统路径之下, 就可以使用 -l参数来编译. </p>
+<p>这里 -static 的作用是, 创建完全链接好的文件, 无需在运行的时候再链接, 使用这个开关, 会将main2.o所需要的全部库代码, 包括标准库和我们自己写的库, 都复制到可执行文件中. 这里实际复制的目标文件就是使用到的libvector库中的目标文件, 以及在libc.a中的printf.o模块.</p>
+<p>实际上, 对于标准库, 很多都是动态库, 会在运行的时候加载的.</p>
+<p>还记得吗, 链接的时候main2.c会被编译成main2.o ,然后再链接, 说明链接器成功的链接了静态库和main2.o</p>
 
-<h2 style="text-align: center;" id="con6"></h2>
+<h2 style="text-align: center;" id="con5">解析静态库的方式</h2>
+<p>链接器是如何解析静态库的呢, 实际上是通过三个数据结构来的.</p>
+<p>链接器首先定义三个空的集合:</p>
+<ol>
+    <li>E - 用于存放所有需要放入到最终可执行文件中的目标文件集合</li>
+    <li>U - 所有未解析的符号集合</li>
+    <li>D - 已经有了定义的符合集合D</li>
+</ol>
+<p>然后链接器开始按照命令行来读入文件, 如果是一个目标文件, 就会把目标文件添加到E里, 然后将目标文件中所有的符号定义和引用, 按照能解析的放在U里, 不能解析的放在D里.</p>
+<p>如果读入一个存档文件, 就会按照U中的符号, 到存档文件里的各个目标文件中去找能够对应的符号, 如果能找到(即解析成功), 就把对应的目标文件放入E, 从U里删除解析成功的符号, 放入到D中.</p>
+<p>反复执行这个过程直到所有的命令行中的文件都解析完毕, 此时检查U是不是为空, 如果为空说明成功的解析了全部符号, 如果不为空就报错.</p>
+<p>因此, 如果库之间有引用的关系的话, 命令行的顺序就很重要了, 越靠后的依赖必须越放在后边.</p>
+<h3>练习题 7.3 解析顺序</h3>
+<ol>
+    <li>p.o -> libx.a, 这个顺序是一个依赖, 所以需要使用 <kbd>gcc p.o libx.a</kbd></li>
+    <li>p.o -> libx.a -> liby.a, 这也是顺序的依赖, 所以需要使用 <kbd>gcc p.o libx.a liby.a</kbd></li>
+    <li>p.o -> libx.a -> liby.a -> libx.a -> p.o, 由于p.o自己的符号已经存在, 无需重复写, 所以需要使用 <kbd>gcc p.o libx.a liby.a libx.a</kbd></li>
+</ol>
 
+<h2 style="text-align: center;" id="con6">重定位</h2>
+<p>链接器的第一步工作, 也就是符号解析已经知道了, 其本质就是在目标文件可库文件中搜寻相同名字的符号, 然后一一对应起来, 同时也知道了所有需要的目标文件.</p>
+<p>链接器的第二步工作, 就是重新定位. 这个工作分为两步:</p>
+<ol>
+    <li><strong>重定位节和符号定义</strong>, 会将所有的目标文件中的同类型的节合并成新的聚合节, 然后为每个节, 每个符号都赋给运行时的内存地址. 这一步完成之后, 所有的指令和全局变量都有了唯一的运行时内存地址.</li>
+    <li><strong>重定位节中的符号引用</strong>, 会一一将代码节和数据节中的所有符号修改成正确的运行时地址. 这个依赖于<strong>可重定位条目</strong>.</li>
+</ol>
+<p>第一步就是分配地址, 关键看第二步, 即已经知道了所有节和变量的地址, 如何将具体的引用替换成这些地址.</p>
+<p>代码的重定位条目放在 .rel.text 节中, 已经初始化的数据的重定位条目放在 .rel.data 中.</p>
+<p>每一个重定位条目有如下几个内容组成:</p>
+<ol>
+    <li>offset, 表示从节地址开头的偏移量</li>
+    <li>symbol, 表示对应哪个符号</li>
+    <li>type, 表示定位类型, 32种, 目前需要关心两种, 一种是32位地址相对重定位(R_X86_64_PC32), 一种是32位绝对地址重定位(R_X86_64_32).</li>
+    <li>addend, 是有符号ihuu, 表示偏移量调整.</li>
+</ol>
+<p>举个例子就很容易说明了, 现在有如下的main.o目标文件:</p>
+<pre>
+0000000000000000 &ltmain>:
+    0:      48 83 ec 08             sub     $0x8, %rsp
+    4:      be 02 00 00 00          mov     $0x2, %esi
+    9:      bf <span style="color: red">00 00 00 00</span>          mov     <span style="color: red">$0x0</span>, %edi          %edi = %array
+                                    a: R_X86_64_32
+    e:      e8 <span style="color: red">00 00 00 00</span>          callq   13&lt;main+0x13>    sum()
+                                    f: R_X86_64_PC32 sum-0x4
+    13:     48 83 c4 08             add     $0x8, %rsp
+    17:     C3                      retq
+</pre>
+<p>其中所有汇编器无法确定位置的地方, 都先上了数值0, 然后在下边加上了重定位条目, 就是其中红色的部分.</p>
+<p>在进行完第一步之后, 已经分配了如下的地址:</p>
+<ol>
+    <li>.text聚合节的开头地址 = 0x4004d0, .text聚合节存放所有的代码, 其开头地址同时也是main函数的地址.</li>
+    <li>sum函数开头的地址 = 0x4004e8</li>
+    <li>array的地址是 0x601018</li>
 
-
-
-
-
-
-
-
-
+</ol>
+<p>然后看sum的重定位引用<code>f: R_X86_64_PC32 sum-0x4</code>, 其内容是:</p>
+<pre>
+r.offset = 0xf
+r.symbol = sum
+r.type = R_X86_64_PC32
+r.addend = -4
+</pre>
+<p>这个意思是sum的对应节偏移量是0xf, 然后还需要调整-4的地址.</p>
+<p>先计算出引用地址 = 节地址+节偏移量 = 0xf+ 0x4004d0 = 0x4004df, 这就是sum函数运行时候的所在地.</p>
+<p>然后其实就是用偏移量和callq的指令位置计算出 callq 的位置, 即:</p>
+<pre>0x4004e8 -4 - 0x4004df = 5</pre>
+<p>算出来的5, 就放入到call q 指令的地址中去: 按照节地址重现编排之后, 就变成了:</p>
+<pre>
+0x4004d0 &ltmain>:
+0x4004d0:      48 83 ec 08             sub     $0x8, %rsp
+0x4004d4:      be 02 00 00 00          mov     $0x2, %esi
+0x4004d9:      bf <span style="color: orange">00 00 00 00</span>          mov     <span style="color: orange">$0x0</span>, %edi          %edi = %array
+                                    a: R_X86_64_32
+0x4004de:      e8 <span style="color: red">05 00 00 00</span>          callq   4004e8&lt;main+0x13>    sum()
+                                    f: R_X86_64_PC32 sum-0x4
+0x4004e3:     48 83 c4 08             add     $0x8, %rsp
+0x4004e7:     C3                      retq
+0x4004e8:     sum.....
+</pre>
+<p>在计算出来了callq指令之后. 可以发现上边橙色的部分也就是array的地方还没有正确链接. array的重定位条目如下:</p>
+<pre>
+r.offset = 0xa
+r.symbol = array
+r.type = R_X86_64_32
+r.addend = 0
+</pre>
+<p>这个算法就是直接使用array的地址加上addend的偏移量, 也就是array的地址 0x601018. </p>
+<p>然后就可以替换掉地址引用:</p>
+<pre>
+0x4004d9:      bf 18 10 60 00          mov     $0x601018, %edi          %edi = %array
+</pre>
+<p>执行了上述的两步计算之后, 就将main中对sum 和array 引用的地址替换成了实际的地址. 这个程序就可以运行了.</p>
+<p>在实际的文件中, 重定位条目并不是上边程序这样直接插入在汇编代码中的, 而是在另外的节中.</p>
+<h3>练习 7.4 回答问题</h3>
+<p>对sum重定位引用的十六进制内存地址是 0x4004df = 4004d0 + 0xf, 对重定位引用的十六进制值是5</p>
+<h3>练习 7.5 计算引用</h3>
+<p>计算引用值 = 0x4004d0+0xa = 0x4004da</p>
+<p>计算值 = 0x4004e8 -4 - 0x4004da = 0xA</p>
+<p>所以指令是 0x4004d9 e8 0A 00 00 00    call 4004e8</p>
+<p>现在就知道了链接器是如何工作的, 其本质上, 就是先重新编排程序段和全局变量的内存地址, 再将程序段中所有符号替换成实际的内存地址.</p>
 
 
 
