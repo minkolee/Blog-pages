@@ -15,54 +15,129 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第八章 进程与信号</h1>
+<h1 style="text-align: center;">CSAPP 第八章 进程</h1>
 
 <ol>
-    <li><a href="#con1">进程控制</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con1">进程 - 状态</a></li>
+    <li><a href="#con2">进程 - 创建进程</a></li>
+    <li><a href="#con3">进程 - 回收子进程</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1">进程</h2>
-<p>进程控制有很多系统调用函数. 来逐一看一下:</p>
+<h2 style="text-align: center;" id="con1">进程 - 状态</h2>
+<p>进程控制有很多系统调用函数.从程序员的角度, 可以认为进程有如下三种状态: 运行, 停止, 终止.</p>
 <ol>
-    <li>获取进程号 <br>
-        每个进程都有一个进程ID, 简称PID. 可以用两个系统函数getpid 和 getppid 分别返回当前进程的PID和父进程的PID:
-        <pre>
-            #include &lt;sys/types.h>
-            #include &lt;unistd.h>
-
-            pid_t getpid(void);
-            pid_t getppid(void);
-        </pre>
-        返回的数据类型是pid_t, 是一个整型.可以转成int类型.
-    </li>
-
-    <li>
-        创建和中止进程 <br>
-        从程序员的角度, 可以认为进程有如下三种状态: 运行, 停止, 终止.:
-        <ol>
-            <li>运行指的是进程在CPU上执行, 或者<strong>等待执行</strong>, 也就是说会被内核调度程序调度, 类似于做好了运行准备</li>
-            <li>停止的进程被挂起, 而且不会被调度. 一般进程收到信号的时候, 就会停止.</li>
-            <li>终止, 进程永远停止, 会因为三个情况终止: 收到信号终止, 正常返回, 调用exit函数 <br>
-                <pre>
-                    #include &lt;stdlib.h>
-                    void exit(int status);
-                </pre>
-
-            </li>
-        </ol>
-    </li>
+    <li>运行指的是进程在CPU上执行, 或者<strong>等待执行</strong>, 也就是说会被内核调度程序调度, 类似于做好了运行准备</li>
+    <li>停止的进程被挂起, 而且不会被调度. 一般进程收到信号的时候, 就会停止.</li>
+    <li>终止, 进程永远停止, 会因为三个情况终止: 收到信号终止, 正常返回, 调用exit函数</li>
 </ol>
+<p>每个进程都有一个进程ID, 简称PID. 可以用两个系统函数getpid 和 getppid 分别返回当前进程的PID和父进程的PID:</p>
+<pre>
+#include &lt;sys/types.h>
+#include &lt;unistd.h>
+
+pid_t getpid(void);
+pid_t getppid(void);
+</pre>
+<p>如果要终止进程, 则可以调用 stdlib.h中的exit函数强行中止进程并向操作系统返回状态码.</p>
 
 
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">创建进程</h2>
+<p>创建进程是著名的fork函数, 创建的瞬间实际上程序就分支了. 子进程会得到相同的但是独立的父进程当前状态的一份副本, 包括代码段,数据段,堆,共享库和用户栈, 文件描述符.
+    由于分支了, 所以fork函数会返回两次, 一次在主进程中, 一次在分支出来的子进程中. 在子进程中的fork返回0, 父进程中返回PID, 所以可以用一个判断来让代码在不同的进程中执行.
+    可以使用拓扑图来学习进程分支的情况.</p>
+<h3>练习8.2 fork程序的运行结果</h3>
+<pre>
+int main(){
+    int x = 1;
+    if(Fork() == 0)
+        printf("p1: x=%d\n", ++x);
+    printf("p2: x=%d\n", --x);
+    exit(0);
+}
+</pre>
+<p>在fork之后, 如果是子进程, 就执行显示++x, 如果是父进程, 就不执行. 然后子进程和父进程都会打印--x. </p>
+<p>因此子进程的输出是:</p>
+<pre>
+p1: x=2
+p2: x=1
+</pre>
+<p>父进程的输出是:</p>
+<pre>
+p2: x=0
+</pre>
 
-<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con3">进程 - 回收子进程</h2>
+<p>进程终止之后是什么样子, 其实处在一种不生不死的样子, 叫做终止状态. 其代码已经不再运行, 但是相关的数据还没有被从内存中清除出去, 即还占据内存空间, 直到被父进程回收.</p>
+<p>终止但还没有回收的进程叫做僵尸进程 zombie .</p>
+<p>父进程要回收子进程的时候, 去找管理进程的操作系统, 操作系统会把子进程的退出情况传递给父进程, 之后操作系统就会彻底抛弃这个进程(清除内存, 从调度器中去掉该进程). 这个时候子进程就不存在了.</p>
+<p>如果子进程还在的时候, 父进程先挂了, 操作系统会安排PID=1的init进程当这个子进程的爹, 由init来负责回收.</p>
+<p>具体的来说, 这个过程是通过waitpid函数来操作的.</p>
+<pre>
+#include &lt:sys/types.h>
+#include &lt;sys/wait.h>
+
+pid_t waitpid(pid_t pid, int *statusp, int options);
+</pre>
+<p>其中的第一个参数用于确定等待集合的成员(等待哪些子进程), 如果pid>0, 就等待这个pid对应的子进程. 如果pid=-1, 会等待当前父进程所有的子进程.</p>
+<p>第三个参数options可以设置为一些常量, 这些常量是由wait.h头定义的:</p>
+<ol>
+    <li>WNOHANG, 不挂起主进程, 如果所有的子进程都还没终止, 会立刻返回0. 如果不使用这个参数, 调用waitpid的程序(主进程)会一直挂起等到子进程结束.</li>
+    <li>WUNTRACED, 挂起主进程, 直到等待集合的一个进程变成终止或者停止, 返回那个进程的PID. 不使用这个参数的默认行为是只返回已经终止的子进程. </li>
+    <li>WCONTINUED, 挂起主进程, 直到等待集合中的一个正在运行的进程终止, 或者一个停止的进程收到SIGCONT信号重新开始运行. 这个可以用来监听重新运行的进程.</li>
+    <li>0, 默认的挂起等待子进程结束.</li>
+</ol>
+<p>可以用或运算将这三个连接起来, 表示满足某种条件之一就可以返回.</p>
+<p>第二个参数是用来接收状态码status的参数, 所以传入一个int类型的指针. waitpid会在status中放入导致返回的子进程的状态信息. 用wait.h库中的几个宏当做函数, 传入status可以来解释这个状态码的意义:</p>
+<ol>
+    <li>WIFEXITED(status), 如果子进程是通过exit或者return正常返回, 就返回真</li>
+    <li>WEXITSTATUS(status), 只有当WIFEXITED为真的时候, 返回一个正常终止的子进程的退出状态.</li>
+    <li>WIFSIGNALED(status), 如果子进程是因为未捕获的信号终止, 返回真</li>
+    <li>WTERMSIG(status), 返回导致子进程终止的信号的编号, 只有在WIFSIGNALED为真的时候才能使用.</li>
+    <li>WIFSTOPPED(status), 如果引起返回的子进程当前是停止的, 就返回真</li>
+    <li>WSTOPSIG(status), 返回引起子进程停止的信号的编号, 只有在WIFSTOPPED返回为真的时候可用</li>
+    <li>WIFCONTINUED, 如果子进程收到SIGCONT信号重新启动, 就返回真.</li>
+</ol>
+<p>CSAPP 3E提供了csapp.h 和 csapp.c 两个文件供使用. 从官网可以下载到这两个文件, 然后放到 /usr/include 目录内,
+    之后使用<kbd>gcc -c csapp.c -o csapp.o</kbd>编译成目标文件. 再把目标文件复制的各种自己编写的文件同目录下, 然后使用这个目标文件编译就可以了:</p>
+<pre>
+gcc main.c csapp.o -lpthread
+</pre>
+<p>由于使用了线程库, 所以要加上 -plthread后缀.</p>
+
+
+<h3>练习 8.3 列出下面程序可能的输出序列</h3>
+<pre>
+int main(){
+    if(Fork() == 0) {
+        printf("a");
+        fflush(stdout);
+    } else {
+        printf("b");
+        fflush(stdout);
+        waitpid(-1, NULL, 0);
+    }
+
+    printf("c");
+    fflush(stdout);
+    exit(0);
+}
+</pre>
+<p>在fork的时候, 子进程会输出a, 父进程会输出b, 然后父进程要等待子进程结束. 子进程此时会继续向下执行, 输出c. 而父进程在子进程输出完c之后,才会继续执行, 输出c.</p>
+<p>所以子进程的ac和父进程的b谁先输出不一定, 但考虑到a一定在c前边输出, 所以可能的序列是abcc ,acbc, bacc.</p>
+<p>除了 waitpid, 还有一个wait 函数, 是waitpid 的简单版本, 等于 <code>waitpid(-1, NULL, 0)</code>, 即父进程等待所有子进程结束.</p>
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con4"></h2>
 
