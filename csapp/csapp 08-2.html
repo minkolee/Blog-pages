@@ -26,9 +26,37 @@
     <li><a href="#con6"></a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">进程</h2>
+<p>进程控制有很多系统调用函数. 来逐一看一下:</p>
+<ol>
+    <li>获取进程号 <br>
+        每个进程都有一个进程ID, 简称PID. 可以用两个系统函数getpid 和 getppid 分别返回当前进程的PID和父进程的PID:
+        <pre>
+            #include &lt;sys/types.h>
+            #include &lt;unistd.h>
 
+            pid_t getpid(void);
+            pid_t getppid(void);
+        </pre>
+        返回的数据类型是pid_t, 是一个整型.可以转成int类型.
+    </li>
 
+    <li>
+        创建和中止进程 <br>
+        从程序员的角度, 可以认为进程有如下三种状态: 运行, 停止, 终止.:
+        <ol>
+            <li>运行指的是进程在CPU上执行, 或者<strong>等待执行</strong>, 也就是说会被内核调度程序调度, 类似于做好了运行准备</li>
+            <li>停止的进程被挂起, 而且不会被调度. 一般进程收到信号的时候, 就会停止.</li>
+            <li>终止, 进程永远停止, 会因为三个情况终止: 收到信号终止, 正常返回, 调用exit函数 <br>
+                <pre>
+                    #include &lt;stdlib.h>
+                    void exit(int status);
+                </pre>
+
+            </li>
+        </ol>
+    </li>
+</ol>
 
 
 
