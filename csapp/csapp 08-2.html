@@ -21,9 +21,9 @@
     <li><a href="#con1">进程 - 状态</a></li>
     <li><a href="#con2">进程 - 创建进程</a></li>
     <li><a href="#con3">进程 - 回收子进程</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">进程 - 休眠</a></li>
+    <li><a href="#con5">进程 - 加载和运行程序</a></li>
+    <li><a href="#con6">进程 - 多进程程序</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">进程 - 状态</h2>
@@ -130,26 +130,376 @@ int main(){
 <p>在fork的时候, 子进程会输出a, 父进程会输出b, 然后父进程要等待子进程结束. 子进程此时会继续向下执行, 输出c. 而父进程在子进程输出完c之后,才会继续执行, 输出c.</p>
 <p>所以子进程的ac和父进程的b谁先输出不一定, 但考虑到a一定在c前边输出, 所以可能的序列是abcc ,acbc, bacc.</p>
 <p>除了 waitpid, 还有一个wait 函数, 是waitpid 的简单版本, 等于 <code>waitpid(-1, NULL, 0)</code>, 即父进程等待所有子进程结束.</p>
+<p>两个等待子进程结束的例子, 先看一个不按特定顺序回收:</p>
+<pre>
+#include &lt;csapp.h>
+#include &lt;sys/wait.h>
+#include &lt;sys/types.h>
+#include &lt;stdio.h>
+#include &lt;errno.h>
+#include &lt;stdlib.h>
+
+#define N 20
 
 
+int main() {
+    int status, i;
+    pid_t pid;
+
+    //主进程创建一个循环用来fork新进程, 每次创建之后如果是子进程, 就会执行exit, 而主进程会继续循环直到创建完所有进程
+    for (i = 0; i < N; i++) {
+        if ((pid = Fork()) == 0) {
+            exit(100 + i);
+        }
+    }
+
+    //-1表示所有的子进程, 反复调用waitpid, 监听到一个就对返回的status进行测试, 根据是否正常退出打印结果.
+    while ((pid = waitpid(-1, &status, 0)) > 0) {
+        if (WIFEXITED(status)) {
+            printf("child %d terminated normally with exit status = %d\n", pid, WEXITSTATUS(status));
+        } else {
+            printf("child %d terminated abnormally\n", pid);
+        }
+    }
+
+    //所有的子进程都被回收之后, waitpid会返回-1并且会设置errno. 如果errno不是ECHILD, 就说明发生了意料之外的错误.
+    if (errno != ECHILD) {
+        unix_error("waitpid error");
+    }
+
+    exit(0);
+}
+</pre>
+<p>这里反复运行的时候, 可以看到回收子进程的顺序是不同的, 这就是并发时候的非确定性行为.</p>
+<p>在创建进程的时候稍作改变, 用一个数组来存放pid, 就可以按照顺序来回收子进程:</p>
+<pre>
+#include &lt;csapp.h>
+#include &lt;sys/wait.h>
+#include &lt;sys/types.h>
+#include &lt;stdio.h>
+#include &lt;errno.h>
+#include &lt;stdlib.h>
+
+#define N 20
+
+int main() {
+    int status, i;
+    pid_t pid_list[N];
+    pid_t temp;
+
+    //主进程创建一个循环用来fork新进程, 每次创建之后如果是子进程, 就会执行exit
+    //这里, 注意在fork瞬间 pid_list也会复制一份到新进程, 父子进程的pid_list[i]中都会存pid, 父进程存放的是不为0的pid, 子进程存放的是为0的pid
+    for (i = 0; i < N; i++) {
+        if ((pid_list[i] = Fork()) == 0) {
+            exit(100 + i);
+        }
+    }
+
+    //重新初始化循环变量
+    i=0;
+
+    //继续用每个pid去监听, 直到监听的pid越界, 如果都执行正确, 刚越界的时候, 父进程已经没有子进程, 所以会返回-1并设置errno
+    while (temp = waitpid(pid_list[i++], &status, 0) > 0) {
+        if (WIFEXITED(status)) {
+            printf("child %d terminated normally with exit status = %d\n", pid_list[i], WEXITSTATUS(status));
+        } else {
+            printf("child %d terminated abnormally\n", pid_list[i]);
+        }
+    }
+
+    //所有的子进程都被回收之后, waitpid会返回-1并且会设置errno. 如果errno不是ECHILD, 就说明发生了意料之外的错误.
+    if (errno != ECHILD) {
+        unix_error("waitpid error");
+    }
+    exit(0);
+}
+</pre>
+<h3>练习 8.4 多进程程序跟踪</h3>
+<pre>
+#include &lt;csapp.h>
+#include &lt;sys/wait.h>
+#include &lt;sys/types.h>
+#include &lt;stdio.h>
+#include &lt;errno.h>
+#include &lt;stdlib.h>
+
+int main(){
+    int status;
+    pid_t pid;
+
+    printf("Hello\n");
+    pid = Fork();
+    printf("%d\n", !pid);
+
+    if (pid != 0) {
+        if (waitpid(-1, &status, 0) > 0) {
+            if (WIFEXITED(status) != 0) {
+                printf("%d\n", WEXITSTATUS(status));
+            }
+        }
+    }
+
+    printf("Bye\n");
+    exit(2);
+}
+</pre>
+<p>A: 判断程序的输出有几行. 画出拓扑图可以知道, 程序先输出一行Hello 然后 分支, 子进程会输出!pid 和Bye, 主进程会输出!pid 然后等待子进程结束.
+    结束之后由于子进程调用exit退出, WIFEXITED为真, 会打印退出状态. 之后再打印bye. 所以一共有6行.</p>
+<p>B: 由于子进程的输出!pid和bye与父进程的输出!pid并发, 所以这三个的顺序很难确定. 一种可能的顺序是:</p>
+<pre>
+Hello
+0
+1
+Bye
+2
+Bye
+</pre>
+
+<h2 style="text-align: center;" id="con4">进程 - 休眠</h2>
+<p>通过系统调用sleep, 可以主动的向调度器申请将当前进程休眠. sleep 函数如下:</p>
+<pre>
+#include &lt;unistd.h>
+unsigned int sleep(unsigned int secs);
+</pre>
+<p>sleep函数有返回值, 返回的是还剩下多少秒没有休眠完, 如果完成了整个休眠过程, 就返回0. 为什么会出现没有休眠完, 是因为sleep过程中可能收到信号而中断sleep函数.</p>
+<p>还有一个函数是 pause, 这个是挂起当前进程, 直到收到信号:</p>
+<pre>
+#include &lt;unistd.h>
+int pause(void);
+</pre>
+<h3>练习 8.5 编写一个snooze函数, 和 sleep 功能一样, 但是会返回实际休眠的时间:</h3>
+<pre>
+#include &lt;unistd.h>
+#include &lt;stdio.h>
+unsigned int snooze(unsigned int secs) {
+    unsigned int time = secs - sleep(secs);
+    printf("Slept for %u of %u secs.", time, secs);
+    return time;
+}
+</pre>
+
+<h2 style="text-align: center;" id="con5">进程 - 加载和运行程序</h2>
+<p>加载和运行程序的函数是exec家族函数, 在之前复习C语言时候的博客<a href="http://www.conyli.cc/archives/2858#exec">exec()与进程</a>里已经提到了这个函数. CSAPP这里只讲了最常用的execve程序:</p>
+<pre>
+#include &lt;unistd.h>
+
+int execve(const char *filename, const char *argv[], const char *envp[]);
+</pre>
+<p>这个函数加载可执行文件filename. 第二个参数是参数列表, 列表以NULL作为最后一项,  按惯例, argv[0]就是filename. envp则是环境变量指针数组, 其中每个指针指向一个类似"name=value"的键值对字符串.</p>
+<p>这个函数加载之后, 如果成功找到了filename, 就不会再返回到调用的程序, 只有出错才会返回. 成功加载之后, 新开启的进程就会变成加载的程序. 所以一般父进程会先fork一个子进程, 然后在子进程中使用execve来加载程序, 之后这个子进程就变成了要加载的程序本身.</p>
+<p>execve加载完程序之后, 就会调用第七章里提到过的系统调用, 最后将控制权交给加载的新程序的主函数, 然后会把argv[]和envp[]都传递给新函数的main函数:</p>
+<pre>
+int main(int argc, char **argv, char **envp);
+
+int main(int argc, char *argv[], char *envp[]);
+</pre>
+<p>这些参数是压在栈底的. 靠近栈顶的是系统调用libc_start_main函数的栈帧, 之后才是main函数的栈帧.</p>
+<p>main函数之前一直使用的是void, 但其实main函数也可以接受三个参数:</p>
+<ol>
+    <li>argc 指的是 argv 中不为空的参数数量.</li>
+    <li>argv 是指向argv数组第一个元素的指针</li>
+    <li>envp 是指向envp数组的第一个元素的指针</li>
+</ol>
+<p>在一个运行的程序中, Linux提供了一些函数用于获得环境变量:</p>
+<pre>
+#include &lt;stdlib.h>
+char *getenv(const char *name);
+</pre>
+<p>如果存在 name 环境变量, 就返回一个指向其值的指针</p>
+<pre>
+#include &lt;stdlib.h>
+
+int setenv(const char *name, const char *newvalue, int overwrite);
+
+void unsetenv(const char *name);
+</pre>
+<p>setenv是设置环境变量. 如果overwrite为真, 就会覆盖. 如果name不存在 无论overwrite值是多少, 就会新增一个键值对.</p>
+<p>unsetenv则是删除环境变量. 这两个函数都是操作argv数组.</p>
+<h3>练习 8.6 编写 myecho 程序, 打印出所有的命令行参数和环境变量</h3>
+<p>这个程序其实就是遍历数组, 第一个数组可以根据argc参数来确定, 第二个数组就要遍历到NULL为止.</p>
+<pre>
+#include &lt;stdio.h>
+
+int main(int argc, char *argv[], char *envp[]){
+    int i;
+    printf("Command-line arguments:\n");
+    for (i = 0; i&lt;argc; i++) {
+        if (argv[i] != NULL) {
+            printf("\targv[%2d]: %s\n", i, argv[i]);
+        }
+    }
+    printf("Environment variables:\n");
+    for (i = 0; ;i++) {
+        if (envp[i] != NULL) {
+            printf("\tenvp[%2d]: %s\n", i, envp[i]);
+        } else {
+            break;
+        }
+    }
+    return 0;
+}
+</pre>
+<p>execve的作用是将当前进程变成加载的程序, 因此将fork 和 execve 结合起来, 就有了可以从应用程序中启动应用程序的办法, 就是先 fock 一个新进程, 然后在新的进程中加载想执行的程序.</p>
+
+<h2 style="text-align: center;" id="con6">进程 - 多进程程序</h2>
+<p>系统级的程序大量使用了fork函数和execve函数来操作和管理程序. 常见的Linux的bash就是一个典型代表. 在用户输入一个命令后, bash读取命令, 然后代替用户执行该命令, CSAPP这里写了一个简单的shell命令. 来分析一下看看.</p>
+<pre>
+#include &lt;csapp.h>
+#include &lt;stdio.h>
+#include &lt;string.h>
+#include &lt;stdlib.h>
+#include &lt;unistd.h>
+#define MAXARGS 128
+
+void eval(char *cmdline);
+int parseline(char *buf, char **argv);
+int builtin_command(char **argv);
 
 
+int main(){
+    //存放用户输入的命令的字符串
+    char cmdline[MAXLINE];
+
+    while(1){
+        printf("> ");
+        // 获取用户输入, 复制到cmdline中
+        Fgets(cmdline, MAXLINE, stdin);
+        if (feof(stdin)) {
+            exit(0);
+        }
+
+        //调用eval函数执行命令
+        eval(cmdline);
+    }
+
+}
+
+//解析命令行并执行程序的函数
+void eval(char *cmdline){
+    //传递给要调用的函数的argv[]参数
+    char *argv[MAXARGS];
+
+    //修改过的命令行
+    //这里为何用数组存放而不是char* ,就是因为之后parseline要修改buf的内容.
+    char buf[MAXLINE];
+
+    //用于标记前台还是后台执行, 初始化为0
+    int bg = 0;
+
+    //子进程id
+    pid_t pid;
+
+    //把传入的用户输入复制到buf中
+    strcpy(buf, cmdline);
+    //调用parseline函数来检测参数, parseline会解析buf字符串, 将解析后的结果设置到argv中. 然后根据最后一个参数是不是 & ,如果是就返回1, 不是就返回0
+    bg = parseline(buf, argv);
+
+    //解析后的命令行没有, 则直接返回
+    if (argv[0] == NULL) {
+        return ;
+    }
+
+    //检测是不是内部命令, 如果不是, 就要创建子进程来运行. 如果是, 就直接运行.
+    //内置命令在检测的过程中, 直接由builtin_command(argv)运行了. 所以这里都是不是内部命令的情况
+    if (!builtin_command(argv)) {
+
+        //子进程执行的代码, 子进程启动execve去执行命令, 如果执行不了, 就提示命令未找到.
+        //父进程在fork之后什么也没有干, 继续向下运行. 子进程在这里要么出错退出, 要么变成要执行的程序.
+        if ((pid = Fork()) == 0) {
+            //调用execve执行解析后的命令行
+            //这里如果成功执行, 子进程就变成了要执行的程序
+            if (execve(argv[0], argv, environ) < 0) {
+                printf("%s: Command not found.\n", argv[0]);
+                exit(0);
+            }
+        }
+
+        //父进程判断子进程结束, 注意, 这里的程序只由父进程执行, 子进程到了这里不是挂了就是变成了其他的程序.
+        //bg为1表示后台, bgw为0表示前台, 前台的时候才需要等待子进程运行结束
+        if (!bg) {
+            int status;
+            if (waitpid(pid, &status, 0) < 0) {
+                unix_error("waitfg: waitpid error");
+            }
+        } else {
+            printf("%d %s", pid, cmdline);
+        }
+    }
+}
 
 
+int builtin_command(char **argv){
+    //如果命令是quit 就退出
+    if (!strcmp(argv[0], "quit")) {
+        exit(0);
+    }
+
+    if (!strcmp(argv[0], "dir")) {
+        printf("dir command executed.\n");
+        return 1;
+    }
+
+    //忽略单独的&字符
+    if (!strcmp(argv[0], "&")) {
+        return 1;
+    }
+
+    return 0;
+}
+
+//这个函数的作用是将buf字符串中的内容解析好, 放入 argv[] 数组中.
+int parseline(char *buf, char **argv){
+    char *delim;
+
+    //用来计数的变量
+    int argc;
+    //是否需要后台运行
+    int bg;
+
+    //将buf末尾的\n换成空格
+    buf[strlen(buf) - 1] = ' ';
+
+    //将buf指针移动到第一个不是空格的位置
+    while (*buf && (*buf == ' ')) {
+        buf++;
+    }
 
 
+    argc = 0;
+    //每次的循环条件是将 delim 指向buf之后的空格的位置
+    //这段代码到了最后越界的时候是不是有问题, 需要用MAXLINE判断一下
+    while ((delim = strchr(buf, ' '))) {
+        //将此时的buf的指针位置赋给argv[]数组中的对应元素
+        argv[argc++] = buf;
+        //把delim指向的第一个空格改成\0. 即字符串末尾
+        *delim = '\0';
+        //将buf 指针设置到 delim之后的1个位置
+        buf = delim + 1;
+        //跳过剩余的空白
+        while (*buf && (*buf == ' ')) {
+            buf++;
+        }
+    }
 
-<h2 style="text-align: center;" id="con4"></h2>
+    argv[argc] = NULL;
 
-<h2 style="text-align: center;" id="con5"></h2>
+    //    如果argc是0 , 说明是空白行
+    if (argc == 0) {
+        return 1;
+    }
 
-<h2 style="text-align: center;" id="con6"></h2>
+    //如果最后一个参数(倒数第二个索引位置)是 & 字符, 就将其设置为NULL, 然后返回bg=1, 因为不能够将&字符作为参数传给要执行的程序
+    if ((bg = (*argv[argc - 1] == '&')) != 0) {
+        argv[--argc] = NULL;
+    }
 
-
-
-
-
-
+    return bg;
+}
+</pre>
+<p>这个程序写好之后, 和csapp.o放在一起, 也是使用 <kbd>gcc shellex.c csapp.o -o shell -lpthread</kbd>来编译即可. 成功之后, 就得到了一个shell程序.</p>
+<p>运行的时候我加了个dir用来测试也OK. 然后这个 shell 也可以执行任意其他程序, 只要前边加上路径即可.</p>
+<p>观察main函数中, 无论前台后台, 程序都会fork然后执行, 对于myshell来讲, 只等待了前台的进程结束, 而并没有等待后台进程结束. 要如何知道无需等待的子进程结束并且收回呢? </p>
+<p>这需要使用Linux信号.</p>
 
 
 

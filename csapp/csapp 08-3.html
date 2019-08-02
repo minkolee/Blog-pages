@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>第四章笔记</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">CSAPP 第八章 信号</h1>
+
+<ol>
+    <li><a href="#con1">信号</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">信号</h2>
+<p>在进程这一节, 都在使用系统调用. 系统调用也是属于四种异常之一的陷阱. 四种异常也都是软硬件相结合的方式来进行工作的.</p>
+<p>除了软硬件相结合的异常处理可以迅速改变状态, 操作系统还提供了更高层次的纯软件的异常, 叫做Linux信号.</p>
+<p>一个信号就是一个短小的消息, 通知某个进程, 系统中发生了一个某种类型的事件, Linux有30种不同的信号. 每一个信号都对应于某种系统事件. 由于内核异常处理程序处理的异常对于用户程序来说是不可见的, 所以操作系统提供了一个软件机制, 通知用户进程发生了这些异常.</p>
+<p>比如一个进程的运算试图除以0, 在执行到除以0的指令的时候, CPU会发现异常然后按照异常表跳转到操作系统的异常处理程序. 如果异常处理程序只是默默的工作, 那我们的程序看上去好像没有问题, 然而我们的程序会中止, 这是因为操作系统给用户程序发送了一个信号, 意思就是告诉用户程序出事了.</p>
+<p>有几个术语如下:</p>
+<ol>
+    <li>发送信号. 内核通过更新目的进程的上下文中的某个状态来达成发送信号的行为. 两种原因可以导致发送信号: 1 内核检测到系统事件 2 进程调用kill函数. 一个进程可以发信号给自己, 也可以发给其他进程.</li>
+    <li>接收信号. 目的进程会被内核强迫对信号作出反应, 这也是通过更改上下文实现的, 作出反应就意味着接收信号. 进程可以选择忽略信号, 终止自己或者调用一个信号处理程序来做一些事情. 信号处理程序运行完之后, 会将控制权再交给下一条指令.</li>
+</ol>
+<p>一个发出但没有被接收的信号叫做待处理信号. 注意在任何时刻, 一种类型的信号至多只有一个, 如果再发送同类信号, 多出来的会被直接丢掉. 进程可以有选择的阻塞信号, 阻塞中的信号可以发送, 但是待处理信号不会被接收, 直到进程取消阻塞.</p>
+<p>内核为每个进程维护着一个pending位向量, 其中存储所有待处理的信号. 还维护一个blocked位向量, 其中存放所有被阻塞的信号集合. </p>
+<p>如果发送一个类型为k的信号, 内核就会设置pending中的第k位. 接收一个类型为k的信号, 内核就会清除pending的第k位.</p>
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
