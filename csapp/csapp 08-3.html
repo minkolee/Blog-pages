@@ -40,6 +40,49 @@
 <p>内核为每个进程维护着一个pending位向量, 其中存储所有待处理的信号. 还维护一个blocked位向量, 其中存放所有被阻塞的信号集合. </p>
 <p>如果发送一个类型为k的信号, 内核就会设置pending中的第k位. 接收一个类型为k的信号, 内核就会清除pending的第k位.</p>
 
+<h2 style="text-align: center;" id="con2">发送信号</h2>
+<p>有很多机制和函数可以用来发送信号. 需要先知道进程组(process group)的概念. 因为很多时候, 信号是发送到进程组而不是单一的进程.</p>
+<p>每个进程都属于一个进程组, 一个正整数id表示进程组号, getgprp函数可以用来获取当前的进程组号:</p>
+<pre>
+#include &lt;unistd.h>
+pid_t getpgrp(void);
+</pre>
+<p>还可以修改进程组号:</p>
+<pre>
+#include &lt;unistd.h>
+int setpgid(pid_t pid, pid_t pgid);
+</pre>
+<p>这个函数将进程号为pid的进程所属的进程组号改为pgid. 如果pid传入的是0, 就意味是当前进程. 如果pgid是0, 就意味着用pid当成进程组号.</p>
+<p>所以, 一个进程号是20000的进程调用  setpgid(0, 0) ,结果是当前进程的pid=20000当成一个进程组号, 然后将当前的进程的进程组号改成20000.</p>
+<p>知道了进程组, 就可以看如何发送信号了, 有如下几种方式:</p>
+<ol>
+    <li>用 /bin/kill 发送信号, 这条命令分为向单一进程发送信号和向进程组发送信号两种方式:<br>
+    <pre>
+        linux> /bin/kill -9 15213
+    </pre>
+        这条命令表示向15213进程号的进程, 发送9号信号, 也就是SIGKILL信号. <br>
+    <pre>
+        linux> /bin/kill -9 -20000
+    </pre>
+        这条命令表示向20000的进程组中所有的进程发送SIGKILL信号.
+    </li>
+
+    <li>
+        用键盘发送信号, 需要先知道作业(job)这个概念. 在任何时刻, 只有一个前台作业和0-多个后台作业. 在shell中启动程序的时候, 会为每个作业创建一个独立的进程组. 进程组ID通常取自进程组中的父进程id. <br>
+        在按下键盘<kbd>Ctrl+C</kbd>的时候, 内核会发送 SIGINT 信号到前台进程组的每一个进程, 如果进程没有对信号进程处理, 默认就是结束每个进程. <br>
+        输入<kbd>Ctrl+Z</kbd>会发送 SIGSTP 信号到前台进程中每个进程, 默认情况是挂起(停止)前台作业.
+    </li>
+
+    <li>
+        使用kill函数发送信号: <br>
+        <pre>
+        #include &lt;sys/types.h>
+        #include &lt;signal.h>
+
+
+        </pre>
+    </li>
+</ol>
 
 
 
@@ -47,7 +90,17 @@
 
 
 
-<h2 style="text-align: center;" id="con2"></h2>
+
+
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con3"></h2>
 
