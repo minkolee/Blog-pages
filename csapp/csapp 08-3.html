@@ -20,10 +20,8 @@
 <ol>
     <li><a href="#con1">信号</a></li>
     <li><a href="#con2">发送信号</a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con3">接收信号</a></li>
+    <li><a href="#con4">阻塞和解除阻塞信号</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">信号</h2>
@@ -123,23 +121,81 @@ sighandler_t signal(int signum, sighandler_t handler);
 <p>如果不传入上述的两个宏, 而是传入一个参数为 int, 返回类型为 void 的函数指针, 这个函数就会成为自定义的信号处理函数.</p>
 <p>注意, 并不是所有的信号都能设置自定义处理函数, 必须是可以被捕获和忽略的信号才可以, 系统中定义了 SIGKILL 和 SIGSTOP 这两个信号无法被捕获, 进程一定会使用默认行为而不是自定义行为.</p>
 <p>在信号处理函数执行的过程中, 还能够再接收其他信号, 此时信号处理函数是一层一层返回的, 所以的信号都处理完了并且没有错误和终止, 才会继续执行进程的下一条普通指令.</p>
+<h3>练习 8.7 编写snooze程序</h3>
+<p>首先, 需要给main函数传递一个命令行参数, 所以要把用户的输入转换成int. 之后的流程是调用sleep函数, 在接受到Ctrl+C输入的时候, 这里懵逼了半天, 看了答案才明白, 不能够直接exit(0)来终止程序, 必须捕获信号之后直接返回就可以了.</p>
+<p>因为信号会自动打断sleep函数, 执行了snooze就可以了.</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;signal.h>
+#include &lt;stdlib.h>
+#include &lt;unistd.h>
+
+int sleep_time;
+
+unsigned int snooze(unsigned int secs) {
+    unsigned int time = secs - sleep(secs);
+    printf("Slept for %u of %u secs.\n", time, secs);
+    return time;
+}
+
+void sighan(int sig){
+    return;
+}
+
+int main(int argc, char *argv[], char *envp[]) {
+    //获取参数时间并转换成int
+    char *time;
+    if (argv[1] == NULL) {
+        time = "0";
+    } else {
+        time = argv[1];
+    }
+    sleep_time = atoi(time);
+
+    //设置信号处理函数
+    signal(SIGINT, sighan);
+    //启动snooze函数, 如果未来被打断的时候, 信号处理函数不中止程序, sleep就可以返回了.
+    snooze(sleep_time);
+}
+</pre>
+<p>这道题目主要是不理解sleep的机制, 还以为信号处理函数需要去做一些什么事情. 其实不用, 只要收到信号, sleep就返回了, snooze函数就有值了. 所以处理SIGINT的方法就是什么都不做, 等待snooze函数返回即可.</p>
 
 
+<h2 style="text-align: center;" id="con4">阻塞和解除阻塞信号</h2>
+<p>阻塞是指的信号可以发送, 但不会被接收(也就是处理), 也就是信号会变成待处理信号. 待处理信号的只能保存一个.</p>
+<p>阻塞信号有两种机制:</p>
+<ol>
+    <li><strong>隐式的机制:</strong> 当一个信号处理程序正在处理一个信号的时候, 这个信号同类型的信号都被阻塞, 在信号处理完毕之前, 同类型的信号会变成pending.</li>
+    <li><strong>显示的机制:</strong> 应用程序可以使用 sigprocmask 函数和其辅助函数来明确的阻塞和解除阻塞某个信号.</li>
+</ol>
+<p>主要讨论显式机制, 这些函数有:</p>
+<pre>
+#include &lt;signal.h>
+
+int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+int sigemptyset(sigset_t *set);
+int sigfillset(sigset_t *set);
+int sigaddset(sigset_t *set, int signum);
+int sigdelset(sigset_t *set, int signum);
+int sigismember(const sigset_t *set, int signum);
+</pre>
+<p>看一下这几个函数:</p>
+<ol>
+    <li><code>sigprocmask</code>函数的第一个参数是宏定义的, SIG_BLOCK表示把 set 中的信号 添加到 blocked 位向量中. SIG_UNBLOCK 表示把set中的信号从 blocked 位向量中删除. SIG_SETMASK 是将blocked 位向量设置成 set.
+        <br>
+        如果oldset不是NULL话, 每次修改blocked位向量, 之前的位向量都会保存在oldset中.
+    </li>
+    <p>下边的几个函数都是对set进行操作:</p>
+    <li><code>sigemptyset</code>: 初始化set为空</li>
+    <li><code>sigfillset</code>: 把所有信号都添加到set中</li>
+    <li><code>sigaddset</code>: 把指定的信号添加到set中, signum 依然是宏表示的信号</li>
+    <li><code>sigdelset</code>: 把指定的信号从set中删除, 如果成功返回0, 如果出错返回-1.</li>
+    <li><code>sigismember</code>: 检测某个信号是不是set的成员, 如果是就返回1, 不是就返回0.</li>
+</ol>
+<p>set是一个sigset_t类型的指针. sigset_t这个类型被叫做信号集, 都定义在 signal.h中.</p>
+<p>信号的部分设计到并发编程, 学了理论, 就要来看一下如何实际编写信号处理程序了.</p>
 
 
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-
-<h2 style="text-align: center;" id="con6"></h2>
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
