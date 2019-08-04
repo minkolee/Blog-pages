@@ -18,7 +18,7 @@
 <h1 style="text-align: center;">CSAPP 第八章 编写信号处理程序的要点</h1>
 
 <ol>
-    <li><a href="#con1"></a></li>
+    <li><a href="#con1">安全的信号处理的原则</a></li>
     <li><a href="#con2"></a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
@@ -26,11 +26,134 @@
     <li><a href="#con6"></a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">安全的信号处理的原则</h2>
+<p>由于信号处理程序和主程序 共享同样的变量, 所以如何与主程序通信, 处理信号又不影响主程序运行, 就很重要了. 一般有如下原则:</p>
+<ol>
+    <li>处理程序尽可能简单. 简单并不是说程序要短小, 而是程序避免增加无谓的复杂度. 比如处理程序可以最终设置一个全局标志并且返回, 将处理这个全局标志的任务交给主程序. 主程序周期性的检查然后重置这个标记.</li>
+    <li>在处理程序中只调用异步信号安全的函数. Linux系统里有一些异步信号安全的函数, 这些函数有两个特点: 一是可重入(例如只访问局部变量), 二是不会被信号处理程序中断. 书的534页有所有的Linux 保证安全的系统函数.
+        <br>唯一输出安全的是系统调用函数 write, C语言中对其的包装函数 printf 和 sprintf 都是不安全的.
+    </li>
+    <li>保存和恢复errno, 上边的很多安全函数都会在出错的时候设置errno, 如果不加设置, 会改变errno 的值, 由于errno是全局变量, 因此可能导致主程序出错. 解决办法是进入信号处理函数的时候保存 errno 的值, 结束的时候再设置成原来的值.</li>
+    <li>访问共享全局数据结构的时候, 阻塞全部信号. 否则在读写的时候如果被中断, 可能会造成一系列数据结构状态异常的结果. </li>
+    <li>用volatile声明全局变量. 如果像第一条说的设置一个全局标志, 但是编译器很可能认为这个变量其实没变化, 所以一直用寄存器中的数据, 不会更新. 使用volatile声明之后, 每次都会重读该变量的内存中值. <br>
+    对于这个全局标记本身, 也需要在访问的时候阻塞全部信号, 以保证一致性.</li>
+    <li>用 sig_atomic_t 声明第四条中提到的标志. 这个整型数据类型可以保证读和写是原子的. 结合第四条, 用一条语句来声明: <code>volatile sig_automic_t flag;</code> <br>
+    这个读和写指的是 直接设置 flag=常量, 如果是需要计算的语句比如 flag++ 或者 flag = flag + a, 都无法保证原子操作.</li>
+</ol>
 
-<h2 style="text-align: center;" id="con2"></h2>
 
-<h2 style="text-align: center;" id="con3"></h2>
+<h2 style="text-align: center;" id="con2">正确的信号处理</h2>
+<p>未处理的信号不会排队, 只有一个, 所以不能用信号来计数. 关键是要理解, 只要接收到一个信号, 就说明引起该信号的事件, 至少发生了一次, 因此应该针对这批事件进行处理, 否则便可能产生遗漏.</p>
+<p>这个时候就可以来解决之前自己编写的bash程序的问题了: 即对于后台的进程没有进行任何跟踪(否则就变成前台进程了), 在其结束的时候也没有回收.</p>
+<p>先来追踪一下 537 页上的程序:</p>
+<pre>
+#include &lt;errno.h>
+#include &lt;signal.h>
+#include &lt;wait.h>
+#include &lt;unistd.h>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+
+#define MAXBUF 128
+
+//信号处理函数
+void handler1(int sig){
+    //保存原来的全局变量 errno
+    int olderrno = errno;
+    //回收一个进程
+    if ((waitpid(-1, NULL, 0)) < 0) {
+        sio_error("waitpid error");
+    }
+    //调用异步安全函数
+    Sio_puts("Handler reaped child\n");
+    Sleep(1);
+    //恢复 errno
+    errno = olderrno;
+}
+
+int main(){
+    int i, n;
+    char buf[MAXBUF];
+    //只要有一个子进程终止, 内核就会发送SIGCHLD信号给父进程, 所以给这个信号设置处理函数
+    if (signal(SIGCHLD, handler1) == SIG_ERR) {
+        unix_error("signal error");
+    }
+    //启动三个子进程, 每个显示自己的进程号
+    for (i = 0; i < 3; i++) {
+        if(Fork()==0){
+            printf("Hello from child %d\n", (int) getpid());
+            exit(0);
+        }
+    }
+
+    //等待输入
+    if ((n = read(STDIN_FILENO, buf, sizeof(buf))) < 0) {
+        unix_error("read");
+    }
+    printf("Parent processing input\n");
+    //无限循环
+    while(1) {}
+    exit(0);
+
+}
+</pre>
+<p>运行这个程序, 可以发现输出如下:</p>
+<pre>
+Hello from child 1508
+Handler reaped child
+Hello from child 1509
+Hello from child 1510
+Handler reaped child
+</pre>
+<p>由于之后是无限循环, 这里可以按 <kbd>Ctrl+Z</kbd> 来挂起进程, 然后可以输入 ps 查看进程:</p>
+<pre>
+   PID TTY          TIME CMD
+  1418 pts/0    00:00:00 bash
+  1507 pts/0    00:00:00 singall
+  1510 pts/0    00:00:00 singall &lt;defunct>
+  1511 pts/0    00:00:00 ps
+</pre>
+<p>可以看到有1508, 1509, 1510三个进程被创建(发送了Hello from), 然后显示回收了两个. 通过ps命令可以看到, 回收的是1508和1509, 1510进程被系统标记 defunct ,表示是一个结束的僵死进程.</p>
+<p>这个问题就在于, 三个进程几乎是同一个时间结束, 在处理第一个结束信号的时候, 另外两个的信号也同时到达, 但是只有一个留在 pending 中, 所以等当前处理完之后, 再处理一次就结束了. 每一个信号处理的时候, 只回收一个进程, 结果3个进程只回收了2个.</p>
+<p>要如何修改, 其实很简单, 之前说过, 收到信号说明此类型的事情发生了, 所以至少要处理一批事件. 所以将信号处理函数改成回收所有子进程的循环即可:</p>
+<pre>
+void handler2(int sig){
+    //保存原来的全局变量 errno
+    int olderrno = errno;
+
+    //循环回收当前的所有子进程
+        while((waitpid(-1, NULL, 0)) >0){
+        Sio_puts("Handler reaped child\n");
+    }
+
+    //检测是不是有错误
+    if (errno != ECHILD) {
+        Sio_error("waitpid error");
+    }
+
+    Sleep(1);
+    //恢复 errno
+    errno = olderrno;
+}
+</pre>
+<p>改用循环之后, 只要收到信号, 就去循环一次, 这里也可以使用 WNOHANG, 如果没有进程停止就休息一下. 这里还可以让子进程运行的时间更长一点, 然后只要结束一次, 就会去回收一次.</p>
+<h3>练习 8.8 程序的输出是什么</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con3">可移植的信号处理</h2>
 
 <h2 style="text-align: center;" id="con4"></h2>
 
