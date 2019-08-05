@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>第四章笔记</title>
+    <title>第八章笔记</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -19,11 +19,11 @@
 
 <ol>
     <li><a href="#con1">安全的信号处理的原则</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">正确的信号处理</a></li>
+    <li><a href="#con3">可移植的信号处理</a></li>
+    <li><a href="#con4">信号处理中的同步问题</a></li>
+    <li><a href="#con5">显式的等待信号</a></li>
+    <li><a href="#con6">非本地跳转</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">安全的信号处理的原则</h2>
@@ -138,43 +138,418 @@ void handler2(int sig){
 </pre>
 <p>改用循环之后, 只要收到信号, 就去循环一次, 这里也可以使用 WNOHANG, 如果没有进程停止就休息一下. 这里还可以让子进程运行的时间更长一点, 然后只要结束一次, 就会去回收一次.</p>
 <h3>练习 8.8 程序的输出是什么</h3>
+<p>分析一下这个程序:</p>
+<pre>
+#include &lt;signal.h>
+#include &lt;stdlib.h>
+#include &lt;stdio.h>
+#include &lt;unistd.h>
+//用volatile设置的变量, 很可能就是全局标记
+volatile long counter = 2;
 
+//处理信号的函数
+void handler1(int sig){
+    //设置了两个信号集, 当前的是mask, 之前的是prev_mask
+    sigset_t mask, prev_mask;
 
+    //填充所有的信号到信号集中
+    Sigfillset(&mask);
+    //把信号集中的信号添加到blocked位向量中, 这么操作之后, 阻塞全部信号
+    Sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+    //输出减少后的counter
+    Sio_putl(--counter);
+    //恢复原来的blocked位向量
+    Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+    //直接退出程序, _exit函数不关闭任何文件，不清除任何缓冲器、也不调用任何终止函数
+    _exit(0);
+}
 
+int main(){
+    //进程号变量
+    pid_t pid;
+    //信号集变量
+    sigset_t mask, prev_mask;
 
+    //打印counter计数器, 刷新输出, 此时应该是2
+    printf("%ld", counter);
+    fflush(stdout);
+    //设置信号SIGUSR1(是用户定义的信号1)的处理函数是handler1
+    signal(SIGUSR1, handler1);
 
+    //分出来一个子进程, 子进程会无限循环. 父进程继续执行下边命令
+    if ((pid = Fork()) == 0) {
+        while(1) {
+        }
+    }
 
+    //向刚刚的子进程发送SIGUSR1信号
+    Kill(pid, SIGUSR1);
 
+    //在发送之后, 子进程会调用信号处理程序, 信号处理程序会立刻屏蔽所有信号, 然后输出--counter = 1, 再恢复之后退出.
 
+    //父进程等待所有子进程结束, 上边的子进程在处理完信号之后会退出,这里会等待
+    Waitpid(-1, NULL, 0);
 
+    //又重复设置阻塞全部信号
+    Sigfillset(&mask);
+    Sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+    //输出3, 注意这里的counter 是父进程自己的counter, 不是子进程的counter!
+    printf("%ld", ++counter);
+    Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
 
+    exit(0);
+}
+//最后的输出是213
 
-
-
-
+</pre>
+<p>通过分析之后, 可以发现输出的是213, 注意volatile是进程内的标志位, 父进程和子进程的volatile变量依然是独立的. </p>
 
 <h2 style="text-align: center;" id="con3">可移植的信号处理</h2>
+<p>信号处理在不同的系统上有不同的默认行为, 主要的区别在于:</p>
+<ol>
+    <li>signal函数的语义不同, 有些系统在调用一次信号处理程序之后, 就会把信号处理行为恢复成默认, 因此必须再调用一次signal函数.</li>
+    <li>系统调用可以被中断, 前边一些安全的系统函数中的read ,write之类, 会阻塞进程一段时间. 在调用这些函数的时候, 如果发生信号, 这些函数会被中断, 在信号处理完毕的时候, 也不会再继续, 而是设置errno=EINTR,
+    如果想要继续, 必须手工重启这些函数.</li>
+</ol>
+<p>后来Posix标准定义了 sigaction 函数, 允许设置信号的时候指定信号处理语义:</p>
+<pre>
+#include &lt;signal.h>
 
-<h2 style="text-align: center;" id="con4"></h2>
+int sigaction(int signum, struct sigaction *act, struct sigaction *oldact);
+</pre>
+<p>这个函数需要定义一个行为的结构, 比较麻烦, 一般都是封装了一个函数使用, CSAPP中封好了这个函数. 这个函数的作用是:</p>
+<ol>
+    <li>阻塞与当前信号程序处理的相同类型的信号</li>
+    <li>被中断的系统调用重新启动</li>
+    <li>一旦设置就会一直存在, 直到被SIG_IGN或者SIG_DFL调用.</li>
+</ol>
 
-<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con4">信号处理中的同步问题</h2>
+<p>信号处理程序由于也会和主程序是并发运行的, 只要并发程序, 都会涉及到同步的问题. 如果将程序看做一个一个指令的流, 这些流被操作系统其实是交错执行的, 而不是真的并发执行.</p>
+<p>交错的执行造成的结果就是, 有些语句无论顺序和执行与否, 不会对最终结果产生影响, 而有些语句的先后执行顺序和执行与否, 直接会导致程序是否会产生正确的结果.</p>
+<p>因此对于并发程序来说, 基本的工作是决定何时同步, 以保证并行的流可以不出错.</p>
+<p>在一个程序中, 如果有了信号处理函数, 信号处理函数和主函数的流就会交错, 此时就可能发生错误:</p>
+<pre>
+#include &lt;signal.h>
+#include &lt;stdlib.h>
+#include &lt;stdio.h>
+#include &lt;unistd.h>
 
-<h2 style="text-align: center;" id="con6"></h2>
+void hanlder(int sig) {
+    int olderrno = errno;
+    sigset_t mask_all, prev_all;
+    pid_t pid;
+
+    //设置信号集为全部信号
+    Sigfillset(&mask_all);
+    //不断等待子进程的结束
+    while ((pid = wait(-1, NULL, 0)) > 0) {
+        //阻止全部信号
+        Sigprocmask(SIG_BLOCK, &mask_all, &prev_all);
+        //删除任务
+        deletejob(pid);
+        //恢复信号
+        Sigprocmask(SIG_SETMASK, &prev_all, NULL);
+    }
+    //判断errno和恢复errno
+    if (errno != ECHILD) {
+        Sio_error("waitpid error");
+    }
+    errno = olderrno;
+}
+
+int main(int argc, char **argv){
+    int pid;
+    sigset_t mask_all, prev_all;
+
+    //设置信号集为全部信号
+    Sigfillset(&mask_all);
+    //装载信号处理函数
+    Signal(SIGCHLD, handler);
+    //初始化任务列表
+    initjobs();
+
+    //不断开启子进程
+    while(1){
+        //子进程去执行程序
+        if ((pid = Fork()) == 0) {
+            Execve("/bin/date", argv, NULL);
+        }
+        //父进程将子进程的pid添加进addjob
+        Sigprocmask(SIG_BLOCK, &mask_all, &prev_all);
+        addjob(pid);
+        Sigprocmask(SIG_SETMASK, &prev_all, NULL);
+    }
+
+    exit(0);
+}
+</pre>
+<p>分析一段程序有没有并发错误, 需要将自己意图让程序执行的流程, 与程序并发时可能的各种情况进行对比. 特别是分布在并发程序中, 又必须按步骤执行的代码, 特别容易出现并发错误.</p>
+<p>上边这段程序, 意图执行的顺序是 主进程fork->子进程执行date程序->将子进程加入到任务列表->子进程停止的时候发送信号->主进程信号处理程序删除任务.</p>
+<p>问题在于, 信号处理程序和主进程是并发执行的, 是不是addjob一定会在deletejob之前发生呢? 也就是说,主进程执行到addjob()这一行是不是一定在信号发送之前?</p>
+<p>画出拓扑图有助于分析:</p>
+<img src="http://img.conyli.cc/blogs/signal.jpg" alt="分析图">
+<p>可以看到, 拓扑图中间并行的部分无法保证执行顺序, 即addjob和deletejob可能会产生冲突.</p>
+<p>如何解决这个问题, 观察拓扑图, 要保证addjob一定在deletejob之前执行, 只要把拓扑图改成addjob一定在分支之前就可以了, 那么也就是可以在Fork()之前阻塞所有子进程信号, 直到addjob之后再解除阻塞, 这样创建子进程之后, 即使有子进程结束了, 主进程也一定会将其添加到addjob中, 之后收到信号再逐个删除已经结束的子进程.</p>
+<p>这里还有一个问题就是, 子进程在Fork之后会继承父进程的信号阻塞情况, 因此还必须解除掉才行.修改后的程序如下:</p>
+<pre>
+int main(int argc, char **argv){
+    int pid;
+    sigset_t mask_all, mask_one, prev_one;
+
+    //设置父进程信号集为全部信号
+    Sigfillset(&mask_all);
+
+    //设置子进程的信号集为SIGCHLD
+    Sigemptyset(&mask_one);
+    Sigaddset(&mask_one, SIGCHLD);
+
+    //装载信号处理函数
+    Signal(SIGCHLD, handler);
+    //初始化任务列表
+    initjobs();
+
+    //不断开启子进程
+    while(1){
+        //阻塞CHLD信号, 注意这里是阻塞父进程的信号
+        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
+
+        //启动子进程执行程序, 子进程此时也处于阻塞CHLD信号的状态
+        if ((pid = Fork()) == 0) {
+            //解除子进程的CHLD信号阻塞
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+            //执行程序
+            Execve("/bin/date", argv, NULL);
+        }
+        //父进程从只阻塞CHLD到阻塞全部信号
+        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+        //直到addjob执行之前, CHLD都被阻塞
+        addjob(pid);
+        //接触阻塞
+        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+    }
+
+    exit(0);
+}
+</pre>
+<p>此时的拓扑图如下:</p>
+<img src="http://img.conyli.cc/blogs/signal2.jpg" alt="同步图">
+<p>可以看到, 解除阻塞信号之后, deletejob才会运行, 而在解除阻塞之前, addjob运行了. 这就让addjob永远运行在deletejob之前, 因为在进入子进程前就阻塞了CHLD信号, 子进程即使运行完毕, 主进程也会先调用addjob, 再处理信号.</p>
+
+<h2 style="text-align: center;" id="con5">显式的等待信号</h2>
+<p>比如Bash, 运行了一条命令, 就会等待作业终止, 被SIGCHLD信号处理程序回收. 来看一下如何写一个这种程序:</p>
+<pre>
+#include &lt;signal.h>
+#include &lt;stdlib.h>
+#include &lt;stdio.h>
+#include &lt;unistd.h>
+
+volatile sig_atomic_t pid;
 
 
+void sigchld_handler(int s){
+    int olderrno = errno;
+    pid = waitpid(-1, NULL, 0);
+    errno = olderrno;
+}
 
+void sigint_handler(int s){
 
+}
 
+int main(int argc, char **argv){
 
+    sigset_t mask, prev;
+    //设置SIGCHLD和SIGINT的信号处理函数
+    Signal(SIGCHLD, sigchld_handler);
+    Signal(SIGINT, sigint_handler);
+    //将mask清空, 然后只加入SIGCHLD
+    Sigemptyset(&mask);
+    Sigaddset(&mask, SIGCHLD);
 
+    while(1){
+        //像上一节那样, 先阻塞信号, 再fork新进程
+        Sigprocmask(SIG_BLOCK, &mask, &prev);
 
+        if (Fork() == 0) {
+            //这里是子进程的执行的代码, 可以执行各种任务, 这里简单退出了
+            exit(0);
+        }
 
+        //下边都是父进程的代码
+        pid = 0
+        //恢复之前的信号状态, 这样就可以调用信号处理函数了.
+        Sigprocmask(SIG_SETMASK, &prev, NULL);
 
+        //反复等待pid不为0, 信号处理函数会让pid不为0, 这样程序就可以继续下去
+        while (!pid) {
+            ;
+        }
+        printf("child process has ended.\n");
+    }
 
+    exit(0);
+}
+</pre>
+<p>这个程序的逻辑比较简单, 每一次开启一个新子进程的时候, 如果子进程还没有返回, 全局标志pid就是0, 此时主进程会一直循环等待, 只有子进程结束, 收到信号的时候, 信号处理程序会修改全局变量pid, 这样父进程就可以开始下一次执行任务.</p>
+<p>在分支之前, 采用了上一节的技巧, 就是先阻塞CHLD信号, 重新设置好pid=0之后, 再取消阻塞CHLD信号.</p>
+<p>这段代码的逻辑和同步方面是没有问题的. 程序的问题在于通过循环等待pid不为0的开销太大, 应该让主进程在等待子进程的过程中挂起就好了. 于是想到可不可以在while(!pid)中使用pause()函数.</p>
+<p>答案是不能, 因为测试判断条件到进入pause()之间不是连续的, 如果先判断了pid不为0, 然后进入循环体, 但是还没有执行pause()之前, 就收到了信号, 之后pid就不为0了. 然后就没有任何信号了, pause()函数会一直停止下去.</p>
+<p>换成不等待信号, 只是挂起一会的sleep可以, 但是时间无法有效的控制. 这里需要使用一个函数 sigsuspend, 定义在 signal.h 中:</p>
+<pre>
+#include &lt;signal.h>
 
+int sigsuspend(const sigset_t *mask);
+</pre>
+<p>这个函数的参数是一个信号集mask, 函数的作用是用这个mask替换当前的阻塞集合, 然后挂起进程, 直到进程收到信号. 如果这个信号有对应的处理程序, sigsuspend 会在信号处理完毕之后恢复原来的阻塞集合. 如果信号导致程序终止, sigsupend就不返回了, 因为程序已经终止了.</p>
+<p>实际上这个函数相当于原子操作(一次性执行完毕)如下指令:</p>
+<pre>
+sigprocmask(SIG_SETMASK, &mask, &prev);
+pause()
+sigprocmask(SIG_SETMASK, &prev, NULL);
+</pre>
+<p>在第一行和第二行之间是连续操作的, 不会允许其他函数执行, 所以就没有了竞争. 利用这个函数可以修改原来的程序如下:</p>
+<pre>
+int main(int argc, char **argv){
 
+    sigset_t mask, prev;
+    //设置SIGCHLD和SIGINT的信号处理函数
+    Signal(SIGCHLD, sigchld_handler);
+    Signal(SIGINT, sigint_handler);
+    //将mask清空, 然后只加入SIGCHLD
+    Sigemptyset(&mask);
+    Sigaddset(&mask, SIGCHLD);
 
+    while(1){
+        //像上一节那样, 先阻塞信号, 再fork新进程
+        Sigprocmask(SIG_BLOCK, &mask, &prev);
 
+        if (Fork() == 0) {
+            exit(0);
+        }
+
+        //下边都是父进程的代码
+        pid = 0;
+
+        //反复等待pid不为0, 直接利用只包含SIGCHLD信号的mask信号集
+        //调用 sigsuspend 已经表示只阻塞SIGCHLD信号了, 所以就不用先恢复全部信号状态, 等子进程结束之后再恢复就可以了.
+        while (!pid) {
+            <span style="color: red">sigsuspend(&mask);</span>
+        }
+
+        //恢复之前的信号状态
+        Sigprocmask(SIG_SETMASK, &prev, NULL);
+
+        printf(".");
+    }
+
+    exit(0);
+}
+</pre>
+
+<h2 style="text-align: center;" id="con6">非本地跳转</h2>
+<p>语言中的try catch是如何实现的, 其实底层都是通过C语言的setjmp和longjmp函数来实现的, 这是纯粹的软件控制流, 成为非本地跳转.</p>
+<p>如果一个函数套一个函数执行了很深了, 发现了一个错误, 得到一个错误码, 要一层一层解开调用栈, 把错误返回回去. 现在有这么一种机制, 就是在进入执行函数之前, 先通过 setjmp 保存了当前的环境. 在很深的地方发现错误的时候, 调用一个 longjmp 函数. longjmp函数会将最近调用的 setjmp 函数的环境恢复, 然后让setjmp函数返回一个值, 这个值就是错误码. 这样就实现了异常处理.</p>
+<p>先来看setjmp函数:</p>
+<pre>
+#include &lt;setjmp.h>
+
+int setjmp(jmp_buf env);
+int sigsetjmp(sigjmp_buf env, int savesigs);
+</pre>
+<p> setjmp 被第一次调用时, 会在参数env中保存当前的调用环境, 包括PC, 栈, 寄存器值等, 然后返回0. <span style="color: red">setjmp的值不能够赋给变量</span>, 但可以通过switch来操作.</p>
+<p>之后是 longjmp 函数:</p>
+<pre>
+#include &lt;setjmp.h>
+
+void longjmp(jmp_buf env, int retval);
+void siglongjmp(sigjmp_buf env, int retval);
+</pre>
+<p>longjmp 函数的第二个参数, 不是给自己用的, 而是会让 setjmp 函数此时返回 retval 这个值. longjmp 函数执行的结果就好像是跳跃到 setjmp 最后一次执行的位置, 然后让 setjmp 函数重新有了一个返回值. 这个retval不能是0.</p>
+<p>来看一个例子:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;setjmp.h>
+#include &lt;stdlib.h>
+#include &lt;unistd.h>
+
+jum_buf buf;
+
+int error1 = 0;
+int error2 = 1;
+
+void foo(void);
+
+void bar(void);
+
+int main(){
+    //第一次调用的时候返回0
+    switch (setjmp(buf)) {
+        case 0:
+            foo();
+            break;
+        case 1:
+            printf("Detected an error1 condition in foo\n");
+            break;
+        case 2:
+            printf("Detected an error2 condition in foo\n");
+            break;
+        default:
+            printf("Unknown error condition in foo\n");
+    }
+    exit(0);
+}
+
+void foo(void){
+    if (error1) {
+        longjmp(buf, 1);
+    }
+    bar();
+}
+
+void bar(void){
+    if (error2) {
+        longjmp(buf, 2);
+    }
+}
+</pre>
+<p>这段代码里, 在第一次调用 setjmp 的时候, 会返回0. 因此语句执行foo(), foo()中会调用bar(). 如果foo()中发生错误, longjmp 会跳到setjmp的地方, 同时让其返回1. 而main函数就好像从调用setjmp的时点继续向下执行, 这一次测试的结果就变成了1, 于是就显示foo()中发生了错误.</p>
+<p>对于bar()中出错也是类似的. 这里关键要理解, longjmp 跳回去的时候, 就好像程序从setjmp又开始执行一样, 唯一不同的是setjmp这次返回了不同的值.</p>
+<p>longjmp的缺点是可能会产生内存泄露, 比如没有回收分配的内存.</p>
+<p>对于信号处理, 则提供了setjmp和longjmp的信号版本, 这两个版本指的是可以被信号处理程序调用的版本.</p>
+<pre>
+#include &lt;setjmp.h>
+#include &lt;signal.h>
+#include &lt;csapp.h>
+
+sigjmp_buf buf;
+
+void handler(int sig){
+    //跳回到sigsetjmp的位置
+    siglongjmp(buf, 1);
+}
+
+int main(){
+    //在这里调用sigsetjmp来保存状态
+    //第一次调用, 返回0, 会设置信号处理函数, 这样保证了先设置 setjmp, 之后才可能会有 longjmp, 否则会出问题
+    if (!sigsetjmp(buf, 1)) {
+        Signal(SIGINT, handler);
+        Sio_puts("Starting ... \n");
+    //longjmp之后, sigsetjmp不会返回0, 就执行这个分支
+    } else {
+        Sio_puts("Restarting ... \n");
+    }
+
+    while(1){
+        Sleep(1);
+        Sio_puts("Processing ... \n");
+    }
+    exit(0);
+}
+</pre>
+<p>由于 sigsetjmp 和 siglongjmp 都不是安全的函数, 所以要在其内部只调用安全的函数. 像在 sigsetjmp 中调用了安全的Signal和Sio_puts, 在 siglongjmp 跳转的代码中执行了Sio_puts. sleep也是安全的.</p>
+<p>异常控制流终于看完了, 虽然原理好理解, 但是感觉写起来由于和操作系统交互很多, 只能先了解一下理论了, 不了解Linux内核, 肯定也难以编写出来</p>
+<p>linux下有一些工具可以用来监控和操作进程, 比如 STRACE, PS, TOP, PMAP, /proc 等.</p>
 
 
 
