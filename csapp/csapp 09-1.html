@@ -12,6 +12,10 @@
             margin-left: 20px;
             margin-right: 20px;
         }
+        ol, ul {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
     </style>
 </head>
 <body>
@@ -25,6 +29,7 @@
     <li><a href="#con5">地址翻译机制</a></li>
     <li><a href="#con6">多级页表</a></li>
     <li><a href="#con7">地址翻译示例</a></li>
+    <li><a href="#con8">地址翻译示例</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">地址</h2>
@@ -270,10 +275,84 @@
     <li>返回数据给CPU</li>
 </ol>
 <h3>练习9.4 继续翻译其他地址</h3>
+<p>虚拟地址是0x03d7. </p>
+<ol>
+    <li>A 虚拟地址14位是 00 0011 1101 0111</li>
+    <li>B 地址翻译:
+    <table>
+        <thead>
+        <tr>
+            <th>参数</th>
+            <th>值</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>VPN 虚拟页号</td>
+            <td>0000 1111 = 0xF</td>
+        </tr>
+        <tr>
+            <td>TLB索引</td>
+            <td>11 = 0x3</td>
+        </tr>
+        <tr>
+            <td>TLB标记</td>
+            <td>000011 = 0x3</td>
+        </tr>
+        <tr>
+            <td>TLB命中?(是/否)</td>
+            <td>命中, 组3标记3的位置存在数据0D</td>
+        </tr>
+        <tr>
+            <td>缺页?(是/否)</td>
+            <td>物理页号是0D, 页表中存在索引是0F的条目对应0D, 所以不缺页</td>
+        </tr>
+        <tr>
+            <td>PPN</td>
+            <td>0D</td>
+        </tr>
+        </tbody>
+    </table></li>
+    <li>物理地址是 0011 0101 0111</li>
+    <li>
+        <table>
+            <thead>
+            <tr>
+                <th>参数</th>
+                <th>值</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>字节偏移</td>
+                <td>11 = 0x3</td>
+            </tr>
+            <tr>
+                <td>缓存组索引</td>
+                <td>0x5</td>
+            </tr>
+            <tr>
+                <td>缓存标记</td>
+                <td>001101 = 0xd</td>
+            </tr>
+            <tr>
+                <td>缓存命中?(是/否)</td>
+                <td>是</td>
+            </tr>
+            <tr>
+                <td>返回的缓存字节</td>
+                <td>0x1D</td>
+            </tr>
+            </tbody>
+        </table>
+    </li>
+</ol>
+<p>之后的Intel Haswell i7的内存控制机制和之前基本上是一样的, 目前支持48位的虚拟地址和52位的物理地址空间, 页大小可以在启动的时候被配置成4KB或者4MB. Linux使用4KB的页.</p>
+<p>i7采用4级页表, 高速缓存是物理寻址, TLB是虚拟内存寻址. 每级页表的中的PTE长度都是64个字节.</p>
 
-
-
-
+<h2 style="text-align: center;" id="con8">Linux虚拟内存系统</h2>
+<p>现在可以再来看一下内存结构图了. 通过这一章可以知道, 以前说的程序段从0x40000000开始, 还有链接中的那些地址, 其实都是虚拟内存地址.在栈底往上的部分, 是内核虚拟地址.</p>
+<p>对于每个进程来说, 内核虚拟地址中的一部分是被映射到共享的物理页面, 其中存放着内核的一些系统调用函数的代码和共享的数据结构. 另外一部分则是每个进程都不相同, 记录着内核针对这个进程的栈, 进程的页表, 以及记录虚拟地址空间的各种数据结构.</p>
 
 
 
