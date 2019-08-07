@@ -23,26 +23,153 @@
 
 <ol>
     <li><a href="#con1">内存映射</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">共享对象与fork execve 函数的本质</a></li>
+    <li><a href="#con3">较低层次的分配内存函数 - mmap函数和munmap函数</a></li>
+    <li><a href="#con4">动态内存分配</a></li>
+    <li><a href="#con5">mmap sbrk 和malloc的关系</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">内存映射</h2>
-<p>内存映射就是把磁盘上的一个区域和一个虚拟内存页关联起来</p>
+<p>在这里说的虚拟内存区域, 就是通常意义上的一片虚拟内存的意思.</p>
+<p>内存映射就是把磁盘上的一个对象和一个虚拟内存页关联起来. 这个对象究竟是什么呢, 根据其内容, 有两种:</p>
+<ol>
+    <li>一个普通磁盘文件的连续部分, 也就是说一个文件可以映射到虚拟内存的一个区域(或者一个页的一部分,或者多个页). 文件会被分成页大小的片, 每一片包含一个虚拟页面的初始内容. 第一次引用页面的时候, 才会读取这些内容. 如果区域比文件大, 剩余的地方用0填充</li>
+    <li>匿名文件, 所谓匿名文件, 就是内核用二进制0填充的虚拟页面. 注意这个页面和未使用的虚拟内存不同, 是存在于内存中的.</li>
+</ol>
+<p>一旦虚拟页面被初始化, 操作系统就会在硬盘上维护一个交换文件, 所有的东西都会通过这个文件换来换去. 这个交换文件也叫做交换空间或者交换区域. 交换空间的大小实际上限制了当前进程同时能够分配的虚拟页面总数. </p>
+<p>所以现在就可以知道windows 下创建的虚拟内存交换文件是什么意思, 这其中就是全部的虚拟内存能同时分配的总大小.</p>
+
+<h2 style="text-align: center;" id="con2">共享对象与fork execve 函数的本质</h2>
+<p>在之前已经知道, 虚拟内存可以将很多进程的不同地址映射到同一个物理地址, 这就是共享对象的原理. </p>
+<p>在之前我们已经知道了有两种对象, 那么将对象映射到属于一个进程的私有区域, 这个对象就是私有对象. 将这个对象映射到共享区域, 就是共享对象.</p>
+<p>不同进程之间互相共享的对象, 一个进程去写, 也会影响其他进程, 也会影响到磁盘上的内容. 而对于私有对象的改变, 其他进程是不知道的.</p>
+<p>在确定一个新进程要使用的内容是不是属于共享的时候, 是由内核根据名称判断的, 如果共享, 就会把新进程的页表条目也指向相应的物理页面.</p>
+<p>而私有对象, 是采用了一种巧妙的技术, 叫做写时复制. 即一开始的时候两个进程也会共享同一个区域, 但是在进程的页表条目中会标记这个区域属于写时复制.</p>
+<p>只要进程不写, 就继续共享, 一旦一个进程写了, 就会将这个区域复制到一个新的内存区域中, 然后更新这个进程的页表指向新的区域, 并且取消写时复制, 这样这个进程的对象就成为了私有对象.</p>
+<p>写时复制的好处是将确实需要新内存空间的时机延迟到了最后. 毕竟内存再大, 相比硬盘上存储的数据量, 都是稀缺资源啊.</p>
+<p><code>fork</code>函数的机制此时就进一步明晰了. 上边写了无数次判断父子进程的函数中, 在执行fork函数的瞬间, 内核为新进程创建各种数据结构, 分配PID, 然后创建虚拟内存, 除了操作系统内核共享的那片区域之外, 属于进程的区域, 都会被操作系统打上私有写时复制的标签.</p>
+<p>之后内核会设置fork函数的返回值, 在返回的那一瞬间之前, 两个进程是完全一样的, 连进程区域的内存也是共享的. 然而一旦返回, 用于接收fork函数返回值的那块区域, 就会被写时复制成两个进程私有的内容. 我们在父进程中通过变量获取子进程的ID, 子进程中获取0, 这两个数字此时已经是写时复制之后, 分属于两个不同的进程了.</p>
+<p>之后随着两个进程各自执行, 遇到写, 就会又分出来一个写时复制, 不断更多. 而两个程序都读的部分, 始终都指向同一个副本.</p>
+<p>execve 加载的过程如下:</p>
+<ol>
+    <li>execve本身已经运行在一个进程中, 会删除当前进程的所有用户区域</li>
+    <li>为新程序的代码, 数据, bss和栈创建虚拟内存映射, 新区域都是私有, 写时复制的.</li>
+    <li>如果程序链接共享库, 将共享库加载到内存(或者已经存在与内存中), 将虚拟内存中的共享库部分映射到共享库内存中.</li>
+    <li>设置新程序的程序计数器指向程序入口点</li>
+    <li>控制权移交给调度器, 调度器下一次调度这个进程的时候, 程序就会从程序入口开始执行</li>
+</ol>
+<p>这其中就涉及到不同的对象, 虚拟内存中的 共享区域, 代码区, 初始化的数据区域, 都是有内容的, 所以会映射到文件. 而栈区, 堆区, 未初始化的变量区域(bss), 都会映射到匿名文件, 即二进制0, 这也是为什么全局变量和局部static 变量即使不初始化, 初始值也是0的原因, 因为其都在bss段中, 这个段在新进程中映射的是匿名文件. </p>
 
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con3">分配虚拟内存 - mmap函数和munmap函数</h2>
+<p>进程可以使用系统函数 mmap 来创建新的虚拟内存区域, 将对象映射到这个区域内:</p>
+<pre>
+#include &lt;unistd.h>
+#include &lt;sys/mman.h>
 
-<h2 style="text-align: center;" id="con3"></h2>
+void *mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset);
+</pre>
+<ol>
+    <li><code>start</code>表示从哪里开始, 通常定义为NULL. 实际由系统分配.</li>
+    <li><code>length</code>表示分配的区域的长度, 以字节为单位.</li>
+    <li><code>prot</code>是新分配的这片区域的访问权限位, 以一个int类型来表示, 就是之前内存图中的vm_prot位, 包括如下的宏定义: PROT_EXEC-指令区域, PROT_READ - 可读区域, PROT_WRITE - 页面可写, PROT_NONE - 页面不能被访问.</li>
+    <li><code>flags</code>表示要被映射到这块区域中的对象的类型, 可以设置为如下宏定义: MAP_ANON - 匿名对象, MAP_PRIVATE - 私有写时复制, MAP_SHARED - 共享对象. 可以用或操作符连接宏.</li>
+    <li><code>fd</code>, 文件描述符, 对应指定的磁盘文件.</li>
+    <li><code>offset</code>, 表示偏移量, 从start开始的多少偏移量处开始分配内存.</li>
+</ol>
+<p>mmap函数成功的时候返回指针, 出错会返回一个定义的宏MAP_FAILED, 其实就是-1.</p>
+<p>这个函数的返回值是指向分配区域地址的通用指针. 针对这个指针, 可以使用munmap函数来删除分配的虚拟内存:</p>
+<pre>
+#include &lt;unistd.h>
+#include &lt;sys/mman.h>
 
-<h2 style="text-align: center;" id="con4"></h2>
+int munmap(void *start, size_t length);
+</pre>
+<p>munmap函数成功会返回0, 不成功会返回-1. 对于删除的空间再访问, 就会发生segment fault.</p>
+<h3>练习 9.5 编写一个C程序 mmacopy.c, 将任意大小的磁盘文件复制到stdout, 文件名用命令行参数来传递:</h3>
+<p>思路, 首先通过命令行参数来获取文件名, 然后从打开这个文件的文件描述符, 这个过程中都要做错误检测.</p>
+<p>成功打开文件之后, 根据文件的长度和文件描述符来调用mmap函数即可. 然后将指针转换成char类型指针, 用系统函数来打印.</p>
+<pre>
+#include &lt;unistd.h>
+#include &lt;sys/mman.h>
+#include &lt;stdio.h>
+#include &lt;sys/stat.h>
+#include &lt;fcntl.h>
+#include &lt;stdlib.h>
 
-<h2 style="text-align: center;" id="con5"></h2>
+void *mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset);
+unsigned long get_file_size(const char *path);
 
-<h2 style="text-align: center;" id="con6"></h2>
+int main(int argc, char *argv[]){
+    if (argv[1] == NULL) {
+        printf("Must have a filename.\n");
+        exit(0);
+    }
+    //使用系统函数获取文件描述符
+    int fd = open(argv[1], O_RDONLY);
+
+    //判断是否打开文件
+    if (fd == -1) {
+        printf("Cannot find the file.\n");
+        exit(0);
+    }
+
+    //使用fstat函数从文件状态中读出文件长度
+    size_t len = get_file_size(argv[1]);
+
+    //调用mmap函数
+    void *pointer = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+
+    //打印到stdout
+    write(1, (char *) pointer, len);
+
+    //删除分配的空间
+    munmap(pointer, len);
+}
+
+//通过fstat读取文件属性, 获取文件长度
+unsigned long get_file_size(const char *path)
+{
+    unsigned long filesize = -1;
+    struct stat statbuff;
+    if(stat(path, &statbuff) < 0){
+        return filesize;
+    }else{
+        filesize = statbuff.st_size;
+    }
+    return filesize;
+}
+</pre>
+
+<h2 style="text-align: center;" id="con4">动态内存分配 - malloc 和 free 函数</h2>
+<p>相比于比较底层的动态分配器mmap函数, 在C语言运行时, 用动态内存分配器(dynamic memory allocator)更方便也更好移植.</p>
+<p>动态内存分配器操作和维护的是内存中的堆区域, 内核维护着一个brk变量, 指向堆顶. 堆在初始化的时候填充的都是匿名文件. 动态内存分配器把堆看成是一组不同大小的块, 每个块是一个连续的虚拟内存片(chunk, 还记得吗, 就是一块虚拟内存区域), 每个块要么是空闲的, 要么是已经分配的. 空闲的块可以用来分配, 分配的块被释放后变成空闲的块.</p>
+<p>分配器有显式和隐式的之分, 显式的就是C语言中的malloc(calloc)和free函数, 而隐式分配器也叫作垃圾收集器, 就像Java中的垃圾收集器一样.</p>
+<p><code>malloc</code>是C语言中的显式分配器:</p>
+<pre>
+#include &ltstdlib.h>
+
+void *malloc(size_t size);
+</pre>
+<p>成功分配就会获得指向分配区域的指针, 如果失败就返回NULL, 同时还会设置errno. 这个函数会默认为分配的内容进行对齐, 在32位系统下返回的地址一定是8的倍数, 64位系统下一定是16的倍数.</p>
+<p>在之后讨论内存中, 将字称为4字节, 双字称为8字节. malloc不对分配的内存进行初始化, 因此分配的内存中可能残留有之前使用这块区域的内容. 如果要初始化, 就使用calloc函数, 这个函数分配的内存全部都清了零.</p>
+<p>如果要重新调整一个分配块的大小, 则可以用 realloc 函数.</p>
+<p>对于堆内存, 使用 sbrk 函数, 来分配和释放堆内存, 其本质就是移动堆的指针:</p>
+<pre>
+#include &lt;unistd.h>
+
+void *sbrk(intptr_t incr);
+</pre>
+<p>这个函数通过将内核的brk指针增加incr的大小来扩展堆内存. 如果成功, 就返回brk原来的值, 如果失败, 就返回-1, 并且设置errno为ENOMEM. 如果incr为0, 就返回brk的当前值. 还可以用负值来调用这个函数, 表示缩小堆.</p>
+<p>注意这个是伸缩和扩展堆, 而malloc是在堆上分配空间, 要注意区别.</p>
+<p>释放分配的内存块, 需要使用 free 函数, 其参数是 malloc, calloc, realloc 获得的指针. 而且这个函数什么都不返回, 所以使用起来还是要精确.</p>
+<p>在程序实际运行的时候, 才知道要使用多少空间, 这种情况最好使用动态分配内存. </p>
+
+<h2 style="text-align: center;" id="con5">mmap sbrk 和malloc的关系</h2>
+<p>了解完了这三个东西, 可以回头来看看这三个东西的联系和区别了.</p>
+<p>简单的说, malloc 会根据不同的情况, 调用mmap 或者 sbrk 函数来分配内存空间. 有一个限制值(128K, 可以设置), 如果没有超过这个大小, malloc会调用sbrk, 推高堆指针, 然后写入一块内存数据结构, 返回指针. 如果超过这个大小, 会调用mmap直接从栈和堆中间的区域内分配一块内存, 同样也写入内存数据结构, 然后返回指针.</p>
+<p>malloc和free函数的底层, 就是通过brk，mmap，munmap这些系统调用实现的.</p>
+<p>然后就可以来看看内存分配的细节是如何实现的了.</p>
 
 
 
