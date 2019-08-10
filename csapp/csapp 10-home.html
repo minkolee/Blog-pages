@@ -18,25 +18,189 @@
 <h1 style="text-align: center;">CSAPP 第十章 重定向I/O</h1>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">读取文件元数据</a></li>
+    <li><a href="#con2">读取文件目录</a></li>
+    <li><a href="#con3">共享文件</a></li>
+    <li><a href="#con4">I/O重定向</a></li>
+    <li><a href="#con5">标准输入输出函数</a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">读取文件元数据</h2>
+<p>在第九章的练习 9.5 里使用了一个通过元数据获取文件长度的方法, 当时使用的是 fstat 函数. 还有一个 stat 函数, 共同构成了获取文件元数据的方法.</p>
+<pre>
+#include &lt;unistd.h>
+#include &lt;sys/stat.h>
 
-<h2 style="text-align: center;" id="con2"></h2>
+int stat(const char *filename, struct stat *buf);
+int fstat(int fd, struct stat *buf);
+</pre>
+<p>这两个函数的第二个参数都是 struct stat, 这是库文件里定义的结构, 可以参考632页. 不同之处在于stat的第一个参数是文件名, 而fstat的第一个参数是描述符.</p>
+<p>Linux还在 sys/stat.h 定义了一些宏谓词用于来确定 stat.st_mode (文件访问权限和文件类型)的内容:</p>
+<ol>
+    <li><code>S_ISREG(m)</code>, 是否为一个普通文件</li>
+    <li><code>S_ISDIR(m)</code>, 是否为一个目录文件</li>
+    <li><code>S_ISSOCK(m)</code>, 是否为一个套接字文件</li>
+</ol>
 
-<h2 style="text-align: center;" id="con3"></h2>
+<h2 style="text-align: center;" id="con2">读取文件目录</h2>
+<p>目录也是一个文件, 其中包含属于这个目录的所有文件的指针, 其实是一个指针的有序列表.</p>
+<p>可以使用readdir函数来读取目录的内容:</p>
+<pre>
+#include &lt;sys/types.h>
+#include &lt;dirent.h>
 
-<h2 style="text-align: center;" id="con4"></h2>
+DIR *opendir(const char *name);
+</pre>
+<p>这个函数返回的是一个指向目录内所有文件流的指针, 流就相当于目录内所有文件的一个列表. 得到这个目录指针之后, 对这个目录指针调用 readdir 函数, 返回值是一个 struct dirent 类型的指针, 表示下一个目录项的指针.</p>
+<p>struct dirent 是一个如下的结构:</p>
+<pre>
+struct dirent {
+    ino_t d_ino;    //Linux文件系统的inode号码
+    char d_name[256];   //最长256个字符的文件名
+}
+</pre>
+<p>上边这几个函数和结构对于所有Linux系统都是通用的. 如果出错或者没有更多的目录项, readdir会返回NULL.</p>
+<p>获取目录流使用完之后需要关闭:</p>
+<pre>
+#include &lt;dirent.h>
 
-<h2 style="text-align: center;" id="con5"></h2>
+int closedir(DIR *dirp);
+//成功的时候返回0, 出错返回-1
+</pre>
+<p>用一个实际的例子来看看如何显示目录中的全部文件:</p>
+<pre>
+#include &lt;sys/types.h>
+#include &lt;dirent.h>
+#include &lt;stdio.h>
+#include &lt;errno.h>
+#include &lt;stdlib.h>
 
-<h2 style="text-align: center;" id="con6"></h2>
+int main(int argc, char **argv){
+    DIR *streamp;
+    struct dirent *dep;
+
+    //调用函数返回DIR* 指针
+    streamp = opendir(argv[1]);
+
+    //设置错误号为0
+    errno = 0;
+
+    //不断调用readdir函数, 然后打印结构中的文件名和inode, inode是long类型
+    while ((dep = readdir(streamp)) != NULL) {
+        printf("Found file: %s, INODE is %ld\n", dep->d_name, dep->d_ino);
+    }
+    //循环结束后检查错误号
+    if (errno != 0) {
+        unix_error("readdir error");
+    }
+
+    Closedir(streamp);
+    exit(0);
+}
+</pre>
+
+<h2 style="text-align: center;" id="con3">共享文件</h2>
+<p>要了解共享文件, 就要了解描述符背后的机制. 内核有三个数据结构用来表示打开的文件:</p>
+<ol>
+    <li>描述符表. 这个每个进程一张表, 每个描述符号码对应到文件表中的一个表项</li>
+    <li>文件表. 打开的文件表对于所有进程是共享的. 每个文件表中保存了文件的文件位置(lseek的位置)和文件的引用数, 以及指向v-node表中的指针.</li>
+    <li>v-node表. 所有进程也共享这个表, 每个表项包含stat结构中的大部分成员内容.</li>
+</ol>
+<p>这里的关键是要理解文件位置保存在文件表里, 而不是描述符表里. 以及文件表的项目可以重复, 描述符表和v-node表的内容是不重复的.</p>
+<p>比如连续以相同的open函数调用两次, 根据之前的学习, 描述符3和4会被占用, 3和4和指向文件表的两个不同的条目, 文件表这两个条目, 指向同一个v-node条目.</p>
+<p>由于文件位置是保存在文件表中, 所以两个描述符的文件位置是不同的, 可以各自读写.</p>
+<p>但是对于fork()就不同了, fork()的细节在内存分配的时候已经了解的更深了, 现在继续了解一下:</p>
+<p>fork()瞬间, (内核为)子进程复制了父进程的描述符表的副本, 而文件表和v-node表对所有进程共享, 所以子进程不会复制其中的内容. 但是子进程复制了描述符表的副本之后, 父子进程的描述符指向的是同一个文件表中的条目, 因此那一个瞬间,
+    <span style="color: red">父子进程是共享相同的文件位置</span>的. 这一点一定要注意.</p>
+<h3>练习 10.2 下列程序的输出是什么</h3>
+<pre>
+int main(){
+    int fd1, fd2;
+    char c;
+
+    fd1 = open("foo.txt", O_RDONLY, 0);
+    fd2 = open("foo.txt", O_RDONLY, 0);
+    Read(fd1, &c, 1);
+    Read(fd2, &c, 1);
+
+    printf("c = %c\n", c);
+    exit(0);
+}
+</pre>
+<p>foo.txt的内容是 foobar . 这个程序使用了两次调用, 对同一个文件获取了不同的描述符, 两个描述符在新建的时候, 指向不同的文件表的位置, 所以第一次读是f, 第二次读还是f. 所以打印出的是f</p>
+<h3>练习 10.3 下列程序的输出是什么 foo.txt的内容是字符 foobar</h3>
+<pre>
+int main(){
+    int fd1;
+    char c;
+
+    fd = open("foo.txt", O_RDONLY, 0);
+
+    if (fork() == 0) {
+        Read(fd, &c, 1);
+        exit(0);
+    }
+    Wait(NULL);
+    Read(fd, &c, 1);
+    printf("c = %c\n", c);
+    exit(0);
+}
+</pre>
+<p>可以看到, 父进程等待子进程完成全部工作之后, 再去读取&c的一个位置. 由于read函数会移动文件指针, 而父子进程的fd描述符指向同一个文件表项, 因此共享文件位置.</p>
+<p>父进程在读1个字符的时候, 子进程已经读取过一个字符并且将文件位置移到了第二个字符, 所以父进程会读取并打印o</p>
+
+<h2 style="text-align: center;" id="con4">I/O重定向</h2>
+<p>知道了前边关于进程的文件描述符的知识, 就可以来看I/O重定向.</p>
+<p>I/O重定向的命令行表现形式是使用 > 来重定向输出, < 来重定向输入. 这个内部是如何实现的, 就是使用 dup2 重定向函数.</p>
+<pre>
+#include &lt;unistd.h>
+int dup2(int oldfd, int newfd);
+</pre>
+<p>dup2 就是把newfd 重定向到oldfd. dup2函数的内部操作, 是把描述符表中newfd对应的指针, 指向oldfd指向的文件表项. 如果newfd已经被打开, 在重定向之前, dup2 会先关闭 newfd.</p>
+<h3>练习 10.4 如何用dup2将标准输入重定向到描述符5</h3>
+<p>就是把标准输入0 重定向到描述符5, 也就是 <kbd>dup2(5, 0)</kbd></p>
+<H3>练习 10.5 foobar.txt的内容是 ASCII 字符 foobar, 下列程序的输出是什么</H3>
+<pre>
+int main(){
+    int fd1, fd2;
+    char c;
+
+    fd1 = open("foobar.txt", O_RDONLY, 0);
+    fd2 = open("foobar.txt", O_RDONLY, 0);
+    Read(fd2, &c, 1);
+    Dup2(fd2, fd1);
+    Read(fd1, &c, 1);
+    printf("c = %c\n", c);
+    exit(0);
+}
+</pre>
+<p>这里先将fd2的文件位置移动了1, 然后将fd1重定向到fd2, fd1和fd2此时指向文件表中同一个位置, 则说明文件位置也相同. 因此再读取fd1, 也是接着fd2的文件位置继续读取, 所以c的内容是o.</p>
+
+<h2 style="text-align: center;" id="con5">标准输入输出函数</h2>
+<p>到现在为止接触过了系统的read 和 write 函数, 还有依据系统函数编写的rio包.</p>
+<p>C语言也提供了一组高级输入输出函数, 称为标准I/O库, 其中的主要函数有:</p>
+<ol>
+    <li><code>fopen</code>和<code>fclose</code>, 打开和关闭文件</li>
+    <li><code>fread</code>和<code>fwrite</code>, 读写字节</li>
+    <li><code>fgets</code>和<code>fputs</code>, 读写字符串</li>
+    <li><code>scanf</code>和<code>printf</code>, 格式化I/O函数</li>
+</ol>
+<p>与系统函数通过描述符操作不同, 标准I/O库将打开文件模型化一个流(FILE类型的宏), 每个C程序运行的时候, 都有三个stdio.h里定义的流, 即stdin, stdout, stderr, 对应描述符分别是0,1,2.</p>
+<p>这些函数应该在什么情况下使用呢?</p>
+<ol>
+    <li>通常情况下, 使用C语言的标准I/O库</li>
+    <li>不要在该读取二进制文件的时候使用读取文本文件的函数</li>
+    <li>对网络套接字使用 rio 包进行读取</li>
+</ol>
+<p>还需要注意对同一个流的限制:</p>
+<ol>
+    <li>先输出再输入, 需要先清空缓冲区, 比如使用 fflush, fseek, fsetpos 和 rewind 函数. 这几个函数会重置文件位置.</li>
+    <li>先输入再输出, 中间需要调用fseek, fsetpos, 或者 rewind.</li>
+</ol>
+<p>网络套接字与普通文件的区别是无法使用文件位置, 所以不能简单的像上边一样使用输入和输出函数一边写一边读. 一般的做法是对一个套接字描述符打开两个流, 一个用来读, 一个用来写.</p>
+<p>不过这样带来的问题就是不能简单的在一个流读完或者写完的时候关闭, 否则其他使用这个流的函数, 以及多线程程序, 都会出错.</p>
+<p>简单的说, Unix I/O 更适合网络程序, 而标准输入输出更适合普通文件.</p>
+
 
 
 
