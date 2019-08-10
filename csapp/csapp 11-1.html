@@ -17,24 +17,192 @@
 <body>
 <h1 style="text-align: center;">CSAPP 第十一章 网络编程基础概念</h1>
 
+<p>网络编程要依赖于一直依赖学习的几乎所有系统概念, 包括进程, 信号, 处理字节, 内存映射和动态内存分配. 除此之外, 就是一些关于网络的概念, 包括最基础的客户端-服务器模型, 因特网的基础概念.</p>
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
+    <li><a href="#con1">CS模型</a></li>
+    <li><a href="#con2">Internet - 抽象模型</a></li>
+    <li><a href="#con3">Internet - IP地址</a></li>
+    <li><a href="#con4">Internet - 域名</a></li>
+    <li><a href="#con5">Internet - 连接</a></li>
     <li><a href="#con6"></a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">CS模型</h2>
+<p><strong>客户端-服务器模型</strong>: 一个应用由一个服务器进程和一个或多个客户端进程组成.</p>
+<p>客户端-服务器模型中的基本操作是事务, 一个事务由如下四个步骤组成: </p>
+<ol>
+    <li>客户端向服务器发起请求</li>
+    <li>服务器收到请求后解释, 然后进行操作</li>
+    <li>操作完成后发送一个响应, 并等待下一个请求</li>
+    <li>客户端收到响应并处理</li>
+</ol>
+<p>要认识到客户端和服务器并不是主机, 而是一个一个进程. 因此一台机器上可以有很多服务器和客户端.</p>
+<p>CSAPP提供了程序员所需要知道的网络模型. 没有太过于深入细节.</p>
+<ol>
+    <li>对主机而言, 网络也只是一种I/O设备, 是数据源和数据接收方. 数据可以从网络适配器复制到内存, 也可以从内存复制到网络适配器.</li>
+    <li>物理上, 网络是一个按照地理远近组织的层次系统, 最低层是LAN即局域网, 局域网所使用的技术叫做以太网. 以太网段内的电缆具有相同的带宽</li>
+    <li>一个以太网段包括用电缆和集线器互相连接的计算机, 以太网通常跨越一些小的区域, 比如一栋楼. 每一个电缆从主机连接到集线器, 集线器将每个收到的信号不加区别的复制到所有的端口上, 所有的主机都可以看到所有的数据.</li>
+    <li>每一个以太网适配器上边有一个全球唯一的48位地址, 即MAC地址. 主机可以发送一段二进制位(被称为一个帧 frame)到当前网段的任何主机, 每个帧包括一定的头部信息用来标识帧的源头和目的地以及此帧的长度, 之后是有效载荷. 由于集线器将数据复制到所有接口, 所以所有同网段的主机都能看到, 但只有目的主机接收它.</li>
+    <li>使用一种网桥设备, 可以将多个以太网段连接成较大的局域网, 称为桥接以太网. 连接桥与桥的电缆的速度一般比局域网内的速度要快. 网桥与集线器不同, 会有选择的转发信息.</li>
+    <li>多个局域网使用路由器的特殊计算机来连接, 组成一个互联网. 每台路由器对于它连接到的每个网络都有一个适配器(端口), </li>
+</ol>
+<p>由此可见, 其实全世界互联网上的电脑, 都是通过多层的设备物理连接在一起的, 由不同技术的局域网和广域网组成, 如何能让一台计算机的信息可以达到任何一台计算机呢?</p>
+<p>答案是每台路由器和主机上, 都有相关的协议软件, 控制所有的设备协同发送和处理数据. 协议软件提供两种基本机制:</p>
+<ol>
+    <li>命名机制, 每台主机会被分配一个互联网络地址.</li>
+    <li>传送机制, 将数据统一包装成不连续的片(称为包)来消除了差异. 每个包都由包头和有效载荷组成.</li>
+</ol>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">Internet - 抽象模型</h2>
+<p>全球IP互联网是目前大家在使用的计算机网络, 其中的每台主机都实现了TCP/IP协议. 客户端和服务器都使用套接字接口函数和Unix I/O函数进行通信. 一般套接字函数都是操作系统实现, 系统调用会通过内核来使用各种TCP/IP函数.</p>
+<p>TCP/IP 不是单一的协议, 而是一组协议, IP协议提供基本的命名方法和传送机制,从一台机器向另外一台机器发送数据. TCP是在IP协议基础上构建的, 目的是提供进程间可靠的全双工连接. 一般将TCP/IP看做一个整体.</p>
+<p>UDP协议是IP协议的扩展, CSAPP不讨论UDP.</p>
+<p>从程序员的角度, 可以把互联网看成:</p>
+<ol>
+    <li>主机集合是32位的IP地址的集合</li>
+    <li>IP地址被映射成域名</li>
+    <li>机器之间可以通过connection 连接 来进行通信</li>
+</ol>
 
-<h2 style="text-align: center;" id="con3"></h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
+<h2 style="text-align: center;" id="con3">Internet - IP地址</h2>
+<p><strong>IP地址</strong>是一个32位无符号整数, 表示的时候用 x.x.x.x 来表示, 每个x都是一个8位二进制数的无符号十进制表示, 也就是从0-255.</p>
+<p>IP地址在系统里是一个结构: </p>
+<pre>
+struct in_addr {
+    uint32_t s_addr;
+}
+</pre>
+<p>由于主机可能有大端法或者小端法, TCP/IP规定了网络字节顺序按照大端字节顺序进行存放. 比如IP地址, 在网络传输的时候按照大端法排列. Unix有如下函数用于转换网络字节顺序和主机字节顺序:</p>
+<pre>
+#include &lt;arpa/inet.h>
 
-<h2 style="text-align: center;" id="con5"></h2>
+//下边两个函数按照网络字节顺序转换16位或者32位数值
+uint32_t htonl(uint32_t hostlong);
+uint16_t htonl(uint16_t hostlong);
+
+//按照主机字节顺序转换16位或者32位数值
+uint32_t ntohl(uint32_t netlong);
+uint16_t ntohs(uint16_t netshort);
+</pre>
+<p>这些函数没有处理64位的函数, 看来处理64位需要自己排布.</p>
+<p>还有两个函数可以用来转换IP地址和十进制表示的IP地址:</p>
+<pre>
+#include &lt;arpa/inet.h>
+
+//将src转换成IP地址放入dst指针指向的对象内. 如果成功返回1, 如果src非法返回0, 如果出错返回-1
+int inet_pton(AF_INET, const char *src, void *dst);
+
+//将IP地址转换成字符串, 返回指向字符串的指针, 出错就返回NULL
+const char *inet_ntop(AF_INET, const void *src, char *dst, socklen_t size);
+</pre>
+<p>这些函数一般用n表示网络, p表示字符串表示. AF_INET 表示32位 IPV4 地址, 其实还可以处理 128位的IPV6地址.</p>
+<h3>练习11.1 完成下表:</h3>
+<table>
+    <thead>
+    <tr>
+        <th>十六进制地址</th>
+        <th>点分十进制地址</th></tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>0x0</td>
+        <td>0.0.0.0</td>
+    </tr>
+    <tr>
+        <td>0xffffffff</td>
+        <td>255.255.255.255</td>
+    </tr>
+    <tr>
+        <td>0x7f000001</td>
+        <td>127.0.0.1</td>
+    </tr>
+    <tr>
+        <td>0xcdbca079</td>
+        <td>205.188.160.121</td>
+    </tr>
+    <tr>
+        <td>0x400c950d</td>
+        <td>64.12.149.13</td>
+    </tr>
+    <tr>
+        <td>0xcdbc9217</td>
+        <td>205.188.146.23</td>
+    </tr>
+    </tbody>
+</table>
+<h3>练习11.2 编写将十六进制参数转换为点分十进制串并打印出来</h3>
+<p>这个需要先调用函数将其转换成大端法字节顺序, 然后再调用转换函数来转换.</p>
+<pre>
+#include &lt;arpa/inet.h>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+
+int main(int argc, char** argv){
+
+    if(argv[1]==NULL) {
+        unix_error("Please input a number");
+    }
+
+    char *end;
+    //调用strtol函数按照16进制读取数值
+    unsigned int addr = strtol(argv[1], &end, 16);
+    //将读取的无符号int按照网络字节排序
+    addr = htonl(addr);
+    //转换无符号int到ip地址, 放入end中
+    inet_ntop(AF_INET, &addr, end, 16);
+    //打印IP地址
+    printf("%s\n", end);
+}
+</pre>
+<h3>练习11.3 将IP地址字符串转换成16进制数</h3>
+<p>这个思路也很明显, 先将IP地址转换成无符号数, 然后按照主机字节重新排列即可.</p>
+<pre>
+#include &lt;arpa/inet.h>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+
+int main(int argc, char** argv){
+
+    if(argv[1]==NULL) {
+        unix_error("Please input a number");
+    }
+
+    char *end;
+
+    unsigned int addr;
+    //转换成数值
+    inet_pton(AF_INET, argv[1], &addr);
+    //重新按主机字节顺序排列
+    addr = ntohl(addr);
+
+    printf("0x%x\n", addr);
+
+}
+</pre>
+
+
+<h2 style="text-align: center;" id="con4">Internet - 域名</h2>
+<p>对于一个类似 whaleshark.ics.cs.cmu.edu 的域名来说:</p>
+<ol>
+    <li>edu是一级域名, 一级域名再向上是一个未命名的根节点</li>
+    <li>cmu是二级域名, 一旦有了一个二级域名, 可以任意在其下创建子域名</li>
+    <li>cs是 第三层域名, 以此类推, ics 是第四级域名...</li>
+</ol>
+<p>客户端和服务器通信的时候是靠的IP地址, 然而IP地址对人来说不够直观, 因此有了域名的概念. 域名映射到IP地址, 这样只要知道了域名, 就可以通过DNS服务来查找对应的域名.</p>
+<p>Linux 有一个命令叫做 NSLOOKUP, 展示IP地址对应的域名, 可以用来进行一些实验.</p>
+<p>首先是本地地址, 这是定义好的名称叫做localhost, 这个名称总是映射为127.0.0.1, 叫做回送地址, 本地回环地址等等很多名称.</p>
+<p>执行 <kbd>nslookup localhost</kbd>的输出如下:</p>
+<pre>
+[root@VM_0_7_centos csapp]# nslookup localhost
+Server:         183.60.83.19
+Address:        183.60.83.19#53
+
+Name:   localhost
+Address: 127.0.0.1
+</pre>
+
+<h2 style="text-align: center;" id="con5">Internet - 连接</h2>
 
 <h2 style="text-align: center;" id="con6"></h2>
 
