@@ -19,247 +19,494 @@
 
 <p>套接字接口函数一般都是由系统实现, 所以必须掌握, 应用程序全部要使用系统调用来进行套接字操作.</p>
 <ol>
-    <li><a href="#con1">CS模型</a></li>
-    <li><a href="#con2">Internet - 抽象模型</a></li>
-    <li><a href="#con3">Internet - IP地址</a></li>
-    <li><a href="#con4">Internet - 域名</a></li>
-    <li><a href="#con5">Internet - 连接</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">通用 - socket</a></li>
+    <li><a href="#con2">客户端 - connect</a></li>
+    <li><a href="#con3">服务端 - bind</a></li>
+    <li><a href="#con4">服务端 - listen</a></li>
+    <li><a href="#con5">服务端 - accept</a></li>
+    <li><a href="#con6">getaddrinfo</a></li>
+    <li><a href="#con7">getnameinfo</a></li>
+    <li><a href="#con8">open_clientfd</a></li>
+    <li><a href="#con9">open_listenfd</a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1">CS模型</h2>
-<p><strong>客户端-服务器模型</strong>: 一个应用由一个服务器进程和一个或多个客户端进程组成.</p>
-<p>客户端-服务器模型中的基本操作是事务, 一个事务由如下四个步骤组成: </p>
-<ol>
-    <li>客户端向服务器发起请求</li>
-    <li>服务器收到请求后解释, 然后进行操作</li>
-    <li>操作完成后发送一个响应, 并等待下一个请求</li>
-    <li>客户端收到响应并处理</li>
-</ol>
-<p>要认识到客户端和服务器并不是主机, 而是一个一个进程. 因此一台机器上可以有很多服务器和客户端.</p>
-<p>CSAPP提供了程序员所需要知道的网络模型. 没有太过于深入细节.</p>
-<ol>
-    <li>对主机而言, 网络也只是一种I/O设备, 是数据源和数据接收方. 数据可以从网络适配器复制到内存, 也可以从内存复制到网络适配器.</li>
-    <li>物理上, 网络是一个按照地理远近组织的层次系统, 最低层是LAN即局域网, 局域网所使用的技术叫做以太网. 以太网段内的电缆具有相同的带宽</li>
-    <li>一个以太网段包括用电缆和集线器互相连接的计算机, 以太网通常跨越一些小的区域, 比如一栋楼. 每一个电缆从主机连接到集线器, 集线器将每个收到的信号不加区别的复制到所有的端口上, 所有的主机都可以看到所有的数据.</li>
-    <li>每一个以太网适配器上边有一个全球唯一的48位地址, 即MAC地址. 主机可以发送一段二进制位(被称为一个帧 frame)到当前网段的任何主机, 每个帧包括一定的头部信息用来标识帧的源头和目的地以及此帧的长度, 之后是有效载荷. 由于集线器将数据复制到所有接口, 所以所有同网段的主机都能看到, 但只有目的主机接收它.</li>
-    <li>使用一种网桥设备, 可以将多个以太网段连接成较大的局域网, 称为桥接以太网. 连接桥与桥的电缆的速度一般比局域网内的速度要快. 网桥与集线器不同, 会有选择的转发信息.</li>
-    <li>多个局域网使用路由器的特殊计算机来连接, 组成一个互联网. 每台路由器对于它连接到的每个网络都有一个适配器(端口), </li>
-</ol>
-<p>由此可见, 其实全世界互联网上的电脑, 都是通过多层的设备物理连接在一起的, 由不同技术的局域网和广域网组成, 如何能让一台计算机的信息可以达到任何一台计算机呢?</p>
-<p>答案是每台路由器和主机上, 都有相关的协议软件, 控制所有的设备协同发送和处理数据. 协议软件提供两种基本机制:</p>
-<ol>
-    <li>命名机制, 每台主机会被分配一个互联网络地址.</li>
-    <li>传送机制, 将数据统一包装成不连续的片(称为包)来消除了差异. 每个包都由包头和有效载荷组成.</li>
-</ol>
-
-<h2 style="text-align: center;" id="con2">Internet - 抽象模型</h2>
-<p>全球IP互联网是目前大家在使用的计算机网络, 其中的每台主机都实现了TCP/IP协议. 客户端和服务器都使用套接字接口函数和Unix I/O函数进行通信. 一般套接字函数都是操作系统实现, 系统调用会通过内核来使用各种TCP/IP函数.</p>
-<p>TCP/IP 不是单一的协议, 而是一组协议, IP协议提供基本的命名方法和传送机制,从一台机器向另外一台机器发送数据. TCP是在IP协议基础上构建的, 目的是提供进程间可靠的全双工连接. 一般将TCP/IP看做一个整体.</p>
-<p>UDP协议是IP协议的扩展, CSAPP不讨论UDP.</p>
-<p>从程序员的角度, 可以把互联网看成:</p>
-<ol>
-    <li>主机集合是32位的IP地址的集合</li>
-    <li>IP地址被映射成域名</li>
-    <li>机器之间可以通过connection 连接 来进行通信</li>
-</ol>
-
-
-<h2 style="text-align: center;" id="con3">Internet - IP地址</h2>
-<p><strong>IP地址</strong>是一个32位无符号整数, 表示的时候用 x.x.x.x 来表示, 每个x都是一个8位二进制数的无符号十进制表示, 也就是从0-255.</p>
-<p>IP地址在系统里是一个结构: </p>
+<h2 style="text-align: center;" id="con1">socket</h2>
+<p><code>socket</code>函数用来创建套接字描述符, 无论服务器还是客户端都需要先创建套接字才行.</p>
 <pre>
-struct in_addr {
-    uint32_t s_addr;
+#include &lt;sys/types.h>
+#include &lt;sys/socket.h>
+
+int socket(int domain, int type, int protocol);
+</pre>
+<p>其中的三个参数如下:</p>
+<ol>
+    <li><code>domain</code> 表示主机名称, AF_INET表示使用32位IP地址. 之前的Head First C 中使用了PF_INET. 这个见下边详述.</li>
+    <li><code>type</code> 表示套接字类型, 每个协议支持的套接字类型不同, 对于TCP/IP的连接固定使用 SOCK_STREAM 这个宏定义.</li>
+    <li><code>protocol</code> 是协议编号.</li>
+</ol>
+<p>关于socket函数的详情可以看<a href="https://blog.csdn.net/xc_tsao/article/details/44123331" target="_blank">这里</a>. AF指的是地址簇, 而PF指的是协议簇. TCP/IP的设计者原想是一个地址簇对应多个协议簇, 但是目前一个地址簇只有一个协议簇, 一个协议簇也只有一个协议, 因此第一个参数用AF_INET和PF_INET没什么区别, 而最后一个参数也总是0.</p>
+<p>第二个参数会根据类型有所变动, 比如UDP协议就需要写成SOCK_DGRAM.</p>
+<p>这个函数返回一个非负的套接字描述符, 如果出错为-1. </p>
+<p>这个函数返回的socket描述符, 并没有分配一个地址+端口的套接字地址, 所以无法读写. 无论是服务器还是客户端都需要进一步工作.</p>
+
+<h2 style="text-align: center;" id="con2">客户端 - connect</h2>
+<p>客户端在执行完socket函数之后要做的工作是执行connect函数:</p>
+<pre>
+#include &lt;sys/socket.h>
+
+int connect(int sockfd, conststruct sockaddr *addr, socklen_t addrlen);
+</pre>
+<p>这个函数成功的时候返回0, 失败的时候返回-1.</p>
+<p>其参数如下:</p>
+<ol>
+    <li><code>sockfd</code>, 指的是套接字描述符, 即刚才使用socket函数的返回值.</li>
+    <li><code>addr</code>, 指向服务器套接字地址数据结构的指针, 注意这是通用的 sockaddr 类型的指针, 具体使用的时候需要转换成 sockaddr_in 类型的指针.</li>
+    <li><code>addrlen</code>, 这个指的是前边套接字地址数据结构的大小, 就是 sizeof(sockaddr_in)</li>
+</ol>
+<p>addr 指针指向的套接字地址数据结构, 是服务器的地址+端口号的组合. 这个函数的本质是向服务器发起TCP/IP协议的三次握手, 在握手成功或者失败之后返回.</p>
+<p>在建立连接的过程中, 总有一方要先发送数据, 客户端的 connect 函数就是这个先发送数据的函数.</p>
+<p>如果成功, 第一个参数 sockfd 套接字描述符, 此时就具备了读写的功能, 也就是说这个套接字描述符已经成为了一个连接的本机端点. 另外一个端点则在服务器端被创建.</p>
+
+<h2 style="text-align: center;" id="con3">服务端 - bind</h2>
+<p>为何要调用 bind 函数, 来自于之前概念中说的客户端与服务端的不同. 客户端socket的地址和端口号是由操作系统分配的, 在去连接服务端的时候, 这个工作已经由操作系统做好了, 所以客户端此时知道了套接字对, 可以发起连接了.</p>
+<p>而服务端的套接字对中的两个套接字地址还都不知道. 首先要确定服务使用哪个端口, 所以必须手工指定一下.</p>
+<pre>
+#include &lt;sys/socket.h>
+
+int bind(int sockfd, const struct sockaddr* myaddr, socklen_t addrlen)
+</pre>
+<p>这个函数成功返回0, 不成功返回-1. 其参数解释如下:</p>
+<ol>
+    <li><code>sockfd</code>, 服务器调用 socket 函数创建的套接字描述符.</li>
+    <li><code>myaddr</code>, 指向服务器自己的套接字地址数据结构的指针.</li>
+    <li><code>addrlen</code>, 是 sizeof(myaddr)</li>
+</ol>
+<p>这个函数的本质, 就是把套接字描述符和服务器端的套接字地址结构联系起来. 但是依然不能读写, 因为客户端的连接没有进来, 因此还不知道完整的套接字对.</p>
+<p>由于每次要使用一个sockaddr类型也比较麻烦, Linux中有一个getaddrinfo可以方便的获取这个结构, 因此connect和bind函数经常依赖这个getaddrinfo来提供参数.</p>
+
+<h2 style="text-align: center;" id="con4">服务端 - listen</h2>
+<pre>
+#include &lt;sys/socket.h>
+
+int listen(int sockfd, int backlog)
+</pre>
+<p>listen成功返回0, 失败返回-1. 其参数如下:</p>
+<ol>
+    <li><code>sockfd</code>, 经过socket和bind调用之后的套接字描述符</li>
+    <li><code>backlog</code>, 排队等待的连接数量</li>
+</ol>
+
+<p>一般来说listen函数必须在socket和bind调用之后, accept调用之前来调用. 原因是通过socket函数创建的套接字, 默认是一个主动套接字, 即调用connect发起连接的客户端套接字.</p>
+<p>针对这个套接字描述符调用listen之后, 就将其转变成了被动等待连接的服务端套接字.</p>
+<p>至于backlog函数, 需要以后看UNIX网络编程第一卷了. 可以将其设置为一个比较大的数字, 比如1024.</p>
+
+<h2 style="text-align: center;" id="con5">服务端 - accept</h2>
+<p>这个函数简单的说, 就是调用后进入阻塞, 等待客户端连接:</p>
+<pre>
+#include &lt;sys/socket.h>
+
+int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+</pre>
+<p>其参数如下:</p>
+<ol>
+    <li><code>sockfd</code>, 经过socket, bind, listen 之后的套接字描述符</li>
+    <li><code>addr</code>, 注意, 这个指针不再是读取数据只用, 而是将客户端的套接字地址数据写入到指针指向的 sockaddr 结构中.</li>
+    <li><code>addrlen</code>, 注意, 这不像上边几个函数是int, 而是int指针, 是将客户端的套接字地址结构的长度写入到这个指针指向的int变量中.</li>
+</ol>
+<p>这个函数实际上是从已完成连接的队列里返回下一个已经完成的连接, 队列没有连接, 就一直阻塞(进程睡眠, 是默认行为).</p>
+<p>需要特别注意的是这个函数的返回值, 返回的是一个新的描述符, 叫做已连接套接字描述符. 而作为参数的sockfd, 叫做监听套接字描述符.</p>
+<p>每个成功连接都会返回一个新的已连接套接字描述符, 而监听套接字描述符始终只有一个, 就是服务端调用socket产生的描述符.</p>
+<p>所以对于一个服务(不是服务器)来说, 只有一个监听套接字, 内核会每来一个连接, 就在内部维护一个连接队列, 然后返回和这个连接对应的已连接套接字描述符.</p>
+<p>很显然, 在客户端运行connect的时候, 服务端必须已经完成了从执行socket到accept的全部过程, 这样connect才能对accpet投怀送抱, 然后创建出一个连接, 连接在客户端的端点是主动套接字描述符, 在服务端的端点是已连接套接字描述符.</p>
+<p>客户端和服务端的读写就可以通过各自的描述符进行读写了. 根据客户端-服务端模型, 客户端在连接完毕之后的工作是将响应发送给服务端, 服务端则是立刻进入等待接收响应的状态.</p>
+
+<h2 style="text-align: center;" id="con6">getaddrinfo</h2>
+<p>上边的所有socket系列函数都与 sockaddr 结构有关, 这个结构通过上一节可以发现其中存放的是无符号类型的地址和端口, 还是网络字节顺序, 而现实中经常使用的是使用的是域名或者IP地址, 因此系统提供了方便快捷的 getaddrinfo 函数, 用于快速转换.</p>
+<pre>
+#include &lt;sys/types.h>
+#include &lt;sys/socket.h>
+@include &lt;netdb.h>
+
+int getaddrinfo(const char *hostname, const char *service, const struct addrinfo *hints, struct addrinfo **result);
+
+void freeaddrinfo(struct addrinfo *result);         //释放result指向的指针
+
+const char *gai_strerror(int errcode);  //辅助函数,用于打印getaddrinfo的错误信息
+</pre>
+<p>这个函数如果成功返回0, 不成功返回错误代码. 其参数如下:</p>
+<ol>
+    <li><code>hostname</code>, 是一个字符串, 是主机名称(域名或者host文件中的对应名称)或者IP地址.</li>
+    <li><code>service</code>, 是一个字符串, 可以是端口号, 也可以是知名服务名称, 比如ftp, http. 一般使用端口号, 和 hostname 参数一起组成套接字地址.</li>
+    <li><code>hints</code>, 顾名思义, 这其实是一个提示, 是一个指向addrinfo结构的指针, 调用者需要在指针指向的结构里填上一些必要数据, 来指示这个函数的工作. 详情要和最后一个参数结合起来看.</li>
+    <li><code>result</code>, 指向addrinfo类型的指针的指针. 这个函数会在result变量中填入一个指针, 指针指向一个指向addrinfo的指针.</li>
+</ol>
+<p>要搞清楚这个函数, 首先要完整的看一下这个函数如何使用.</p>
+<p>在使用之前, 调用者要必须初始化一个addrinfo 结构, 这个结构只能设置 ai_flags, ai_family, ai_socktype, ai_protocol这四个字段, 其他字段必须为0或者NULL(所以一般先清零). 这个结构如下:</p>
+<pre>
+struct addrinfo
+{ 　　　　　　　
+	int ai_flags;               //一个位掩码, 用于一些设置, 可以用 OR 运算符连接
+	int ai_family;              //AF_INET 或者 AF_INET6
+	int ai_socktype;            //详述
+	int ai_protocol;            //设置为0
+	size_t ai_addrlen;
+	struct sockaddr *ai_addr;   //指向套接字地址结构的指针
+	char *ai_canonname;
+	struct addrinfo *ai_next;   //指向下一个addrinfo的指针, 所以这是一个链表
+};
+</pre>
+<p>能设置的四个参数含义如下:</p>
+<ol>
+    <li><code>ai_flags</code>, 这个是用于控制的位掩码, 有如下设置:
+    <ol>
+        <li><code>AI_ADDRCONFIG</code>, 当本地主机被配置为IPV4的时候, 就返回IPV4地址, 配置为IPV6就返回IPV6地址. 如果要使用 connect 函数, 就设置这个.</li>
+        <li><code>AI_CANONNAME</code>, 不设置该标记则 char *ai_canonname 默认为 NULL, 设置了就会将链表中第一个addrinfo结构的ai_canonname指向host的名称.</li>
+        <li><code>AI_NUMBERICSERV</code>, 设置该标记强制指定getaddrinfo的第二个参数service为端口号的字符串.</li>
+        <li><code>AI_PASSIVE</code>, getaddrinfo默认返回主动套接字, 设置这个标记可以返回被动套接字用于服务端, 设置这个标记同时还约束了 getaddrinfo 的第一个参数hostname必须为NULL. 这样返回的套接字地址内是通配符.</li>
+    </ol>
+    </li>
+    <li><code>ai_socktype</code>, 这个可以设置成TCP连接(SOCK_STREAM, 此时result 对于每个地址只有一个只有头节点的链表对应, 有几个地址就有几个节点. 默认是最多返回3个节点的链表.), 还可以设置成数据报或者原始套接字.</li>
+    <li><code>protocol</code>, 这个就是协议号, 设置成0即可. 一般清零之后就无需特意设置了.</li>
+</ol>
+<p>通过参数可以发现, 对于客户端和服务端, 调用 getaddrinfo 所需的准备工作也不同, 需要采用不同的方式填充 addrinfo, 然后调用 getaddrinfo:</p>
+<ol>
+    <li>客户端调用, 则必须知道 hostname 和 service. addrinfo 结构中的 ai_flags 可以不设置. ai_family 则是AF_INET(IPV6就是AF_INET6), ai_protocol是0.</li>
+    <li>服务端调用, hostname设置为NULL, 表示接受所有的地址访问. service必须设置成指定的端口. ai_flags设置成AI_PASSIVE.</li>
+</ol>
+<p>调用之后 getaddrinfo 根据服务端还是客户端会进行不同的工作:</p>
+<ol>
+    <li>客户端, 会依次尝试在每个套接字地址上调用 socket 和 connect, 直到成功.</li>
+    <li>服务端, 会尝试在套接字地址上调用 socket 和bind ,直到成功.</li>
+</ol>
+<p>此时返回值result中就放置了 addrinfo 链表, 其中的 ai_addr 字段就对应上述成功调用之后的套接字地址数据结构. 从其中取出需要的数值, 然后继续调用 socket 系列函数即可.</p>
+<p>可以导致返回多个addrinfo结构的情形有以下2个：</p>
+<ol><li>如果与hostname参数关联的地址有多个，那么适用于所请求地址簇的每个地址都返回一个对应的结构。</li>
+<li>如果service参数指定的服务支持多个套接口类型，那么每个套接口类型都可能返回一个对应的结构，具体取决于hints结构的ai_socktype成员</li>
+</ol>
+<p>可见在一般情况下, 不会返回多个结构, 所以只要用指针指向的第一个结构中的数据进行调用后续的socket函数即可.</p>
+<p>在实际的使用中, 是先调用 getaddrinfo 函数, 然后从 result 中获取数据, 当成 socket 函数的参数.</p>
+<p>在使用完 getaddrinfo 函数其中的数据后, 需要释放这个函数返回的 addrinfo 占用的内存.</p>
+<p>如果出错, 就使用 gai_strerror(int errcode) 函数来打印错误信息.</p>
+
+
+<h2 style="text-align: center;" id="con7">getnameinfo</h2>
+<p>这个函数与 getaddrinfo 相反, 是先知道一个套接字地址, 然后将其转换成相应的主机和服务名字符串.</p>
+<pre>
+#include &lt;sys/socket.h>
+#include &lt;netdb.h>
+
+int getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen, char *service, size_t servlen, int flags);
+</pre>
+<p>依然是成功返回0, 不成功返回-1, 参数如下:</p>
+<ol>
+    <li><code>sa</code>, 要转换的套接字地址结构, 这个结构可以由accept函数返回.</li>
+    <li><code>salen</code>, 套接字地址的长度, 也可以由accept函数返回.</li>
+    <li><code>host</code>, 存放转换出来的主机名称的字符串</li>
+    <li><code>hostlen</code>, 主机名字符串长度</li>
+    <li><code>service</code>, 存放转换后端口号字符串</li>
+    <li><code>servlen</code>, 字符串长度</li>
+    <li><code>flags</code>, 控制掩码. 设置为NI_NUMBERICHOST表示返回一个数字地址字符串, 而不是默认的域名. NI_NUMERICSERV会返回端口号, 如果不设置, 默认是根据/etc/services返回服务名.</li>
+</ol>
+<p>如果不想要host或者service, 可以传入NULL指针和0长度. 但不能两个同时都不要.</p>
+<p>试着编写一个程序来用一下这两个函数:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;sys/socket.h>
+#include &lt;netdb.h>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+#include &lt;string.h>
+#define MAXLINE 8192
+
+
+int main(int argc, char **argv) {
+    //声明所需的一批变量
+    struct addrinfo *p, *listp, hints;
+    char buf[MAXLINE];
+    int rc, flags;
+
+    //判断命令行是否正确
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s &lt;domain name>\n", argv[0]);
+        exit(0);
+    }
+
+    //清空hints结构
+    memset(&hints, 0, sizeof(struct addrinfo));
+
+    //设置hints的参数, 由于这里要把域名换成地址, 所以是主动socket, 要去连接指定的地址
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    //判断 getaddrinfo 是否出错
+    if ((rc = getaddrinfo(argv[1], NULL, &hints, &listp)) != 0) {
+        fprintf(stderr, "GETADDRINFO ERROR: %s\n", gai_strerror(rc));
+        exit(1);
+    }
+
+    //设置调用getnameinfo的flags, 返回IP地址而不是域名
+    flags = NI_NUMERICHOST;
+
+    //遍历listp结构, 对于其中的每个节点的 ai_addr, 转换成域名放在buf里, 然后打印出来
+    for (p = listp; p; p = p->ai_next) {
+        getnameinfo(p->ai_addr, p->ai_addrlen, buf, MAXLINE, NULL, 0, flags);
+        printf("%s\n", buf);
+    }
+
+    //释放完无需再使用的listp
+    freeaddrinfo(listp);
+
+    exit(0);
 }
 </pre>
-<p>由于主机可能有大端法或者小端法, TCP/IP规定了网络字节顺序按照大端字节顺序进行存放. 比如IP地址, 在网络传输的时候按照大端法排列. Unix有如下函数用于转换网络字节顺序和主机字节顺序:</p>
+<p>域名的转换其实是通过查询本地host及一系列文件, 如果查不到, 是使用UDP去向域名服务器查询, 然后再调用connect去连接, 所以实际上已经连过网了. 具体细节可以看<a href="http://luodw.cc/2015/12/27/dns02/" target="_blank">这里</a></p>
+<h3>练习11.4 使用inet_pton 而不是 getnameinfo 来转换套接字地址为IP地址字符串</h3>
+<p>思路如下, 将套接字地址转换为IP地址字符串, 已经知道了使用的函数是<code>const char *inet_ntop(AF_INET, const void *src, char *dst, socklen_t size)</code>, 很显然, 核心就是要获取src参数也就是无符号整数表示的地址.</p>
+<p>在执行完 getaddrinfo 之后, 实际上每个 addrinfo 中 的 ai_addr 是一个指向 sockaddr 类型的指针. 需要将其转换成 sockaddr_in 类型的指针, 然后根据<a href="http://www.conyli.cc/archives/3015#sockaddr">sockaddr_in 结构</a>, 从其中取出 sin_addr 就是网络地址 in_addr 类型. 其中就是无符号32位整数, 可以再取一层, 也可以直接将其指针传入inet_ntop使用.</p>
 <pre>
-#include &lt;arpa/inet.h>
+#include &lt;stdio.h>
+#include &lt;sys/socket.h>
+#include &lt;netdb.h>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+#include &lt;string.h>
+#define MAXLINE 8192
 
-//下边两个函数按照网络字节顺序转换16位或者32位数值
-uint32_t htonl(uint32_t hostlong);
-uint16_t htonl(uint16_t hostlong);
+int main(int argc, char **argv) {
+    struct addrinfo *p, *listp, hints;
+    //定义从 addrinfo 中获取 ai_addr 指针的变量
+    struct sockaddr * middleaddr;
+    //定义将 sockaddr 结构转换成 sockaddr_in 结构的指针
+    struct sockaddr_in *targetaddr;
+    char buf[MAXLINE];
+    int rc;
+    //定义无符号地址整数的变量
+    unsigned int addr;
 
-//按照主机字节顺序转换16位或者32位数值
-uint32_t ntohl(uint32_t netlong);
-uint16_t ntohs(uint16_t netshort);
+
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s &lt;domain name>\n", argv[0]);
+    }
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+
+    hints.ai_family = AF_INET;
+
+    hints.ai_socktype = SOCK_STREAM;
+
+    if ((rc = getaddrinfo(argv[1], NULL, &hints, &listp)) != 0) {
+        fprintf(stderr, "GETADDRINFO ERROR: %s\n", gai_strerror(rc));
+        exit(1);
+    }
+
+    //此时获取了每个节点里的 ai_addr 就是 sockaddr 结构, 将其转换为 sockaddr_in 之后, 其中的 in_addr 结构就是IP地址结构, 其中的 s_addr 就是IP地址的无符号整数了
+
+    for (p = listp; p; p = p->ai_next) {
+
+        // middleaddr 是指向 sockaddr 结构的指针
+        middleaddr = (p->ai_addr);
+
+        //强制类型转换成 sockaddr_in 类型的指针
+        targetaddr = (struct sockaddr_in *) middleaddr;
+
+        //获取无符号32位整数的地址表示, 注意, 已经是经过了网络字节顺序变化的了, 因为是 getaddrinfo 设置的
+        addr = targetaddr->sin_addr.s_addr;
+
+        //转换成字符串写入buf中
+        inet_ntop(AF_INET, &addr, buf, 16);
+
+        printf("%s\n", buf);
+    }
+    freeaddrinfo(listp);
+    exit(0);
+}
 </pre>
-<p>这些函数没有处理64位的函数, 看来处理64位需要自己排布.</p>
-<p>还有两个函数可以用来转换IP地址和十进制表示的IP地址:</p>
-<pre>
-#include &lt;arpa/inet.h>
-
-//将src转换成IP地址放入dst指针指向的对象内. 如果成功返回1, 如果src非法返回0, 如果出错返回-1
-int inet_pton(AF_INET, const char *src, void *dst);
-
-//将IP地址转换成字符串, 返回指向字符串的指针, 出错就返回NULL
-const char *inet_ntop(AF_INET, const void *src, char *dst, socklen_t size);
-</pre>
-<p>这些函数一般用n表示网络, p表示字符串表示. AF_INET 表示32位 IPV4 地址, 其实还可以处理 128位的IPV6地址.</p>
-<h3>练习11.1 完成下表:</h3>
+<p>一开始自己编写的时候, 想把 sockaddr 结构直接转换成 sokcaddr_in 结构, C语言提示 error: conversion to non-scalar type requested, 这是因为标量以外的类型, 是不能直接转换类型的. 想要以不同的方式操作, 需要采取转换指针类型的方式, 而不是转换结构本身.</p>
+<p>在有了 getaddrinfo 之后, 调用函数的流程就变成了:</p>
 <table>
     <thead>
     <tr>
-        <th>十六进制地址</th>
-        <th>点分十进制地址</th></tr>
+        <th>顺序</th>
+        <th>客户端</th>
+        <th>服务端</th>
+    </tr>
     </thead>
     <tbody>
     <tr>
-        <td>0x0</td>
-        <td>0.0.0.0</td>
+        <td>1</td>
+        <td>将想连接的地址和端口送入 getaddrinfo 函数, 获取addrinfo的数据结构</td>
+        <td>同样调用 getaddrinfo</td>
     </tr>
     <tr>
-        <td>0xffffffff</td>
-        <td>255.255.255.255</td>
+        <td>2</td>
+        <td>从addrinfo 中取出数据, 执行 socket 函数获取描述符</td>
+        <td>和客户端一样</td>
     </tr>
     <tr>
-        <td>0x7f000001</td>
-        <td>127.0.0.1</td>
+        <td>3</td>
+        <td>把 addrinfo->ai_addr, addrinfo->ai_addrlen 传入到 connect 函数中创建连接</td>
+        <td>把 addrinfo->ai_addr, addrinfo->ai_addrlen 传入到 bind 函数中绑定端口</td>
     </tr>
     <tr>
-        <td>0xcdbca079</td>
-        <td>205.188.160.121</td>
+        <td>4</td>
+        <td>关闭 addrinfo 的指针</td>
+        <td>调用 listen</td>
     </tr>
     <tr>
-        <td>0x400c950d</td>
-        <td>64.12.149.13</td>
+        <td>5</td>
+        <td></td>
+        <td>调用 accept, 如果有需要可以获取客户端的套接字地址.</td>
     </tr>
     <tr>
-        <td>0xcdbc9217</td>
-        <td>205.188.146.23</td>
+        <td>6</td>
+        <td></td>
+        <td>关闭 addrinfo 的指针</td>
     </tr>
     </tbody>
 </table>
-<h3>练习11.2 编写将十六进制参数转换为点分十进制串并打印出来</h3>
-<p>这个需要先调用函数将其转换成大端法字节顺序, 然后再调用转换函数来转换.</p>
+<p>可以看到其核心是获取描述符, 如果能用一个函数把这些过程都封装好, 直接返回一个可以读写的套接字描述符就好了. 由于流程很清晰, 所以可以自己封装一个open_clientfd 和 open_listenfd 函数, 直接返回可供读写的描述符.</p>
+<h2 style="text-align: center;" id="con8">open_clientfd</h2>
+<p>这个函数用于客户端, 其核心思想就是根据域名和端口, 返回一个连接成功的套接字描述符. 其内部无非就是上边这些过程的集合, 编写如下:</p>
 <pre>
-#include &lt;arpa/inet.h>
+#include &lt;stdio.h>
+#include &lt;sys/socket.h>
+#include &lt;netdb.h>
 #include &lt;stdio.h>
 #include &lt;stdlib.h>
+#include &lt;string.h>
 
-int main(int argc, char** argv){
+int open_clientfd2(char *hostname, char *port){
 
-    if(argv[1]==NULL) {
-        unix_error("Please input a number");
+    //要返回的套接字描述符
+    int clientfd;
+    //是否成功解析了地址
+    int is_getaddrinfo;
+    //调用 getaddrinfo 所需要准备的变量
+    struct addrinfo hints, *listp, *p;
+
+    //调用 getaddrinfo , 获取成功的链表
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_family = AF_INET;
+    //设置FLAG为要使用connect , 以及强制使用端口号作为参数
+    hints.ai_flags = AI_ADDRCONFIG|AI_NUMERICSERV;
+    //这里需要判断一下是否能够解析
+    if ((is_getaddrinfo = getaddrinfo(hostname, port, &hints, &listp)) != 0) {
+        printf("解析地址错误: %s\n", gai_strerror(is_getaddrinfo));
+        exit(0);
     }
 
-    char *end;
-    //调用strtol函数按照16进制读取数值
-    unsigned int addr = strtol(argv[1], &end, 16);
-    //将读取的无符号int按照网络字节排序
-    addr = htonl(addr);
-    //转换无符号int到ip地址, 放入end中
-    inet_ntop(AF_INET, &addr, end, 16);
-    //打印IP地址
-    printf("%s\n", end);
+    //遍历链表
+    for (p = listp; p; p = p->ai_next) {
+        //尝试调用socket返回描述符
+        if ((clientfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0) {
+            //失败就继续下一个
+            continue;
+        }
+
+        //连接成功就直接退出循环
+        if ((connect(clientfd, p->ai_addr, p->ai_addrlen)) != -1) {
+            break;
+        }
+
+        //执行到这里说明连接失败, 要关闭这个描述符. 下一次循环中再尝试打开
+        close(clientfd);
+    }
+
+    //执行到这里已经获取了clientfd或者遍历完了链表, 可以释放链表
+    Freeaddrinfo(listp);
+
+    //如果p为空, 则说明遍历了所有节点都连接失败, 就返回-1. 如果p不为空说明在p处连接成功并break出来, 就返回clientfd描述符
+    if(!p) {
+        return -1;
+    } else {
+        return clientfd;
+    }
+}
+
+int main(int argc, char **argv){
+
+    int fd = open_clientfd2(argv[1], argv[2]);
+
+    printf("获得的套接字是 %d \n", fd);
 }
 </pre>
-<h3>练习11.3 将IP地址字符串转换成16进制数</h3>
-<p>这个思路也很明显, 先将IP地址转换成无符号数, 然后按照主机字节重新排列即可.</p>
+<p>通过这个函数, 就可以传入域名和端口直接获取可以进行读写的套接字了. 这个函数我是自行编写自CSAPP的例子, 加上了判断getaddrinfo的结果, 避免写入错误的链表内容. 经过试验可以成功封装.</p>
+
+<h2 style="text-align: center;" id="con9">open_listenfd</h2>
+<p>作为服务器的封装版本, 需要调整一下hints.ai_flags的细节, 在调用 getaddrinfo 的时候, 注意使用的参数. 调用完之后, 由于无需遍历节点, 依次调用 socket, bind ,listen 即可.</p>
 <pre>
-#include &lt;arpa/inet.h>
+#include &lt;stdio.h>
+#include &lt;sys/socket.h>
+#include &lt;netdb.h>
 #include &lt;stdio.h>
 #include &lt;stdlib.h>
+#include &lt;string.h>
 
-int main(int argc, char** argv){
+//创建服务端, 只需要端口, 无需地址
+int open_serverfd2(char *port){
 
-    if(argv[1]==NULL) {
-        unix_error("Please input a number");
+    //要返回的监听套接字描述符
+    int listenfd;
+    //是否成功解析了地址
+    int is_getaddrinfo;
+    //调用 getaddrinfo 所需要准备的变量
+    struct addrinfo hints, *listp, *p;
+
+    //调用 getaddrinfo , 获取成功的链表
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_family = AF_INET;
+    //注意AI_PASSIVE的设置
+    hints.ai_flags = AI_ADDRCONFIG|AI_PASSIVE|AI_NUMERICSERV;
+    //使用NULL来调用
+    if ((is_getaddrinfo = getaddrinfo(NULL, port, &hints, &listp)) != 0) {
+        printf("getaddrinfo函数出错: %s\n", gai_strerror(is_getaddrinfo));
+        exit(0);
     }
 
-    char *end;
+    //遍历链表, 找到可以bind的地址
+    for (p = listp; p; p = p->ai_next) {
+        //调用 socket 函数获取描述符
+        if ((listenfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0) {
+            //失败就继续下一个
+            continue;
+        }
 
-    unsigned int addr;
-    //转换成数值
-    inet_pton(AF_INET, argv[1], &addr);
-    //重新按主机字节顺序排列
-    addr = ntohl(addr);
+        //尝试bind, 成功绑定就跳出循环
+        if ((bind(listenfd, p->ai_addr, p->ai_addrlen)) == 0) {
+            break;
+        }
 
-    printf("0x%x\n", addr);
+        //执行到这里说明无法绑定, 关闭这个描述符. 下一次循环会再设置描述符
+        close(listenfd);
+    }
 
+    //执行到这里已经获取了绑定成功的监听套接字或者遍历完链表, 可以释放链表
+    Freeaddrinfo(listp);
+
+    //如果p为空, 则说明遍历了所有节点都连接失败, 就返回-1. 如果p不为空说明绑定成功, 继续调用listen函数
+    if(!p) {
+        return -1;
+    }
+
+    //listen函数
+    if (listen(listenfd, 1024) == -1) {
+        Close(listenfd);
+        return -1;
+    }
+    return listenfd;
+}
+
+int main(int argc, char **argv){
+
+    int fd = open_serverfd2(argv[1]);
+
+    printf("获得的监听套接字是 %d \n", fd);
 }
 </pre>
-
-
-<h2 style="text-align: center;" id="con4">Internet - 域名</h2>
-<p>对于一个类似 whaleshark.ics.cs.cmu.edu 的域名来说:</p>
-<ol>
-    <li>edu是一级域名, 一级域名再向上是一个未命名的根节点</li>
-    <li>cmu是二级域名, 一旦有了一个二级域名, 可以任意在其下创建子域名</li>
-    <li>cs是 第三层域名, 以此类推, ics 是第四级域名...</li>
-</ol>
-<p>客户端和服务器通信的时候是靠的IP地址, 然而IP地址对人来说不够直观, 因此有了域名的概念. 域名映射到IP地址, 这样只要知道了域名, 就可以通过DNS服务来查找对应的域名.</p>
-<p>Linux 有一个命令叫做 NSLOOKUP, 展示IP地址对应的域名, 可以用来进行一些实验.</p>
-<p>首先是本地地址, 这是定义好的名称叫做localhost, 这个名称总是映射为127.0.0.1, 叫做回送地址, 本地回环地址等等很多名称.</p>
-<p>执行 <kbd>nslookup localhost</kbd>的输出如下:</p>
-<pre>
-[root@VM_0_7_centos csapp]# nslookup localhost
-Server:         183.60.83.19
-Address:        183.60.83.19#53
-
-Name:   localhost
-Address: 127.0.0.1
-</pre>
-
-<h2 style="text-align: center;" id="con5">Internet - 连接</h2>
-<p>可以将连接的抽象看成是两个套接字作为两个端点的一条线. 连接是点对点, 全双工和可靠的.</p>
-<p>对于程序员来说, 关键就是要搞清楚连接的端点及套接字. 由于之前的客户端-服务器模型, 套接字分为客户端套接字和服务端套接字.</p>
-<p>客户端套接字的端口是由系统分配的, 服务端的端口一般是知名端口, 即已经在操作系统中注册的常用服务和端口映射关系中已经使用的端口. 可以在 <kbd>/etc/services</kbd>中找到所有的知名端口.</p>
-<p>除了端口之外, 还必须知道IP地址. 所以一个IP地址和一个端口就组成了一个套接字地址, 即"地址:端口"的组合.</p>
-<p>将一个客户端的套接字地址和一个服务端的套接字端口组合起来, 就得到了一个套接字对, 用于唯一标识一个连接.</p>
-<p>编写程序使用套接字, 一般都需要使用操作系统提供的套接字接口, 即一批操作套接字的函数.</p>
-<P>客户端使用套接字接口的一般逻辑是:</P>
-<ol>
-    <li>getaddrinfo函数, 转换主机地址, 端口到套接字地址结构</li>
-    <li>上边的函数内部先调用socket函数创建套接字描述符</li>
-    <li>上边的函数内部再调用connect函数创建已连接描述符</li>
-    <li>向已连接描述符中写内容, 即发送请求</li>
-    <li>从已连接描述符中读内容, 即接收响应</li>
-    <li>关闭套接字, 操作系统会当成EOF</li>
-</ol>
-<p>服务端使用套接字接口的一般逻辑是:</p>
-<ol>
-    <li>getaddrinfo函数</li>
-    <li>socket函数创建套接字, 这个和客户端一样</li>
-    <li>使用bind将服务器套接字地址和描述符联系起来</li>
-    <li>listen函数将套接字转换成监听套接字</li>
-    <li>accept函数尝试接受连接, 返回一个已连接描述符</li>
-    <li>从已连接描述符中读取信息, 即接受请求</li>
-    <li>向已连接描述符中发送信息, 即返回响应</li>
-    <li>再想读取信息, 接收到EOF, 关闭已连接描述符.=</li>
-</ol>
-
-<h2 style="text-align: center;" id="con6">套接字地址数据结构</h2>
-<p>从程序员的角度来说, 套接字就是一个有相应描述符的文件.</p>
-<p>系统里的套接字地址数据类型是 sockaddr_in 的16字节长度的结构中, 这个结构如下:</p>
-<PRE>
-struct sockaddr_in {
-
-    uint16_t sin_family;        //协议族, 就是固定的AF_INET, 2字节长
-    uint16_t sin_port;          //16位的端口号,2 字节长
-    struct in_addr sin_addr;    //网络字节顺序的地址, 4字节长
-    unsigned char sin_zero[8]   //8字节长的字符数组, 用于补齐这个结构到与 sockaddr 这个结构一样长.
-}
-</PRE>
-<p>为何要补齐到16字节, 是因为 sockaddr_in 之上还有一个通用的 sockaddr 结构, 如下:</p>
-<pre>
-struct sockaddr {
-
-    uint16_t sa_family;         //协议族
-    char sa_data[14];           //地址信息
-}
-</pre>
-<p>为何要这么设计, 是因为在当时编写套接字接口函数的时候, C语言还没有通用的指针 void * 类型. 而套接字接口函数很多都需要一个指向套接字地址结构的指针, 因此就定义了一个通用的套接字地址结构 sockaddr. 在具体使用套接字的时候, 再将这个指针转换成具体的套接字类型, 比如 sockaddr_in.</p>
-<p>所以可以定义一个通用类型:</p>
-<pre>typedef struct sockaddr SA;</pre>
-<p>需要转换sockaddr_in 到 套接字通用结构指针的时候就可以用这种.</p>
-
-
-
-
-
-
+<p>至此就基本上了解了系统的socket接口函数, 再深的内容估计就要看UNIX网络编程了.</p>
+<p>之后来尝试写Web服务器吧.</p>
 
 
 

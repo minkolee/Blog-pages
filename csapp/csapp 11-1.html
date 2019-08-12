@@ -233,9 +233,8 @@ Address: 127.0.0.1
 <h2 style="text-align: center;" id="con6">套接字地址数据结构</h2>
 <p>从程序员的角度来说, 套接字就是一个有相应描述符的文件.</p>
 <p>系统里的套接字地址数据类型是 sockaddr_in 的16字节长度的结构中, 这个结构如下:</p>
-<PRE>
+<PRE id="sockaddr">
 struct sockaddr_in {
-
     uint16_t sin_family;        //协议族, 就是固定的AF_INET, 2字节长
     uint16_t sin_port;          //16位的端口号,2 字节长
     struct in_addr sin_addr;    //网络字节顺序的地址, 4字节长
@@ -245,7 +244,6 @@ struct sockaddr_in {
 <p>为何要补齐到16字节, 是因为 sockaddr_in 之上还有一个通用的 sockaddr 结构, 如下:</p>
 <pre>
 struct sockaddr {
-
     uint16_t sa_family;         //协议族
     char sa_data[14];           //地址信息
 }
