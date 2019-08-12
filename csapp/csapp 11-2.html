@@ -452,6 +452,8 @@ int open_serverfd2(char *port){
     int is_getaddrinfo;
     //调用 getaddrinfo 所需要准备的变量
     struct addrinfo hints, *listp, *p;
+    //重用套接字的设置
+    int reuse = 1;
 
     //调用 getaddrinfo , 获取成功的链表
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -472,6 +474,10 @@ int open_serverfd2(char *port){
             //失败就继续下一个
             continue;
         }
+
+        //由于每次循环间隔很短, 这里要对套接字描述符进行设置, 让其在关闭之后可以迅速被重用
+        Setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&reuse, sizeof(int));
+
 
         //尝试bind, 成功绑定就跳出循环
         if ((bind(listenfd, p->ai_addr, p->ai_addrlen)) == 0) {
@@ -506,6 +512,7 @@ int main(int argc, char **argv){
 }
 </pre>
 <p>至此就基本上了解了系统的socket接口函数, 再深的内容估计就要看UNIX网络编程了.</p>
+<p>这里新使用的函数是Setsockopt, 是 setsockopt 函数的CSAPP套壳版. 这个是固定用法, 记住即可.</p>
 <p>之后来尝试写Web服务器吧.</p>
 
 
