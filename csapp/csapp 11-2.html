@@ -15,16 +15,16 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第十一章 网络编程基础概念</h1>
+<h1 style="text-align: center;">CSAPP 第十一章 套接字接口函数</h1>
 
-<p>网络编程要依赖于一直依赖学习的几乎所有系统概念, 包括进程, 信号, 处理字节, 内存映射和动态内存分配. 除此之外, 就是一些关于网络的概念, 包括最基础的客户端-服务器模型, 因特网的基础概念.</p>
+<p>套接字接口函数一般都是由系统实现, 所以必须掌握, 应用程序全部要使用系统调用来进行套接字操作.</p>
 <ol>
     <li><a href="#con1">CS模型</a></li>
     <li><a href="#con2">Internet - 抽象模型</a></li>
     <li><a href="#con3">Internet - IP地址</a></li>
     <li><a href="#con4">Internet - 域名</a></li>
     <li><a href="#con5">Internet - 连接</a></li>
-    <li><a href="#con6">套接字地址数据结构</a></li>
+    <li><a href="#con6"></a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">CS模型</h2>
@@ -227,7 +227,7 @@ Address: 127.0.0.1
     <li>accept函数尝试接受连接, 返回一个已连接描述符</li>
     <li>从已连接描述符中读取信息, 即接受请求</li>
     <li>向已连接描述符中发送信息, 即返回响应</li>
-    <li>再想读取信息, 接收到EOF, 关闭已连接描述符</li>
+    <li>再想读取信息, 接收到EOF, 关闭已连接描述符.=</li>
 </ol>
 
 <h2 style="text-align: center;" id="con6">套接字地址数据结构</h2>

@@ -23,9 +23,8 @@
     <li><a href="#con1">UNIX I/O</a></li>
     <li><a href="#con2">文件</a></li>
     <li><a href="#con3">打开和关闭文件</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">读和写文件</a></li>
+    <li><a href="#con5">编写健壮的I/O包</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">Unix I/O</h2>
@@ -104,6 +103,279 @@ int open(char *filename, int flags, mode_t mode);
 
 int close(int fd);
 </pre>
+<h3>练习 10.1 下列程序的输出是什么</h3>
+<pre>
+int main(){
+    int fd1, fd2;
+    fd1 = open("foo.txt", O_RDONLY, 0);
+    Close(fd1);
+    fd2 = open("bar.txt", O_RDONLY, 0);
+    printf("fd2=%d\n", fd2);
+    exit(0);
+}
+</pre>
+<p>这段程序先以只读方式打开文件描述符fd1, 然后关闭. 再以只读方式打开bar.txt的文件描述符fd2, 然后打印fd2的值. 由于012都被占用, 文件描述符按照最低的分配, 所以显示的结果是<code></code></p>
+
+<h2 style="text-align: center;" id="con4">读和写文件</h2>
+<p>系统函数 read 和 write 用来读和写文件. write函数之前已经多次使用过了, 这次先来看看 read 函数:</p>
+<pre>
+#include &lt;unistd.h>
+
+ssize_t read(int fd, void *buf, size_t n);
+</pre>
+<p>这其中的ssize_t类型, 是一个long类型, *buf是一个缓冲区, size_t 是指最多读取多少个缓冲区.</p>
+<p>注意read函数的返回值. 如果成功读了内容, 会返回读取到的字节数量, 如果这一次读取的字符数小于所需要的数量, 就称为返回值是一个不足值(shortcount, 0也是不足值). 如果已经到达文件结尾, 就返回0. 如果出现错误, 就返回-1.</p>
+<p>注意不足值并不是指返回的ssize_t小于n, 而是指能否满足应用程序的实际需要. 比如读本地文件的时候, 设置一个非常大的n, 一般情况下足够读取任意文件的内容到内存, 此时返回值必定会小于n, 但返回值已经是全部文件内容, 所以不是一个不足值.</p>
+<p>这里还需要注意的是, size_t 在linux X86-64中是unsigned long类型, 而返回值 ssize_t 是long类型, 所以要注意, 实际传入的n不能超过正的long的最大值.</p>
+<p>如果从终端读输入, 一次性读入的是一个文本行, 返回的不足值等于文本行的大小. 如果读取网络套接字, 很有可能因为网络分包和延迟到达, 返回不足值, 这个时候要反复读取直到读取到尾部才可以.</p>
+<p>write函数是从一个内存位置中复制指定的字节到文件中:</p>
+<pre>
+#include &lt;unistd.h>
+
+ssize_t write(int fd, const void *buf, size_t n);
+</pre>
+<p>注意write的参数和read如出一辙. 成功的时候返回写入的字节数, 失败的时候返回-1. 根据上边的分析, 在读取本地文件和写入本地文件的时候, 不会发生EOF错误. 但网络通信, 就需要处理不足值, 以保证接收和发送数据的完整性.</p>
+
+<h2 style="text-align: center;" id="con5">编写健壮的I/O包</h2>
+<p>由于同一的文件抽象和接口(read 和 write 函数), 因此对于文件操作有着统一的操作. 在实际操作中, 主要需要解决不足值问题, 以及读取写入文件相关的缓冲区的问题, 如果处理不当, 就会在通信的时候出现错误, 以及发生缓冲区溢出错误.</p>
+<p>使用 read 和 write 函数编写一个健壮的I/O包, 包将函数分为两类, 一类是无缓冲区的函数, 用于直接在内存和文件之中传送数据, 没有缓冲, 这通常用于向网络设备读写二进制.还有一类是带缓冲的输入函数, 一般是从本地文件中读取内容. 是线程安全的.</p>
+<p>I/O毕竟是基础, 这个包的代码还是要好好看看的.</p>
+<h3>无缓冲的输入输出函数</h3>
+<pre>
+ssize_t rio_readn(int fd, void *usrbuf, size_t n)
+{
+    //要读取的总数, 为了后边计算剩余未读取的字节之用
+    size_t nleft = n;
+    //已经读取的数量
+    ssize_t nread;
+    //内存位置
+    char *bufp = usrbuf;
+
+    //在剩余还需要读取的字节大于0的时候, 不断循环
+    while (nleft > 0) {
+        //调用read函数, 失败的情况下进行判断
+        if ((nread = read(fd, bufp, nleft)) < 0) {
+            //检测errno判断是否被中断, 如果中断就设置nread = 0, 然后从头读取
+            if (errno == EINTR)
+                nread = 0;      /* and call read() again */
+            //出错退出
+            else
+                return -1;
+        }
+        //调用read 函数,读到末尾的情况下说明已经读取完毕, 跳出循环
+        else if (nread == 0)
+            break;
+        //正常读取, 原来剩余的值减去已经读取的值, 得到新的剩余的值, 参与下一次循环, 同时移动指针读下一段内存区域.
+        nleft -= nread;
+        bufp += nread;
+    }
+    //返回已经读取的总字节数, 用 n 减去 剩余未读取的字节, 就是0.
+    return (n - nleft);
+}
+</pre>
+<p>通过分析这个函数, 可以发现其工作原理, 就是反复的调用系统函数读取, 每一次尝试读取上一次剩余的数量. 这个对于网络设备比较通用. 注意这个程序没有使用缓冲区作为中转, 而是直接将内容不断的写入*bufp开始的区域, 也不会去判断*bufp区域是否存在缓冲区溢出的问题.</p>
+<pre>
+ssize_t rio_writen(int fd, void *usrbuf, size_t n)
+{
+    //剩余要写入的字节
+    size_t nleft = n;
+    //已经写入的字节
+    ssize_t nwritten;
+    //目标内存区域
+    char *bufp = usrbuf;
+
+    //与读入函数一样的循环
+    while (nleft > 0) {
+        //调用write函数, 尝试写入
+        //写完了或者写入错误的情况下
+        if ((nwritten = write(fd, bufp, nleft)) <= 0) {
+            //一样的检测中断机制, 如果被中断, 设置已经写入是0, 重新再写
+            if (errno == EINTR)
+                nwritten = 0;
+            //errno是其他表示真的出错了, 返回-1结束程序
+            else
+                return -1;
+        }
+        //计算剩余的要写入的数量
+        nleft -= nwritten;
+        //移动指针
+        bufp += nwritten;
+    }
+    return n;
+}
+</pre>
+<p>写函数不会判断*bufp会不会有缓冲区错误, 就一直写. 综合两个函数来看, 这个信号打断后重新处理的机制比较巧妙, 利用了被中断之后read和write会返回错误的特点, 去检测错误码, 然后设置字节数量. 这样在下一个循环里又可以从当前位置再来继续读取.</p>
+<h3>带缓冲的输入输出函数 - 读取部分</h3>
+<p>带缓冲的输入输出函数主要用于处理本地文件. 由于每次读写文件, 都是系统调用, 需要陷入内核态, 如果一个一个字节读取显然效率很低. 一般是使用应用程序级别的缓冲区, 一次性读入一些内容, 处理完, 再读入.</p>
+<p>由于有了缓冲区, 除了底层要继续调用 read 和write 来不断读取之外, 还必须维护缓冲区. 为此设置三个函数:</p>
+<pre>
+//初始化读取的函数, 将描述符与一个rp指向的缓冲区联系起来
+void rio_readinitb(rio_t *rp, int fd);
+
+//带缓冲区的read()函数, 是这部分函数的核心, 以下两个函数都调用这个函数
+static ssize_t rio_read(rio_t *rp, char *usrbuf, size_t n)
+
+//从*rp读入下一个文本行, 将其复制到内存位置 usrbuf
+ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n)
+
+//上一个函数的读字节的版本. 从rp最多读取n个字节到内存位置, 然后在末尾添一个\0.对同一个描述符, rio_readnb 和 rio_readlineb可以任意交叉反复调用
+ssize_t rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)
+</pre>
+<p>所以可以发现, 实际上需要先创建一个结构, 指定好缓冲区, 在读取的时候, 就利用这个结构来操作缓冲区.</p>
+<p>按一个将一个文本文件一行一行的从标准输入复制到标准输出的主程序来分析代码:</p>
+<pre>
+int main(int argc, char **argv){
+    int n;
+    //初始化结构
+    rio_t rio;
+    //这个是目标内存区域, MAXLINE在csapp.h里定义的是8192, 即一行最多是8192个字符
+    char buf[MAXLINE]
+
+    //初始化, 即将标准输入与rio结构联系起来
+    Rio_readinitb(&rio, STDIN_FILENO);
+    //反复调用, 只要调用的读取行的函数不为0, 就将读取的行写入标准输出
+    while((n = Rio_readlineb(&rio, buf, MAXLINE))!=0){
+        Rio_writen(STDOUT_FILENO, buf, n);
+    }
+}
+</pre>
+<p>首先程序中声明了 n 用于判断读取是否结束. 然后声明了 rio_t 结构 和 buf 数组作为缓冲区. </p>
+<p>初始化的函数很重要, 是如何将缓冲区和文件描述符联系起来的呢, 核心就是 rio_t 结构:</p>
+<pre>
+#define RIO_BUFSIZE 8192
+typedef struct {
+    //文件描述符
+    int rio_fd;
+    //尚未读取的字节
+    int rio_cnt;
+    //指向缓冲区内下一个空白处的指针
+    char *rio_bufptr;
+    //这里设置了一个内部缓冲区
+    char rio_buf[RIO_BUFSIZE];
+} rio_t;
+</pre>
+<p>有了这样一个结构之后, 通过rio_readinitb设置一下这个结构的内容, 在不同的函数之间传递这个结构, 就可以把缓冲区和文件描述符联系起来.</p>
+<pre>
+void rio_readinitb(rio_t *rp, int fd)
+{
+    // 设置rio_t结构的文件描述符
+    rp->rio_fd = fd;
+    // 内部缓冲区中尚未读取的字节
+    rp->rio_cnt = 0;
+    // 指针指向内部缓冲区的开始
+    rp->rio_bufptr = rp->rio_buf;
+}
+</pre>
+<p>然后来看看核心的rio_read函数:</p>
+<pre>
+static ssize_t rio_read(rio_t *rp, char *usrbuf, size_t n)
+{
+    int cnt;
+
+    //先判于断rio_t结构中的尚未读取的字节是不是小于等0. 如果是的话说明内部缓冲区没有东西, 可以调用read来读入一些内容
+    while (rp->rio_cnt <= 0) {
+        //调用read, 传入的长度是内部缓冲区的总长度, 从rio_t 结构中的fd 读取到内部缓冲区中, 并且返回读取的结果, 设置到 rio_t 结构的rio_cnt上
+        rp->rio_cnt = read(rp->rio_fd, rp->rio_buf,
+                           sizeof(rp->rio_buf));
+        //如果读了一次, 小于0, 说明出错, 检测中断
+        if (rp->rio_cnt < 0) {
+            //如果不是中断导致的, 就出错退出
+            if (errno != EINTR) /* Interrupted by sig handler return */
+                return -1;
+            //如果是中断, 继续向下执行, 也就到了循环末尾, 再读一次
+        }
+        //如果等于0, 说明到了尾部, 返回0
+        else if (rp->rio_cnt == 0)
+            return 0;
+        //如果大于0, 说明成功读取, 此时要将指针重新指向开头.
+        else
+            rp->rio_bufptr = rp->rio_buf;
+    }
+
+    //如果一进函数发现本来rio_t 中的 cnt 大于0, 说明还有内部缓冲区的内容没有被复制到目标内存区域中去
+    //此时要挑cnt 和 n 两个里边的较小值进行复制, 否则就越界了
+    cnt = n;
+    //让cnt变量等于 n 和rio_t中的cnt的较小值
+    if (rp->rio_cnt < n)
+        cnt = rp->rio_cnt;
+    //复制内部缓冲区的内容到目标内存区域, 注意, 每一次复制都是复制到目标区域的开始
+    memcpy(usrbuf, rp->rio_bufptr, cnt);
+    //移动内部缓冲区指针到剩余未读取区域. 即使读光了也没有关系, 下一次再执行读取的时候, 这个指针会根据cnt的值重新设置.如果cnt<=0且成功读取,就会复位到内部缓冲区的开头
+    rp->rio_bufptr += cnt;
+    //rio_cnt的数值减去已经读取的数值
+    rp->rio_cnt -= cnt;
+    return cnt;
+}
+</pre>
+<p>这个函数的本质就是每次进函数, 先把内部缓冲区的东西都发送干净, 再读取新内容到内部缓冲区来. 直到读完为止返回0.</p>
+<p>rio_readnb 和 rio_readlineb 内部都使用了 rio_read 函数. 来看看这两个函数:</p>
+<pre>
+ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n)
+{
+    //尚未读取的数量
+    size_t nleft = n;
+    //已经读取的数量
+    ssize_t nread;
+    //内存区域
+    char *bufp = usrbuf;
+
+    //调用rio_read
+    while (nleft > 0) {
+        //失败返回-1
+        if ((nread = rio_read(rp, bufp, nleft)) < 0)
+            return -1;
+        //到末尾返回0
+        else if (nread == 0)
+            break;
+        //和之前一样的套路, 减去已经读取的, 剩下未读取的,再循环
+        nleft -= nread;
+        //移动目标内存的指针, 继续写入未读取完的部分
+        bufp += nread;
+    }
+    return (n - nleft);
+}
+</pre>
+<p>这个函数内部依靠rio_read函数, 反复读取, 直到把所有的标准输入的内容都读取到内存中. rio_read内部的缓冲区对于这个函数是不可见的, 其行为就和调用 read 函数一样.</p>
+<pre>
+ssize_t rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)
+{
+    int n, rc;
+    char c, *bufp = usrbuf;
+
+    //这里是读取指定长度的字节, 用的是逐个读取. 读到\n就会跳出循环.
+    for (n = 1; n < maxlen; n++) {
+        if ((rc = rio_read(rp, &c, 1)) == 1) {
+            *bufp++ = c;
+            if (c == '\n') {
+                n++;
+                break;
+            }
+        //如果读不到了, 但是长度是1, 表示只读取了一个换行符, 因此返回0
+        } else if (rc == 0) {
+            if (n == 1)
+                return 0;
+            //如果读的长度不是0, 就说明读完了, 跳出循环
+            else
+                break;
+        } else
+            return -1;
+    }
+    //给末尾写入0, 也就是ASCII码的\0
+    *bufp = 0;
+    //返回读入的字符数量, 不包括换行符.
+    return n-1;
+}
+</pre>
+<p>rio_readlineb 是读取字节的版本, 这里因为读取输入的时候不是按行读取, 而是一个一个字节的读取, 直到读到换行符为止, 然后放入一个0.</p>
+<p>在上边的主程序中使用的首字母大写的函数Rio_readlineb 和 Rio_writen 其实是对应函数的包装. 由于写函数是不需要内部缓冲区的, 所以依然使用同一个写函数.</p>
+<p>这样就分析完了线程安全的一个Rio包, 以后在自己的程序中也可以使用.</p>
+
+
+
+
+
+
+
 
 
 
