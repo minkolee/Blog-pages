@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>last chapter</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">CSAPP 第十二章 并发编程理论</h1>
+
+<ol>
+    <li><a href="#con1">并发</a></li>
+    <li><a href="#con2">多进程程序</a></li>
+    <li><a href="#con3">I/O多路复用程序</a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">并发</h2>
+<p>在第八章看信号的时候, 已经会知道各个逻辑控制流在时间上会交错发生, 这就是并发. 并发是一种很普遍的现象, 出现在计算机系统的各个层面上.</p>
+<p>操作系统提供了构造并发程序的三种基本方法:</p>
+<ol>
+    <li>进程. 进程是相对独立的程序运行环境, 如果想要和其他进程通信, 需要显式的使用进程间通信(IPC)机制, 比如信号或者wait函数.</li>
+    <li>I/O多路复用, 这是应用程序在一个进程中调度逻辑流, 数据到达文件描述符后, 整个进程在不同的状态中切换来切换去. 所有的逻辑流共享同一个空间.</li>
+    <li>线程.线程是运行在一个进程内部的独立的逻辑流, 也由内核进行调度, 既像进程一样相对独立, 又像I/O多路复用一样共享所有的虚拟地址空间.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">基于进程的并发服务器</h2>
+<p>基于进程的并发思想是, 将每一个逻辑流对应一个进程去执行, 由于每个逻辑流完全独立, 所以可以各自做各自的工作.</p>
+<p>多进程的一个特点是一定要定时回收僵死的子进程, 需要采取之前的信号策略, 即在处理信号的时候阻塞相同信号, 每次处理信号都尽可能的处理完所有要处理的情况.</p>
+<p>这里可以用多进程来修改一下11章中的套接字服务端, 让其可以同时接收多个连接, 除了上述的要求之外, 还必须要注意描述符. 子进程出现瞬间, 父进程和子进程各有两个文件描述符, 一个指向同一个监听套接字描述符, 一个指向同一个已连接描述符.</p>
+<p>在子进程结束的时候, 子进程的监听套接字描述符和已连接描述符都被系统关闭. 但是父进程依然持有已连接描述符, 如果不加以关闭, 很快就会占满资源, 而且父进程不关闭已连接描述符, 系统中的连接依然存在, 因此这需要在分支出子进程的时候做一些处理, 即父进程关闭已连接描述符, 子进程关闭监听套接字描述符.</p>
+<p>来改造一下这个服务端, 红色的部分是改造的部分:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;string.h>
+#include &lt;stdlib.h>
+#include "csapp.h"
+
+#define MAXLINE 8192
+
+<span style="color: red">void sigchld_handler(int sig) {
+    //不断循环直到所有的僵死子进程都被回收
+    while ((waitpid(-1, 0, WNOHANG)) > 0){}
+}</span>
+
+void echo(int connfd);
+
+int main(int argc, char **argv) {
+    //声明监听套接字和已连接套接字
+    int listenfd, connfd;
+
+    //声明客户端长度
+    socklen_t clientlen;
+
+    //这个是特殊的结构, 用于存放客户端的套接字地址结构
+    struct sockaddr_storage clientaddr;
+
+    //这两个结构用于存放getnameinfo的结果
+    char client_hostname[MAXLINE], client_port[MAXLINE];
+
+    //判断命令行是否错误
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s &lt;port>\n", argv[0]);
+        exit(0);
+    }
+
+    //添加信号处理函数
+    <span style="color: red">Signal(SIGCHLD, sigchld_handler);</span>
+
+    //使用编写的函数打开套接字
+    listenfd = Open_listenfd(argv[1]);
+
+    //开始无限循环, 每一次进来连接就开启新进程, 让子进程操作连接, 主进程关闭已连接描述符
+    while (1) {
+        //计算保存客户端套接字地址的长度
+        clientlen = sizeof(struct sockaddr_storage);
+
+        //调用accept函数, 将客户端套接字地址放入 clientaddr
+        connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
+
+        <span style="color: red">if(Fork()==0) {</span>
+            //子进程关闭监听套接字描述符
+            <span style="color: red">Close(listenfd);</span>
+
+            //调用 getnameinfo 将获取的客户端套接字地址转换成域名和端口
+            Getnameinfo((SA *) &clientaddr, clientlen, client_hostname, MAXLINE, client_port, MAXLINE, 0);
+
+            //打印客户端的连接信息
+            printf("Connected to (%s, %s)\n", client_hostname, client_port);
+
+            //调用函数处理客户端发来的信息
+            echo(connfd);
+
+            //关闭已连接套接字描述符并退出
+            <span style="color: red">Close(connfd);</span>
+            exit(0);
+        <span style="color: red">}</span>
+        //父进程关闭已连接描述符
+        <span style="color: red">Close(connfd);</span>
+    }
+    exit(0);
+}
+</pre>
+<p>注意其中的红色部分, 子进程先关闭监听套接字, 父进程关闭已连接套接字. 这样子进程正常退出的时候, 才能关闭整个客户端的连接, 而监听套接字一直被主进程使用.</p>
+<p>多进程的好处是:</p>
+<ol>
+    <li>文件表共享, 可以方便共享第三方信息</li>
+    <li>独立内存空间和写时复制的变量, 各个进程之间状态互相不影响</li>
+</ol>
+<p>多进程的缺点是:</p>
+<ol>
+    <li>进程的代价高昂, 运行速度慢</li>
+    <li>进程通信比较困难, 必须使用显式的IPC比如waitpid, 管道等</li>
+</ol>
+<h3>练习 12.1 </h3>
+<p>解答, 因为父子进程共享同一个文件表, 在fork()瞬间, 父子进程的connfd指向同一个文件表项, 这个表项的引用是2, 在父进程关闭了已连接描述符后, 表项的引用是1, 因此依然是一个有效的描述符, 子进程可以继续使用这个描述符进行通信.</p>
+<h3>练习 12.2 </h3>
+<p>因为子进程结束的时候, 会释放所有的文件描述符. 而此时父进程已经关闭了已连接描述符, 所以子进程无论是否关闭, 它自己的这个已连接描述符不会被其他进程使用. 所以子进程结束的时候文件表项会被删除, 不会出现内存泄露.</p>
+
+
+
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

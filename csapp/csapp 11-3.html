@@ -16,29 +16,467 @@
 </head>
 <body>
 <h1 style="text-align: center;">CSAPP 第十一章 Web服务器的实现</h1>
-
+<p>这一节来编写一个简单的Web服务器, 一切都是从一个简单的原型开始的.</p>
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">套接字读写的客户端与服务端</a></li>
+    <li><a href="#con2">微型Web服务器 - 主程序</a></li>
+    <li><a href="#con3">doit 函数</a></li>
+    <li><a href="#con4">clienterror 函数</a></li>
+    <li><a href="#con5">read_requesthdrs 函数</a></li>
+    <li><a href="#con6">parse_uri 函数</a></li>
+    <li><a href="#con7">server_static 函数 函数</a></li>
+    <li><a href="#con8">serve_dynamic 函数</a></li>
+    <li><a href="#con9">get_filetype 函数</a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">套接字读写的客户端与服务端</h2>
+<p>似乎网络编程都是从最简单的套接字读写开始的, CSAPP也不例外. 先来看看简单的客户端. 客户端的原理比较简单, 通过服务器的套接字地址去连接服务器, 然后从标准输入读取字符发送到服务端, 不断循环.</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;string.h>
+#include &lt;stdlib.h>
+#include "csapp.h"
 
-<h2 style="text-align: center;" id="con2"></h2>
+#define MAXLINE 8192
 
-<h2 style="text-align: center;" id="con3"></h2>
+int main(int argc, char **argv) {
+    //声明客户端描述符
+    int clientfd;
+    //声明 主机名称, 端口, 缓冲区
+    char *host, *port, buf[MAXLINE];
+    // 声明与缓冲区和描述符联系起来的结构
+    rio_t rio;
 
-<h2 style="text-align: center;" id="con4"></h2>
+    //判断命令行是否正确
+    if (argc != 3) {
+        fprintf(stderr, "usage: %s &lt;host> &lt;port>\n", argv[0]);
+    }
+    host = argv[1];
+    port = argv[2];
 
-<h2 style="text-align: center;" id="con5"></h2>
+    //创建可以读写的描述符
+    clientfd = Open_clientfd(host, port);
+    //将描述符关联到缓冲区结构
+    Rio_readinitb(&rio, clientfd);
 
-<h2 style="text-align: center;" id="con6"></h2>
+    //读取输入直到结束
+    while (Fgets(buf, MAXLINE, stdin) != NULL) {
+        //将读取到的内容写入套接字描述符, 会一直写
+        Rio_writen(clientfd, buf, strlen(buf));
+        Rio_readlineb(&rio, buf, MAXLINE);
+        Fputs(buf, stdout);
+    }
+    //关闭描述符
+    Close(clientfd);
+    exit(0);
+}
+</pre>
+<p>再来看看服务端, 服务端的原理是创建套接字用于等待连接, 连接成功之后打印客户端的连接信息, 然后显示接收到了多少字节的消息:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;string.h>
+#include &lt;stdlib.h>
+#include "csapp.h"
+
+#define MAXLINE 8192
+
+void echo(int connfd);
+
+int main(int argc, char **argv) {
+    //声明监听套接字和已连接套接字
+    int listenfd, connfd;
+
+    //声明客户端长度
+    socklen_t clientlen;
+
+    //这个是特殊的结构, 用于存放客户端的套接字地址结构
+    struct sockaddr_storage clientaddr;
+
+    //这两个结构用于存放getnameinfo的结果
+    char client_hostname[MAXLINE], client_port[MAXLINE];
+
+    //判断命令行是否错误
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s &lt;port>\n", argv[0]);
+        exit(0);
+    }
+
+    //使用编写的函数打开套接字
+    listenfd = Open_listenfd(argv[1]);
+
+    //开始无限循环, 每一次进来连接就将地址写入 clientaddr 和 clientlen 然后打印出来
+    while (1) {
+        //计算保存客户端套接字地址的长度
+        clientlen = sizeof(struct sockaddr_storage);
+
+        //调用accept函数, 将客户端套接字地址放入 clientaddr
+        connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
+
+        //调用 getnameinfo 将获取的客户端套接字地址转换成域名和端口
+        Getnameinfo((SA *) &clientaddr, clientlen, client_hostname, MAXLINE, client_port, MAXLINE, 0);
+
+        //打印客户端的连接信息
+        printf("Connected to (%s, %s)\n", client_hostname, client_port);
+
+        //调用函数处理客户端发来的信息
+        echo(connfd);
+
+        //关闭套接字
+        Close(connfd);
+    }
+
+    exit(0);
+}
+
+void echo(int connfd){
+    size_t n;
+    char buf[MAXLINE];
+    rio_t rio;
+
+    Rio_readinitb(&rio, connfd);
+
+    while ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) {
+        printf("server received %d bytes \n", (int) n);
+        Rio_writen(connfd, buf, n);
+    }
+
+}
+</pre>
+<p>这个就是最简单的套接字连接了, 在此基础上还可以去扩展一些功能.</p>
+
+<h2 style="text-align: center;" id="con2">微型Web服务器</h2>
+<p>一些WEB概念:</p>
+<ol>
+    <li>HTTP是一个基于文本的协议</li>
+    <li>Web内容是一个指定了MIME类型的字节序列.常用的有 text/html text/plain image/gif image/png image/jpeg 等, 当然还有JSON之类, 可以通过浏览器来查看.</li>
+    <li>Web服务提供的内容有两种, 一种仅仅是将磁盘上的文件发送给客户端, 这个叫做静态内容; 还有一种情况是Web服务器接到请求之后执行一些程序, 将程序执行的结果返回给客户端, 这个叫做动态内容.</li>
+    <li>URL 是指包含 协议,域名和目录以及参数的完整地址, 比如 <code>http://www.google.com:80/index.html?search=saner</code>. URI 是指后边的部分, 即<code>/index.html?search=saner</code></li>
+    <li>如何解析一个URL并根据URL来提供内容, 是Web服务器的事情, 所以动态还是静态内容从URL上无法区分</li>
+</ol>
+<p>服务动态内容需要符合CGI通用网关接口标准, 即URL传参的标准. 用 <code>?</code> 来分隔文件名和参数, 然后用&字符来分割不同的参数. 参数中不允许有空格, 必须用字符串"%20"来替代. 很多特殊字符也都有对应的编码.</p>
+<p>服务器在接收到URL的时候, 会先解析URL, 然后取出参数部分和文件, 之后会启动一个子进程, 在其中用 execve 来执行文件, 参数会被设置在子进程的QUERY_STRING环境变量中, 这样子进程就可以通过环境变量获取参数.</p>
+<p>CGI定义了很多常用的环境变量:</p>
+<table>
+    <thead>
+    <tr>
+        <th>环境变量</th>
+        <th>说明</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th>QUERY_STRING</th>
+        <th>程序参数</th>
+    </tr>
+    <tr>
+        <th>SERVER_PORT</th>
+        <th>父进程侦听的端口</th>
+    </tr>
+    <tr>
+        <th>REQUIRED_METHOD</th>
+        <th>请求类型</th>
+    </tr>
+    <tr>
+        <th>REMOTE_HOST</th>
+        <th>客户端的域名</th>
+    </tr>
+    <tr>
+        <th>REMOTE_ADDR</th>
+        <th>客户端的点分十进制IP地址</th>
+    </tr>
+    <tr>
+        <th>CONTENT_TYPE</th>
+        <th>仅仅针对POST请求而言的MIME类型</th>
+    </tr>
+    <tr>
+        <th>CONTENT_LENGTH</th>
+        <th>仅仅针对POST请求的请求体的字节大小</th>
+    </tr>
+    </tbody>
+</table>
+<p>子进程在fork之后, 会把输出重定向到已连接描述符, 这样程序的输出都会写到响应中去.</p>
+<p>主程序比较简单, 就是等待接受连接, 然后执行doit程序:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;string.h>
+#include &lt;stdlib.h>
+#include "csapp.h"
+#define MAXLINE 8192
+
+//执行事务的主函数
+void doit(int fd);
+//读取请求头的函数
+void read_requesthdrs(rio_t *rp);
+//解析URI的函数
+int parse_uri(char *uri, char *filename, char *cgiargs);
+//提供静态服务的函数
+void server_static(int fd, char *filename, int filesize);
+//获取文件类型的函数
+void get_filetype(char *filename, char *filetype);
+//提供动态服务的函数
+void serve_dynamic(int fd, char *filename, char *cgiargs);
+//专门返回错误响应的函数
+void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
+
+int main(int argc, char **argv){
+    //声明描述符
+    int listenfd, connfd;
+    //客户名称和端口
+    char hostname[MAXLINE], port[MAXLINE];
+    //长度
+    socklen_t clientlen;
+    //套接字地址
+    struct sockaddr_storage clientaddr;
+
+    //检查参数
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s &lt;port>\n", argv[0]);
+        exit(1);
+    }
+
+    listenfd = Open_listenfd(argv[1]);
+
+    while (1) {
+        clientlen = sizeof(clientaddr);
+        connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
+        Getnameinfo((SA *) &clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
+        printf("Accepted connection from (%s, %s)\n", hostname, port);
+        doit(connfd);
+        Close(connfd);
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con3">doit 函数</h2>
+<p>从上边的程序可以看出, 其核心是doit函数, 即具体执行工作的函数. 其工作逻辑如下:</p>
+<ol>
+    <li>读HTTP请求行并且解析, 如果是GET以外的方法, 就返回错误信息.</li>
+    <li>如果是GET方法, 忽略请求头, 解析URI</li>
+    <li>将URI解析为一个文件名和一个可能是空串的结果, 设置一个标志表示是静态还是动态内容</li>
+    <li>如果请求的是静态内容, 就去找这个文件, 检查权限然后将文件返回给客户端.</li>
+    <li>如果是动态内容, 验证这个文件是不是可执行文件, 如果是则执行, 并将结果返回给客户端.</li>
+</ol>
+<p>来看看看代码:</p>
+<pre>
+void doit(int fd){
+    //是否静态
+    int is_static;
+    //用于读取文件信息的结构
+    struct stat sbuf;
+
+    char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
+    char filename[MAXLINE], cgiargs[MAXLINE];
+    rio_t rio;
+
+    //读取请求行放入buf缓冲区
+    Rio_readinitb(&rio, fd);
+    Rio_readlineb(&rio, buf, MAXLINE);
+    printf("Resquest headers:\n");
+    printf("%s", buf);
+    //将请求行的方法, URI 和HTTP版本信息分别读取到三个变量里
+    sscanf(buf, "%s %s %s", method, uri, version);
+
+    //忽略大小写比较请求内容与GET,如果不相等, 就返回错误信息
+    if (strcasecmp(method, "GET")) {
+        //调用专门的函数去写错误信息到fd中
+        clienterror(fd, method, "501", "Not implemented", "Tiny dose not implement this method");
+        return;
+    }
+
+    //读取头部信息,这里实际上是忽略了, 可以自己来添加这些内容
+    read_requesthdrs(&rio);
+
+    //URI此时存放在uri变量中, 解析的结果会设置变量is_static, 然后在filename中存放文件名, 参数存放在cgiargs中
+    is_static = parse_uri(uri, filename, cgiargs);
+    //通过stat函数查找文件, 不存在则返回-1, 检测到-1就返回404错误.
+    if (stat(filename, &sbuf) < 0) {
+        clienterror(fd, filename, "404", "Not found", "Tiny could not find this file");
+        return;
+    }
 
 
+    //文件存在, 再根据是否是静态文件, 来决定返回文件本身还是返回执行的结果
+    //是静态文件,先检查权限
+    if(is_static){
+        //检查权限, 不具备权限就报403错误
+        if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) {
+            clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't read the file.");
+            return;
+        }
+        //具备权限, 返回静态文件
+        server_static(fd, filename, sbuf.st_size);
+    }
+    //是动态文件, 检查是否可执行
+    else{
+        //没有执行权限就报403错误
+        if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
+            clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't run the CGI program");
+        }
+        //提供动态服务
+        serve_dynamic(fd, filename, cgiargs);
+    }
+}
+</pre>
+<p>doit 函数通过parse_uri函数获取文件名和参数变量, 据此调用静态或者动态服务函数.</p>
+
+<h2 style="text-align: center;" id="con4">clienterror 函数</h2>
+<p>这其实是将返回错误信息的部分单独抽出来了做成函数, 没有什么好说的, 就是返回错误信息.</p>
+<pre>
+void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg){
+    char buf[MAXLINE], body[MAXBUF];
+    //创建响应体
+    sprintf(body, "&lt;HTML>&lt;title>Tiny Error&lt;/title>");
+    sprintf(body, "%s&lt;body bgcolor=""ffffff"">\r\n", body);
+    sprintf(body, "%s%s: %s\r\n", body, errnum, shortmsg);
+    sprintf(body, "%s&lt;p>%s: %s\r\n", body, longmsg, cause);
+    sprintf(body, "%s&lt;hr>&lt;em>The Tiny Web server&lt;em>\r\n", body);
+
+    //创建响应头
+    sprintf(buf, "HTTP/1.0 %s %s\r\n", errnum, shortmsg);
+    Rio_writen(fd, buf, strlen(buf));
+    sprintf(buf, "Content-type: text/html\r\n");
+    Rio_writen(fd, buf, strlen(buf));
+    sprintf(buf, "Content-length: %d\r\n", (int)strlen(body));
+    Rio_writen(fd, buf, strlen(buf));
+    //反复写完响应头, 然后写响应体
+    Rio_writen(fd, body, strlen(body));
+}
+</pre>
+
+<h2 style="text-align: center;" id="con5">read_requesthdrs 函数</h2>
+<p>这个函数就用于读取请求头并显示出来, 实际上什么也没干.</p>
+<pre>
+void read_requesthdrs(rio_t *rp){
+    char buf[MAXLINE];
+    //请求头每一行都以\r\n结尾, 最后一行是一个空的行, 只有\r\n, 所以每次进行比较.
+    Rio_readlineb(rp, buf, MAXLINE);
+    while (strcmp(buf, "\r\n")) {
+        Rio_readlineb(rp, buf, MAXLINE);
+        printf("%s", buf);
+    }
+}
+</pre>
+
+
+<h2 style="text-align: center;" id="con6">parse_uri 函数</h2>
+<p>这个函数是一个比较核心的函数, 用于解析URI, 解析出来的结果是一个文件名和一个参数字符串. 如果是静态内容, 就清除掉参数字符串.</p>
+<p>URI则会被转换成相对地址, 以让程序去寻找路径. 如果是动态内容, 则会取出所有的参数, 然后也需要转换文件名.</p>
+<p>这里如何判断是静态还是动态文件是根据是否能在uri里搜索到<code>cgi-bin</code>字样来判断的.</p>
+<pre>
+int parse_uri(char *uri, char *filename, char *cgiargs){
+    char *ptr;
+    //如果搜索不到cgi-bin的字样, 就说明是静态文件
+    if (!strstr(uri, "cgi-bin")) {
+        //将参数设置为空串
+        strcpy(cgiargs, "");
+        //转换文件名为相对路径
+        strcpy(filename, ".");
+        //拼接成 ./xxxxx 开头的字符串
+        strcat(filename, uri);
+        //检测最后一个字符是不是"/", 如果是, 就拼上默认的文件, 然后返回1表示静态文件
+        if (uri[strlen(uri) - 1] == '/') {
+            strcat(filename, "home.html");
+        }
+        //返回1表示静态
+        return 1;
+    }
+    //搜索到cgi-bin就说明是动态文件, 此时要操作参数. 之后返回0表示动态
+    else {
+
+        //查找URI中问号的部分
+        ptr = index(uri, '?');
+        //如果找到, 把ptr位置之后的部分复制到cgiargs中, 然后把ptr置为'\0', 复制前一部分到buf中
+        if (ptr) {
+            *ptr = '\0';
+            strcpy(cgiargs, ptr + 1);
+        } else {
+            //没找到参数, 就设置为空字符串
+            strcpy(cgiargs, "");
+        }
+        //和上边一样, 拼接地址为 ./xxxxx
+        strcpy(filename, ".");
+        strcat(filename, uri);
+        return 0;
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con7">server_static 函数</h2>
+<p>提供静态服务的函数, 找到文件然后将文件复制到内存中, 之后从内存里写入到响应中.</p>
+<pre>
+void server_static(int fd, char *filename, int filesize){
+    //声明静态文件的描述符
+    int srcfd;
+    char *srcp, filetype[MAXLINE], buf[MAXLINE];
+
+    //获取文件类型
+    get_filetype(filename, filetype);
+
+    //准备响应头
+    sprintf(buf, "HTTP/1.0 200 OK\r\n");
+    sprintf(buf, "%sServer: Tiny Web Server\r\n", buf);
+    sprintf(buf, "%sConnection: close\r\n", buf);
+    sprintf(buf, "%sContent-length: %d\r\n", buf, filesize);
+    sprintf(buf, "%sContent-type: %s\r\n\r\n", buf, filetype);
+    Rio_writen(fd, buf, strlen(buf));
+    printf("Response headers:\n");
+    printf("%s", buf);
+
+    //准备响应体, 就是将文件读取之后返回给客户端
+    srcfd = Open(filename, O_RDONLY, 0);
+    //使用mmap函数将文件载入内存
+    srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
+    //这里要注意, 将文件读入内存之后, 就可以关闭描述符了, 剩下就从内容复制到已连接描述符就可以了.
+    Close(srcfd);
+    //filesize是从 doit 函数中的文件信息中获得的
+    Rio_writen(fd, srcp, filesize);
+    //复制完之后释放这块指针
+    Munmap(srcp, filesize);
+}
+</pre>
+
+<h2 style="text-align: center;" id="con8">serve_dynamic 函数</h2>
+<p>提供动态服务的函数, 新启动一个子进程, 重定向好标准输出, 设置好环境变量, 然后将控制权交给要执行的函数.</p>
+<pre>
+void serve_dynamic(int fd, char *filename, char *cgiargs){
+    //声明一个缓冲区, 还有一个字符串数组
+    char buf[MAXLINE], *emptylist[] = {NULL};
+
+    //先拼出头部
+    sprintf(buf, "HTTP/1.0 200 OK\r\n");
+    Rio_writen(fd, buf, strlen(buf));
+    sprintf(buf, "Server: Tiny Web Server\r\n");
+    Rio_writen(fd, buf, strlen(buf));
+
+    //起一个子进程, 在子进程里设置好环境变量, 重定向好标准输出到已连接描述符, 之后换成adder.c来执行, 其实就是刚才编写的CGI程序.
+    if (Fork() == 0) {
+        setenv("QUERY_STRING", cgiargs, 1);
+        Dup2(fd, STDOUT_FILENO);
+        Execve(filename, emptylist, environ);
+    }
+    Wait(NULL);
+}
+</pre>
+
+<h2 style="text-align: center;" id="con9">get_filetype 函数</h2>
+<p>这是个辅助函数, 用于从文件名中获取文件的类型拼接在响应头中. 是一个辅助函数.</p>
+<pre>
+void get_filetype(char *filename, char *filetype){
+    //只支持五种文件, 文件名来自于parse_uri拼接后的filename
+    if (strstr(filename, ".html")) {
+        strcpy(filetype, "text/html");
+    } else if (strstr(filename, ".gif")) {
+        strcpy(filetype, "image/gif");
+    } else if (strstr(filename, ".png")) {
+        strcpy(filetype, "image/png");
+    } else if (strstr(filename, ".jpg")) {
+        strcpy(filetype, "image/jpeg");
+    } else {
+        strcpy(filetype, "text/plain");
+    }
+}
+</pre>
+<p>通过底层的Web服务器, 可以清楚的知道操作字节和解析字符的方法. 通过解析的内容, 以及系统编程的技巧, 对于静态文件读入内存并返回, 对于动态文件, 启动新进程执行, 利用到了几乎所有系统编程的方方面面.有了一个最简单的原型, 之后就可以来扩充各种内容了. 继续前进, 是最后一章了.</p>
 
 
 
