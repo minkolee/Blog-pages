@@ -15,16 +15,15 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第十二章 并发编程理论</h1>
+<h1 style="text-align: center;">CSAPP 第十二章 多进程与I/O多路复用</h1>
 
-<p>终于站在CSAPP最后一章的门前了, 一年以前买这本书的时候还看不进去, 现在竟然已经全部看完而且看懂了. 内心还是有点小小的激动, 第一本正经的科班教材看完了, 这种力量不断涌现的</p>
+<p>终于站在CSAPP最后一章的门前了, 一年以前买这本书的时候还看不进去, 现在竟然已经全部看完而且看懂了. 内心还是有点小小的激动, 这种力量正不断涌现的感觉...</p>
 <ol>
     <li><a href="#con1">并发</a></li>
     <li><a href="#con2">多进程程序</a></li>
-    <li><a href="#con3">I/O多路复用程序</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con3">I/O多路复用 - select 函数</a></li>
+    <li><a href="#con4">I/O多路复用 - 事件驱动的并发</a></li>
+    <li><a href="#con5">I/O多路复用 - 优缺点</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">并发</h2>
@@ -129,7 +128,7 @@ int main(int argc, char **argv) {
 <h3>练习 12.2 </h3>
 <p>因为子进程结束的时候, 会释放所有的文件描述符. 而此时父进程已经关闭了已连接描述符, 所以子进程无论是否关闭, 它自己的这个已连接描述符不会被其他进程使用. 所以子进程结束的时候文件表项会被删除, 不会出现内存泄露.</p>
 
-<h2 style="text-align: center;" id="con3">I/O多路复用程序</h2>
+<h2 style="text-align: center;" id="con3">I/O多路复用 - select 函数</h2>
 <p>依稀记得刚开始学Python的时候, 到最后看I/O多路复用还以为自己稍微理解了内容. 现在看来当时的自己还差得远, 现在可以从系统上来看看I/O多路复用了.</p>
 <p>当一个程序同时需要多个I/O, 并且针对不同的I/O进行处理的时候, 程序如果在等待其中一个I/O的时候阻塞, 就无法去做其他的事情. 针对这种困境的解决方案就是不让程序自己去阻塞, 而是使用select函数, 让内核挂起这个进程, 在某个或者多个I/O事件发生的时候, 将控制返回给应用程序.</p>
 <p>通过I/O复用, 一个程序就可以像下边这样工作:</p>
@@ -143,7 +142,7 @@ int main(int argc, char **argv) {
 <pre>
 #include &lt;sys/select.h>
 
-//返回已准备好的描述符的个数
+//返回已准备好的描述符的个数.
 int select(int n, fd_set *fdset, NULL, NULL, NULL);
 
 //操作描述符集的宏
@@ -152,37 +151,273 @@ FD_CLR(int fd, fd_set *fdset);      //从描述符集中清理fd描述符
 FD_SET(int fd, fd_set *fdset);      //向描述符集中设置fd描述符
 FD_ISSET(int fd, fd_set *fdset);    //描述符集中的fd描述符是否被设置?
 </pre>
+<p>看一个简单的例子来学习使用:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;string.h>
+#include &lt;stdlib.h>
+#include &lt;sys/select.h>
+#include "csapp.h"
+
+#define MAXLINE 8192
+void command(void);
+
+void echo(int connfd);
+
+int main(int argc, char **argv) {
+    int listenfd, connfd;
+    socklen_t clientlen;
+    struct sockaddr_storage clientaddr;
+    char client_hostname[MAXLINE], client_port[MAXLINE];
+
+    //声明描述符集
+    fd_set read_set, ready_set;
+
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s &lt;port>\n", argv[0]);
+        exit(0);
+    }
+
+    listenfd = Open_listenfd(argv[1]);
+
+    //清空描述符集
+    FD_ZERO(&read_set);
+    //打开标准输入
+    FD_SET(STDIN_FILENO, &read_set);
+    //打开listenfd
+    FD_SET(listenfd, &read_set);
+
+    //开始无限循环, 每一次进来连接就将地址写入 clientaddr 和 clientlen 然后打印出来
+    while (1){
+        //将准备完毕集合设置成read_set一致
+        ready_set = read_set;
+
+        //第一个参数是要监听的描述符集合的最大基数, 这里一共要监听 0, 1 ,2 ,3 四个描述符, 3号就是listenfd
+        Select(listenfd + 1, &ready_set, NULL, NULL, NULL);
+
+        //如果标准输入的描述符就绪, 就执行command函数
+        if (FD_ISSET(STDIN_FILENO, &ready_set)) {
+            command();
+        }
+
+        if(FD_ISSET(listenfd, &ready_set)){
+            clientlen = sizeof(struct sockaddr_storage);
+            connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
+            echo(connfd);
+            Close(connfd);
+        }
+    }
+    exit(0);
+}
+
+void echo(int connfd){
+    size_t n;
+    char buf[MAXLINE];
+    rio_t rio;
+
+    Rio_readinitb(&rio, connfd);
+
+    while ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) {
+        printf("server received %d bytes \n", (int) n);
+        Rio_writen(connfd, buf, n);
+    }
+
+}
+
+void command(void){
+    char buf[MAXLINE];
+    if (!Fgets(buf, MAXLINE, stdin)) {
+        exit(0);
+    }
+    printf("From stdin: %s\n", buf);
+}
+</pre>
+<p>这个程序使用了两个描述符集合, 这样可以区分开原始的和当成参数被 select 函数修改之后的准备集.</p>
+<p>这里我感觉首先要理解的是, listenfd描述符有连接进来的时候, 就会激活select函数, 这时候就可以判断然后去调用 connfd 这是第一个点.</p>
+<p>第二个点就是每次都需要判断ready_set, 因为每次select函数执行完不阻塞的时候, ready_set都会变动.</p>
+<p>由于这个服务器在标准输入不按下回车的时候, select是阻塞的. 而连接进来的时候, select会被激活而打开阻塞, 由于echo是循环的, 所以这个服务器的表现行为是:外部连接随时可以打断本地标准输入.</p>
+<p>外部连接结束的时候, 所有已经按过回车的本地连接的内容又会激活select然后再打印出来.</p>
+<h3>12.3 在上边这个程序里如果本地输入按下了Ctrl+D, 会发生什么?</h3>
+<p>按下Ctrl+D是发送一个EOF到操作系统, EOF的本质是读到了0, 所以也是一个字节. 会触发select让其不阻塞. 不过我在实际试验的时候, 都会直接退出.</p>
 
 
+<h2 style="text-align: center;" id="con4">I/O多路复用 - 事件驱动的并发</h2>
+<p>I/O多路复用有点像操作系统给应用程序发送了一个信号, 因为 select 函数会阻塞, 当不阻塞的时候, 应用程序的代码得以执行, 应用程序的代码如果之后是根据可用描述符进行操作的话, 相当于每次有可用的描述符, 操作系统都"通知"了程序.</p>
+<p>直观的来说, 我们的程序不等操作系统通知是不干活的, 这就是事件驱动, 有事干活, 没事挂起.</p>
+<p>事件驱动的并发一般思路是将逻辑流模型变化为状态机. 所谓状态机就是一组(状态,输入事件)对应到一个输出. 只要改变输入, 就会得到一个输出. 在并发的时候, 实际上是针对每个输入, 创建一个逻辑流对应上, 只要这个输入进来, 就执行对应的逻辑流, 得到输出.</p>
+<p>所以事件驱动程序的编写原则是:</p>
+<ol>
+    <li>监听事件</li>
+    <li>事件发生的时候, 使用一个容器放入要处理的内容</li>
+    <li>按一定顺序处理容器中的事件</li>
+    <li>将处理完的事件扔出容器,释放资源</li>
+    <li>继续监听事件</li>
+</ol>
+<p>现在要写一个事件驱动的服务器示例, 其核心就是要使用一个自建的数据结构来存放事件. 当描述符可读的时候, 就更新这个事件数据结构, 然后服务器会按照顺序处理事件结构中的内容.</p>
+<p>执行完毕的时候又回到等待 select 函数解除阻塞的过程. 这其中对于每次处理要小心的处理和释放资源. 如果用一个队列来装事件处理结构, 这个就是经常听到的事件队列.</p>
+<p>先来看主程序的逻辑:</p>
+<pre>
+#include "csapp.h"
 
 
+//针对每一次select返回, 创建一个事件数据结构池
+typedef struct {
+    int maxfd;                      //read_set中最大的描述符
+    fd_set read_set;                //可读描述符集合
+    fd_set ready_set;               //送给select当参数的描述符集合
+    int nready;                     //select的返回值
+    int maxi;                       //clientfd的最大索引, 也就是已经使用的位置
+    int clientfd[FD_SETSIZE];       //存放可用的已连接描述符数组
+    rio_t clientrio[FD_SETSIZE];    //这个事件里的描述符使用的缓冲区数组
+} pool;
+
+void init_pool(int listenfd, pool *p);
+
+void add_client(int connfd, pool *p);
+
+void check_clients(pool *p);
 
 
+int byte_cnt = 0;   //接受到的总的字节数量
 
+int main(int argc, char **argv) {
+    int listenfd, connfd;
+    socklen_t clientlen;
+    struct sockaddr_storage clientaddr;
+    //静态变量声明, 初始化一次, 之后不会被回收
+    static pool pool;
 
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s &lt;port>\n", argv[0]);
+        exit(0);
+    }
 
+    listenfd = Open_listenfd(argv[1]);
 
+    //关键函数之一, 初始化池子
+    init_pool(listenfd, &pool);
+    while (1) {
+        //这里完成了池子的初始化, 像原来一样调用select
+        pool.ready_set = pool.read_set;
+        //接收返回的可用描述符的数量放入pool.nready中
+        pool.nready = Select(pool.maxfd + 1, &pool.ready_set, NULL, NULL, NULL);
 
+        //此时select函数阻塞完毕, 需要处理事件了
+        // 如果监听描述符可用, 即有连接进来, 创建连接, 然后将连接描述符加入到池子数据结构中
+        // 纯粹的连接会将新的连接加入到池子, 同时减掉nready, 此时nready就等于0, 所以不会导致check_clients进行任何处理
+        // 如果没有创建新的连接, 则不会调用add_client, 此时nready就是大于等于1
+        if (FD_ISSET(listenfd, &pool.ready_set)) {
+            clientlen = sizeof(struct sockaddr_storage);
+            connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
+            //关键函数之二, 将已连接描述符放入池子里
+            add_client(connfd, &pool);
+        }
 
+        //关键函数之三, 检查池子并处理已连接描述符
+        check_clients(&pool);
+    }
+}
+</pre>
+<p>主程序的逻辑就是按照上边说的基础逻辑, 这里要注意使用了一个pool.nready变量. 每次有新的连接进来的时候, 会将select返回的可读写的描述符数量减去1, 因为同时只会有一个新的listenfd发生, 剩下的数量就是所有已经连接的描述符中可读的数量.</p>
+<p>在进入到check_clients中, 程序只会在nready大于0 的情况下工作, 就说明仅仅是一个新连接的请求, 不会触发 check_clients 的工作, 也是要达到的目标.</p>
+<pre>
+void init_pool(int listenfd, pool *p) {
+    //将maxi和已连接描述符的数组全部设置为-1. 数组中-1表示一个空闲的位置.
+    int i;
+    p->maxi = -1;
+    for (i = 0; i < FD_SETSIZE; i++) {
+        p->clientfd[i] = -1;
+    }
 
+    //初始化read_set为仅包含listenfd描述符
+    p->maxfd = listenfd;
+    FD_ZERO(&p->read_set);
+    FD_SET(listenfd, &p->read_set);
+}
+</pre>
+<p>初始化池子的函数主要是将数组初始化为-1, 每个-1表示可用的槽位, 将来放入已连接描述符. 而read_set始终保持为listenfd 加上所有已连接未关闭的描述符集合, 在每次循环中交给select去监听.</p>
+<pre>
+void add_client(int connfd, pool *p) {
+    int i;
+    printf("执行到这里add_client之前的 nready  等于 %d\n", p->nready);
+    //在执行add_client之前, select 已经解除阻塞, 所以此时的事件池中 nready 大于等于1, 由于有了一个新的连接, 所以要先将其减去1
+    p->nready--;
+    //遍历事件池中的已连接描述符数组
+    for (i = 0; i < FD_SETSIZE; i++) {
+        //如果有空槽位
+        if (p->clientfd[i] < 0) {
+            //空槽位中放入描述符
+            p->clientfd[i] = connfd;
+            //之后关联起来描述符和相同索引的缓冲区
+            Rio_readinitb(&p->clientrio[i], connfd);
 
+            //将描述符放入可读描述符集合
+            FD_SET(connfd, &p->read_set);
 
+            //更新最大描述符和数组最大索引
+            if (i > p->maxi) {
+                p->maxi = i;
+            }
+            if (connfd > p->maxfd) {
+                p->maxfd = connfd;
+            }
+            //成功之后跳出循环
+            break;
+        }
+    }
 
+    //循环执行完毕之后判断是不是数组已满, 即 i 已经等于FD_SETSIZE
+    if (i == FD_SETSIZE) {
+        unix_error("add_client error: Too many clients");
+    }
+    //函数执行完之后, 放入了一个 connfd, 然后将这个 connfd 加入了read_set.
+}
+</pre>
+<p>add_client 当监听的listenfd可读的时候, 即有新连接的时候才工作, 会将nready减去1, 以让后边的check_clients正常工作. add_client的关键工作之一是将获取的已连接描述符放入read_set中, 以便让 check_clients 进行操作, 并再根据客户端关闭的情况操作一次read_set.</p>
+<pre>
+void check_clients(pool *p){
+    int i, connfd, n;
+    char buf[MAXLINE];
+    rio_t rio;
 
+    //遍历数组, 处理所有连接, 只搜索最大索引的部分, 这样效率比较高
+    for (i = 0; (i <= p->maxi) && (p->nready > 0); i++) {
+        connfd = p->clientfd[i];
+        rio = p->clientrio[i];
 
+        if ((connfd > 0) && (FD_ISSET(connfd, &p->ready_set))) {
+            p->nready--;
+            if ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) {
+                byte_cnt += n;
+                printf("Server received %d (%d total) bytes on fd %d\n", n, byte_cnt, connfd);
+                Rio_writen(connfd, buf, n);
+            } else {
+                Close(connfd);
+                FD_CLR(connfd, &p->read_set);
+                p->clientfd[i] = -1;
+            }
+        }
+    }
+}
+</pre>
+<p>最后是实际进行和客户端交流的 check_clients, 这个函数先根据nready判断要不要干活, 需要干活了, 就遍历已连接描述符数组, 对每个已连接描述符进行处理. 如果EOF了, 就将描述符从read_set中删除掉. </p>
+<h3>练习 12.4 为何每次调用 Select 之前, 需要重新初始化pool.ready_set变量</h3>
+<p>因为每次循环如果有新连接进来, read_set 中会保存 listenfd 外加所有的已连接描述符, 因此必须让Select去监听这个新的合集, 然而由于Select函数的特性, 会直接修改第二个变量指向的集合, 所以只好把 read_set 的值赋给 ready_set, 以分离参数值和结果值, 因为在后边的程序中, 会分别操作read_set 和 ready_set.</p>
 
-
-
-
-
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-
-<h2 style="text-align: center;" id="con6"></h2>
-
-
+<h2 style="text-align: center;" id="con5">I/O多路复用 - 优缺点</h2>
+<p>I/O多路复用的优点有:</p>
+<ol>
+    <li>共享代码和数据, 对于需要共享数据的程序来说非常方便</li>
+    <li>无需切换进程, 上下文开销小, 代码是顺序执行, 调试方便</li>
+    <li>事件驱动设计给予程序员更大的灵活性</li>
+</ol>
+<p>I/O多路复用的缺点有:</p>
+<ol>
+    <li>代码和控制流复杂, 如果并发粒度高, 而且业务复杂, 代码复杂度更高</li>
+    <li>单进程(线程)运作, 无法有效使用多核硬件</li>
+</ol>
+<p>个人感觉对于牛逼程序员来说, 代码复杂度不算事. 不能充分利用多核才是真正的缺点. 但是超级快速的玩意比如 nginx 竟然也是使用I/O多路复用技术, 看来这玩意还真的快的不是一点点啊.</p>
+<p>CSAPP这个原型还是不错的, 至少讲清楚了Socket通信方面使用事件数组存放数据, 然后不断进行事件处理循环的过程. </p>
 
 
 
