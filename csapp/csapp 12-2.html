@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>第四章笔记</title>
+    <title>last chapter</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,20 +15,46 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">CSAPP 第四章 处理器体系结构</h1>
+<h1 style="text-align: center;">CSAPP 第十二章 多线程</h1>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
+    <li><a href="#con1">线程</a></li>
+    <li><a href="#con2">线程包的接口</a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">线程</h2>
+<p>线程有点像上边两个方法的混合, 既有多个逻辑流, 又可以共享整个地址空间.</p>
+<p>线程运行在进程上下文中的逻辑流, 现代操作系统允许一个进程里同时运行多个线程. 线程也由内核自动调度, 每个线程都有自己的线程上下文, 包括栈, 栈指针, 程序计数器和寄存器. 注意是栈, 而内存空间是共享的, 也就意味着代码区, 数据区, 堆, 共享区, 文件描述符都是共享的.</p>
+<p>内核通过一个整数ID来识别线程. 线程没有父子之分, 每次创建线程, 都是一个对等的线程. 每个进程开始的时候只有一个线程, 叫做主线程, 之后创建的线程对于主线程来说都是对等的线程.</p>
+<p>一旦创建线程, 两个线程就并发的运行. 直到全部结束为止. 但是如果这之前进程被结束, 则所有的线程也都被销毁. 所谓对等, 就是指每个线程都可以干掉其他线程, 或者等待任意其他线程终止, 这点与进程符合父子关系是完全不同的.</p>
+<p>C语言的多线程支持在1995年出现, 在所有的Linux系统上都可用, 库名是pthread, gcc编译的时候调用 -lpthread 来使用这个库.</p>
+<p>来看一个最简单的多线程例子, 然后来看这个接口的详情:</p>
+<pre>
+void *thread(void *vargp);
 
-<h2 style="text-align: center;" id="con2"></h2>
+int main(){
+    pthread_t tid;
+    pthread_create(&tid, NULL, thread, NULL);
+    pthread_join(tid,NULL);
+    exit(0);
+}
+
+void *thread(void *vargp){
+    printf("No.%d thread prints Hello world!\n", tid);
+    return NULL;
+}
+</pre>
+<p>这个程序主线程启动了一个新线程, 新线程打印自己的线程号和Hello world</p>
+
+
+<h2 style="text-align: center;" id="con2">线程包的接口</h2>
+<p>线程包的几个接口就是上边的程序那样, 创建线程, 终止线程, 以及回收线程的资源, 此外还有改变线程的结合性和初始化线程的接口.</p>
+
+
 
 <h2 style="text-align: center;" id="con3"></h2>
 
