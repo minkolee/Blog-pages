@@ -20,8 +20,8 @@
 <ol>
     <li><a href="#con1">线程</a></li>
     <li><a href="#con2">线程包的接口</a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con3">多线程echo server</a></li>
+    <li><a href="#con4">多线程程序中的共享变量</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
@@ -48,17 +48,159 @@ void *thread(void *vargp){
     return NULL;
 }
 </pre>
-<p>这个程序主线程启动了一个新线程, 新线程打印自己的线程号和Hello world</p>
+<p>这个程序主线程启动了一个新线程, 新线程打印自己的线程号和Hello world. 这个新线程执行的内容就是thread函数中的内容, 这个函数也叫做线程例程.</p>
+<p>可以看到, 这个线程例程的参数一定是一个通用指针, 返回值也是通用指针, 因此如果要给线程传参数, 需要传入一个指针, 传多个参数就需要传递一个结构.</p>
+<p>线程返回的时候如果需要返回多个结果, 可以返回一个指向一个结构的指针.</p>
 
 
 <h2 style="text-align: center;" id="con2">线程包的接口</h2>
 <p>线程包的几个接口就是上边的程序那样, 创建线程, 终止线程, 以及回收线程的资源, 此外还有改变线程的结合性和初始化线程的接口.</p>
+<p>创建线程的函数:</p>
+<pre>
+#include &lt;pthread.h>
+//定义一个参数是void *, 返回值也是void * 的类型叫 func
+typedef void *(func)(void *);
+//成功返回0, 不成功返回非零数
+int pthread_create(pthread_t *tid, pthread_attr_t *attr, func *f, void *arg);
+</pre>
+<p>其中第一个参数是tid类型的指针, 函数会在其中填入线程号. 第二个参数是用来改变新创建线程的默认属性.</p>
+<p>第三个参数就是线程实际要做的事情也就是例程, 传入那个函数指针. 第四个参数是输入变量, 这个 arg 参数就会被当成例程的参数.</p>
+<p>pthread_create 函数返回的时候, 在线程的上下文就会开始运行例程f. 新线程可以调用<code>pthread_self来获取自己的线程ID:</code></p>
+<pre>
+#include &lt;pthread.h>
+
+pthread_t pthread_self(void);
+</pre>
+<p>线程的终止有如下几种情况:</p>
+<ol>
+    <li>线程例程返回的时候, 线程会隐式的终止</li>
+    <li>调用pthread_exit函数, 线程会显式的终止. 如果主线程调用这个函数, 会等待其他所有对等线程终止, 再终止主线程和整个进程, 这个函数返回值为 thread_return . <br>
+    <pre>
+        #include &lt;pthread.h>
+        //成功返回0, 不成功返回非零
+        void pthread_exit(void *thread_return);
+    </pre></li>
+    <li>对等线程调用Linux系统的exit函数, 进程会立刻终止, 所有线程也一起挂了</li>
+    <li>一个对等线程通过pthread_cancel(tid)来终止ID为tid的线程.</li>
+</ol>
+<p>回收已终止线程的资源采用pthread_join函数:</p>
+<pre>
+#include &lt;pthread.h>
+//成功返回0, 不成功返回非零
+int pthread_join(pthread_t tid, void **thread_return);
+</pre>
+<p>一个线程执行这个函数的时候, 这个线程会阻塞, 直到tid线程终止, 之后会将线程例程返回的通用指针赋值为thread_return指向的地方, 然后回收线程占用的所有内存资源.</p>
+<p>与wait函数不同的是, 一个这个函数只能等待指定为tid的线程终止, 不能等待一批线程终止. 这使得多线程的代码更加复杂了. 因为要等待指定的线程, 很显然不能只调用一次这个函数.</p>
+<p>线程还是可结合的或者可分离的. 一个可结合的线程是默认情况, 可以被其他线程收回或者杀死. 在回收之前, 栈是不释放的. 而分离的线程无法被其他线程回收或者杀死, 内存资源在它终止的时候由系统自动释放.</p>
+<p>为了避免内存泄露, 每个线程要么可结合,然后被显式的回收, 要么通过调用pthread_detach被分离:</p>
+<pre>
+#include &lt;pthread.h>
+//成功返回0, 不成功返回非零
+int pthread_detach(pthread_t tid);
+</pre>
+<p>现实程序中采用分离线程比如Web服务器, 每次收到新连接创建一个分离线程, 然后无需等待该线程终止, 就立刻做其他事情. 分离线程在返回响应之后就被系统回收了.</p>
+<p>可以采用pthread_once来初始化线程例程相关的状态:</p>
+<pre>
+#include &lt;pthread.h>
+
+pthread_once_t once_control = PTHREAD_ONCE_INIT;
+
+//固定返回0
+int pthread_once(pthread_once_t *once_control, void (*init_routine)(void));
+</pre>
+<p>这个函数用于动态初始化多个线程共享的全局变量. once_control是一个全局或者静态变量, 被固定的初始化为PTHREAD_ONCE_INT这个宏, 第一次调用pthread_once的时候, 会调用第二个参数中的函数, 但这个函数什么也不做.</p>
+
+<h2 style="text-align: center;" id="con3">多线程echo server</h2>
+<p>多线程的程序与多进程有着明显的不同, 通过将echo server 改造成多线程来看一看其中的奥妙:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;string.h>
+#include &lt;stdlib.h>
+#include "csapp.h"
+
+#define MAXLINE 8192
+
+void echo(int connfd);
+
+//线程例程声明
+void *thread(void *vargp);
+
+int main(int argc, char **argv) {
+    //一个整数的指针connfdp, 用于指向已连接描述符的地址
+    int listenfd, <span style="color: red">*connfdp</span>;
+    socklen_t clientlen;
+    struct sockaddr_storage clientaddr;
+
+    //声明线程id
+    pthread_t tid;
+
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s &lt;port>\n", argv[0]);
+        exit(0);
+    }
+
+    listenfd = Open_listenfd(argv[1]);
+
+    while (1) {
+        clientlen = sizeof(struct sockaddr_storage);
+        //每次申请新内存, 然后在新的内存里装入新的已连接描述符
+        //申请一块新的内存
+        <span style="color: red">connfdp = Malloc(sizeof(int));</span>
+
+        //accept函数返回的connfdp存放在新的区域里, 这样可以确保每个线程分配到的connfdp指针指向不同的内存区域.
+        <span style="color: red">*connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen);</span>
+
+        //启动新线程
+        Pthread_create(&tid, NULL, thread, connfdp);
+    }
+}
+
+//线程例程的实际执行代码
+void *thread(void *vargp){
+    //强制转换vargp的类型, 然后取出传入的connfdp指针的值, 就是新的已连接描述符
+    int connfd = *((int *) vargp);
+    //将自己变成分离线程, 为了结束的时候可以回收内存
+    Pthread_detach(pthread_self());
+    //释放vargp指向的内存, 也就是本来存放当前线程对应的已连接描述符的内存
+    Free(vargp);
+    echo(connfd);
+    Close(connfd);
+    return NULL;
+}
 
 
+void echo(int connfd){
+    size_t n;
+    char buf[MAXLINE];
+    rio_t rio;
 
-<h2 style="text-align: center;" id="con3"></h2>
+    Rio_readinitb(&rio, connfd);
 
-<h2 style="text-align: center;" id="con4"></h2>
+    while ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) {
+        printf("server received %d bytes \n", (int) n);
+        Rio_writen(connfd, buf, n);
+    }
+
+}
+</pre>
+<p>这里特别要注意标红色的部分, 以前我们是直接将描述符的值传递给子进程, 在I/O多路复用中也是直接使用的已连接描述符的值. 但是在这里如果用同一个局部变量传递值, 就会出现问题, 由于并发的顺序不可预测, 很有可能新的accept函数还没执行之前, 就将旧的已连接描述符的值传递给了线程例程.这样会导致两个线程读同一个描述符, 出现不可预料的情况.</p>
+<p>所以必须要传递一个指针. 但是传递指针的时候还需要解决另外一个问题, 就是不能传递每次都指向同一个位置的指针, 否则依然没有解决竞争问题.</p>
+<p>这里采用了每次都去新申请一块空间, 然后在例程中传入这个指向新空间的指针. 在将其中的值取出之后, 释放这块空间的做法. 这样就保证了每个例程在直到不释放这个空间之前, 每个例程的指针都不同, 而释放之后, 例程也不再使用这个空间, 这样就避免了竞争问题.</p>
+<p>这里还要理解, 例程的局部变量是放在栈里的, 每个线程都是独立的, 不会互相影响.</p>
+<h3>练习12.5 为何只在线程例程中关闭了已连接描述符?</h3>
+<p>由于所有的线程共享进程的内容, 而描述符是跟着进程走的, 所以一个线程里的描述符也是进程的描述符, 其引用数量也是按照进程来的, 所以就是1, 只要一个线程关闭了, 文件表项就彻底关闭了.</p>
+
+<h2 style="text-align: center;" id="con4">多线程程序中的共享变量</h2>
+<p>在上一个简单的多线程服务器中, 看上去对于每个例程分配了独立的存放已连接描述符的内存空间, 但实际上所有例程依然有共享的部分, 那就是文件描述符. 所以如果同时有很多个连接进来但没有终止连接, 文件描述符会由于超过用量而导致连接失败.</p>
+<p>除此之外, 更常见的工作是使用多个线程对一个数据结构进行并行的计算, 很显然这些线程要共享这个数据, 但是这可能会导致一系列潜在的错误, 这就必须先了解线程相关的一些理论.</p>
+<p>再来仔细的看看线程的内存使用:</p>
+<ol>
+    <li>每个线程独立的使用线程ID, 栈, 栈指针, 程序计数器, 条件码 和通用目的寄存器</li>
+    <li>所有线程共享进程上下文的剩余部分, 也就是整个虚拟地址空间, 包括只读代码区, 数据区, 堆, 共享库代码</li>
+    <li>所有的线程对外都是一个进程, 因此也共享操作系统为进程提供的上下文, 其中最核心的就是文件描述符</li>
+</ol>
+
+
 
 <h2 style="text-align: center;" id="con5"></h2>
 
