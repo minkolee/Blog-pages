@@ -31,11 +31,31 @@
 
 <h2 style="text-align: center;" id="con1">Java基础模型</h2>
 <p>这一部分主要是讲Java和其他编程语言比较通用的部分, 还讲了自带的库函数, 已经都下载好到练习环境中了.</p>
-<p>然后是一个二分查找法的示例. 这里要注意运行命令行的时候, 如果提示找不到类, 要回到根目录下, 然后运行这种:</p>
+<p>部分练习题记录如下:</p>
+<h3>1.1.13 打印M行N列的二维数组的转置</h3>
 <pre>
+public class ArrayTransform {
 
+
+    public static void arraytransform(int[][] array, int row, int column) {
+        int i, j;
+        for (j = 0; j < column; j++) {
+            for (i = 0; i < row; i++) {
+                StdOut.printf("%8d", array[i][j]);
+            }
+            StdOut.println();
+        }
+    }
+
+    public static void main(String[] args) {
+        int[][] re = {{1, 2, 3, 4}, {4, 5, 6, 7}, {7, 8, 9, 10}};
+        arraytransform(re, 3, 4);
+    }
+}
 </pre>
-
+<p>小试牛刀而已, 返回一个转置好的矩阵也是可以的.</p>
+<h3>1.1.14</h3>
+<p></p>
 
 
 
