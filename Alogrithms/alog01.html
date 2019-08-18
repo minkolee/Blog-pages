@@ -15,13 +15,16 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">算法第四版 第一章</h1>
+<h1 style="text-align: center;">算法第四版 第一章 背包 队列 栈</h1>
 <p>为了继续提高自己的水平, 是时候开始接触算法了. 看了很多算法的推荐, 这本<a href="https://item.jd.com/11098789.html" target="_blank">算法第四版</a>是很好的入门教材.</p>
 <p>在Coursera上找到了这门课程的<a href="https://www.coursera.org/learn/algorithms-part1/home/welcome" target="_blank">第一部分</a>和<a
         href="https://www.coursera.org/learn/algorithms-part2" target="_blank">第二部分</a>, 还有书的<a href="https://algs4.cs.princeton.edu/home/" target="_blank">配套网站</a></p>
 <p>材料备齐就开始吧, 由于没有完整的接触过算法, 第一次还是要细细品味.</p>
+<p>经过两天的编写练习, 把书第一章前两个小节的练习都做了. 前边的练习部分基本上是熟悉Java语言, 现在要正式开始学习算法和数据结构了.</p>
+<p>第三节就正式开始介绍一些数据结构, 首先就是背包, 队列和栈. 这三个数据结构都是集合, 而且都支持访问集合中的对象, 而三者的区别就是访问的顺序不同以及删除对象的顺序不同. 为了三者的实现, 还需要学习一种经典的数据结构, 就是链表.</p>
+
 <ol>
-    <li><a href="#con1">Java基础模型</a></li>
+    <li><a href="#con1">三个数据结构概述</a></li>
     <li><a href="#con2"></a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
@@ -29,39 +32,256 @@
     <li><a href="#con6"></a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1">Java基础模型</h2>
-<p>这一部分主要是讲Java和其他编程语言比较通用的部分, 还讲了自带的库函数, 已经都下载好到练习环境中了.</p>
-<p>部分练习题记录如下:</p>
-<h3>1.1.13 打印M行N列的二维数组的转置</h3>
+<h2 style="text-align: center;" id="con1">概述</h2>
+<p>背包就像现实中的一个背包一样, 不支持从其中删除元素. 是一个集合数据类型, 目的就是帮助程序收集元素并迭代遍历所有收集到的元素. 迭代的顺序不是确定的, 而且必须要与程序无关.</p>
+<P>对于一个背包来说, 一般要实现的功能为迭代器, 即让用例可以不重复的从背包中取出元素来操作.</P>
+<p>背包数据结构的API:</p>
 <pre>
-public class ArrayTransform {
+public class Bag&lt;Item> implements Iterable&lt;Item>
 
+         Bag()          //构造器, 创建空的背包
+    void add(Item item) //像背包中放入一个元素
+ boolean isEmpty()      //判断背包是不是空
+     int size()         //背包内装入的元素数量
+</pre>
 
-    public static void arraytransform(int[][] array, int row, int column) {
-        int i, j;
-        for (j = 0; j < column; j++) {
-            for (i = 0; i < row; i++) {
-                StdOut.printf("%8d", array[i][j]);
-            }
-            StdOut.println();
-        }
+<p>一般把先进先出队列简称为队列, 这是一种对现实中情况的模拟. 这个集合与背包的区别在于是有序的. 删除元素的顺序必须是最先加入队列的元素最先被删除(或者说被提取出去).</p>
+<p>而新增元素一定是排在队列的末尾. 队列保存了元素加入队列的相对顺序, 迭代其中的元素的时候, 也是按照这个顺序, 这个背包无序也是不同的.</p>
+<p>要实现的队列的API如下:</p>
+<pre>
+public class Queue&lt;Item> implements Iterable&lt;Item>
+         Queue()            //构造器, 创建空的队列
+    void enqueue(Item item) //队列中添加一个元素
+    Item dequeue()          //删除最早添加的元素
+ boolean isEmpty()          //是否为空
+     int size()             //返回队列长度
+</pre>
+
+<p>一般说的栈, 就是指下压栈, 也就是后进先出的队列. 狄克斯特拉的双栈算术表达式可以用于用括号括起来的表达式求值, 使用两个栈.</p>
+<p>由于栈的后进先出特点, 有很多玩意都可以借助栈的性质. 要实现栈的API如下:</p>
+<pre>
+public class Stack&lt;Item> implements Iterable&lt;Item>
+         Stack()            //构造器, 创建空的栈
+    void push(Item item)    //将一个元素压入栈中
+    Item pop()              //弹出栈末尾的元素
+ boolean isEmpty()          //栈是否为空
+     int size()             //返回栈深度
+</pre>
+
+<h2 style="text-align: center;" id="con2">栈实现</h2>
+<p>栈实现的步骤可以分为几步, 首先来做一个容量固定的栈看看, 在此基础上引入泛型, 然后动态调整数组大小, 以及要学习一个关键的数据结构: 链表</p>
+<p>这里其实也给出了做一个ADT的递进的方法.</p>
+<p>第一步就是做一个固定容量的栈, 而且为了简单, 也没有引入泛型, 挑选String作为其中存放的类型.</p>
+<pre>
+public class FixedCapaticyStackOfStrings {
+    private String[] stack;
+    private int N;
+
+    public FixedCapaticyStackOfStrings(int cap) {
+        stack = new String[cap];
     }
 
-    public static void main(String[] args) {
-        int[][] re = {{1, 2, 3, 4}, {4, 5, 6, 7}, {7, 8, 9, 10}};
-        arraytransform(re, 3, 4);
+    public boolean isEmpty() {
+        return N == 0;
+    }
+
+    public int size() {
+        return N;
+    }
+
+    public void push(String item) {
+        stack[N++] = item;
+    }
+
+    public String pop() {
+        return stack[--N];
     }
 }
 </pre>
-<p>小试牛刀而已, 返回一个转置好的矩阵也是可以的.</p>
-<h3>1.1.14</h3>
-<p></p>
+<p>这个定长栈比较简单, 通过构造器传入指定长度, 然后创建一个字符串数组. 内置一个N当做索引和当前栈长度, 使用N++ 和 --N 的技巧来控制栈和返回长度.</p>
+<p>但是这个栈有几个问题:</p>
+<ol>
+    <li>只能处理String 元素, 没有泛型</li>
+    <li>栈长度固定, 不够灵活</li>
+    <li>弹出栈之后, 元素的引用仍然存在于数组中, 会造成依然引用那个对象</li>
+    <li>迭代的具体顺序是什么, 需要重现编写迭代器接口的方法</li>
+</ol>
+<p>需要一个一个来解决这些问题, 最后得到一个完整的栈实现.</p>
+<p>首先需要处理泛型问题, 算法书这里是介绍了泛型, 不过对于知道泛型的我们, 可以直接将其修改为泛型类:</p>
+<pre>
+public class FixedCapaticyStackOfStrings&lt;T> {
+    private T[] stack;
+    private int N;
 
+    public FixedCapaticyStackOfStrings(int cap) {
+        stack = (T[]) (new Object[cap]);
+    }
 
+    public boolean isEmpty() {
+        return N == 0;
+    }
 
-<h2 style="text-align: center;" id="con2"></h2>
+    public int size() {
+        return N;
+    }
 
-<h2 style="text-align: center;" id="con3"></h2>
+    public void push(T item) {
+        stack[N++] = item;
+    }
+
+    public T pop() {
+        return stack[--N];
+    }
+}
+</pre>
+<p>这中间主要注意强制类型转换的那部分代码, 反正Java 里对象数组是指针数组, 这里就是强转个指针类型. 因为不能直接创建泛型数组, 所以不能够写成 new T[cap], 不过使用强制转换没有问题, 很多Java标准库也是这种做法.</p>
+<p>接下来的问题是数组的大小, 如果每次使用空间很小, 则空间浪费太大, 如果用例过大, 则可能溢出. 因此必须动态调整栈的长度.</p>
+<p>我们采取的一个策略是在push()方法的时候进行检查, 如果栈满了, 使用一个当前2倍长度的数组, 将内容复制到新数组.</p>
+<p>为此可以添加一个新方法resize(int max), 用于将当前的栈移动到长度为max 的新栈中, 当然max要大于现在的栈长度:</p>
+<pre>
+    public void resize(int max) {
+        T[] temp = (T[]) (new Object[max]);
+        for (int i = 0; i < temp.length; i++) {
+            temp[i] = stack[i];
+        }
+        stack = temp;
+    }
+</pre>
+<p>这个函数创建一个长度为max的新数组, 然后将原来的内部数组元素复制到新数组中, 然后将对象的数组引用设置为新数组. 之后就可以修改push函数了:</p>
+<pre>
+    public void push(T item) {
+        if (N == stack.length) {
+            resize(stack.length * 2);
+        }
+        stack[N++] = item;
+    }
+</pre>
+<p>现在的 push 函数加入了判断, 如果此时N 已经等于数组的长度, 就不继续添加 ,而是先扩容, 再添加元素</p>
+<p>这个时候如果以为事情都做完了, 想法就太简单了. 当栈弹出了很多内容之后, 没有必要保留太长的栈, 所以对 pop() 也需要改进一下, 当弹出一个元素之后, 栈的长度已经到达数组长度的1/4, 就可以将整个数组长度减半:</p>
+<pre>
+    public T pop() {
+        T item = stack[--N];
+
+        //这里注意, 设置成null, 释放内存
+        stack[N] = null;
+        if (N>0 && N == stack.length / 4) {
+            resize(stack.length / 2);
+        }
+        return item;
+    }
+</pre>
+<p>在这里同时解决了弹栈时候的释放内存的问题.</p>
+<p>最后是迭代问题. 如果是完全自己编写的栈, 涉及到设计模式中的迭代器模式, 需要为栈的ADT编写迭代器. 好在Java已经实现了一个迭代器接口 <code>Iterable&ltT></code>.</p>
+<p>要使用这个接口, 看过设计模式的都知道, 被迭代的类需要继承这个接口, 然后接口的抽象方法返回迭代器, 迭代器需要实现 <code>Iterator&ltT></code> 接口, 然后编写 hasNext 和 next 方法.</p>
+<p>在类声明中加上 <code>implements Iterable&lt;T></code>, 由于实现了接口, 必须编写接口的方法, 这个接口的抽象方法有一个 <code>Iterator&lt;T> iterator()</code>.</p>
+<pre>
+public class FixedCapaticyStackOfStrings&lt;T> implements Iterable&lt;T> {
+    ......
+    @Override
+    public Iterator&lt;T> iterator() {
+        return new ReverseArrayIterator();
+    }
+}
+</pre>
+<p>这里把自己的迭代器类命名为ReverseArrayIterator, 因为这个迭代器从栈的最后一个元素按逆序迭代到第一个元素. 由于这个迭代器没有必要让FixedCapaticyStackOfStrings对象以外的对象访问, 将其设置为一个private权限的内部类:</p>
+<pre>
+import java.util.Iterator;
+
+public class FixedCapaticyStackOfStrings&lt;T> implements Iterable&lt;T> {
+    ......
+
+    //作为内部类实现
+    private class ReverseArrayIterator implements Iterator&lt;T> {
+        private int i = N;
+
+        @Override
+        public boolean hasNext() {
+            return i > 0;
+        }
+
+        @Override
+        public T next() {
+            return stack[--i];
+        }
+    }
+}
+</pre>
+<p>注意这里匿名内部类不需要带泛型, 因为实现接口已经带了泛型. 这里的关键是.hasNext方法, 用于判断是不是还有下一个元素. 这里就返回N, 只要N 不是0, 就说明还有下一个元素.</p>
+<p>.next()则会在.hasNext()方法判断通过后调用, 返回一个元素, 这里就反向取元素.</p>
+<p>有了迭代器接口的加持, 写出适合ADT的迭代器就方便很多了, 同时就让ADT支持了增强for循环. 这样外部对于ADT内部的实际数据结构是什么就无须了解了.</p>
+<p>这样就采用渐进的方式实现了一个完整的栈数据结构, 完整代码如下:</p>
+<pre>
+import java.util.Iterator;
+
+public class FixedCapaticyStackOfStrings&lt;T> implements Iterable&lt;T> {
+    private T[] stack;
+    private int N;
+
+    public FixedCapaticyStackOfStrings(int cap) {
+        stack = (T[]) (new Object[cap]);
+    }
+
+    public boolean isEmpty() {
+        return N == 0;
+    }
+
+    public int size() {
+        return N;
+    }
+
+    public void push(T item) {
+        if (N == stack.length) {
+            resize(stack.length * 2);
+        }
+        stack[N++] = item;
+    }
+
+    public T pop() {
+        T item = stack[--N];
+
+        //这里注意, 设置成null, 释放内存
+        stack[N] = null;
+        if (N>0 && N == stack.length / 4) {
+            resize(stack.length / 2);
+        }
+        return item;
+    }
+
+    public void resize(int max) {
+        T[] temp = (T[]) (new Object[max]);
+        for (int i = 0; i &lt; temp.length; i++) {
+            temp[i] = stack[i];
+        }
+        stack = temp;
+    }
+
+    @Override
+    public Iterator&lt;T> iterator() {
+        return new ReverseArrayIterator();
+    }
+
+    //作为内部类实现
+    private class ReverseArrayIterator implements Iterator&lt;T> {
+        private int i = N;
+
+        @Override
+        public boolean hasNext() {
+            return i > 0;
+        }
+
+        @Override
+        public T next() {
+            return stack[--i];
+        }
+    }
+}
+</pre>
+<p>这个代码可以作为很多集合类抽象数据的模板, 调整之后可以实现很多其他功能.</p>
+<p>但是这里还有一个明显的缺陷, 就是每次调整数组的时候, 都需要遍历数组, 耗时和栈的大小成正比, 除了同样也需要遍历数组的迭代之外, 其他栈操作, 都在栈的尾部反向操作, 时间花费很小.</p>
+<p>如果能有一种方法让栈调整空间的耗时也减少, 栈就更好了. 为此需要学习经典数据结构:链表.</p>
+
+<h2 style="text-align: center;" id="con3">链表</h2>
+
 
 <h2 style="text-align: center;" id="con4"></h2>
 
