@@ -25,11 +25,11 @@
 
 <ol>
     <li><a href="#con1">三个数据结构概述</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">栈实现</a></li>
+    <li><a href="#con3">链表</a></li>
+    <li><a href="#con4">队列实现</a></li>
+    <li><a href="#con5">背包实现</a></li>
+    <li><a href="#con6">使用ADT解决问题的步骤</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">概述</h2>
@@ -106,7 +106,7 @@ public class FixedCapaticyStackOfStrings {
     <li>弹出栈之后, 元素的引用仍然存在于数组中, 会造成依然引用那个对象</li>
     <li>迭代的具体顺序是什么, 需要重现编写迭代器接口的方法</li>
 </ol>
-<p>需要一个一个来解决这些问题, 最后得到一个完整的栈实现.</p>
+<p>需要一个一个来解决这些问题, 用一个定长栈逐步过渡到变长栈, 最后解决性能问题, 用链表继续修改成一个栈实现.</p>
 <p>首先需要处理泛型问题, 算法书这里是介绍了泛型, 不过对于知道泛型的我们, 可以直接将其修改为泛型类:</p>
 <pre>
 public class FixedCapaticyStackOfStrings&lt;T> {
@@ -213,11 +213,11 @@ public class FixedCapaticyStackOfStrings&lt;T> implements Iterable&lt;T> {
 <pre>
 import java.util.Iterator;
 
-public class FixedCapaticyStackOfStrings&lt;T> implements Iterable&lt;T> {
+public class ResizingArrayStack&lt;T> implements Iterable&lt;T> {
     private T[] stack;
     private int N;
 
-    public FixedCapaticyStackOfStrings(int cap) {
+    public ResizingArrayStack(int cap) {
         stack = (T[]) (new Object[cap]);
     }
 
@@ -281,16 +281,282 @@ public class FixedCapaticyStackOfStrings&lt;T> implements Iterable&lt;T> {
 <p>如果能有一种方法让栈调整空间的耗时也减少, 栈就更好了. 为此需要学习经典数据结构:链表.</p>
 
 <h2 style="text-align: center;" id="con3">链表</h2>
+<p>最简单的链表就是先要定义一个类, 类里包含泛型的元素和指向这个类的引用:</p>
+<pre>
+private class Node {
+    T item;
+    Node next;
+}
+</pre>
+<p>由于这次的链表是供 ResizingArrayStack 内部使用的, 所以也使用private权限的内部类来编写, 其实我们只是编写了一个节点, 让 ResizingArrayStack 来操作节点以获得链表.</p>
+<p>链表的几个操作如下:</p>
+<ol>
+    <li>在表头插入节点, 只需要先获得对原来链表的引用, 然后创建新节点, 将新节点的next指向原来的链表</li>
+    <li>删除表头节点, 只需要将链表引用指向首节点的下一个节点即可</li>
+    <li>在表尾插入节点, 需要获取指向表尾节点的链接, 然后创建新节点, 让表尾节点的next指向新节点</li>
+    <li>从表尾删除节点, 需要获取指向表尾节点上一个节点的链接, 然后将其next指向null</li>
+    <li>在链表的中间插入节点, 本质上就是需要获取要插入位置的当前节点和上一个节点, 然后创建新节点, 上一个节点的next指向新节点, 新节点的next指向插入前的当前节点</li>
+</ol>
+<p>在实现栈的时候, 需要用到的是在表头插入和删除节点, 这样操作时间和链表的长度就无关了. 完整的栈实现如下:</p>
+<pre>
+public class Stack&lt;T> implements Iterable&lt;T> {
+    /**
+     * first: 指向最后一个压入栈的节点
+     * N: 为了方便操作, 还是保存一个N做为元素数量
+     */
+    private Node first;
+    private int N;
+
+    public boolean isEmpty() {
+        return N == 0;
+    }
+
+    public int size() {
+        return N;
+    }
+
+    /**
+     * 从链表头部插入节点
+     * @param item 元素
+     */
+    public void push(T item) {
+        Node oldfirst = first;
+        Node newNode = new Node();
+        newNode.item = item;
+        newNode.next = oldfirst;
+        first = newNode;
+        N++;
+    }
+
+    /**
+     * 从链表头部删除节点, 只要将first指向首节点的next节点即可.
+     * @return 删掉的节点的数据
+     */
+
+    public T pop() {
+        if (this.isEmpty()) {
+            throw new RuntimeException("Stack is empty");
+        }
+        T item = first.item;
+        first = first.next;
+        N--;
+        return item;
+    }
 
 
-<h2 style="text-align: center;" id="con4"></h2>
+    @Override
+    public Iterator&lt;T> iterator() {
+        return new LinkedListIterator();
+    }
 
-<h2 style="text-align: center;" id="con5"></h2>
+    //迭代器的实现需要内部引用一下链表头部位置和当前元素数量, 然后移动当前位置, 用元素数量来控制 hasNext(), 然后来遍历链表
+    private class LinkedListIterator implements Iterator&lt;T> {
+        private int i = N;
+        private Node current = first;
+        @Override
+        public boolean hasNext() {
+            return i > 0;
+        }
 
-<h2 style="text-align: center;" id="con6"></h2>
+        @Override
+        public T next() {
+            i--;
+            T item = current.item;
+            current = current.next;
+            return item;
+        }
+    }
+
+    private class Node {
+        T item;
+        Node next;
+    }
+}
+</pre>
+<p>迭代器这里还没讲, 自己先写出来了, 就是从头部根据N来遍历尾部, 其中每次需要控制遍历的位置, 就必须在内部维护一个位置变量current指向下一个要返回的节点.</p>
+<p>有了栈的数据结构, 可以轻松做很多事情了. 之后来看队列的实现.</p>
+
+<h2 style="text-align: center;" id="con4">队列实现</h2>
+<p>有了链表的支持以后, 显然我们的队列也需要用链表来实现.</p>
+<p>考虑到队列是一头进一头出, 因此可以维护两个节点的引用, 一个指向头节点, 一个指向尾节点. 另外还需要考虑队列从哪头进哪头出.</p>
+<p>对于我们现在的简单链表, 很显然从尾节点删除元素比较困难, 因为还需要将指向尾节点的引用反向移动一次. 因此考虑元素进入队列可以放在末尾, 而删除元素可以从头部删除, 这样两个操作都方便很多.</p>
+<p>根据上述分析, 可以实现队列 Queue 如下:</p>
+<pre>
+import java.util.Iterator;
+
+public class Queue&lt;T> implements Iterable&lt;T> {
+
+    private Node first;
+    private Node last;
+    private int N;
+
+    public boolean isEmpty() {
+        return N == 0;
+    }
+
+    public int size() {
+        return N;
+    }
+
+    /**
+     * 入列将元素插入到链表的最后, 如果本来N=0 即链表为空, 则将头尾节点都指向newNode
+     * 如果不为空, 仅操作 last 即可
+     * @param item 元素
+     */
+    public void enqueue(T item) {
+        Node newNode = new Node();
+        newNode.item = item;
+        newNode.next = null;
+        if (this.isEmpty()) {
+            first = newNode;
+            last = newNode;
+        } else {
+            last.next = newNode;
+            last = newNode;
+        }
+        N++;
+    }
+
+    /**
+     * 从链表头部删除节点, 只要将first指向首节点的next节点即可.
+     * 注意如果此时没有节点了, 要把last也更新为null
+     * @return 删掉的节点的数据
+     */
+
+    public T dequeue() {
+        if (this.isEmpty()) {
+            throw new RuntimeException("Stack is empty");
+        }
+        T item = first.item;
+        first = first.next;
+        N--;
+        if (this.isEmpty()) {
+            last = null;
+        }
+        return item;
+    }
 
 
+    @Override
+    public Iterator&lt;T> iterator() {
+        return new LinkedListIterator();
+    }
 
+    /**
+     * 迭代器依然还是从头部迭代到尾部, 恰好也是队列的FIFO的顺序.
+     */
+    private class LinkedListIterator implements Iterator&lt;T> {
+        private int i = N;
+        private Node current = first;
+        @Override
+        public boolean hasNext() {
+            return i > 0;
+        }
+
+        @Override
+        public T next() {
+            T item = current.item;
+            current = current.next;
+            i--;
+            return item;
+        }
+    }
+
+    private class Node {
+        T item;
+        Node next;
+    }
+}
+</pre>
+<p>这里有一点要注意的是, 原书使用的判断队列为空的方法是first==null, 所以才能在dequeue方法中, 在N--之前就可以判断 isEmpty() 了. 如果像我这样使用 N==0 再判断, 则必须在更新N的值之后进行判断, 否则会出错, 因为此时N还不为0, 所以不会正确的设置尾节点.</p>
+<p>通过栈和队列的实现可以发现, 在结构化保存数据的时候, 链表是数组的一个重要的替代工具.</p>
+
+<h2 style="text-align: center;" id="con5">背包实现</h2>
+<p>在实现了栈和链表之后来看背包, 会发现背包实际上只是一个抽象的概念, 用栈还是链表来实现, 其实都是可以的, 虽然两种的迭代方式返回的数据顺序因为两种数据类型的意义不同而不同, 但对于不需要顺序的背包来说, 其实无所谓.</p>
+<p>由于内部数据结构使用了链表, 因此迭代器还可以写的更简单一些, 无需去获取i了, 只需要使用一个current位置即可. 这里我们来使用栈修改成的背包类, 迭代器也采用更优化的版本:</p>
+<pre>
+import java.util.Iterator;
+
+/**
+ * 用栈修改而来的背包
+ * @param &lt;T> 泛型类型
+ *
+ */
+public class Bag&lt;T> implements Iterable&lt;T> {
+    /**
+     * first: 指向最后一个压入栈的节点
+     * N: 为了方便操作, 还是保存一个N做为元素数量
+     */
+    private Node first;
+    private int N;
+
+    public boolean isEmpty() {
+        return N == 0;
+    }
+
+    public int size() {
+        return N;
+    }
+
+    /**
+     * 从链表头部插入节点
+     * @param item 元素
+     */
+    public void add(T item) {
+        Node oldfirst = first;
+        Node newNode = new Node();
+        newNode.item = item;
+        newNode.next = oldfirst;
+        first = newNode;
+        N++;
+    }
+
+    @Override
+    public Iterator&lt;T> iterator() {
+        return new LinkedListIterator();
+    }
+
+    //作为内部类实现
+    private class LinkedListIterator implements Iterator&lt;T> {
+        private Node current = first;
+        @Override
+        public boolean hasNext() {
+            return current != null;
+        }
+
+        @Override
+        public T next() {
+            T item = current.item;
+            current = current.next;
+            return item;
+        }
+    }
+
+    private class Node {
+        T item;
+        Node next;
+    }
+}
+</pre>
+<p>编写完了背包, 栈和队列, 这三个数据结构构成了很多复杂算法的基础. </p>
+
+<h2 style="text-align: center;" id="con6">使用ADT解决问题的步骤</h2>
+<p>在这一部分实际上就是使用ADT解决问题, 其一般的步骤是:</p>
+<ol>
+    <li>定义API</li>
+    <li>根据特定的应用场景开发用例代码</li>
+    <li>描述一种数据结构, 在API对应的抽象数据类型的实例中定义这个数据结构的变量</li>
+    <li>描述算法, 实现类中的实例方法, 也就是API</li>
+    <li>分析算法的性能特点</li>
+</ol>
+<p>听着有些抽象, 其实就是刚才开发的例子, 以栈为例:</p>
+<ol>
+    <li>定义出了API</li>
+    <li>写出了一些用例和期望达到的效果</li>
+    <li>确定栈内部采用何种数据结构来存放元素. 一开始使用的是数组, 就定义了一个实例变量指向一个新创建的数组, 后来改成链表, 则定义了一个指向Node节点的引用变量.</li>
+    <li>描述了操作数据的方法, 即如何操作数组或者链表, 据此编写出了各个实例方法也就是API</li>
+    <li>分析了算法的性能特点, 发现数组的性能不高, 就改用了链表. 因为改用了链表, 所以又要把第三步开始的步骤再做一遍.</li>
+</ol>
 
 
 
