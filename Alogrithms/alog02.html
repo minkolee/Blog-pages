@@ -20,7 +20,7 @@
 
 <ol>
     <li><a href="#con1">定量测量程序的运行时间</a></li>
-    <li><a href="#con2"></a></li>
+    <li><a href="#con2">union-find 动态连通性算法</a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
@@ -29,9 +29,40 @@
 
 <h2 style="text-align: center;" id="con1">定量测量程序的运行时间</h2>
 <p>有一个三嵌套循环的例子:</p>
-<p></p>
+<pre>
+public static void printAll(int[] a) {
+    int n = a.length;
+    for (int i = 0; i < n; i++) {
+        for (int j = i+1; j < n; j++) {
+            for (int k = j+1; k < n; k++) {
+                if (a[i] + a[j] + a[k] == 0) {
+                    StdOut.println(a[i] + " " + a[j] + " " + a[k]);
+                }
+            }
+        }
+    }
+}
+</pre>
+<p>很显然这个程序是对于一个数组来说有N的3次方的复杂度. 实际上, 所有N的平方以上级别的算法都是不可接受的, 会在数据量大的时候无法在合理的时间内结束.</p>
+<p>一般要把算法优化到log的程度, 这样规模扩大的时候, 算法运行的时间也增加很少, 或者基本上是线性的.</p>
+<p>为了衡量算法的时间, 书还提供了一个计时器程序, 可以创建一个计时器对象, 然后在程序执行完毕的时候调用对象的elapsedTime()方法来获取逝去的时间:</p>
+<pre>
+public class Stopwatch {
 
+    private final long start;
 
+    public Stopwatch() {
+        start = System.currentTimeMillis();
+    }
+
+    public double elapsedTime() {
+        long now = System.currentTimeMillis();
+        return (now - start) / 1000.0;
+    }
+}
+</pre>
+<p>有了这个东西就可以来计时了.</p>
+<p>剩下这部分的数学分析和题目留待之后再看了. 重点先是学习一些算法, 然后看能不能运用一下算法.</p>
 
 
 <h2 style="text-align: center;" id="con2"></h2>
