@@ -15,22 +15,178 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">算法第四版 第二章</h1>
+<h1 style="text-align: center;">算法第四版 第二章 排序</h1>
+<p>排序算法是解决很多问题的第一步, 而且排序算法发展时间长, 都非常经典, 优雅和高效.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con1">初级排序算法</a></li>
+    <li><a href="#con2">选择排序</a></li>
+    <li><a href="#con3">插入排序</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">初级排序算法</h2>
+<p>算法这里很好, 没有上来就讲排序, 而是将排序算法类抽象出了一个共同的模板.</p>
+<p>将排序抽象为排一个数组中元素的序, 每个元素都有一个主键(我个人理解就是据以排序的属性), 将主键按照一定的顺序排列, 主键大的元素在主键小的元素后边.</p>
+<p>所谓主键的大小, 就通过我们定义一个less(v,w)来比较两个元素的结果来判断.</p>
+<p>排序还经常会交换两个元素的位置. 因此再定义一个方法 exch(Obj[], index a, index b)来交换要数组指定索引的元素.</p>
+<p>最后有一个sort方法, 接受一个数组来进行排序. 实际上算法都写在这里边, 所有的算法要做的事情, 就是依据不同的规则和方法, 来调用less和exch方法.</p>
+<p>排序算法本身是通用的. 考虑到Java的特点, 由于很多类型都实现了Comparable接口, 所以我们可以将方法都写成Comparable接口的类型:</p>
+<pre>
+public abstract class SortTemplate {
 
-<h2 style="text-align: center;" id="con2"></h2>
+    //抽象的排序方法
+    public abstract void sort(Comparable[] comparables);
 
-<h2 style="text-align: center;" id="con3"></h2>
+
+    //比较两个元素大小
+    private static boolean less(Comparable v, Comparable w) {
+        return v.compareTo(w) < 0;
+    }
+
+    //交换两个元素位置
+    private static void exch(Comparable[] a, int i, int j) {
+        Comparable t = a[i];
+        a[i] = a[j];
+        a[j] = t;
+    }
+
+    //打印元素
+    public static void show(Comparable[] comparables) {
+        for (Comparable comparable : comparables) {
+            StdOut.print(comparable + " ");
+        }
+        StdOut.println();
+    }
+
+    //检测是否有序
+    public static boolean isSorted(Comparable[] comparables) {
+        for (int i = 1; i < comparables.length; i++) {
+            if (less(comparables[i], comparables[i - 1])) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+</pre>
+<p>这个抽象类就是排序算法的模板, 只需要来继承这个类并重写sort方法, 就可以得到不同的排序方法的实现.</p>
+<p>除此之外在排序算法研究中还有几个小问题:</p>
+<ol>
+    <li>数组的初始状态有的时候未必能够成功执行算法, 比如全部都是一个值的数组</li>
+    <li>是否使用额外的内容, 排序算法其实有两类, 一类在运行的时候除了栈和固定数目的实例变量之外无需额外内存的原地排序算法, 还有需要动态申请内存空间来存储另外一个数组副本的其他排序算法.</li>
+    <li>如果要自己创建数据类型而不是使用Java内置的已经实现了Comparable接口的数据类型, 则需要自己实现Comparable接口中的compareTo方法, 这个方法小于0表示调用方法的对象小于参数.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">选择排序</h2>
+<p>先从最符合人的直觉的方法来排序, 一般我们生活中面临一个数字不多的排序(比如小孩幼儿园做的排序题目), 我们会扫一眼全部的数字, 然后找到最小的数字, 将其排到最前边, 然后再找第二小的数字.</p>
+<p>对于一排十个左右的数字, 我们可以很快的完成. 选择排序就是模拟这种天然的排序方法:</p>
+<ol>
+    <li>首先, 找到最小的元素, 将其和数组的第一个元素进行交换</li>
+    <li>然后对从第二个开始的剩余数组, 重复这个过程. 直到到达最后一个元素.</li>
+</ol>
+<p>因为每次都选择局部最小的元素, 所以这个算法叫做选择排序, 其实现如下:</p>
+<pre>
+public static void sort(Comparable[] comparables) {
+    int length = comparables.length;
+    int i = 0;
+    Comparable min;
+    int min_index = 0;
+
+    while (i < length) {
+        //找到最小值和对应的索引, 这个循环执行完之后, min为最小值, min_index是索引
+        min = comparables[i];
+        min_index = i;
+        for (int j = i + 1; j < length; j++) {
+
+            if (less(comparables[j], min)) {
+                min = comparables[j];
+                min_index = j;
+            }
+        }
+        //交换第一个元素和最小元素的索引
+        exch(comparables, i, min_index);
+        i++;
+    }
+}
+</pre>
+<p>这个算法的性能如何呢, 看到外层的while和内层的j就知道, 两层循环不会快的. 由于固定会执行N次交换, 外加数组是从最后开始逐步减少遍历的次数, 从数学上可以证明选择排序访问数组的次数大概是 N*N/2+N 次, 其复杂度是平方级的.</p>
+<p>这也为什么考验小孩的题目也就几个数字的排序, 如果数字太多, 人类的这种直觉算法马上就不行了.</p>
+
+<h2 style="text-align: center;" id="con3">插入排序</h2>
+<p>用眼睛瞄着一堆数据排序, 我们人类的直觉大概就是上边的选择排序, 但如果将数字做成一张张卡片可以移动, 很多人就不再使用选择排序了. 就像扑克牌, 如何排序呢?</p>
+<p>很显然, 每摸一张牌, 就将新的数字插入到合理的位置, 比如手上有了3和7, 摸一张4, 插入到3和7中间, 摸一张8, 插入到7后边, 再摸一张5, 插入到4和7之间, 依次类推.</p>
+<p>这就是插入排序的原型. 在计算机的实现中, 由于整个数组不能变, 需要将要插入的位置的所有元素都往后移动一格, 然后插入新元素.</p>
+<p>在没写具体算法之前, 就可以想象到, 已经有序的组合, 这个算法不应当再去执行改变了, 这和拿到一堆已经排好序的扑克牌一样.</p>
+<p>但选择排序此时还是会傻傻的进行比较, 来看一下实现:</p>
+<pre>
+public static void sort(Comparable[] comparables) {
+    int N = comparables.length;
+    //从数组的第二个位置开始遍历
+    for (int i = 1; i < N; i++) {
+        //然后使用一个循环从i当前位置反向遍历, 如果当前位置比上一个位置小, 就交换二者, 然后继续比较, 直到将小数字交换到正确位置
+        for (int j = i; j > 0 && less(comparables[j], comparables[j - 1]);j--) {
+            exch(comparables, j, j - 1);
+        }
+    }
+}
+</pre>
+<p>从算法可以看出, 如果数组比较有序, 内循环不会执行任何操作. 而且还有一些特殊情况, 就是对于部分有序的数组:</p>
+<ol>
+    <li>数组中每个元素距离它的最终位置都不远</li>
+    <li>一个有序的大数组接一个小数组</li>
+    <li>数组中只有几个元素的位置不正确</li>
+</ol>
+<p>插入排序在这些情况下的效率很高, 而选择排序则不行, 会傻傻的比较大小.</p>
+<p>由于有两个循环, 能够感觉到至少也是平方级的复杂度, 对于随机分布的数组来说, 选择排序和插入排序的性能, 应该主要是源于具体操作的时间差异.</p>
+<p>插入排序对于小规模的数组和部分有序的数组十分高效.</p>
+<p>算法里举了一个例子, 用大长度的数组来计算, 用字符串来标明选择何种算法:</p>
+<pre>
+public class Test {
+
+    public static double time(String alg, Comparable[] comparables) {
+        Stopwatch timer = new Stopwatch();
+        if(alg.equals("Insertion")) Insertion.sort(comparables);
+        else if(alg.equals("Selection")) Selection.sort(comparables);
+        else{
+            StdOut.println("未执行排序");
+        }
+        return timer.elapsedTime();
+    }
+
+    public static double timeRandomInputs(String alg, int N, int T) {
+        double total = 0.0;
+        Double[] a = new Double[N];
+
+        //进行T次, 数组长度为N的排序, 将每次排序的时间累加到total上
+        for (int t = 0; t < T; t++) {
+            for (int i = 0; i < N; i++) {
+                a[i] = StdRandom.uniform();
+            }
+            total += time(alg, a);
+        }
+        return total;
+    }
+
+    public static void main(String[] args) {
+        StdOut.print("Input two INT, first is length, second is times: ");
+        String a1 = StdIn.readLine();
+        String[] a = a1.split("\\s+");
+        StdOut.println(Arrays.toString(a));
+        int N = Integer.parseInt(a[0]);
+        int T = Integer.parseInt(a[1]);
+
+        double Inserton_time = timeRandomInputs("Insertion", N, T);
+        double Selection_time = timeRandomInputs("Selection", N, T);
+
+        StdOut.printf("Insertion_time is %f, Selection_time is %f, rate is %f", Inserton_time, Selection_time, Inserton_time / Selection_time);
+    }
+}
+</pre>
+<p>我这里试验了一下, 按照红宝书的例子, 1000长度数组, 100次操作, 结果插入排序比选择排序的速度要慢......, 后来在V2EX上找到了<a href="https://www.v2ex.com/t/579314" target="_blank">一样的问题</a>, 是由于exch交换函数的开销比较大造成的.</p>
+<p>在我的机器上, 数组长度在600左右, 运行了很多次, 都是插入要比选择快, 再长的数组, 我估计交换操作的耗时就吞掉了插入排序的性能....</p>
 
 <h2 style="text-align: center;" id="con4"></h2>
 
