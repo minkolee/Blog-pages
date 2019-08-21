@@ -15,16 +15,15 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">算法第四版 第一章 算法分析</h1>
-<p>这一节还是挺好懂的, 但是后边的习题不是太容易, 要自己想一些算法了. 刚写了整整30道练习题, 一半多都是链表, 还是挺有趣的, 反转链表和环形链表都接触到了.</p>
-
+<h1 style="text-align: center;">算法第四版 第一章 动态连通性算法</h1>
+<p>这一部分是结合Coursera上边塞奇威克本人的视频来看的, 讲的确实不错.</p>
 <ol>
     <li><a href="#con1">定量测量程序的运行时间</a></li>
     <li><a href="#con2">union-find 动态连通性算法</a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con3">动态连通性算法 类似于集合的实现</a></li>
+    <li><a href="#con4">动态连通性算法 树结构实现</a></li>
+    <li><a href="#con5">动态连通性算法 加权树实现</a></li>
+    <li><a href="#con6">动态连通性算法 加权+路径压缩</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">定量测量程序的运行时间</h2>
@@ -65,15 +64,280 @@ public class Stopwatch {
 <p>剩下这部分的数学分析和题目留待之后再看了. 重点先是学习一些算法, 然后看能不能运用一下算法.</p>
 
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">union-find 动态连通性算法 综述</h2>
+<p>每个点叫做触点, 两个连接的点叫做一对连接, 将一组连通的点叫做连通分量, 简称分量.</p>
+<p>抽象出的API如下:</p>
+<pre>
+public class UF {
 
-<h2 style="text-align: center;" id="con3"></h2>
+    //初始化N个触点,对应一个数组的0-N-1的索引
+    UF(int N)
 
-<h2 style="text-align: center;" id="con4"></h2>
+    //连接p和q
+    void union(int p, int q)
 
-<h2 style="text-align: center;" id="con5"></h2>
+    //p所在的分量的标识符
+    int find(int p)
 
-<h2 style="text-align: center;" id="con6"></h2>
+    //p和q是否连通, 连通返回true, 不连通返回false
+    boolean connected(int p, int q)
+
+    //连通分量的数量
+    int count{}
+}
+</pre>
+<p>通过这些API, 就可以在N个触点里, 连通一定的触点, 然后可以随时判断两个点是否已经连通, 以及现在有几组互相内部彼此连通的点.</p>
+
+<h2 style="text-align: center;" id="con3">动态连通性算法 类似于集合的实现</h2>
+<p>这个算法的思路是, 将每个连通分量看成一个集合. 每次连通一对点, 就将这两个点所在的连通分量合并为一个集合. 为了区分集合, 可以给这个集合一个编号, 让属于这个集合的元素的编号全部相同, 但各个集合的编号不同. </p>
+<p>具体实现的方法是初始化数组的时候, 将每个数组元素初始化为索引的值, 这样就得到了N个只有一个触点的连通分量, 每个分量的编号都不同. </p>
+<p>在每次执行 union 的时候, 我们规定好, 把p所在的连通分量的编号全部改成q所在的连通分量的值.</p>
+<p>这样查找分量的编号的时候, 直接返回要触点编号为索引的元素的值, 就是分量编号. 而查询两个触点是否连通, 只需要比较两个索引的值是否相同即可.</p>
+<p>而连通分量的数量, 在每次连通之后都减去1, 据此可以编写下列的算法实现:</p>
+<pre>
+import java.util.Arrays;
+
+public class UF_QUICK_FIND {
+    private int N;
+    private int[] a;
+
+    UF_QUICK_FIND(int numbers) {
+        this.N = numbers;
+        a = new int[numbers];
+        //初始化数组, 值 = 索引
+        for (int i = 0; i < numbers; i++) {
+            a[i] = i;
+        }
+    }
+
+    void union(int p, int q) {
+        //两个触点所在的连通分量的编号不同, 将所有与a[p]相同的值设置为a[q]
+        if (a[p] != a[q]) {
+            int p_number = find(p);
+            int q_number = find(q);
+            for (int i = 0; i < a.length; i++) {
+                if (a[i] == p_number) {
+                    a[i] = q_number;
+                }
+            }
+            //成功连通一组, 需要N减去1
+            N--;
+        }
+    }
+
+    //查找分量很简单, 直接返回值
+    int find(int p) {
+        return a[p];
+    }
+
+    //判断是否连通, 只需要比较分量编号即可
+    boolean connected(int p, int q) {
+        return find(p) == find(q);
+    }
+
+    int count() {
+        return N;
+    }
+
+    @Override
+    public String toString() {
+        return "UF_QUICK_FIND{" +
+                "N=" + N +
+                ", a=" + Arrays.toString(a) +
+                '}';
+    }
+}
+</pre>
+<p>这个算法有没有什么问题呢, 先来看下边的几个判断和查找函数, 都是直接数组操作, 几乎可以说是常量时间.</p>
+<p>但是问题出在union函数上, 这个函数采取的是遍历数组然后修改内容上, 每一次union操作, 都需要遍历数组一次. </p>
+<p>一般来说, 数组长度为N, 对于其中每个操作都遍历数组, 这就是平方级的算法, 是不可接受的.</p>
+
+
+<h2 style="text-align: center;" id="con4">动态连通性算法 树结构实现</h2>
+<p>在这个实现中, 不再将每个元素看做一个集合中的元素, 而是看成一棵树, 每个索引的元素中存放其连接的另外一个元素的索引.</p>
+<p>这样就形成了一个链接, 顺着每个元素一直找下去, 最终可以找到一个元素, 这个元素的索引和值相等, 这就是根节点. 在这个路径上的所有元素, 都是互相连通的.</p>
+<p>依照这个思路, 在每次进行连通的时候, 需要先找到两个节点的根节点, 然后判断是不是一样, 如果一样说明已经连通, 如果不一样, 就把两个根节点连起来.</p>
+<p>依照这个思路, 相比上一个实现, 只需要修改find 和 union 方法:</p>
+<pre>
+import java.util.Arrays;
+
+public class UF_QUICK_UNION {
+    private int N;
+    private int[] a;
+
+
+    UF_QUICK_UNION(int numbers) {
+        this.N = numbers;
+        a = new int[numbers];
+        //初始化数组依然不变, 保持一开始每个节点都彼此独立
+        for (int i = 0; i < numbers; i++) {
+            a[i] = i;
+        }
+    }
+
+    //find函数进行了重大修改, 如果索引与值不同, 则将值取出当成索引, 去判断下一个索引位置的值
+    //当索引和值相同, 就说明找到了根节点, 返回根节点的值
+    int find(int p) {
+        while (p != a[p]) {
+            p = a[p];
+        }
+        return p;
+    }
+
+    //Union函数也进行重大修改, 不再遍历数组, 而是根据 p 和 q 的根节点来判断
+    void union(int p, int q) {
+        //找到p和q对应的根节点
+        int p_number = find(p);
+        int q_number = find(q);
+
+        //如果根节点编号不同, 将p的根节点连到q的根节点
+        if (p_number != q_number) {
+            a[p_number] = q_number;
+            N--;
+        }
+    }
+
+    boolean connected(int p, int q) {
+        return find(p) == find(q);
+    }
+
+    int count() {
+        return N;
+    }
+
+    @Override
+    public String toString() {
+        return "UF_QUICK_FIND{" +
+                "N=" + N +
+                ", a=" + Arrays.toString(a) +
+                '}';
+    }
+}
+</pre>
+<p>这个新算法的性能相比原来如何呢, 有些难以比较. 上一个算法遍历的是数组, 而后一个算法在最差的情况下, 几乎也会遍历一条单的长直线的树, 这让二者的性能都谈不上好而且稳定, 而且最差也都是平方级.</p>
+<p>所以还需要继续改进, 可能已经看出来了, 既然是一棵树, 就有可能朝着二叉树的方向来改进.</p>
+
+<h2 style="text-align: center;" id="con5">动态连通性算法 加权树实现</h2>
+<p>这个算法的核心是将p节点的父节点设置为q的根节点的时候, 不像原来的union方法实际上是有序的, 即固定把第一个参数的树根连到第二个参数的树根上.</p>
+<p>现在需要把这个函数修改成不按照参数的顺序, 而是平衡两棵树的长度, 始终将短树挂到长的树上去.</p>
+<p>那么首先要解决的问题就是, 树的长度如何获取, 难道每次还需要遍历树来获取长度, 那又会丧失性能. 这里就引入了额外的数据结构, 即再用一行数组记录某个根节点的树的长度, 然后来更新, 这样就用空间换了时间.</p>
+<p>实际的实现中添加了一个记录长度的数组, 将其初始化为所有值都是1, 表示树的初始长度是1. 然后只需要修改union函数:</p>
+<pre>
+import java.util.Arrays;
+
+public class UF_WEIGHTED {
+    private int N;
+    private int[] a;
+    <span style="color: red">private int[] size;</span>
+
+
+    UF_WEIGHTED(int numbers) {
+        this.N = numbers;
+        a = new int[numbers];
+        <span style="color: red">size = new int[numbers];</span>
+        //初始化数组之外, 再初始化一个数组记录各个元素作为根节点的长度.
+        for (int i = 0; i < numbers; i++) {
+            a[i] = i;
+            size[i] = 1;
+        }
+    }
+
+    //find函数无需修改, 因为按我们的设计, 这个函数的查找非常快, 是2的对数级别
+    int find(int p) {
+        while (p != a[p]) {
+            p = a[p];
+        }
+        return p;
+    }
+
+    //新的Union算法在连通的时候, 判断两颗树的大小, 然后去把小数的长度加到大树上
+
+    <span style="color: red">void union(int p, int q)</span> {
+        //找到p和q对应的根节点
+        int p_number = find(p);
+        int q_number = find(q);
+
+        if (p_number == q_number) {
+            return;
+        }
+
+        //如果p_number 是大树的根节点, q_number是小树的根节点
+        if (size[p_number] > size[q_number]) {
+            //小树连到大树上
+            a[q_number] = p_number;
+            //小树的长度需要添加到大树上
+            size[p_number] += size[q_number];
+        //p_number是小树, q_number是大树
+        } else {
+            //依然是小树连到大树上
+            a[p_number] = q_number;
+            //小树长度添加到大树上
+            size[q_number] += size[p_number];
+        }
+        N--;
+    }
+
+    boolean connected(int p, int q) {
+        return find(p) == find(q);
+    }
+
+    int count() {
+        return N;
+    }
+
+    @Override
+    public String toString() {
+        return "UF_WEIGHTED{" +
+                "N=" + N +
+                ", a=" + Arrays.toString(a) +
+                ", size=" + Arrays.toString(size) +
+                '}';
+    }
+}
+</pre>
+<p>这个新的算法性能如何呢. 很显然可以知道, union 算法的性能是2的对数, find 的操作也绝对不会超过2的对数级别.</p>
+<p>根据数学计算, 这个算法的复杂度是 cMlgN 次, 其中M为连接次数, N为触点个数, 很显然, 在随着N增大的时候, 这个算法和前两个算法N平方级别的复杂度相比, 只要是对数, 就可以用来处理大规模数据了.</p>
+<p>在实际中, 这个算法都能在常数时间内完成操作, 因为对数级别基本上可以认为是常数级的.</p>
+
+<h2 style="text-align: center;" id="con6">动态连通性算法 加权+路径压缩</h2>
+<p>还有没有继续优化的可能性, 即保证在常数时间内完成各种操作. 有一种可能就是继续压缩find的时间, 如果可以修改树让所有连通的节点都直接连到根节点, 那么find就是常数时间, 整个算法就是lgN, 也就趋于常数了.</p>
+<p>在现实中, 由于这会在find函数中带来额外的操作, 但在实际运行情况下, 与不带路径压缩的算法没有什么区别.</p>
+<p>而路径压缩也分为好几种, 比如可以压缩部分路径, 或者压缩全部路径, 比如一个路径压缩的实现如下:</p>
+<pre>
+int find(int p) {
+    int current = p;
+    while (p != a[p]) {
+        p = a[p];
+    }
+    //直接把当前节点改连到根节点上去
+    a[current] = p;
+    return p;
+}
+</pre>
+<p>完整的路径压缩需要加一个循环, 如下:</p>
+<pre>
+int find(int p) {
+    int current = p;
+    while (p != a[p]) {
+        p = a[p];
+    }
+    //完整路径压缩, 需要再遍历一下所有节点
+    while (current != a[current]) {
+        int i = a[current];
+        a[current] = p;
+        current = a[i];
+    }
+
+    return p;
+}
+</pre>
+<p>这个路径压缩仅压缩了部分路径, 只要操作过一个点, 这个点就会被连通到根节点上去.</p>
+<p>实际上的数学证明, 带路径压缩的加权算法, 就是对于动态连通性问题的最佳算法.</p>
+<p>发现很多练习还是不会做, 没关系, 刚知道, 小白第一次学算法, 需要先把所有的算法例子都搞清楚, 不用想着做题. 看题目发愁是正常的. 那后边就知道该如何做了, 先把经典的算法本身搞明白再说.</p>
+
+
+
+
 
 
 
