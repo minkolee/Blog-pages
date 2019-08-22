@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>算法 第四版 学习心得</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">算法第四版 第二章 归并排序 与 快速排序</h1>
+
+<p>这一节的算法都基于归并, 所以会给算法的模板新增加一个操作. 归并就是将两个有序的数组归并成一个更大的有序数组.</p>
+<p>归并和之前的快速排序有一个区别是, 我们开始使用递归, 而且给递归函数传递的都是索引, 这样比较清晰.</p>
+
+<ol>
+    <li><a href="#con1">实现归并方法</a></li>
+    <li><a href="#con2">自顶向下的归并排序方法</a></li>
+    <li><a href="#con3">自底向上的归并排序</a></li>
+    <li><a href="#con4">快速排序</a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">实现归并方法</h2>
+<p>对于归并来说, 先来实现一个新方法, 用于将两个有序数组合并成一个数组. 原理很简单, 先分别获取两个数组的长度, 然后创建一个新的数组. 然后判断两个数组的各个元素:</p>
+<ol>
+    <li>如果某个数组已经用尽, 就直接取用另外一个数组</li>
+    <li>如果两个数组都没用尽, 比较两个数组当前元素的大小, 将小的放入新数组中, 然后将指向小元素和新数组的指针都加1</li>
+</ol>
+<p>由于Java中没有指针, 就可以获取长度来进行比较, 函数的实现如下:</p>
+<pre>
+//将一个数组以一个索引分为两部分, 归并两部分. low ,mid ,hi 是索引
+public static void merge(Comparable[] a, int low, int mid, int hi) {
+    int i = low;
+    int j = mid + 1;
+
+    //将low-hi的部分复制到临时数组中
+    for (int k = low; k <= hi; k++) {
+        aux[k] = a[k];
+    }
+
+    //总的个数是hi-low, 所以要执行相同次数的循环
+    //将临时数组归并回到原来数组的low-hi位置
+    //单看条件似乎每次都会取一个数字, 但是总的次数就是hi-low次, 所以指定次数结束之后, 正好取完全部的数字
+    for (int k = low; k <= hi; k++) {
+        //i超过了前半段的最大索引mid, 说明前半部分用光了
+        if (i > mid) {
+            a[k] = aux[j++];
+        //j超过了后半段的最大索引hi, 说明后半部分用光了
+        } else if (j > hi) {
+            a[k] = aux[i++];
+        //都没用光的情况下比较大小然后谁小就取谁
+        } else if (less(aux[i], aux[j])) {
+            a[k] = aux[i++];
+        } else {
+            a[k] = aux[j++];
+        }
+    }
+}
+</pre>
+<p>有了这个函数之后, 就可以来看归并排序系列方法了.</p>
+
+<h2 style="text-align: center;" id="con2">自顶向下的归并排序方法</h2>
+<p>这是应用了分治法思想的归并排序, 即将一个数组分割成两块, 对每一块进行排序, 然后再对分割后的数组继续分割,直到只剩1个元素, 就是有序的, 然后再一层一层的合并起来. 很显然这里可以用递归来做, 加一个辅助函数用于递归操作即可. 需要略微修改一下:</p>
+<pre>
+public class Merge {
+
+    private static Comparable[] aux;
+
+    public static void sort(Comparable[] a) {
+        //一次性分配一个和被排序数组一样的数组
+        aux = new Comparable[a.length];
+        sort(a, 0, a.length - 1);
+    }
+
+    public static void sort(Comparable[] a, int low, int hi) {
+        //数组排完之后应该low和hi相等,表示只有一个数字了
+        if (hi <= low) {
+            return;
+        }
+        //计算中位数, 这个公式要记住, 数组的中位数都要如此计算
+        int mid = low + (hi - low) / 2;
+
+        //排前半段
+        sort(a, low, mid);
+        //排后半段
+        sort(a, mid + 1, hi);
+        //合并前后两半
+        merge(a, low, mid, hi);
+    }
+}
+</pre>
+<p>这个函数会递归的进行排序, 直到数组的长度为1为止, 然后会反向的将数组全部归并起来.</p>
+<p>如果在每次sort调用中打印low mid high就可以发现, 这个就是按照2的幂去分解, 数学证明这个算法的复杂度是NlgN. 这与之前的初级排序算法可不是一个级别的, 对数级别可以处理天量数据, 而前边的初级排序算法带有平方级别是没法应对天量数据的.</p>
+<p>这个算法也是基础的归并算法, 还可以有一些改进:</p>
+<ol>
+    <li>对于很小的数组, 直接使用插入算法. 因为递归在面对小问题的时候, 调用方法很频繁, 开销很大, 这个时候可以直接使用插入排序就可以. 修改算法也很简单, 判断hi-low的长度, 然后设置一个合理的值来调用插入排序.</li>
+    <li>测试数组是否有序, 这个没看懂, 应该是说当数组很小的时候直接测试吧. 因为这个不是遍历.</li>
+    <li>节省复制数组的时间, 即在递归的每个层次交换输入数组和辅助数组的作用.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con3">自底向上的归并排序</h2>
+<p>这个归并采取从底部还是操作起的方式, 先将所有的元素想成长度是1的数组, 然后两两合并. 之后四四合并, 最后如果超过总长度, 就按总长度合并. 来看一下实现:</p>
+<pre>
+public static void sort(Comparable[] a) {
+    //一次性分配一个和被排序数组一样的数组
+    aux = new Comparable[a.length];
+
+    //取长度
+    int N = a.length;
+    //在不超过总长度的情况下的按照1,2,4..能得到的最大数字, 也就是merge一次要排的数字
+    for (int size = 1; size < N; size *= 2) {
+
+        //每一次size长度下, 从索引0开始, 每size*2的长度进行合并.
+        for (int low = 0; low < N - size; low += (size * 2)) {
+            //针对最后的尾部要注意, 最后一个子数组的长度要计算一下, 取实际的索引和按照计算的2倍size索引的较小值
+            //由于是两两合并, 所以不用担心, 第一次循环之后, 肯定只剩一个没有排过序, 在第二次的时候, 就会被排到了.
+            merge(a, low, low + size - 1, Math.min(low + size + size - 1, N - 1));
+        }
+    }
+
+}
+</pre>
+<p>如果数组是2的幂长度, 这个算法和自顶而下的归并是一样的, 只是逻辑正好相反.</p>
+<p>这个算法比较适合链表, 因为从底部开始操作数据, 会比较方便更改链表的结构, 而从顶操作到最后, 比较难以控制细节.</p>
+<p>在这个算法里, aux静态变量起到的作用实际上给归并算法提供了一个固定的空间的缓冲区, 在实际操作中, 可以不让算法对象来创建缓冲区, 可以将这个缓冲区传递给排序方法, 或者排序方法只有在检测没有缓冲区的时候才去创建新的缓冲区.</p>
+
+<h2 style="text-align: center;" id="con4">快速排序 - 切分方法</h2>
+<p>终于到了大名鼎鼎的快速排序算法了. 快速排序算法好像还入选了十大算法之一, 在1960年就由C.A.R Hoare发明, 是一种NlgN的算法.</p>
+<p>快排也是一种分治算法, 将一个数组分成2个子数组来进行排序, 但是和归并排序不同的是, 归并排序每次切分数组的时候, 没有做任何排序工作, 只是分到底然后逐层合并.</p>
+<p>而快排在每次进入递归的时候, 对送入下一个递归的数组进行了处理.</p>
+<p>快速排序的基本思想是:</p>
+<ol>
+    <li>找到一个切分元素</li>
+    <li>让这个切分元素前边的元素不大于它, 后边的元素都不小于它</li>
+    <li>对切分元素前边的部分和后边的部分继续应用这个规则, 直到切分到最小的1长度的数组</li>
+</ol>
+<p>很显然, 这里有个语焉不详的东西, 就是关键点:如何切分. 对于数组排序来说, 就是找到一个索引用于切分数组. 先来看看基础的实现:</p>
+<pre>
+public class Quick {
+
+    private static Comparable[] aux;
+
+    public static void sort(Comparable[] a) {
+        StdRandom.shuffle(a);
+        sort(a, 0, a.length - 1);
+    }
+
+    public static void sort(Comparable[] a, int low, int hi) {
+        //数组到底了就做完了
+        if (hi <= low) {
+            return;
+        }
+        //这是关键点, partition函数做的工作是找到切分点, 然后对数组进行上边第二步的操作
+        int j = partition(a, low, hi);
+
+        //与归并排序不同的是, 快排在进入递归前处理了一次数组
+        //这里要注意的是, 切分点不要包含在分割后的数组中, 红宝书上的代码错了
+        sort(a, low, j - 1);
+        sort(a, <span style="color: red">j + 1</span>, hi);
+    }
+}
+</pre>
+<p>可以看到代码本身很简单, 只要每次都能让进入递归的数组满足条件, 其实就排好了. 核心就出在<code>partition</code>这个切分函数的内容上.</p>
+<p>切分函数的本身逻辑比较容易理解:</p>
+<ol>
+    <li>找一个索引, 比如数组长度是10, 随便找一个索引4的值, 拿出来存储到一个地方, 可以说这就是一个切分值</li>
+    <li>从数组的右边向索引4找, 找到一个不大于它的元素, 从数组的左边向索引4找, 找一个不小于索引4的元素, 然后交换这两个位置.</li>
+    <li>两个指针相遇的时候, 将从右边一路扫过来的指针指向的值和这个值交换就可以了, 因为两个指针相遇的时候, 要么指向同一个位置, 要么会交换位置, 而a j 指向的恰好是不大于切分值的值的最靠右的值, 交换一次不会影响结果.</li>
+</ol>
+<p>切分函数的实现如下:</p>
+<pre>
+private static int partition(Comparable[] a, int low, int hi) {
+
+    int i = low, j = hi + 1;
+    //这里直接取了最左边的元素当成切分值
+    Comparable v = a[low];
+
+    while (true) {
+        //从左边扫到右边, 如果都小于v, 扫到最左边索引结束. 如果有一个数大于v, 就结束循环, 此时i停在索引的位置
+        //如果扫到一个,小于v的, 就会终止循环
+        while (less(a[++i], v)) {
+            if (i == hi) {
+                break;
+            }
+        }
+
+        //右边往左边扫, 如果当前的数小于v,就停止循环, 此时停在j索引处
+        while (less(v, a[--j])) {
+            if (j == low) {
+                break;
+            }
+        }
+        //每次循环检测两个指针是否相遇, 相遇了就break出外层循环
+        if (i >= j) {
+            break;
+        }
+        //没有相遇, 交换位置
+        exch(a, i, j);
+    }
+    //break出来表示已经相遇, 交换low和j 的位置
+    exch(a, low, j);
+    //此时j索引的位置, 就是切分点.
+    return j;
+}
+</pre>
+<p>还是有点搞脑子的, 首先起一个无限循环, 然后一个指针先移动,找到一个符合条件的就break掉, 让下一个指针移动, 再break的时候判断条件, 指针相遇就交换切分元素和j, 没相遇就继续下一次循环.</p>
+
+
+
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
