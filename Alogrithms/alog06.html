@@ -28,6 +28,31 @@
 
 <h2 style="text-align: center;" id="con1">符号表</h2>
 <p>简单的说, 符号表就类似字典, 是键和值的对应关系. 在这样一种抽象数据结构之下, 隐藏着算法和对应的数据结构.</p>
+<p>对于一个字典, 核心的操作是put, 即插入一对键值; 和get, 即通过键取出值.</p>
+<p>对于一个典型的泛型符号表, API如下:</p>
+<pre>
+public class ST&lt;Key, Value>
+                 ST()           //构造器
+            void put(Key key, Value val) //存入键值对
+           Value get(Key key)           //通过键取值
+            void delete(Key key)        //删除键
+         boolean contains(Key key)      //是否存在该键
+         boolean isEmpty()              //整个字典是否为空
+             int size()                 //表中的键值对数量
+ Iterable&ltKey> keys()                 //返回一个迭代器, 表内所有键的集合
+</pre>
+<p></p>
+
+
+
+
+
+
+
+
+
+
+
 
 
 
