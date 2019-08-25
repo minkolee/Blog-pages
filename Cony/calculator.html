@@ -9,7 +9,6 @@
         * {
             margin: 0;
             padding: 0;
-
         }
 
         .wrapper {
@@ -25,6 +24,7 @@
         input {
             height: 2rem;
             font-size: 1.5rem;
+            text-align: right;
         }
     </style>
 </head>
@@ -36,8 +36,11 @@
             <h3 style="text-align: center;color: #fefefe">输入数字</h3>
             <br>
             <div style="text-align: center;">
-            <input type="text" id="number1" v-model="number1"> <span style="color: white;font-size: 1.5rem">+</span> <input type="text" id="number2" v-model="number2">
+            <input type="text" id="number1" v-model="number1">
             </div>
+            <div style="text-align: center"><span class="badge">+</span></div>
+            <div style="text-align: center">
+                <input type="text" id="number2" v-model="number2"></div>
             <div style="text-align: center;margin-top: 1rem">
                 <span style="color: white;font-size: 3rem">{{result}}</span>
             </div>
