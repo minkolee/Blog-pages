@@ -19,11 +19,11 @@
 
 <ol>
     <li><a href="#con1">符号表及API</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">有序符号表</a></li>
+    <li><a href="#con3">二叉查找树 - 核心实现</a></li>
+    <li><a href="#con4">二叉查找树 - 排序相关API</a></li>
+    <li><a href="#con5">二叉查找树 - 删除</a></li>
+    <li><a href="#con6">二叉查找树 - 遍历</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">符号表</h2>
@@ -43,33 +43,347 @@ public class ST&lt;Key, Value>
 </pre>
 <p>这些API背后的细节里, 有一些特点:</p>
 <ol>
-    <li></li>
+    <li>必须支持泛型, 还可以利用Java为泛型实现的Comparable接口</li>
+    <li>键的重复问题. 每个键对应一个值, 不能有重复的键, 如果键已经存在, 则意味着覆盖原来对应的值. 这实际上定义了一个抽象的类似关联数组一样的结构</li>
+    <li>键不能为空, 值也不能为空, 因为get()方法在返回值的时候如果没有找到键, 会返回空</li>
+    <li>删除其实有两种, 一种是直接删除键和值, 还有一种是将值设置为null. 但是一般会在判断值为null的时候删除对应的键, 这是一种防御性策略.</li>
+    <li>关于迭代的处理, 加了一个方法返回迭代器.</li>
+    <li>如何判断键的等价, 必须实现equals方法.</li>
 </ol>
 
 
 
+<h2 style="text-align: center;" id="con2">有序符号表</h2>
+<p>在一般符号表的基础上, 可以扩充出有序符号表. 这个有序符号表指的是键的有序, 实际上, 有序符号表大大的扩充了无序符号表的用途. 其API如下:</p>
+<pre>
+public class ST&lt;Key extends Comparable&lt;Key>, Value>
+                 ST()           //构造器
+            void put(Key key, Value val) //存入键值对
+           Value get(Key key)           //通过键取值
+            void delete(Key key)        //删除键
+         boolean contains(Key key)      //是否存在该键
+         boolean isEmpty()              //整个字典是否为空
+             int size()                 //表中的键值对数量
+ Iterable&ltKey> keys()                 //返回一个迭代器, 表内所有键的集合
+            //以下是有序符号表新增API
+             Key min()                  //返回最小的键
+             Key max()                  //返回最大的键
+             Key floor(Key key)         //小于等于key的最大键
+             Key ceiling(Key key)       //大于等于key的最大键
+             int rank(Key key)          //小于key的键的数量
+             Key select(Key key)        //排名为k的键
+            void deleteMin()            //删除最小的键和值
+            void deleteMax()            //删除最大的键和值
+             int size(Key low, Key hi)  //[low..hi]之间的数量
+ Iterable&ltKey> keys(Key low, Key hi)  //[low..hi]之间的所有键构成的迭代器, 已经排好序
+</pre>
+<p>仔细看一下这个API, 首先Key必须继承Comparable, 这就意味着内部实际上需要根据键排序. 可以想象一下这些API的特点, 可以发现, 其实可以用数组来实现. 算法给出了使用两个数组, 一个保存键, 一个保存值的做法, 然后每次将键排序的同时, 也把对应的值跟着重新排列.</p>
+<p>具体的代码就不上了, 这里的关键就是要用一种数据结构存放键,或者存放键+值, 然后对键进行排序. 遗憾的是, 插入的方法依然需要遍历数组, 非常慢, 这就让这种实现无法应对大问题.</p>
+<p>还可以使用链表, 当然也避免不了查找, 依然很慢.</p>
+<p>这个时候就来看一下新的数据结构, 用于高性能的实现符号表, 分别是二叉查找树, 红黑树和散列表.</p>
+
+<h2 style="text-align: center;" id="con3">二叉查找树 - 核心实现</h2>
+<p>在之前已经不只一次的看到过这中两个节点不断向下展开的结构. 然而之前排序的时候, 是用其表示一个堆, 本质上是数组概念, 利用了数组的性质. 这次就不再是数组的抽象了, 而是真正的动态节点的树.</p>
+<p>所谓二叉查找树, 就是一个结点的链接, 每个结点包含键,值,两个链接分别指向左子结点和右子结点, 和一个结点计数器. 每个结点只能有一个父节点指向自己, 根节点无父节点. 二叉树的核心是, 每个结点的键都大于左结点的键, 但小于右子结点的键.</p>
+<p>这个性质可以递归, 实际上就可以得到, 二叉树的键, 肯定大于所有左边的子树的所有键, 小于右边子树的所有键.</p>
+<p>二叉树是计算机科学中最重要的算法之一, 来看一下如何用二叉树的实现有序符号表:</p>
+<pre>
+public class BST&ltKey extends Comparable&ltKey>, Value> {
+    //根节点, 需要单独指定
+    private Node root;
+
+    //私有内部类Node, 表示一个节点
+    private class Node {
+        //键
+        private Key key;           // sorted by key
+        //值
+        private Value val;         // associated data
+        //左右链接
+        private Node left, right;  // left and right subtrees
+        //节点计数器
+        private int size;          // number of nodes in subtree
+
+        public Node(Key key, Value val, int size) {
+            this.key = key;
+            this.val = val;
+            this.size = size;
+        }
+    }
+
+    public boolean isEmpty() {
+        return size() == 0;
+    }
+
+    //返回所有元素的数量, 注意看, 结点的数量如何计算呢, 其实就是左右节点的计数器合计数再加1, 在这里可以直接将其更新到节点计数器中.
+    public int size() {
+        return size(root);
+    }
+
+    //这是真正的size方法, 返回节点的计数器中的值
+    private int size(Node x) {
+        if (x == null) return 0;
+        else return x.size;
+    }
+
+    //核心的get()系列方法, 也就是如何在二叉树中进行查找
+    //这里套了一层壳, 就是从根节点查找, 很显然可以看出, 其实以任何节点为根都可以开始查找
+    public Value get(Key key) {
+        return get(root, key);
+    }
+
+    private Value get(Node x, Key key) {
+        //如果当前的key是null, 直接抛异常
+        if (key == null) throw new IllegalArgumentException("calls get() with a null key");
+        //如果当前的节点是null, 说明没有找到, 返回null, 这也是为什么值不能为空的原因, 否则无法判断找到与否
+        if (x == null) return null;
+
+        //递归寻找, 让要查找的参数与当前节点的键进行比较, 如果要查的参数小, 就到左节点里去查, 大于当前节点的键, 就到右边去找.
+        int cmp = key.compareTo(x.key);
+        if      (cmp < 0) return get(x.left, key);
+        else if (cmp > 0) return get(x.right, key);
+        else              return x.val;
+    }
+
+    //核心的put()系列方法, 用于放入键或者更新键
+    public void put(Key key, Value val) {
+        //键为空抛异常
+        if (key == null) throw new IllegalArgumentException("calls put() with a null key");
+        //防御性策略, 如果值为空则删除键
+        if (val == null) {
+            delete(key);
+            return;
+        }
+        //正常情况下, 向以根节点展开的树中放入键和值
+        root = put(root, key, val);
+        assert check();
+    }
+
+    //实际的put方法本质也是查找. 如果找到了相符的键, 就更新值, 如果找不到, 需要在合理的位置插入.
+    //所谓合理的位置插入, 就是顺着树, 根据要插入键的大小, 如果大于当前节点, 就向右侧寻找, 如果小于当前节点, 就向左侧寻找, 直到找到或者为空
+    //如果为空, 则需要新建一个节点, 然后返回这个节点, 这样递归之后, 上一个节点的指针正好指向返回的新节点.
+    //新建的结点计数器是1, 同时还会更新这个查找链条上所有的计数器.
+    private Node put(Node x, Key key, Value val) {
+        if (x == null) return new Node(key, val, 1);
+        int cmp = key.compareTo(x.key);
+        if      (cmp < 0) x.left  = put(x.left,  key, val);
+        else if (cmp > 0) x.right = put(x.right, key, val);
+        else              x.val   = val;
+        x.size = 1 + size(x.left) + size(x.right);
+        return x;
+    }
+
+}
+</pre>
+<p>这里重点要来看看get和put方法.</p>
+<p>get方法就是纯粹的查找, 可以发现, 其本质和二分查找没有什么区别.</p>
+<p>put方法是插入, 由于二叉树的这个特性, 插入一个键的开销和查找几乎是一样的, 都是二分法. 前半段和递归查找几乎是一样的, 只不过最后直接将结点的左或者右设置成新结点.</p>
+<p>这里递归的方式真的是妙, 如果让我自己写, 可能会写的很麻烦, 这里的代码递归就像是沿着树往下爬, 之后在一点点沿着树回来, 路上更新全部相关的数值.</p>
+<p>在之前排序的时候就会知道, 即使是二分法, 也可能会碰到一串链子的形态, 这个时候就成了线性的了. 这个问题就像之前的平衡方法一样, 也会有红黑树来进行平衡.</p>
+<p>这里先继续看如何在已经排好序的二叉树中, 如何实现排序相关的API.</p>
+
+<h2 style="text-align: center;" id="con4">二叉查找树 - 排序相关API</h2>
+<p>首先是取最小值, 想一下, 我们的规定是左侧都小于相同的节点, 因此只需要不断的递归, 不断从当前节点找左侧节点, 找到最后, 一定就是最小值, 所以找最小值的代码如下:</p>
+<pre>
+public Key min() {
+    if (isEmpty()) throw new NoSuchElementException("calls min() with empty symbol table");
+    return min(root).key;
+}
+
+// 如果左链接是空, 就返回当前节点, 否则返回左边的节点
+private Node min(Node x) {
+    if (x.left == null) return x;
+    else                return min(x.left);
+}
+</pre>
+<p>那很显然, 取最大值的方法就是不断的寻找右侧节点:</p>
+<pre>
+public Key max() {
+    if (isEmpty()) throw new NoSuchElementException("calls max() with empty symbol table");
+    return max(root).key;
+}
+
+private Node max(Node x) {
+    if (x.right == null) return x;
+    else                 return max(x.right);
+}
+</pre>
+<p>这个向上和向下取整有点</p>
+<pre>
+//向下取整的暴露API
+public Key floor(Key key) {
+        if (key == null) throw new IllegalArgumentException("argument to floor() is null");
+        if (isEmpty()) throw new NoSuchElementException("calls floor() with empty symbol table");
+        Node x = floor(root, key);
+        if (x == null) return null;
+        else return x.key;
+    }
+
+//这个是实际的查找方法
+private Node floor(Node x, Key key) {
+    //如果是空节点, 就返回空, 说明比key再小的值
+    if (x == null) return null;
+    //将要key与当前节点的key进行比较, 如果相等, 就返回当前值
+    //如果小于, 继续到左边查找
+    int cmp = key.compareTo(x.key);
+    if (cmp == 0) return x;
+    if (cmp <  0) return floor(x.left, key);
+    //
+    Node t = floor(x.right, key);
+    if (t != null) return t;
+    else return x;
+}
+
+//ceiling系列方法, 和floor很类似
+public Key ceiling(Key key) {
+        if (key == null) throw new IllegalArgumentException("argument to ceiling() is null");
+        if (isEmpty()) throw new NoSuchElementException("calls ceiling() with empty symbol table");
+        Node x = ceiling(root, key);
+        if (x == null) return null;
+        else return x.key;
+    }
+
+//当key大于键的时候, 一直向右查找, 突然拐到左边去了, 则当前节点就是
+private Node ceiling(Node x, Key key) {
+    if (x == null) return null;
+    int cmp = key.compareTo(x.key);
+    if (cmp == 0) return x;
+    if (cmp < 0) {
+        Node t = ceiling(x.left, key);
+        if (t != null) return t;
+        else return x;
+    }
+    return ceiling(x.right, key);
+}
+</pre>
+<p>后边的rank和select原理是看明白了. 比如要找排名是k的键, 一开始要先看两边各有几个元素, 比如左边的元素数量超过k, 说明从当前节点垂直映射到一个数字上, 前边的索引肯定大于k, 那就肯定要在左边找了.</p>
+<p>如果左边的节点数正好就是k, 那当前的节点就是排名是k的键了. 如果左边小于k, 那很显然, 要从右边找起, 找几个呢, 左边假如是t个, 不要忘记当前节点还有1个, 所以要找右边的树里的第k-t-1排名的元素. 这里要理解的排名为k表示是第k+1个元素, 否则一直看上去怪怪的.</p>
+<p>不过这两段代码让我自己写的话, 还是比较费劲, 先能看懂会用吧:</p>
+<pre>
+public Key select(int k) {
+    if (k < 0 || k >= size()) {
+        throw new IllegalArgumentException("argument to select() is invalid: " + k);
+    }
+    //从根节点开始寻找k位置的元素
+    Node x = select(root, k);
+    return x.key;
+}
+
+private Node select(Node x, int k) {
+    //如果找到了空节点, 就为null. 实际上也就是根节点为空就是null了
+    if (x == null) return null;
+    //取左侧节点的节点数进行判断
+    int t = size(x.left);
+    if      (t > k) return select(x.left,  k);
+    else if (t < k) return select(x.right, k-t-1);
+    else            return x;
+}
+
+public int rank(Key key) {
+    if (key == null) throw new IllegalArgumentException("argument to rank() is null");
+    return rank(key, root);
+}
+
+// Number of keys in the subtree less than key.
+private int rank(Key key, Node x) {
+    if (x == null) return 0;
+    int cmp = key.compareTo(x.key);
+    if      (cmp < 0) return rank(key, x.left);
+    else if (cmp > 0) return 1 + size(x.left) + rank(key, x.right);
+    else              return size(x.left);
+}
+</pre>
+<p>代码挺简单, 但要理解递归的意义, 还是挺刺激的, 我个人感觉其实就像把树看成轨道, 每次让一个某个号码的小球开始滚动, 每次根据路口来选择, 最后找到指定的数量就行了.</p>
+
+<h2 style="text-align: center;" id="con5">二叉查找树 - 删除</h2>
+<p>删除节点比较麻烦. 想想就知道, 假如需要删除一个有两个子结点的结点, 删完以后用怎么办呢?</p>
+<p>先从最简单的deleteMin()看起, 由于我们知道, 要找最小的节点, 只需要一路沿着左路下底即可, 则只需要一直走左路, 找到左节点是null的结点, 然后删除掉就行了.</p>
+<p>但是什么叫做删除呢? 假如这个节点没有子节点, 那么将其设置为空即可. 如果该节点有右结点, 只需要把这个右结点挂到被删除节点的父节点下边当成左节点就可以了, 因为这个节点肯定是除了被删除元素之外最小的元素.</p>
+<p>看一下代码:</p>
+<pre>
+public void deleteMin() {
+    if (isEmpty()) throw new NoSuchElementException("Symbol table underflow");
+    root = deleteMin(root);
+    assert check();
+}
+
+//一直找到左子结点为空的结点A, 将其左节点设置为其右结点, 就完成了删除
+private Node deleteMin(Node x) {
+    if (x.left == null) return x.right;
+    //如果不为空, 继续向下寻找, 此处就进入递归, 一直到x.left==null的时候返回
+    x.left = deleteMin(x.left);
+
+    //完成之后, 需要更新这一系列往下经历过的路径的结点计数器, 因为删掉了一个节点, 更新计数器也递归即可.
+    x.size = size(x.left) + size(x.right) + 1;
+    return x;
+}
+</pre>
+<p>删除有两个子节点的一个父节点, 也就是通用删除, 该怎么操作呢?</p>
+<p>在删除这个节点后, 用其后继节点, 也就是其右树的最小节点替换之. 从映射可以看到, 一个节点右树的最小节点, 映射之后就是下一个紧挨着节点的元素. 所以可以进行替换,而且依然有序.</p>
+<p>这里就利用了上边deleteMin()返回被删除的节点的指针的方法, 步骤如下:</p>
+<ol>
+    <li>用临时变量t保存被删除的节点</li>
+    <li>用临时变量x指向min(t.right)</li>
+    <li>将x的right指针指向 delete(t.right)返回的, 已经不带有最小值的子树</li>
+    <li>将x的左指针指向t.left, 即和被删除的节点一样</li>
+    <li>由于是递归, 会一路将指向复原</li>
+</ol>
+<p>这段代码真的不简单, 递归的思想确实比较难把握:</p>
+<pre>
+public void delete(Key key) {
+    if (key == null) throw new IllegalArgumentException("calls delete() with a null key");
+    root = delete(root, key);
+    assert check();
+}
+
+private Node delete(Node x, Key key) {
+    if (x == null) return null;
+
+    int cmp = key.compareTo(x.key);
+    if      (cmp < 0) x.left  = delete(x.left,  key);
+    else if (cmp > 0) x.right = delete(x.right, key);
+    else {
+        if (x.right == null) return x.left;
+        if (x.left  == null) return x.right;
+        Node t = x;
+        x = min(t.right);
+        x.right = deleteMin(t.right);
+        x.left = t.left;
+    }
+    x.size = size(x.left) + size(x.right) + 1;
+    return x;
+}
+</pre>
 
 
 
+<h2 style="text-align: center;" id="con6">二叉查找树 - 遍历</h2>
+<p>依然是递归, 假如要按顺序遍历一个树, 很显然需要先遍历左侧, 然后是当中, 之后是右侧, 将这个递归下去, 就可以遍历了:</p>
+<pre>
+public Iterable&ltKey> keys() {
+    if (isEmpty()) return new Queue&ltKey>();
+    return keys(min(), max());
+}
 
+public Iterable&ltKey> keys(Key lo, Key hi) {
+    if (lo == null) throw new IllegalArgumentException("first argument to keys() is null");
+    if (hi == null) throw new IllegalArgumentException("second argument to keys() is null");
 
+    Queue&ltKey> queue = new Queue&ltKey>();
+    keys(root, queue, lo, hi);
+    return queue;
+}
 
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con2"></h2>
-
-<h2 style="text-align: center;" id="con3"></h2>
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-
-<h2 style="text-align: center;" id="con6"></h2>
-
+private void keys(Node x, Queue&ltKey> queue, Key lo, Key hi) {
+    if (x == null) return;
+    int cmplo = lo.compareTo(x.key);
+    int cmphi = hi.compareTo(x.key);
+    if (cmplo &lt 0) keys(x.left, queue, lo, hi);
+    <span style="color:red;">if (cmplo &lt= 0 && cmphi >= 0) queue.enqueue(x.key);</span>
+    if (cmphi > 0) keys(x.right, queue, lo, hi);
+}
+</pre>
+<p>这个实现也很巧妙, 先创建了一个队列, 之后的所有递归都操作这个队列, 然后核心是这一行红色代码, 也就是每次插入队列的, 都是最小的,没有左节点的当前的最小值, 然后再一层一层递归回去.</p>
+<p>二叉树的主要内容就是这些, 但是由于全部是递归而不是循环, 看起来真的挺累. 看来只能先了解一下原理了.</p>
 
 
 
