@@ -25,8 +25,7 @@
     <li><a href="#con2">自顶向下的归并排序方法</a></li>
     <li><a href="#con3">自底向上的归并排序</a></li>
     <li><a href="#con4">快速排序</a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">快速排序的改进</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">实现归并方法</h2>
@@ -231,22 +230,41 @@ Merge: 0.342000, MergeBU: 0.349000, Quick: 0.298000
     <li>对于很多重复或者主键有有限个选择的情况下, 可以将数组分成三份而不是现在的两份, 即小于标志, 等于标志, 大于标志三部分, 仅对小于和大于标志的部分排序.</li>
 </ol>
 <p>来仔细看一下这个快排改进的三等分方法, 这个对于已经知道会有很多重复元素的数组非常好用.</p>
+<p>三等分快排的原理是:</p>
+<ol>
+    <li>一开始的时候,用一个low指向数组的最左边, 一个high指向数组的最右边, 然后有一个指针i和low相等, 也就是low=0, high=N-1, i=0</li>
+    <li>在数组中找一个参考值v</li>
+    <li>如果a[i]小于v, 就交换a[i]和low指向的元素, 然后把low 和 i 都加1</li>
+    <li>如果a[i]大于v, 就交换a[high]和i指向的元素, 然后把high减1</li>
+    <li>如果a[i]等于v, 让i+1</li>
+</ol>
+<p>这样整个数组就会被分为三段, a[0]到a[low-1]是小于V的, a[high+1]到最右边都大于v, a[low]到a[i-1]都等于v, 然后只要对小于和大于的部分再进行排序. 循环结束的条件是i>gt, 表示已经交换完所有内容.</p>
+<pre>
+public static void sort(Comparable[] a, int low, int hi) {
+    if (hi <= low) {
+        return;
+    }
+    //这里有点区别, i = low + 1了, 要注意, 和书上将的不同
+    int lt = low, i = low + 1, gt = hi;
+    Comparable v = a[low];
 
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con6"></h2>
-
-
-
-
+    while (i <= gt) {
+        int cmp = a[i].compareTo(v);
+        if (cmp < 0) {
+            exch(a, lt++, i++);
+        } else if (cmp > 0) {
+            exch(a, gt--, i);
+        }
+        else {
+            i++;
+        }
+    }
+    //递归对剩下两部分调用
+    sort(a, low, lt - 1);
+    sort(a, gt + 1, hi);
+}
+</pre>
+<p>只要记住一般情况下使用快排, 对于可能会有大量元素重复的排序, 就使用这种3分法的快排就可以了.</p>
 
 
 
