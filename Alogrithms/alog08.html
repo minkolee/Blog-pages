@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>算法 第四版 学习心得</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">算法第四版 第三章 散列表</h1>
+<p>如果一个符号表里所有的键都是小整数, 那么用数组存放无序的符号表, 其速度要快很多, 无论是插入还查找, 都是常数级别.</p>
+<p>现实中的键不可能这么好, 所以需要一种方法, 就是将任意类型的键转换成一个范围内的索引.</p>
+<p>此外还有一个问题, 就是不同的键转换成相同的索引, 这时候就会发生碰撞, 即两个实际上不同的键, 对应了同一个位置. 这个时候不能简单的覆盖值, 而需要采取其他的方法来进行存储数据, 有拉链法和线性探测法来解决这个问题.</p>
+<p>散列表是典型的空间和时间互相替换的例子, 如果内存很大, 可以直接用二进制键来当成键; 如果时间很充分, 可以直接使用数组, 这样就无需使用额外空间.</p>
+<P>散列表则通过数据结构的组合, 找到了一种</P>
+
+
+<ol>
+    <li><a href="#con1">散列函数</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">散列函数</h2>
+<p>散列, 就是把东西打散列出, 其实也就是任意给出一个键, 将其转换成一个整数范围内的值. 而且必须要散, 也就是平均. 来看一些常用的方法:</p>
+<ol>
+    <li>正整数, 正整数可以将其取余, 一般余数需要使用一个素数, 否则就会出现不平均的情况. 一般可以取一个离目标所需长度最接近的素数, 比如100长度的数组, 可以取97或者101.</li>
+    <li>浮点数, 其实浮点数本质也是一串二进制数, 如果将其乘以一些数字然后取余, 会导致不平均. 所以可以直接用二进制来除</li>
+    <li>字符串, 字符串在底层是一个char*指针, 但其实可以将字符串也当成数字, 即把其当成N位的R进制值, 然后除以一个素数并取余.</li>
+    <li>组合键, 如果键含有多个整型变量, 可以按一种方法也将其当成一串数字来进行操作</li>
+</ol>
+<p>Java的基类Object里带有一个hashcode()方法, 其默认返回对象的内存地址, 但这个一般不太能行, 因为内存地址很可能会重复, 尤其是堆内存反复使用的过程中. 所以一些常用的数据类型, Java为其实现了不同的hashcode()方法, 比如String, Integer, Double, File, URL.</p>
+<p>对于普通的默认返回内存地址的hashcode()的结果, 算法里提供了一个不取符号位然后取余的方法:</p>
+<pre>
+private int hash(Key key){
+    return (x.hashcode() & 0x7fffffff) % M
+}
+</pre>
+<p></p>
+
+
+
+
+
+<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
