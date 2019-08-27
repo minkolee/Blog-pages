@@ -41,21 +41,80 @@
     <li>组合键, 如果键含有多个整型变量, 可以按一种方法也将其当成一串数字来进行操作</li>
 </ol>
 <p>Java的基类Object里带有一个hashcode()方法, 其默认返回对象的内存地址, 但这个一般不太能行, 因为内存地址很可能会重复, 尤其是堆内存反复使用的过程中. 所以一些常用的数据类型, Java为其实现了不同的hashcode()方法, 比如String, Integer, Double, File, URL.</p>
-<p>对于普通的默认返回内存地址的hashcode()的结果, 算法里提供了一个不取符号位然后取余的方法:</p>
+<p>对于普通的默认返回内存地址的hashcode()的结果, 算法里提供了一个去除符号位然后取余的方法:</p>
 <pre>
 private int hash(Key key){
     return (x.hashcode() & 0x7fffffff) % M
 }
 </pre>
+<p>一般来说, 健壮的散列函数都是计算密集型的函数, 很耗费性能, 如果创建对象的时候直接计算, 效率不高. 所以Java里的hashcode会在第一次调用的时候计算散列值, 之后再调用就是缓存之后的散列值了.</p>
+
+<h2 style="text-align: center;" id="con2">基于拉链法的散列表</h2>
+<p>在有了散列函数之后, 下一步问题就是解决散列碰撞, 即实际不同的键, 经过散列函数计算出相同的值. 拉链法是一种解决方法, 即用一个链表存储相同散列值的键值对.</p>
+<p>拉链实际上就是使用了一个指针数组, 每个元素指向一个数据结构用来保存多个键值对. 这里使用的数据结构是一个链表.</p>
+<p>来看看散列表的实现:</p>
+<pre>
+public class SeparateChainingHashST&lt;Key, Value> {
+    private static final int INIT_CAPACITY = 4;
+
+    private int n;
+    private int m;
+    private SequentialSearchST&lt;Key, Value>[] st;
+
+    //构造函数, 使用INIT_CAPACITY传入有参构造函数, 实际上这个数字就是数组的长度
+    public SeparateChainingHashST() {
+        this(INIT_CAPACITY);
+    }
+
+    //创建长度为m的链表数组
+    public SeparateChainingHashST(int m) {
+        this.m = m;
+        st = (SequentialSearchST&lt;Key, Value>[]) new SequentialSearchST[m];
+        for (int i = 0; i &lt; m; i++)
+            st[i] = new SequentialSearchST&lt;Key, Value>();
+    }
+
+    //哈希函数, 除以m取余数
+    private int hash(Key key) {
+        return (key.hashCode() & 0x7fffffff) % m;
+    }
+
+    //取键值, 先找到对应的数组的索引, 再从链表中符号表中取出key
+    public Value get(Key key) {
+        if (key == null) throw new IllegalArgumentException("argument to get() is null");
+        int i = hash(key);
+        return st[i].get(key);
+    }
+
+    //存入的时候同样先计算hash, 找到对应的链表, 再进行存储
+    public void put(Key key, Value val) {
+        if (key == null) throw new IllegalArgumentException("first argument to put() is null");
+        if (val == null) {
+            delete(key);
+            return;
+        }
+        //这里其实要调整数组的长度了, 目前可以先忽略
+        if (n >= 10*m) resize(2*m);
+
+        //计算hash值, 找到对应的链表, 然后存入值.
+        int i = hash(key);
+        if (!st[i].contains(key)) n++;
+        st[i].put(key, val);
+    }
+
+}
+</pre>
+<p>这其中定义了一个初始的数量, 然后还有两个数值n和m, 初始数量实际上是数组长度, n用来记录这个表中存储的键值对的数量, m是链表的数量, 也就是将n个元素放入m个链表里, 所以要除以m来取余数.</p>
+<p>从本质上看, 散列表其实是更加复杂的数据结构组合, 即符号表和数组的组合, 依赖hash计算数组的索引, 然后找到一个符号表, 调用这个符号表来存储真正的键值对.</p>
+
+<h2 style="text-align: center;" id="con3">基于线性探测法的散列表</h2>
 <p></p>
 
 
 
 
 
-<h2 style="text-align: center;" id="con2"></h2>
 
-<h2 style="text-align: center;" id="con3"></h2>
 
 <h2 style="text-align: center;" id="con4"></h2>
 
