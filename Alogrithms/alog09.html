@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>算法 第四版 学习心得</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">算法第四版 第四章 无向图</h1>
+<p>算法第一遍看真的是只能面上过过, 难度还是挺高的, 不过至少原理懂了一些. 前边的排序和散列表除了红黑树删除那部分之外, 其他的倒也能懂, 问题不大.</p>
+<p>图算法之前接触的很少, 现在来试着了解一下吧.</p>
+
+<ol>
+    <li><a href="#con1">顶点与边</a></li>
+    <li><a href="#con2">图的常用API</a></li>
+    <li><a href="#con3">图的数据结构</a></li>
+    <li><a href="#con4">搜索图的API</a></li>
+    <li><a href="#con5">深度优先搜索 - 连通性问题</a></li>
+    <li><a href="#con6">深度优先搜索 - 路径搜索</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">顶点与边</h2>
+<p>一个无向图, 就是一组顶点与边组成的图. 一般指代顶点用0-V-1来指代有V个顶点的图. 依据之前的数据结构, 有了符号表之后, 可以建立起任意的映射.</p>
+<p>对于一个边来说, 可以用两个一组的顶点来表示一个边, 比如 v-w 表示v和w之间的边, 这个边与 w-v 是同一条边.</p>
+<p>将图画出来可能会有助于理解, 但不要被画出来的图形所误导, 图的形状有很多种, 这里讨论的是无序图, 所以结构其实有很多种.</p>
+<p>图里有两种特殊情况, 一种是一个边连接一个点和其自身, 这个叫做自环; 另外一种是两个点有多个边相连, 叫做平行边. 算法这本书还算入门, 不会讨论这两种情况.</p>
+<p>知道了顶点和边之后, 还有一系列术语需要掌握:</p>
+<ol>
+    <li><strong>相邻</strong>, 指两个顶点有边相连, 称这两个顶点是相邻的</li>
+    <li><strong>依附</strong>, 一条边依附于其连接的两个顶点</li>
+    <li><strong>度数</strong>, 指一个依附于一个顶点的边的数量</li>
+    <li><strong>子图</strong>, 指一个图所有边的子集加上依附的顶点构成的图</li>
+    <li><strong>路径</strong>, 由边顺序连接的一系列顶点</li>
+    <li><strong>简单路径</strong>, 没有重复顶点的路径</li>
+    <li><strong>环</strong>, 至少含有一条边且起点和重终点相同的路径</li>
+    <li><strong>简单环</strong>, 除了起点=终点之外, 没有任何重复的顶点和边</li>
+    <li><strong>长度</strong>, 路径或者环包含的边的数量</li>
+    <li><strong>连通</strong>, 两个顶点之间存在一条路径, 可以使用 u-v-w-x 之类来表示</li>
+    <li><strong>连通图</strong>, 任意一个顶点都存在路径到达其他所有顶点, 就是连通图. 一个非连通图由若干连通的部分组成, 这些连通的部分都是非连通图的极大连通子图</li>
+    <li><strong>无环图</strong>, 不包含环的图. 树就是一种无环连通图, 互不相连的树组成的集合叫做森林. 一个连通图可以找到一个对应的生成树(也是这个连通图的子图), 这个生成树包含这个连通图的所有顶点, 但是没有环. 这种生成树不只一种, 其集合叫做生成树森林.</li>
+    <li><strong>密度</strong>, 已经连接的顶点对, 占所有可能连接的顶点对总数的百分比. 百分比低的叫做稀疏图, 百分比高的叫做稠密图.</li>
+    <li><strong>二分图</strong>, 每两个相连的顶点, 都属于不同类型的集合. 像一个三角形的环, 就无法成为一个二分图.</li>
+</ol>
+<p>如何判断一个有V个结点的图G是一个树的方法已经研究的很成熟了, 有如下五个条件, <strong>满足其中一个</strong>就是树:</p>
+<ol>
+    <li>G有V-1条边且没有环</li>
+    <li>G有V-1条边且连通</li>
+    <li>G是连通的, 删掉任意一条边, 都不再连通</li>
+    <li>G是无环图, 但添加任意一条边都会产生一条环</li>
+    <li>G中任意一对顶点之间仅存在一条简单路径</li>
+</ol>
+<p>这个几个东西都被数学证明了, 不过脑子里想一下, 还是挺直观的.</p>
+<p>这一上来就一堆术语, 看来这图算法真的不太简单啊.</p>
+
+<h2 style="text-align: center;" id="con2">图的常用API</h2>
+<P>用哪种数据结构来表示图, 这是一个关键问题. 为此先来看一下一般图操作的API:</P>
+<pre>
+public class Graph
+                     Graph(int V)            //创建含有V个顶点但不含有边的图
+                     Graph(In in)            //从in读入图数据
+                 int V()                     //获取顶点数
+                 int E()                     //获取边数
+                void addEdge(int v, int w)   //为v和w添加一个边
+Iterable&lt;Integer> adj(int v)              //返回和V相邻的所有顶点
+              String toString()              //将图打印为字符串
+</pre>
+<p>然后是依据这些API的一些方法:</p>
+<ol>
+    <li>计算顶点v的度数: 遍历adj,返回其中的顶点数</li>
+    <li>计算所有顶点的最大度数, 遍历各个顶点的度数然后返回其中的max值</li>
+    <li>计算顶点的平均度数, 直接用总边数除以总顶点数, 也就是使用E()/V()即可</li>
+    <li>计算自环的个数, 遍历所有顶点, 找到每个顶点的adj()返回结果中与自己相等的顶点, 然后除以2, 因为是按照顶点来的, 所以每条边会被计算两次</li>
+    <li>toString 的实现, 可以打印每个顶点, 然后打印这个顶点有连接的顶点.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con3">图的数据结构</h2>
+<p>图的数据结构, 这里算法很直接明了的给出了答案, 可以使用邻接表数组, 即使用一个数组, 将顶点号当做数组索引, 数组的每一个元素也是一个数据结构, 其中存放着与这个顶点相连接的顶点.</p>
+<p>数组中的每一个元素具体使用什么数据结构, 有很多选择, 算法书上使用了第一章里的背包, 是一个用链表实现的背包.</p>
+<p>这里要注意的是如果要添加 v-w 边, 要把w添加到v的邻接表中, 再把v添加到w的邻接表中, 每条边会出现两次.</p>
+<p>而且还支持平行边和自环, 也就是说邻接表中的元素可能出现重复. 算法这里为了简单, 不会去检测平行边和自环. 使用这种邻接表的数据结构, 唯一有些有趣的地方就是同样的图, 不同的构造顺序会导致实际的邻接表中的顺序有所改变.</p>
+<p>来看一个如此实现的Graph数据结构:</p>
+<pre>
+public class Graph {
+    //V是顶点数量
+    private final int V;
+    //E是边数
+    private int E;
+    //邻接表数组adj
+    private Bag&lt;Integer>[] adj;
+
+    //构造函数, 传入顶点数量, 会初始化长度为V的数组, 并且为每个顶点(索引号)创建一个新的邻接表
+    public Graph(int V) {
+        if (V < 0) throw new IllegalArgumentException("Number of vertices must be nonnegative");
+        this.V = V;
+        this.E = 0;
+        adj = (Bag&lt;Integer>[]) new Bag[V];
+        for (int v = 0; v &lt; V; v++) {
+            adj[v] = new Bag&lt;Integer>();
+        }
+    }
+
+    public int V() {
+        return V;
+    }
+
+    public int E() {
+        return E;
+    }
+
+    //核心函数之一: 添加边
+    public void addEdge(int v, int w) {
+        //两条边各添加一次
+        adj[v].add(w);
+        adj[w].add(v);
+        E++;
+    }
+
+    //返回顶点V的相连的点
+    public Iterable&lt;Integer> adj(int v) {
+        validateVertex(v);
+        return adj[v];
+    }
+}
+</pre>
+<p>在这个的基础上还可以进行一些改进, 比如使用集合替代Bag, 这样就指明了不允许出现平行边, 删除顶点和添加顶点, 删除一条边之类. 这很可能就不能使用Bag数组, 而需要使用符号表来替代数组.</p>
+
+
+<h2 style="text-align: center;" id="con4">搜索图的API</h2>
+<p>关于图的算法, 常见的是已知一幅图, 需要来获取图的性质, 算法里给出了几个常见的处理API:</p>
+<pre>
+public class Search
+            Search(Graph G, int s)  //根据图G和顶点s, 构造一个图G中基于顶点s的对象
+    boolean marked(int v)           //检测v和s是否连通
+        int count()                 //与S连通的顶点总数
+</pre>
+<p>每次用一个图和一个顶点创建一个Search对象, 就可以调用marked算法来检测连通性. 下边就是要根据不同的算法, 创建不同类别的Search对象, 和实现其中的 marked 方法.</p>
+<p>在第一章里边的连通性算法, 其实就是解决这个问题的一个途径, 要做的就是从图里取出所有的连接点, 然后将其放入连通分量中, 之后通过连通分量来判断是否连通.</p>
+<p>不过这里需要学习一个专用的图算法, 深度优先搜索, 而且是后边图算法的基础.</p>
+
+<h2 style="text-align: center;" id="con5">深度优先搜索 - 连通性问题</h2>
+<p>深度优先搜索的意思是:</p>
+<ol>
+    <li>将一个顶点标记为已经访问</li>
+    <li>递归的访问它的所有没有被标记过的邻居顶点</li>
+</ol>
+<p>这种方法会使用一个布尔数组, 用其中的索引号对应顶点号, 记录所有与给定顶点相连的所有顶点. 如果图是连通的, 所有的顶点最终都会被标记到.</p>
+<p>深度优先搜索的每一条边会被查找两次, 第二次的时候会发现该条边已经被搜索过. 所以实际搜索轨迹是总边数的一倍.</p>
+<p>深度优先的代码如下:</p>
+<pre>
+public class DepthFirstSearch {
+    //布尔数组
+    private boolean[] marked;
+    //记录所有和s连通的顶点的数量
+    private int count;
+
+    //使用G和S创建一个深度优先搜索对象
+    public DepthFirstSearch(Graph G, int s) {
+        marked = new boolean[G.V()];
+        dfs(G, s);
+    }
+
+    //核心方法, 递归搜索
+    private void dfs(Graph G, int v) {
+        //每次进入一个新的递归, 就说明新找到一个和s连通的顶点, 所以count++
+        count++;
+        //将新找到的顶点标记为true
+        marked[v] = true;
+        //在新的顶点的邻接表里遍历所有的顶点, 继续递归调用这个方法, 直到所有的顶点都已经被标记
+        for (int w : G.adj(v)) {
+            if (!marked[w]) {
+                dfs(G, w);
+            }
+        }
+    }
+
+    //由于在构造对象的时候就使用了dfs, 所以可以直接使用这个方法, 寻找v对应的索引就可以发现是否与s连通了.
+    public boolean marked(int v) {
+        return marked[v];
+    }
+
+}
+</pre>
+<p>使用深度优先搜索, 也可以解决一开始的问题, 就是两个点是否连通, 只需要在运行结束之后, 检查布尔数组对应索引的两个值是不是都是true即可. 但是相比连通性算法, 深度优先搜索还可以给出连通算法无法给出的答案, 就是这条路径具体是什么.</p>
+
+<h2 style="text-align: center;" id="con6">路径搜索</h2>
+<p>路径搜索有点像之前的利用数组索引进行构造一个相连的树的方法.</p>
+<p>在之前的深度优先算法里, 每次第一次访问一个连通的边的时候, 就按照对应的索引, 把另一个端点放入到数组的对应的索引里, 比如是从0开始搜索, 遇到2的时候, 就在数组2的位置放入0, 之后2去搜索到第一个3的时候, 在数组3的位置放入2, 这样一直到搜索到想要的节点, 然后反过来用数组不断取数当成索引就可以找到路径.</p>
+<p>这算法还真是给力, 要是不从第一章看过来, 就不会立刻理解这个算法, 用数组做成树还真是有意思.</p>
+<p>改进的可以返回路径的代码如下, 注意红色的部分:</p>
+<pre>
+public class DepthFirstPaths {
+    private boolean[] marked;    // marked[v] = is there an s-v path?
+    private int count;
+
+    //起点
+    <span style="color: red">private final int s;</span>
+
+    //用数组表示的树
+    <span style="color: red">private int[] edgeTo;</span>
+
+    public DepthFirstPaths(Graph G, int s) {
+        marked = new boolean[G.V()];
+        <span style="color: red">edgeTo = new int[G.V()];</span>
+        <span style="color: #fc1620">this.s = s;</span>
+        dfs(G, s);
+    }
+
+    private void dfs(Graph G, int v) {
+        count++;
+        marked[v] = true;
+        for (int w : G.adj(v)) {
+            if (!marked[w]) {
+                //w索引的值是v, 对于第一次递归来说, v就是s, 这样就一层一层通过数组可以追查到s
+                <span style="color: #fc1620">edgeTo[w] = v;</span>
+                dfs(G, w);
+            }
+        }
+    }
+
+    public boolean marked(int v) {
+        return marked[v];
+    }
+
+    public int count() {
+        return count;
+    }
+
+    public boolean hasPathTo(int v) {
+        return marked[v];
+    }
+
+    //其实有了前边的数组, 从v开始不断循环v = edgeTo[v]就可以找到路径
+    //这里是弄了一个方法专门保存了路径的栈
+    <span style="color: #fc1620">public Iterable&lt;Integer> pathTo(int v)</span> {
+        //如果没有路径, 就结束
+        if (!hasPathTo(v)) {
+            return null;
+        }
+        Stack&lt;Integer> path = new Stack&lt;>();
+        //用循环不断跟着找下去, 直到i=s为止
+        for (int i = v; i != s; i = edgeTo[i]) {
+            path.push(i);
+        }
+        //循环结束的时候, 所有的除了s之外的路径都被压入栈中, 最后压一个s的值进去
+        path.push(s);
+        return path;
+    }
+}
+</pre>
+<p>为了要显示路径, 所以要保存一下s的值, 不能像原来的构造器一样直接把s交给dfs进行搜索. 核心的变化就是在dfs第一次找到的时候, 设置数组中与当前顶点值相同的索引值w对应的值, 为上一级节点的值(也就是作为参数的v), 这个技巧和连通算法时候其实一样的.</p>
+<p>但是想一想这个递归就可以看出来, 假如连通的话, 肯定会有一条路径能够连通, 但是递归的顺序会影响找到这条路径的方式, 所以找到的路径可能会不同, 也可能不是最短的.</p>
+<p>深度优先搜索无法解决这个问题, 因为顾名思义, 这个东西一定是搜索到最深, 不行了, 再从其他的分支返回, 所有的方向都是一搜到底的. 所以就要使用广度优先算法了.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

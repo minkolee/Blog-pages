@@ -25,11 +25,8 @@
 
 <ol>
     <li><a href="#con1">散列函数</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">基于拉链法的散列表</a></li>
+    <li><a href="#con3">基于线性探测法的散列表</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">散列函数</h2>
@@ -108,21 +105,138 @@ public class SeparateChainingHashST&lt;Key, Value> {
 <p>从本质上看, 散列表其实是更加复杂的数据结构组合, 即符号表和数组的组合, 依赖hash计算数组的索引, 然后找到一个符号表, 调用这个符号表来存储真正的键值对.</p>
 
 <h2 style="text-align: center;" id="con3">基于线性探测法的散列表</h2>
-<p></p>
+<p>线性探测法是开放地址散列表的一种. 所谓开放地址, 相对于上一节, 索引是什么, 就放入什么位置, 这种是闭合地址, 即一一对应. 开放地址指的是散列计算出来的索引, 键值不一定就存在那个索引位置, 而是使用数组中的空位来解决碰撞问题.</p>
+<P>线性探测法解决碰撞的方法是:</P>
+<ol>
+    <li>命中, 键和被查找的键相同</li>
+    <li>不命中, 当前的键是null</li>
+    <li>不命中, 当前的键不是null, 继续向后查找. 找到就更新或者取数, 如果是插入操作, 直到找到null还没找到, 就存在null的地方</li>
+</ol>
+<p>这个算法的本质是将null当做一块连续的区域的终点, 也是查找结束的标记. 如果在一个区域里没有找到对应的键, 那么就新增.</p>
+<p>一个使用双数组的线性探测符号表如下:</p>
+<pre>
+public class LinearProbingHashST&ltKey, Value> {
+    private static final int INIT_CAPACITY = 4;
 
+    //键值对总数
+    private int n;
 
+    //数组的长度, 两个数组一个存放键一个存放值
+    private int m;
+    private Key[] keys;
+    private Value[] vals;
 
+    //构造函数, 使用INIT_CAPACITY作为数组初始的长度
+    public LinearProbingHashST() {
+        this(INIT_CAPACITY);
+    }
 
+    public LinearProbingHashST(int capacity) {
+        m = capacity;
+        n = 0;
+        keys = (Key[])   new Object[m];
+        vals = (Value[]) new Object[m];
+    }
 
+    //插入函数
+    public void put(Key key, Value val) {
+        //依然是先判断键和值为空的情况
+        if (key == null) throw new IllegalArgumentException("first argument to put() is null");
 
+        if (val == null) {
+            delete(key);
+            return;
+        }
 
-<h2 style="text-align: center;" id="con4"></h2>
+        //如果已插入键值对的数量超过了数组长度的一半, 就扩充一倍的数组
+        if (n >= m/2) resize(2*m);
 
-<h2 style="text-align: center;" id="con5"></h2>
+        int i;
+        //计算键的hash值, 然后开始搜索直到null的位置.
+        for (i = hash(key); keys[i] != null; i = (i + 1) % m) {
+            如果发现了键, 就更新值
+            if (keys[i].equals(key)) {
+                vals[i] = val;
+                return;
+            }
+        }
+        //循环结束之后如果没找到, 则i停留在null的位置, 将当前键值插入的两个数组的i索引处
+        keys[i] = key;
+        vals[i] = val;
+        n++;
+    }
 
-<h2 style="text-align: center;" id="con6"></h2>
+    //查询函数
+    public Value get(Key key) {
+        if (key == null) throw new IllegalArgumentException("argument to get() is null");
+        //与插入类似, 一样的循环, 在找到null之前如果找到了, 就返回对应的值
+        for (int i = hash(key); keys[i] != null; i = (i + 1) % m)
+            if (keys[i].equals(key))
+                return vals[i];
+        //for循环结束之后说明没找到, 返回null, 表明不存在该键
+        return null;
+    }
 
+    //删除函数
+    public void delete(Key key) {
+        //检测键是否为空和是否存在
+        if (key == null) throw new IllegalArgumentException("argument to delete() is null");
+        if (!contains(key)) return;
 
+        //先找到对应的i索引
+        int i = hash(key);
+        while (!key.equals(keys[i])) {
+            i = (i + 1) % m;
+        }
+
+        //将两个数组对应的索引设置为空
+        keys[i] = null;
+        vals[i] = null;
+
+        //这一步操作很关键, 由于设置了为null, 就是一个搜索终点, 其后的元素如果不调整位置, 就不会被找到
+        i = (i + 1) % m;
+        //从i+1的位置向后不断寻找
+        while (keys[i] != null) {
+            //用临时变量保存键和值, 然后设置当前位置为null, 数量也减少1, 然后重新插入这个键
+            Key   keyToRehash = keys[i];
+            Value valToRehash = vals[i];
+            keys[i] = null;
+            vals[i] = null;
+            n--;
+            put(keyToRehash, valToRehash);
+            i = (i + 1) % m;
+        }
+        //这个n--是删除要删除的元素的操作, 放到了最后, 在所有其后的元素重新插入完成之后, 再将总键值数量减少1
+        n--;
+
+        //删除之后也记得要调整大小
+        if (n > 0 && n <= m/8) resize(m/2);
+
+        assert check();
+    }
+
+    //所有键的队列实现, 比较简单, 挨个将不是null的Key放入Queue中, 返回这个Queue即可.
+    //由于Queue实现了迭代器, 所以可以对返回的Queue使用增强for循环
+    public Iterable&ltKey> keys() {
+        Queue&ltKey> queue = new Queue&ltKey>();
+        for (int i = 0; i &lt m; i++)
+            if (keys[i] != null) queue.enqueue(keys[i]);
+        return queue;
+    }
+}
+</pre>
+<p>其他都是一些辅助函数, 可以看到, 其关键是在删除一个元素的同时, 将属于其后同一个查找组(叫做键簇)的元素全部重新插入符号表中. </p>
+<p>使用线性探测符号表的话, 其数列长度是一个很重要的因素, 如果n=m, 会导致无限循环, 如果m远大于n, 则效率会好很多, 因为键簇既分散又小.</p>
+<p>散列表的特点是:</p>
+<ol>
+    <li>很多时候是常数级别的插入和寻找操作</li>
+    <li>对键有要求, 每种类型的键都需要一个对应的散列函数</li>
+    <li>性能保证来自于散列函数的质量(还有散列表内部的存储空间)</li>
+    <li>虽然插入和寻找操作理论上耗时不多, 但散列函数可能是密集计算的性能杀手</li>
+    <li>难以实现有序的符号表</li>
+</ol>
+
+<p>Java中的散列表有两种实现, java.util.TreeMap 是红黑树实现的符号表, java.util.HashMap 是散列表实现的符号表. 在实际中可以根据需要来取用.</p>
 
 
 
