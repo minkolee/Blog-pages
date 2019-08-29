@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>算法 第四版 学习心得</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">算法第四版 第四章 有向图</h1>
+<p>有向图指的是边是单向的, 每条边连接的两个顶点是一个有序对, 只能从一个点到另外一个点.</p>
+
+<ol>
+    <li><a href="#con1">有向图数据结构</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">有向图数据结构</h2>
+<p>有向图有一些概念, 首先v 和 w两个顶点之间的关系有如下四种:</p>
+<ol>
+    <li>v->w, 存在v到w的边</li>
+    <li>w->v, 存在w到v的边</li>
+    <li>v->w, w->v, 既存在v-w, 也存在v-w的边</li>
+    <li>没有边相连</li>
+</ol>
+<p>如果存在 v->w, 就说w能够由v达到, 一个点可以由自己达到.</p>
+<p>虽然有向图看起来不如有向图那么容易发现路径, 但其实有向图的数据结构比无向图还要简单. 其核心的理念就是, 无向图的对称状态, 在有向图中是不存在的.</p>
+<pre>
+public class Digraph {
+    //顶点数量
+    private final int V;
+    //边数
+    private int E;
+    //用于保存邻接表的背包
+    private Bag&lt;Integer>[] adj;
+
+    //构造器, 一开始默认边数是0
+    public Digraph(int V) {
+        if (V &lt; 0) throw new IllegalArgumentException("Number of vertices in a Digraph must be nonnegative");
+        this.V = V;
+        this.E = 0;
+        //对每一个顶点生成Bag, 然后放入邻接表数组中
+        adj = (Bag&lt;Integer>[]) new Bag[V];
+        for (int v = 0; v &lt; V; v++) {
+            adj[v] = new Bag&lt;Integer>();
+        }
+    }
+
+    public int V() {
+        return V;
+    }
+
+    public int E() {
+        return E;
+    }
+
+    //添加一条从v到w边, 注意这是有向图, <span style="color: red">因此w在v的链表里, 但是v不在w的链表里</span>
+    public void addEdge(int v, int w) {
+        adj[v].add(w);
+        E++;
+    }
+
+    //获取当前图的一个反向图
+    //由于每一个v->w是有序的, 因此遍历所有的顶点, 然后对于每个顶点的邻接表, 将其中的邻接顶点反向添加到一个新的表里, 就获取了一个反向图
+    public Digraph reverse() {
+        Digraph reverse = new Digraph(V);
+        for (int v = 0; v < V; v++) {
+            for (int w : adj(v)) {
+                reverse.addEdge(w, v);
+            }
+        }
+        return reverse;
+    }
+
+
+}
+</pre>
+<p>有向图的添加边的时候是单向的, 需要特别注意. 除此之外, 根据有向图的特点, 还可以得到一张关系完全相反的图, 只需要遍历所有连接关系然后反向将其添加到一个新图中即可.</p>
+
+<h2 style="text-align: center;" id="con2">深度优先算法 - 可达性和路径搜索</h2>
+<p>有向图的可达性其实和无向图很类似, 深度优先搜索在可达性方面与有向图是一样的, 也是根据邻接表不断的搜索, 类似之前, 可以创建一个根据一个顶点和一个图来生成所有可达顶点的一个搜索对象:</p>
+<pre>
+public class DirectedDFS {
+    //标记数组
+    private boolean[] marked;
+    //可达点的数量
+    private int count;
+
+    //用一张图和一个顶点初始化搜索对象
+    public DirectedDFS(Digraph G, int s) {
+        marked = new boolean[G.V()];
+        //深度优先搜索
+        dfs(G, s);
+    }
+
+    //这个深度优先搜索的原理和之前的完全一样, 能同时工作在有向和无向图上, 然后会在标记数组上标出所有算法遍历过的点, 也就是s的可达点
+    private void dfs(Digraph G, int v) {
+        count++;
+        marked[v] = true;
+        for (int w : G.adj(v)) {
+            if (!marked[w]) dfs(G, w);
+        }
+    }
+
+    //剩下都是一些辅助函数
+}
+</pre>
+<p>可以看到, 深度优先搜索完全适用于有向图, 很显然, 广度优先搜索也是适合的, 因为二者本质上只是处理顶点的顺序不同, 但都能工作在图的数据结构上.</p>
+<p>基于深度优先搜索的可达性和基于广度优先搜索的最短路径, 也同样可以工作在有向图上.</p>
+<p>有向图的一个典型应用就是Java的垃圾回收算法, 会在每个对象里保留一个位, 用于标记, 如果没有标记, 就会回收这些对象. 在CSAPP里也提到过了.</p>
+
+<h2 style="text-align: center;" id="con3">环和有向无环图</h2>
+<p>在一些需要给顶点排序, 以获得任务的先后联系的工作中, 不能有环的存在, 因此如何检测一个有向图中有环, 是一个重要的算法.</p>
+<p>检测环的本质是, 在进行深度优先搜索的时候, 当前递归都是存在栈中的, 存在栈中的所有内容, 就是当前遍历的所有顶点. 假如当前正在寻找一个从 w->v 的路径, 如果发现了一条 v->w 的路径, 就说明有了一个环.</p>
+<p>看一下具体的实现:</p>
+<pre>
+
+</pre>
+
+
+
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
