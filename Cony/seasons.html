@@ -2,55 +2,151 @@
 <html class="no-js" lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="x-ua-compatible" content="ie=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>柚子计算器</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@3.x/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>季节变换</title>
     <style>
-        .wrapper {
+        h2 {
             text-align: center;
+        }
+
+        ol {
+            margin: 0;
+            padding: 0;
+            list-style-type: none;
+            text-align: center;
+        }
+
+        .normal {
+            display: inline-block;
+            height: 50px;
+            width: 50px;
+            border: 1px solid gray;
+            background-color: gray;
+            line-height: 50px;
+            margin: 10px;
+            color: whitesmoke;
+        }
+
+        .spring {
+            background-color: green;
+        }
+
+        .summer {
+            background-color: orangered;
+        }
+
+        .autumn {
+            background-color: gold;
+            color:saddlebrown;
+        }
+
+        .winter {
+            background-color: cornflowerblue;
+        }
+
+
+
+        input {
+            border: 3px solid darkcyan;
         }
     </style>
 </head>
 <body>
 <div id=app>
-    <div class="wrapper">
-        <label for="number">请输入一个数字
-            <input type="number" id="number" v-model="num">
-        </label>
-        <button @click="change">开始</button>
-        <div>
-            <div style="display: inline-block"  id="spring">春</div>
-            <div style="display: inline-block"  id="summer">夏</div>
-            <div style="display: inline-block"  id="autumn">秋</div>
-            <div style="display: inline-block"  id="winter">冬</div>
-        </div >
+    <h2>季节变换</h2>
+    <div style="text-align: center">
+        <label for="change">输入季节变换的次数
+            <input type="text" v-model="changeTimes" id="change"></label>
+    </div>
+    <div style="text-align: center;margin-top: 10px">
+        <v-btn @click="change">查看结果</v-btn>
+        <v-btn @click="reset">重置</v-btn>
+    </div>
+    <ol>
+        <li @click="show(index)" v-for="(season, index) in seasons" class="normal" :class="index==0?'spring':index==1?'summer':index==2?'autumn':'winter'" ref="season">{{season}}</li>
+    </ol>
+    <div style="text-align: center;margin: 10px auto" >
+        <img id="simg" height=372  :src="imageUrl" alt="">
     </div>
 
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+</div>
+<script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
 <script>
-    var nue =  new Vue({
+     new Vue({
         el: "#app",
-        data:{
-            num: "",
-            seasons:[document.getElementById("spring"),
-                document.getElementById("summer"),
-                document.getElementById("autumn"),
-                document.getElementById("winter")]
+        data: {
+            seasons: ['春', '夏', '秋', '冬'],
+            changeTimes: null,
+            images: [
+                'http://conyli.cc/seasons/spring.jpg',
+                'http://conyli.cc/seasons/summer.jpg',
+                'http://conyli.cc/seasons/autumn.jpg',
+                'http://conyli.cc/seasons/winter.jpg',
+            ],
+            imageUrl: this.getImageUrl,
+            currentIndex: null
         },
-        methods :{
-            change:function () {
-                var ints = parseInt(this.num);
-                for (var i = 0; i <= ints; i++) {
-                    for (var j = 0; j < 4; j++) {
-                        console.log(this.seasons[j]);
-                        this.seasons[j].text = 'orange';
-                    }
+
+        computed: {
+            seasonClass: function () {
+                switch (this.currentIndex) {
+                    case null:
+                        return;
+                    case 0:
+                        return "spring";
+                    case 1:
+                        return "summer";
+                    case 2:
+                        return "autumn";
+                    case 3:
+                        return "winter";
+                    default:
+                        return null;
                 }
             }
+        },
+
+        methods: {
+            change: function() {
+                if (this.changeTimes == null) {
+                } else {
+                    var num = parseInt(this.changeTimes);
+                    if (isNaN(num)) {
+                        this.changeTimes = null;
+                        alert("请输入数字");
+                    } else {
+                        this.currentIndex = num % 4;
+                        this.imageUrl = this.images[this.currentIndex];
+                        this.changeClass(this.currentIndex);
+                    }
+                }
+            },
+            getImageUrl: function () {
+                return this.images[this.currentIndex];
+            },
+            changeClass: function (index) {
+                this.$refs.season[0].className = "normal";
+                this.$refs.season[1].className = "normal";
+                this.$refs.season[2].className = "normal";
+                this.$refs.season[3].className = "normal";
+                this.$refs.season[index].className = "normal " + this.seasonClass;
+            },
+            reset: function () {
+                location.reload();
+            },
+            show: function (index) {
+                this.currentIndex = index;
+                this.changeClass(index);
+                this.imageUrl = this.getImageUrl();
+            }
         }
-    })
+    });
 </script>
 </body>
 </html>
