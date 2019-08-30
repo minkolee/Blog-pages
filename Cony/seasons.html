@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>柚子计算器</title>
+    <style>
+        .wrapper {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div id=app>
+    <div class="wrapper">
+        <label for="number">请输入一个数字
+            <input type="number" id="number" v-model="num">
+        </label>
+        <button @click="change">开始</button>
+        <div>
+            <div style="display: inline-block"  id="spring">春</div>
+            <div style="display: inline-block"  id="summer">夏</div>
+            <div style="display: inline-block"  id="autumn">秋</div>
+            <div style="display: inline-block"  id="winter">冬</div>
+        </div >
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script>
+    var nue =  new Vue({
+        el: "#app",
+        data:{
+            num: "",
+            seasons:[document.getElementById("spring"),
+                document.getElementById("summer"),
+                document.getElementById("autumn"),
+                document.getElementById("winter")]
+        },
+        methods :{
+            change:function () {
+                var ints = parseInt(this.num);
+                for (var i = 0; i <= ints; i++) {
+                    for (var j = 0; j < 4; j++) {
+                        console.log(this.seasons[j]);
+                        this.seasons[j].text = 'orange';
+                    }
+                }
+            }
+        }
+    })
+</script>
+</body>
+</html>
