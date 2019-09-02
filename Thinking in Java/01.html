@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java编程思想</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">Java补强</h1>
+<p>Java在年初的时候其实是借着会了一门Python的东风, 迅速的把面向对象的思想看了一遍, 然后就上手搞Spring了.</p>
+<p>在经历了初步的入门阶段, 会写简单的业务代码之后, 现在看完了CSAPP, 简单了解了算法, 要再按照-底层-数据结构-程序语言这样一个循环来看一下.</p>
+<p>顺便也再看一下, 在看完了底层和数据结构的基础知识之后, 是不是对编程语言能有更深入的认识.</p>
+
+
+<ol>
+    <li><a href="#con1">面向对象程序设计的思想</a></li>
+    <li><a href="#con2">继承与多态</a></li>
+    <li><a href="#con3">一切皆对象的理念</a></li>
+    <li><a href="#con4">类基础知识</a></li>
+    <li><a href="#con5">操作符</a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">面向对象程序设计的思想</h2>
+<p>在思考问题的解的时候, 抽象的思路不是局限于计算机的结构, 而是基于问题本身.</p>
+<ol>
+    <li>万物皆为对象</li>
+    <li>程序是对象的集合, 通过发送消息告诉彼此要做的</li>
+    <li>每个对象都有自己的存储, 其中可以存储其他对象, 即一个对象可以由其他对象组成</li>
+    <li>每个对象都拥有其类型. 类型的本质, 就是可以接受什么样的消息</li>
+    <li>某一个特定类型的所有对象都可以接受相同的消息, 这其中还包含有层级关系, 一个圆形也应该能够接受发送给几何形对象的消息.</li>
+</ol>
+<p>对象具有状态, 行为和标识. 面向对象程序开发的本质就是创建新的数据类型.</p>
+<p>对象是为了什么, 就是为了提供某些服务. 一个对象将使用自己或者其他对象, 对用户提供服务.</p>
+<p>程序开发人员有两种, 类创建者和客户端程序员, 当然, 这种角色可能同时出现在一个人身上. 这就要遵守边界, 使用类的人无需知道内部细节, 而类创建者必须设计好接口.</p>
+<p>Java用三个关键字实现访问控制, 即public, private, protected. public即全部公开, private相当于一堵墙, 隔绝了这个类所有的内部实现. 而protected仅限于继承类可以访问protected成员, 但private依旧不能访问.</p>
+<p>Java还有什么都不加的默认的包权限, 对于包内成员, 相当于public, 对于包外成员, 和private一样.</p>
+<p>聚合 - 一批类似的对象构成的一群对象</p>
+<p>组合 - has-a关系, 一个对象依赖另外一个对象才能正常运转. 对于被组合的对象, 通常设置为private, 无需让外界引用, 这和继承不同.</p>
+<p style="color: red">在创建新类的时候, 首先考虑组合, 而不是继承.</p>
+
+
+<h2 style="text-align: center;" id="con2">继承与多态</h2>
+<p>继承就是创建一个新的类型, 这个新的类型包含了现有类型(被继承类型)的所有成员(也包含private成员, 但是不可访问, 因为不是一个类型), 更重要的是复制了基类的接口.</p>
+<p>由于本质上, 类由所能接受的消息而确定, 因此本质上, 继承类和基类是具有相同的类型, 这是一种继承等价性. (认识到这个等价性和两个对象的具体类型不相同并不矛盾, 因为几何形是几何形, 圆形既是圆形也是几何形)</p>
+<p>如果只是全部继承包括方法, 那没有必要, 一般要使基类与继承类产生差异, 产生差异的方法有两种:</p>
+<ol>
+    <li>一是添加新方法</li>
+    <li>二是覆盖基类中的方法</li>
+</ol>
+<p>如果一个导出类可以完全替代一个基类, 这种叫做纯粹替代. 是 is-a 关系.</p>
+<p>如果一个导出类要添加新的内容和接口, 这就是不完全替代, 无法通过基类访问新的方法.</p>
+<p>多态的实现, 依赖于Java中的后期绑定, 而不是前期绑定(比如C, 编译完了, 函数的地址就确定了,只要调用就是那个地址). 编译器确保这个函数的签名在对象里存在, 但是具体调用哪一段代码, 要根据实际调用的时候再确定.</p>
+<p>这样针对对象调用方法, 找的是对象对应的方法, 而不是基类对应的方法.</p>
+<p>即使对象向上转型, 也会做正确的事情(即调用该对象自己的方法, 如果该对象覆盖了父类的方法的话)</p>
+<p>Java是单根继承方式, 所有的对象都继承Object对象.</p>
+
+<h2 style="text-align: center;" id="con3">一切皆对象的理念</h2>
+<p>对象的标识符, 实际上是一个引用(不用管底层是什么, 可以理解成一个指针), 对象的标识符并不一定有一个具体的对象与之关联. 所以其他语言里的仅声明不赋值, 到了Java这里, 就是创建一个引用.</p>
+<p>new 关键字(操作符)用来创建新的对象.</p>
+<p>一切皆对象的特例是<span>基本类型</span>, 这些类型由于创建对象开销太大, 实际上是与C系列语言一样, 将变量放置在堆栈中(还记得参数准备区吗). 所以对于基本类型的标识符, 并不是一个引用, 而是类似于C语言其中的声明, 让编译器为该参数分配空间.</p>
+<p><span>基本类型的包装器</span>, 则可以在堆中创建一个非基本对象, 用来表示对应的基本类型. Java可以自动的在基本类型的标识符和基本类型的包装类型的标识符之间自动转换.</p>
+<p>用于高精度计算的类 BigInteger(任意精度整数), BigDecimal(任意精度定点数), 这两个类用方法代替了直接运算符, 用速度换取了精度.</p>
+<p>Java的数组也特别注意, 如果创建非基本类型的数组, 实际上是一个引用数组, 每个引用都是null. 如果创建基本类型的数组, 则都被初始化成0. (这一点和C系是一样的, 声明的数组位于BSS区, 会被匿名页面关联所以初始化为0).</p>
+
+<h2 style="text-align: center;" id="con4">类基础知识</h2>
+<p>类其中有两种元素: 字段(数据成员) 和 方法(成员函数).</p>
+<p>如果字段是基本类型, 会被初始化为0. 方法的局部变量则不会初始化(可见Java的一个类很像C程序的一个模块). 字段类似于全局变量, 而方法就是函数的局部变量.</p>
+<pre>
+import java.util.*;
+
+public class HelloDate {
+
+    public static void main(String[] args) {
+        System.out.println("Hello, it's ");
+        System.out.println(new Date());
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con5">操作符</h2>
+<p>操作符要注意的点:</p>
+<ol>
+    <li>基本类型赋值是复制一份, 引用类型赋值是指向对象(就是复制指针啦), 方法传入基本类型会复制值, 传入对象引用可以操作对象(就是传入指针啦)</li>
+    <li>前缀增加和减少, 先进行自增和自减, 再生成值. 后缀增加和减少, 先生成值(原来的值), 再进行自增和自减</li>
+    <li>基本类型可以使用 == 和 != 进行判断相等与否, 因为本质上都是直接判断二进制数. 对象则要使用equals, 如果自定义的话必须要覆盖.</li>
+    <li>整数不能够当成布尔值来用</li>
+    <li>Java的移位普通移位都是有符号移位, >>>是无符号移位, 即在高位插入0. 如果对char, byte 和short移位, 都会变成int类型的值. 要移动多少位, 只有右侧的5位才有用. long则是6位.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con6">控制执行流程</h2>
+<p>关于比较少用到的跳转标签:</p>
+<pre>
+label1:
+    outer-iteration {
+        inner-iteration {
+
+            break;  //以当前状态跳出内层循环
+
+            continue; //控制权移交到内层循环开始处, 循环控制变量被更新
+
+            continue label1;  //跳到外层循环, 继续外层循环的下一次迭代
+
+            break label1;   //<span style="color: red">回到label处, 但不再执行其后的外层和内层循环, 等于执行下一条语句去了</span>
+        }
+
+    }
+</pre>
+<p>这里尤其要注意的是break+标签, 标签的位置令人迷惑, 其实际作用是结束所有循环, 直接执行下边的语句.</p>
+<p>书里是Java5, 当时还只能用int和char, 现在可以用枚举, String类和其他整数的包装类型了.</p>
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
