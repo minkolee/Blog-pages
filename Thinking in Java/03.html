@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 补强</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">Java补强 类的复用与多态</h1>
+
+<ol>
+    <li><a href="#con1">类复用方式</a></li>
+    <li><a href="#con2">继承</a></li>
+    <li><a href="#con3">代理</a></li>
+    <li><a href="#con4">一些细节</a></li>
+    <li><a href="#con5">final的使用</a></li>
+    <li><a href="#con6">多态</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">类复用方式</h2>
+<p>由于Java里最小单元是类, 所以很多程序里的复用函数, 就变成了复用类. 即写好了一个类, 之后想办法通过创建对象复用这个类.</p>
+<p>类的复用主要有两种方式:</p>
+<ol>
+    <li>组合</li>
+    <li>继承</li>
+    <li>代理</li>
+</ol>
+<p>组合的方法比较直观, 就是将一个其他类型的对象引用交给一个类去使用即可. 在类中的话, 就是设置一个类变量是一个要使用的对象的引用. 一般有四种方式:</p>
+<ol>
+    <li>在定义的地方直接初始化, 这样可以在构造器调用之前就进行初始化</li>
+    <li>构造器中可以进行初始化</li>
+    <li>在要使用这些对象之前, 由于默认会被初始化成null, 所以加一个判断就可以变成惰性初始化</li>
+    <li>实例中初始化</li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">继承</h2>
+<p>继承是面向对象中的一大特点, 也是带来多态这个特点的核心能力. 在Java 中其实一直在隐式继承Object.</p>
+<p>导出类会得到基类<span style="color: red">所有的方法和域</span>, 注意是所有的, 包括private 的, 只是不能访问而已.</p>
+<p>一般为了继承的话, 会将数据设置为private , 而方法设置为public ,这样导出类和基类都可以正常工作.</p>
+<p>在子类中使用super.method 调用父类的方法.</p>
+<p>在子类构造器中, 实际是一直递归的去先调用最底层的构造器, 所以java实际上会在构造器中自动插入基类构造器的调用, 这是因为如果不插入, 基类不构造好, 子类也无法正常工作.</p>
+<p>所以始终是父类构造器先调用, 然后是子类构造器</p>
+<p>这里主要讲了构造顺序, 其实子类也具有基类的类型, 所以可以通过动态绑定实现多态. 所有的static final, private之外的方法, 都是动态绑定的.</p>
+<p>有了继承, protected 就有了意义, 对包内和子类可见. 当然一般这个限于方法, 因为对于数据成员, 还是声明为private比较好.</p>
+
+
+<h2 style="text-align: center;" id="con3">代理</h2>
+<p>代理就是将一个对象置于一个类中, 然后暴露这个成员对象的所有方法, 这样就是在外边套了一个壳.</p>
+
+
+
+
+<h2 style="text-align: center;" id="con4">一些细节</h2>
+<p>如果意图在覆盖方法, 一定要使用@Override注解, 这样万一编写有误, 编译器会给出提示.</p>
+<p>向上转型是多态的关键.</p>
+
+
+<h2 style="text-align: center;" id="con5">final的使用</h2>
+<p>基本类型的final值不变, 引用类型的final指向的对象不能变(指针不变), 对象可以变.</p>
+<p>一般又是static 又是 final的域用大写表示, 这相当于编译器常量.</p>
+<p>final可以一开始不赋值, 但马上要在构造器中赋值, 只能在定义处或者构造器的地方赋值, 这是特殊之处.</p>
+
+<p>final 修饰方法表示继承的话不能修改该方法(private隐含了final, 即private 并不是基类的接口, 只有对外暴露的才叫接口). 修饰类的话, 类不能继承, 隐含了所有方法都是final</p>
+
+<h2 style="text-align: center;" id="con6">多态</h2>
+<p>本质是动态绑定, 运行时绑定. 编译器只有把方法认为动态绑定, 而访问域不是. 所以只能多态方法, 而不能多态访问域.</p>
+<p>向上转型访问域, 是父类的域. 只有方法调用才是多态.</p>
+<p>试验了一下, 如果被继承的属性不是private的, 然后方法也是继承来的, 如果返回单个变量, 就返回的是父类的, 所以继承的时候还是设置好private比较好.</p>
+<p>而且必须每个有自己的行为才能多态, 如果是从父类继承了方法,就不能多态了.</p>
+<p>private方法由于不能覆盖(实际上是final), 因此无法多态.</p>
+<pre>
+package thinkinginjava.learn.chapter08.polymorphism;
+
+public class FieldAccess {
+
+    public static void main(String[] args) {
+        Super sup = new Sub();
+        System.out.println("sup.field =" + sup.field + ". sup.getField()=" + sup.getField());
+
+        Sub sub = new Sub();
+        System.out.println("sub.field =" + sub.field + ". sub.getField()=" + sub.getField() +". sub.getSuperField()=" + sub.getSuperField());
+    }
+}
+
+
+class Super {
+    public int field = 0;
+    public int getField() {
+        return field;
+    }
+}
+
+class Sub extends Super {
+    public int field = 1;
+
+    public int getField() {
+        return field;
+    }
+
+    public int getSuperField() {
+        return super.field;
+    }
+}
+</pre>
+<p>这段代码要记住, Sup实际上有两个field, 一个是自己的, 覆盖了父类的, 但并不是父类的不存在了, 如果需要获得, 则需要显式的通过父类指定或者通过父类方法获取(注意, 并不是通过一个父类的对象获得, 此时父类没有对象, 两个field是同时才在于Sup对象中的.).</p>
+<p>注意, 这个问题其实不是问题, 在继承的时候, 一定一定要将域设置成private的. 这样才能保证每个对象可以独立的访问自己的个体. 也无需去访问基类. 而且域要设置为不同才好.</p>
+<p>所以一般不是为了多态, 无需继承, 直接设置不同的类即可.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
