@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 补强</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">接口和内部类</h1>
+<p>接口我个人的理解, 其实是一种设计工具, 提供了快速的多态方法, 进一步提高解耦关系. Java编程思想这里还说了几种设计模式, 要仔细看看.</p>
+
+<ol>
+    <li><a href="#con1">抽象类</a></li>
+    <li><a href="#con2">接口</a></li>
+    <li><a href="#con3">多继承</a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">抽象类</h2>
+<p>抽象类和抽象方法我个人在编写代码的时候用的还是挺少的. 方法加上abstract 然后没有方法体, 就是抽象方法, 抽象方法所在的类也要标记为抽象类.</p>
+<p>继承抽象类不实现全部方法, 那必须也是一个抽象类. 抽象类都不能够实例化. 其实到了接口和内部类这里, 主要都是类设计方面的思想的体现了.</p>
+
+<h2 style="text-align: center;" id="con2">接口</h2>
+<p>接口实际上是一个完全抽象的类. 其中域自动是public static final. 方法则全部是public的</p>
+<p>策略Strategy模式: 接受一个接口的实现类和一个参数, 然后就可以根据不同实现类对参数做不同的操作:</p>
+<pre>
+//一个接口和一批实现类
+public interface Processor {
+
+    String name();
+
+    Object process(Object input);
+}
+
+class Upcase implements Processor {
+
+    @Override
+    public String name() {
+        return "Upcase";
+    }
+
+    @Override
+    public Object process(Object input) {
+        System.out.println("Upcase processing");
+        return ((String)input).toLowerCase();
+    }
+}
+
+class Downcase implements Processor {
+
+    @Override
+    public String name() {
+        return "Downcase";
+    }
+
+    @Override
+    public Object process(Object input) {
+        System.out.println("Downcase processing");
+        return ((String)input).toLowerCase();
+    }
+}
+
+class Splitter implements Processor {
+
+    @Override
+    public String name() {
+        return "Splitter";
+    }
+
+    @Override
+    public Object process(Object input) {
+        System.out.println("Splitter processing");
+        return ((String)input).toLowerCase();
+    }
+}
+
+//策略模式类:
+public class Strategy {
+
+    <span style="color: red">public static Object process(Processor processor, Object s)</span> {
+        return processor.process(s);
+    }
+
+    public static void main(String[] args) {
+        System.out.println(process(new Splitter(), "Diablos"));
+        System.out.println(process(new Upcase(), "bulubulu"));
+        System.out.println(process(new Downcase(), "benglong"));
+    }
+}
+</pre>
+<p>适配器Adapter模式, 如果无法修改要使用的类, 可以创建一个类, 每次实例化的时候传入一个接口的实现类, 然后用这个类去操作实际的参数, 而不是实现类本身:</p>
+<pre>
+public class Adapter implements MyInterface {
+    //接受一个接口类
+    private Processor processor;
+
+    //构造器接受一个接口实现对象, 这样适配器里就持有了这个对象
+    public Adapter(Processor processor) {
+
+        this.processor = processor;
+    }
+
+    @Override
+    public String myInterfaceRequiredNameFunction() {
+        return processor.name();
+    }
+
+    public Object myInterfaceRequiredProcessFunction(Object input) {
+        return processor.process(input);
+    }
+}
+</pre>
+<p>如果我们自己有一个接口, 无法直接使用Processor接口的实现类, 那么就可以创建一个适配器类, 实现我们自己的接口, 但是持有一个Process实现类, 这其实本质上像一种代理, 即把使用我们自己的接口的方法转交给processor接口来处理.</p>
+<p>在针对一个Processor对象创建一个适配器对象之后, 我们自己的程序就可以使用这个适配器类来间接的使用Processor接口的实现类的具体对象了.</p>
+<p>可以把适配器模式理解成一个电源制式转换器.</p>
+
+
+<h2 style="text-align: center;" id="con3">多继承</h2>
+<p>Java如果从严格的继承角度来说, 是只能extends一个类的. 但接口可以实现多个, 以逗号分割即可. 这本质上是一种继承扩展. 但实际上如果extends接口的话, 也可以写多个.</p>
+<p>要注意接口中间尽量不要有方法签名相同的方法, 否则就会有冲突.</p>
+<p>事实上如果知道某事物应该成为一个基类, 第一选择应该使它成为一个接口.</p>
+
+
+<h2 style="text-align: center;" id="con4">工厂方法</h2>
+<p>有了接口之后, 实际上是多态和使用类属性更加方便. 工厂模式是生产一批属于同一个接口的模式:</p>
+<pre>
+public class Factories {
+}
+
+
+interface Service {
+    void method1();
+
+    void method2();
+}
+
+interface ServiceFactory {
+    Service getService();
+}
+
+class Implemention1 implements Service {
+    Implemention1() {
+
+    }
+
+    @Override
+    public void method1() {
+        System.out.println("imp1 method1");
+    }
+
+    @Override
+    public void method2() {
+        System.out.println("imp1 method2");
+    }
+}
+
+class Implemention2 implements Service {
+    Implemention2() {
+
+    }
+
+    @Override
+    public void method1() {
+        System.out.println("imp2 method1");
+    }
+
+    @Override
+    public void method2() {
+        System.out.println("imp2 method2");
+    }
+}
+
+class Implemention1Factory implements ServiceFactory {
+    @Override
+    public Service getService() {
+        return new Implemention1();
+    }
+}
+
+class Implemention2Factory implements ServiceFactory {
+    @Override
+    public Service getService() {
+        return new Implemention2();
+    }
+}
+</pre>
+<p>两个实现类都实现了Service接口, 然后创建两个工厂类, 分别返回各自的实现类对象. 如果不使用工厂, 那每次创建具体的对象的时候, 就要指定实现类, 或者向上转型才行.</p>
+<p>为何要添加这种通用的间接性, 一般这种方法都会用到框架上, 即搭了一个完整的创建类和使用类的体系.</p>
+<p>然后只要改变具体的实现, 框架就可以被具体化成一个具体的东西.</p>
+
+
+<h2 style="text-align: center;" id="con5">内部类</h2>
+<p>内部类可以用private来修饰, 这是和普通类不同的, 也可以有包权限或者public权限.</p>
+<p>内部类的关键是可以使用外部类的东西, 在使用内部类之前, 必然有一个关联的外部类对象.</p>
+<p>这就让迭代器等和一个类紧密相连的类, 相比放在外部, 使用内部类更加方便. 外部和内部类的两个对象可以很方便的协同工作.</p>
+<p>常见的是外部类有一个方法, 返回一个内部类的引用. </p>
+
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
