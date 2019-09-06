@@ -24,6 +24,7 @@
     <li><a href="#con4">一些细节</a></li>
     <li><a href="#con5">final的使用</a></li>
     <li><a href="#con6">多态</a></li>
+    <li><a href="#con7">协变返回类型</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">类复用方式</h2>
@@ -115,8 +116,33 @@ class Sub extends Super {
 <p>注意, 这个问题其实不是问题, 在继承的时候, 一定一定要将域设置成private的. 这样才能保证每个对象可以独立的访问自己的个体. 也无需去访问基类. 而且域要设置为不同才好.</p>
 <p>所以一般不是为了多态, 无需继承, 直接设置不同的类即可.</p>
 
+<h2 style="text-align: center;" id="con7">协变返回类型</h2>
+<p>覆盖的方法可以返回被覆盖方法的返回类型的导出类(子类), 看这个例子: 这是Override方法的一个灵活之处, 在权限方面就没有如此灵活了:</p>
+<pre>
+public class Covariant {
+}
+
+class Grain {
+}
+
+class Wheat extends Grain {
+}
 
 
+class Mill {
+    Grain getGrain() {
+        return new Grain();
+    }
+}
+
+class WheatMill extends Mill {
+    @Override
+    Wheat getGrain() {
+        return new Wheat();
+    }
+}
+</pre>
+<p>Mill类的getGrain()方法返回Grain对象, WheatMill继承Mill对象, 覆盖的方法返回了 Grain 的子类Wheat的对象, 这是可以的, @Override不会报错, 这是正确的重写方法.</p>
 
 
 
