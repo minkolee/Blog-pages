@@ -22,9 +22,8 @@
     <li><a href="#con1">抽象类</a></li>
     <li><a href="#con2">接口</a></li>
     <li><a href="#con3">多继承</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">工厂方法</a></li>
+    <li><a href="#con5">内部类</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">抽象类</h2>
@@ -205,9 +204,11 @@ class Implemention2Factory implements ServiceFactory {
 <p>内部类的关键是可以使用外部类的东西, 在使用内部类之前, 必然有一个关联的外部类对象.</p>
 <p>这就让迭代器等和一个类紧密相连的类, 相比放在外部, 使用内部类更加方便. 外部和内部类的两个对象可以很方便的协同工作.</p>
 <p>常见的是外部类有一个方法, 返回一个内部类的引用. </p>
-
-
-<h2 style="text-align: center;" id="con6"></h2>
+<p>除了静态内部类之外, 内部类的对象都有一个引用指向其外部类. 必须通过外部类来创建内部类:</p>
+<pre>Outer.Inner inner = outer.new Inner();</pre>
+<p>不能直接创建<kbd>Outer.Inner inner = new Outer.Inner();</kbd></p>
+<p>内部类的部分留待以后再来看吧, 其中主要是类设计思想以及多继承的使用, 外加可以访问外部类中的域的优点.</p>
+<p>单看Java编程思想还是体会不到内部类的好处.</p>
 
 
 
