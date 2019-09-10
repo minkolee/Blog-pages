@@ -15,34 +15,281 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">到了容器了</h1>
-
+<h1 style="text-align: center;">同名域覆盖</h1>
 <ol>
-    <li><a href="#con1">构造器</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">基类A</a></li>
+    <li><a href="#con2">子类简单继承A</a></li>
+    <li><a href="#con3">子类设置同名域</a></li>
+    <li><a href="#con4">子类重写getS方法</a></li>
+    <li><a href="#con5">子类重写getS和setS方法</a></li>
+    <li><a href="#con6">子类添加父类方法调用</a></li>
+    <li><a href="#con7">Python中的情况</a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1">构造器</h2>
-<p>构造器的本质就是为对象分配空间, 然后初始化, 返回指向对象的指针. 默认构造器和指定构造器的关系比较熟悉了. Java中初始化和创建捆绑在一起, 并不能像C系语言一样把声明和初始化分离.</p>
-<p>构造器没有返回值.</p>
-<p>this也可以用来返回当前对象的引用, 这个是链式调用的关键, 记得要想到这个方面, 也可以把自身的引用传递给外部方法, 用于类之间的交互, 很有意思.</p>
+最近看完CSAPP之后，重新拿着《Java编程思想》这本书复习Java， 发现在年初快速过了一遍Java的时候，还有很多小细节没有注意。这两天看到“第七章：复用类”的时候，书上简单的写了一句话：当这么做（使用extends关键字继承）的时候，（导出类、子类）会自动得到基类中所有的域和方法。在157页上，有这么一段话，Sub实际上包含两个被称为field的域：它自己的和从Super处得到的。然后后边说一般不会发生这种情况，因为一般把域都设置成private的，副作用是只能用方法来访问。
+上边这段到底是什么意思，我做了一系列实验终于搞明白了。本质上来说，子类用同名域去覆盖了父类里的域，实际上只是表象。这两个域还是可以使用不同的方法访问到，访问子类的域要用到子类的方法，而访问父类的域要用到父类的方法。来看下边的一系列例子：
+
+<h2 style="text-align: center;" id="con1">基类A</h2>
+<pre>
+public class A {
+    private String s = "String in A class";
+
+    public String getS() {
+        return s;
+    }
+
+    public void setS(String s) {
+        this.s = s;
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con2">子类简单继承A</h2>
+<pre>
+public class B1 extends A {
+
+    public static void main(String[] args) {
+        B1 b1 = new B1();
+        System.out.println(b1.getS());
+
+        b1.setS("New String set by B1");
+        System.out.println(b1.getS());
+    }
+}
+</pre>
+这里就直接继承A，什么也不用做。执行测试的结果是：
+<pre>
+String in A class
+New String set by B1
+</pre>
+似乎还看不出来什么，继续向下看。
 
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con3">子类设置同名域</h2>
+<pre>
+public class B2 extends A {
 
-<h2 style="text-align: center;" id="con3"></h2>
+    private String s = "String in B2";
 
-<h2 style="text-align: center;" id="con4"></h2>
+    public static void main(String[] args) {
+        B2 b2 = new B2();
+        System.out.println(b2.getS());
+        b2.setS("New String set by B2");
+        System.out.println(b2.getS());
+        System.out.println("-----------------");
+    }
+}
+</pre>
+执行测试的结果是：
+<pre>
+String in A-serial class
+New String set by B2
+</pre>
+这里已经看出一点端倪来了，方法getS和setS似乎与B2类的私有变量String in B2毫无关系。看起来使用父类的方法，操作的是父类里的那个字符串s域。
 
-<h2 style="text-align: center;" id="con5"></h2>
 
-<h2 style="text-align: center;" id="con6"></h2>
+<h2 style="text-align: center;" id="con4">子类重写getS方法</h2>
+
+<pre>
+public class B3 extends A {
+
+    private String s = "String in B3";
+
+    @Override
+    public String getS() {
+        return s;
+    }
+
+    public static void main(String[] args) {
+        B3 b3 = new B3();
+        System.out.println(b3.getS());
+        b3.setS("New String set by B3");
+        System.out.println(b3.getS());
+    }
+}
+</pre>
+这次的执行结果是：
+<pre>
+String in B3
+String in B3
+</pre>
+
+这就很有意思了，子类重写的getS方法返回了子类的s域，父类的那个setS显然设置的不是子类的s域。这说明实际上设置的是父类的同名s域。
+
+<h2 style="text-align: center;" id="con5">子类重写getS和setS方法</h2>
+<pre>
+public class B4 extends A {
+
+    String s = "String in B4";
+
+    @Override
+    public String getS() {
+        return s;
+    }
+
+    @Override
+    public void setS(String s) {
+        this.s = s;
+    }
+
+    public static void main(String[] args) {
+        B4 b4 = new B4();
+        System.out.println(b4.getS());
+        b4.setS("New String set by B4");
+        System.out.println(b4.getS());
+    }
+}
+</pre>
+这次的执行结果是：
+<pre>
+String in B4
+New String set by B4
+</pre>
+从结果来看，两个覆盖的方法完全都操作了子类的s域，和父类的同名域没有关系了。为了验证文章开始说的子类对象是不是包含两个域，添加两个调用父类的方法来访问看看。
+
+<h2 style="text-align: center;" id="con6">子类添加父类方法调用</h2>
+<pre>
 
 
+public class B5 extends A {
+
+    String s = "String in B5";
+
+    @Override
+    public String getS() {
+        return s;
+    }
+
+    @Override
+    public void setS(String s) {
+        this.s = s;
+    }
+
+    public String getAS() {
+        return super.getS();
+    }
+
+    public void setAS(String s) {
+        super.setS(s);
+    }
+
+    public static void main(String[] args) {
+        B5 b5 = new B5();
+        System.out.println(b5.getS());
+        System.out.println(b5.getAS());
+
+        b5.setS("New String set by B5");
+        b5.setAS("New String set by B5 to A");
+        System.out.println(b5.getS());
+        System.out.println(b5.getAS());
+    }
+}
+</pre>
+这次的执行结果是：
+<pre>
+String in B5
+String in A class
+New String set by B5
+New String set by B5 to A
+</pre>
+可以看到，确实通过子类和父类的方法，访问了两个同名但是分属于子类和父类的域s。这两个域虽然同名，但是互相独立。
+
+<h2 style="text-align: center;" id="con7">Python中的情况</h2>
+我记得刚开始学Python中的面向对象时候，简单的理解成同名域会覆盖掉原来的域，其实并不是这样，应该和Java一样两个域都可以访问。为了测试一下Python中是什么情况，也写了简单的Python代码进行测试：
+<pre>
+class A:
+    def __init__(self):
+        self.__name = "A-name"
+
+    def getName(self):
+        return self.__name
+
+    def setName(self, name):
+        self.__name = name
+
+
+class B1(A):
+    pass
+
+
+class B2(A):
+    def __init__(self):
+        A.__init__(self)
+        self.__name = "B2-name"
+
+    def getName(self):
+        return self.__name
+
+    def getAName(self):
+        return super().getName()
+
+
+class B3(A):
+    def __init__(self):
+        A.__init__(self)
+        self.__name = "B3-name"
+
+    def getName(self):
+        return self.__name
+
+    def setName(self, name):
+        self.__name = name
+
+    def getAName(self):
+        return super().getName()
+
+
+print("--------以下是B1--------")
+b1 = B1()
+print(b1.getName())
+b1.setName("Set Name by b1")
+print(b1.getName())
+
+print("--------以下是B2--------")
+b2 = B2()
+print(b2.getName())
+print(b2.getAName())
+b2.setName("Set Name by b2")
+print(b2.getName())
+print(b2.getAName())
+
+print("--------以下是B3--------")
+b3 = B3()
+print(b3.getName())
+print(b3.getAName())
+b3.setName("Set Name by b3")
+print(b3.getName())
+print(b3.getAName())
+</pre>
+
+
+运行结果是：
+<pre>
+--------以下是B1--------
+A-name
+Set Name by b1
+
+--------以下是B2--------
+B2-name
+A-name
+B2-name
+Set Name by b2
+
+--------以下是B3--------
+B3-name
+A-name
+Set Name by b3
+A-name
+</pre>
+这次的同名域是__name。
+B1的运行结果完全就和Java中的一样。
+B2中只重写了getName方法，添加了调用父类方法的getAName方法，可以看到两个方法返回了不同的结果。直接调用setName方法只修改了父类的同名域。
+B3重写了setName方法，很显然这次只修改了子类的域，并没有修改父类的同名域。
+因此Python中的继承和Java里是一样的，本该如此，毕竟面向对象的理念是一致的。
+不过这里还有个小细节，B1直接继承A，什么都没写，解释器应该是自动调用了父类的初始化函数。而在B2和B3类里，如果去掉：
+<pre>A.__init__(self)</pre>
+这一行，getAName() 方法会报错，找不到变量，这是因为Python解释器在子类有初始化方法的时候不会自动去调用父类初始化方法。在Java里，子类的构造器里会默认递归调用完全部的基类构造器，以保证子类对象生成的时候所有基于父类的域都可用。Python这点竟然没有做到，真是意外。
+用同名域覆盖基类的域不是一个好的编程实践，不过万一遇到了，也要心里有数，总算搞清楚了这个令人迷惑的地方。
 
 
 
