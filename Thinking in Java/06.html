@@ -15,10 +15,10 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">Java补强</h1>
+<h1 style="text-align: center;">集合</h1>
 
 <ol>
-    <li><a href="#con1">构造器</a></li>
+    <li><a href="#con1">持有对象</a></li>
     <li><a href="#con2"></a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
@@ -26,17 +26,30 @@
     <li><a href="#con6"></a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1">构造器</h2>
-<p>构造器的本质就是为对象分配空间, 然后初始化, 返回指向对象的指针. 默认构造器和指定构造器的关系比较熟悉了. Java中初始化和创建捆绑在一起, 并不能像C系语言一样把声明和初始化分离.</p>
+<h2 style="text-align: center;" id="con1">集合基础</h2>
+<p>学完了算法再看这个就有意思多了, 整体分为两大类, Collection 与 Map. 前者是数组类型的实现,比如List和Queue, 后者是符号表.</p>
 <p>构造器没有返回值.</p>
 <p>this也可以用来返回当前对象的引用, 这个是链式调用的关键, 记得要想到这个方面, 也可以把自身的引用传递给外部方法, 用于类之间的交互, 很有意思.</p>
 
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">序列类型</h2>
+<p>通用的序列接口是Collection, 不过常用的最基础的类型是 ArrayList, 基础的方法是add()添加, get()获取, set(index, T)是设置指定位置为T, 然后返回原来的那个元素.</p>
+<p>除了添加单个元素, 还可以添加一组元素, Arrays工具类中有一个asList()方法, 接受一个数组或者用逗号分割的元素列表, 可以转换成一个List对象.</p>
+<p>Collection接口里有一个addAll()方法, 接受一个Collection对象, 或者数组和逗号分割的多个参数, 加入到这个Collection中.</p>
+<p>Collection的构造器还可以接受另外一个Collection. 但是首选addAll()方法.</p>
+<p>Arrays.toString()可以方便快捷打印一个数组.</p>
+<p>除了数组实现的ArrayList之外, 还有LinkedList, 是链表实现.</p>
 
-<h2 style="text-align: center;" id="con3"></h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
+<h2 style="text-align: center;" id="con3">Set</h2>
+<p>Set本质上也是一种Collection ,Set接口继承字Collection. 其中的值必须不同.</p>
+<p>常用的是 HashSet, TreeSet 和 LinkedHashSet </p>
+
+
+<h2 style="text-align: center;" id="con4">Map</h2>
+<p>Map是另外一个系列的接口了</p>
+
+
 
 <h2 style="text-align: center;" id="con5"></h2>
 
