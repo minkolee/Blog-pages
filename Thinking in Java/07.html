@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 补强</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">反射 - 类型信息</h1>
+
+<ol>
+    <li><a href="#con1">RTTI</a></li>
+    <li><a href="#con2">反射</a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">RTTI</h2>
+<p>原始的泛型一般采用向上转型的多态方式, 但只能知道通用类型, 无法得知具体的类型信息. 这是普通的RTTI</p>
+
+
+
+<h2 style="text-align: center;" id="con2">反射</h2>
+<p>反射利用到特殊的Class对象, 这个对象携带着完整的类型信息.</p>
+<code>Class.forName("Gum")</code>用于获得指定名称的类的Class对象的引用, 如果找不到, 就会抛出ClassNotFoundException.
+<p>注意实际使用的时候,必须是加上包名的类的全名, 还要在try中使用, 找不到就catch错误.</p>
+<p>反射的目的是用来解剖类, 以及动态的创建类的对象, 而不是局限于原本写死的代码.</p>
+<p>还可以使用类名.class来获取对于Class对象的引用</p>
+
+
+<h2 style="text-align: center;" id="con3">Set</h2>
+
+
+<h2 style="text-align: center;" id="con4">Map</h2>
+
+
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
