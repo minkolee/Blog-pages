@@ -31,18 +31,22 @@
 
 
 
-<h2 style="text-align: center;" id="con2">反射</h2>
+<h2 style="text-align: center;" id="con2">Class对象</h2>
 <p>反射利用到特殊的Class对象, 这个对象携带着完整的类型信息.</p>
 <code>Class.forName("Gum")</code>用于获得指定名称的类的Class对象的引用, 如果找不到, 就会抛出ClassNotFoundException.
 <p>注意实际使用的时候,必须是加上包名的类的全名, 还要在try中使用, 找不到就catch错误.</p>
 <p>反射的目的是用来解剖类, 以及动态的创建类的对象, 而不是局限于原本写死的代码.</p>
-<p>还可以使用类名.class来获取对于Class对象的引用</p>
+<p>还可以使用类名.class来获取对于Class对象的引用.</p>
 
 
-<h2 style="text-align: center;" id="con3">Set</h2>
+<h2 style="text-align: center;" id="con3">java.lang.reflect</h2>
+<p>这个是反射库, 和之前的RTTI以及Class不一样, 是在运行的时候可以确定类的信息, 而不是在编译的时候.</p>
+<p>包含Field, Method, Constructor类, 每个类都实现了Member接口. 通过这几个类就可以得到类的信息.</p>
+<p>可以使用Constructor创建新对象, 通过get和set来修改Field, 使用invoke()来调用方法.</p>
+<p>反射并不神奇, 因为任何东西都要加载Class对象, 一旦加载了Class对象, JVM就知道了这个类的信息. 只不过class文件是在运行时候解析, 而不是在编译的时候.</p>
 
 
-<h2 style="text-align: center;" id="con4">Map</h2>
+<h2 style="text-align: center;" id="con4">提取类的方法</h2>
 
 
 
