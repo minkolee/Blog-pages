@@ -29,9 +29,48 @@
 <h2 style="text-align: center;" id="con1">简单泛型</h2>
 
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">泛型方法</h2>
+<p>静态方法无法访问类的类型参数, 因为是独立的函数区域, 如果想要让静态方法使用泛型能力, 必须使其成为泛型方法.</p>
+<p>泛型参数加在方法上, 就是泛型方法. 定义泛型方法, 要将泛型参数放置在返回值之前.</p>
+<p>使用泛型类的时候必须在创建对象的时候指定类型参数的值, 而使用泛型方法的时候, 只需要直接传入参数, 不需要传入参数的类型, 因为编译器会找到对应的类型, 这是类型推断.</p>
+<p>类型推断只对赋值起作用, 方法传参数也是一种赋值(底层是复制了一份值或者指针). 但是调用泛型方法之后的结果, 也不能得到类型推断, 而是被赋值一个Object类型的变量.</p>
+<p>在泛型代码的内部, 其实无法获得任何泛型参数类型的信息, 因为在编译的时候会擦除类型信息, 转换成实际的类型信息.</p>
 
-<h2 style="text-align: center;" id="con3"></h2>
+<h2 style="text-align: center;" id="con3">类型擦除</h2>
+<pre>
+public class EraseTest&lt;T <span style="color: red">extends HashF</span>> {
+
+    private T obj;
+
+    EraseTest(T t) {
+        this.obj = t;
+    }
+
+    public void ff() {
+        obj.f();
+    }
+
+    public static void main(String[] args) {
+        HashF hashF = new HashF();
+
+        EraseTest&lt;HashF> eraseTest = new EraseTest&lt;>(hashF);
+
+        eraseTest.ff();
+
+    }
+
+}
+
+
+class HashF {
+    public void f() {
+        System.out.println("HashF.f()");
+    }
+}
+</pre>
+<p>这里如果去掉类型参数中的红色部分, 就无法编译, 因为不知道T是不是有f()方法. 而有了红色部分之后, 类型就会擦除到HashF, 等于类型定死了是HashF, 就会检查HashF是否有f()方法.</p>
+<p>所以本质上, Java的泛型只是为了代码可以在一个类的边界下对其所有的类进行工作, 而不是泛型所有的类型. </p>
+
 
 <h2 style="text-align: center;" id="con4"></h2>
 

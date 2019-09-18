@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 补强</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">IO系统</h1>
+<p>对于所有的编程语言, 其实IO都是很重要的部分. 前边的泛型和反射可以用到的时候再看, 但是IO的部分和Java的基础部分, 都是经常要使用的工具, 必须熟练掌握.</p>
+<p>不过Java的IO类其实很多, 外加经过了多年发展, 因此IO类的整体架构看上去可能有些混乱, 需要一点一点来摸清楚.</p>
+
+<ol>
+    <li><a href="#con1">File类</a></li>
+    <li><a href="#con2">输入和输出综述</a></li>
+    <li><a href="#con3">InputStream</a></li>
+    <li><a href="#con4">OutputStream</a></li>
+    <li><a href="#con5">FilterInputStream 从 InputStream 中读取数据</a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">File类</h2>
+<p>首先要搞清楚的是, File类并不是像C语言的File宏一样代表一个文件. File类实际上既可以代表一个文件, 又可以代表一个目录之下一组文件的名称. 实际上File代表的是一个路径, 这个路径可以是一个具体的文件, 也可以是一个目录名.</p>
+<p>常用的应用如下, 列出一个目录下的文件, 以及根据需要过滤结果:</p>
+<pre>
+package thinkinginjava.learn.chapter18;
+
+import java.io.File;
+import java.io.FilenameFilter;
+import java.util.Arrays;
+import java.util.regex.Pattern;
+
+public class DirList {
+
+    public static void main(String[] args) {
+
+        //使用构造器传入路径名, . 表示当前路径
+        File path = new File(".");
+        //声明一个字符串数组用来存放列出来的文件名
+        String[] list;
+
+        //如果目录名没有输入, 装入当前的目录下文件名
+        if (args.length == 0) {
+            list = path.list();
+        }
+
+        else {
+            //list接受一个实现了FilenameFilter接口的对象, 会调用其中的accept方法判断list中每一个对象, 只过滤满足条件的内容.
+            list = path.list(new DirFilter(args[0]));
+        }
+
+        if (list == null) {
+            return;
+        }
+        Arrays.sort(list, String.CASE_INSENSITIVE_ORDER);
+
+        for (String item : list) {
+            System.out.println(item);
+        }
+    }
+
+}
+
+//过滤文件名的类, 根据正则过滤
+class DirFilter implements FilenameFilter {
+    private Pattern pattern;
+
+    DirFilter(String regex) {
+        this.pattern = Pattern.compile(regex);
+    }
+
+    @Override
+    public boolean accept(File dir, String name) {
+        return pattern.matcher(name).matches();
+    }
+}
+</pre>
+<p>还可以采取匿名内部类改进:</p>
+<pre>
+public class DirList2 {
+
+    public static FilenameFilter filter(final String regex) {
+        //使用静态方法内部的匿名内部类, 来返回一个filter, 传入final的regex即可得到一个对应的filter
+        return new FilenameFilter() {
+            private Pattern pattern = Pattern.compile(regex);
+
+            @Override
+            public boolean accept(File dir, String name) {
+                return pattern.matcher(name).matches();
+            }
+        };
+    }
+
+    public static void main(String[] args) {
+
+        //使用构造器传入路径名, . 表示当前路径
+        File path = new File(".");
+        //声明一个字符串数组用来存放列出来的文件名
+        String[] list;
+
+        //如果目录名没有输入, 装入当前的目录下文件名
+        if (args.length == 0) {
+            list = path.list();
+        }
+
+        else {
+            //list接受一个实现了FilenameFilter接口的对象, 会调用其中的accept方法判断list中每一个对象, 只过滤满足条件的内容.
+            list = path.list(new DirFilter(args[0]));
+        }
+
+        if (list == null) {
+            return;
+        }
+        Arrays.sort(list, String.CASE_INSENSITIVE_ORDER);
+
+        for (String item : list) {
+            System.out.println(item);
+        }
+    }
+
+}
+</pre>
+<p>进一步改进是直接将匿名内部类放入到list()方法中作为参数. 就不再写了.</p>
+<p>有了一个路径表示的File对象, 就可以通过这个对象操作文件, 这也是很多程序语言里都具备的与OS相关的操作库.</p>
+<p>File有一系列Get方法可以用来获取路径相关的信息以及权限. 其中.listFiles()可以直接获取一个File数组, 里边每一个元素都是对应目录下边的文件或者目录的File对象</p>
+<ol>
+    <li><code>.getAbsolutePath()</code></li>
+    <li><code>.canRead()</code></li>
+    <li><code>.canWrite()</code></li>
+    <li><code>.getName()</code></li>
+    <li><code>.getParent()</code></li>
+    <li><code>.getPath()</code></li>
+    <li><code>.length()</code></li>
+</ol>
+<p>其他就可以看文档了, 类似于很多编程语言的相同功能的库, 当然底层都是调用操作系统的功能了.</p>
+
+<h2 style="text-align: center;" id="con2">输入和输出综述</h2>
+<p>从整体来讲, IO库最大的分类是输入和输出两大类. 使用流这个抽象.</p>
+<p>输入和输出的对象指的是程序, 输入指的是从程序外部读取数据, 输出指的是向程序外部输出数据.</p>
+<p>所有的从InputStream和Reader派生来的类都有read()基本方法, 用于读单个字节或者字节数组.</p>
+<p>所有的从OutputStream和Writer派生来的类都有write()基本方法, 用于写单个字节或者字节数组.</p>
+<p>但一般不会使用这两个基本方法, 而是叠合多个对象来提供想要的功能. 最关键要理解, 需要一个流, 可能要创建多个对象, 这是最令人迷惑的一点.</p>
+
+
+<h2 style="text-align: center;" id="con3">InputStream</h2>
+<p>Java 1.0的时候, 所有输入类都要从InputStream继承. 所有输出类都要从OutputStream继承.</p>
+<p>但是不直接使用这个InputStream, 针对如下的输入, 每一种都有对应的子类:</p>
+<ol>
+    <li>字节数组 - ByteArrayInputStream</li>
+    <li>String对象 - StringBufferInputStream</li>
+    <li>文件 - FileInputStream</li>
+    <li>管道 - PipedInputStream</li>
+    <li>其他流组成的序列合并成一个流 - SequenceInputStream</li>
+    <li>其他数据源,比如网络</li>
+</ol>
+<p>还有一个FilterInputStream, 也属于一种InputStream, 是一个抽象类, 为装饰器类提供基类, 即为其他的InputStream类提供功能.</p>
+
+
+<h2 style="text-align: center;" id="con4">OutputStream</h2>
+<p>输出的话主要有两种, 输出字节或者输出字符:</p>
+<ol>
+    <li>字节数组 - ByteArrayOutputStream</li>
+    <li>文件 - FileOutputStream</li>
+    <li>管道 - PipedOutputStream</li>
+</ol>
+<p>此外也有FilterOutputStream. </p>
+
+<h2 style="text-align: center;" id="con5">FilterInputStream 从 InputStream 中读取数据</h2>
+<p>其实FilterInputStream是装饰器类, 控制InputStream的行为, 由于这是一个抽象类, 所以还有很多具体的类,如下:</p>
+<ol>
+    <li>DataInputStream - 读取基本类型和String对象, 与 DataOutputStream搭配使用</li>
+    <li>BufferedInputStream - 使用缓冲区的读取</li>
+    <li>LineNumberInputStream - 跟踪输入流的行号, 可以调用getLineNumber()等方法. </li>
+    <li>PushedbackInputStream - 用不到. </li>
+</ol>
+
+
+
+
+<h2 style="text-align: center;" id="con6">FilterOutputStream</h2>
+<ol>
+    <li>DataOutputStream - 与DataInputStream搭配使用, 输入到流中, 方便其他流读取</li>
+    <li>PrintStream - 直接输入到标准输出, 不会产生流. 有两个重要方法print()和println()</li>
+    <li>BufferedOutputStream - 采用缓冲输出, 不是每次都实际写入流. 调用.flush()才会清空缓冲区并实际写入.</li>
+</ol>
+<p>这里以上的部分, 都是Java 1.0时候的输入输出类库, 在之后会有变化.</p>
+
+
+<h2 style="text-align: center;" id="con7">Reader 和 Writer</h2>
+<p>Java 1.1时代新添加了Reader 和 Writer. 实际上1.0时代的类现在主要面向字节了. Reader和Writer则提供了兼容Unicode和面向字符的I/O. 老I/O只能面向8位字节流.</p>
+<p>这意味着从Java 1.1开始, 实际上你可以在面向字节和面向字符中做选择, 而不用费力的用同一个库去读写.</p>
+<p>明智的做法是尽量尝试Reader和Writer.不行再改用字节.</p>
+<p>还有一批对应关系, 不列出了.</p>
+
+<h2 style="text-align: center;" id="con8">常用组合方式</h2>
+<p>虽然类有很多, 但其实也就用到其中的几种组合. 比如从二进制文件中读字节, 从文本文件中读字符.</p>
+
+<h3>按行读取字符</h3>
+<pre>
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+
+public class BufferedInputFile {
+
+    public static String read(String filename) throws IOException {
+        //FileReader适配FileInputStream, 而FileInputStream是基础的文件读取类, BufferedReader是装饰
+        BufferedReader in = new BufferedReader(new FileReader(filename));
+        String s;
+        StringBuilder sb = new StringBuilder();
+        //readline方法会去掉换行符, 所以要补上换行符
+        while ((s = in.readLine()) != null) {
+            sb.append(s).append("\n");
+        }
+        in.close();
+        return sb.toString();
+    }
+
+    public static void main(String[] args) throws IOException {
+        String filename = "D:\\Coding\\Java-Exercises\\src\\thinkinginjava\\learn\\chapter18\\DirList2.java";
+        System.out.println(read(filename));
+    }
+}
+</pre>
+<p>有了从文本文件中按行读取字符, 就可以随便对读入的东西进行操作了.</p>
+
+<h3>按字符读取文件</h3>
+<pre>
+public class MemoryInput {
+    public static void main(String[] args) throws IOException {
+        StringReader in = new StringReader(BufferedInputFile.read("D:\\test.txt"));
+
+        int c;
+
+        while ((c = in.read()) != -1) {
+            System.out.println((char) c);
+        }
+    }
+}
+</pre>
+
+<h3>按字节读取文件</h3>
+<p>按字节就不可以使用Reader类, 必须使用Stream类.</p>
+<pre>
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
+
+public class FormattedMemoryInput {
+
+    public static void main(String[] args) {
+        try{
+            //套了两层壳的流. 可见套壳的最内部,都是文件输入输出对象.
+            //如果是Writer Reader, 只需要套一个壳, 如果是Stream, 则必须套两个壳, 内层是InputStream类型, 外层是FilterInputStream这个装饰类的具体子类.
+            //现在终于明白了, 就是要把装饰类FilterInputStream套在基类InputStream外边, 终于明白了之前说的意思
+            DataInputStream in = new DataInputStream(new ByteArrayInputStream(BufferedInputFile.read("D:\\test.txt").getBytes()));
+            while (true) {
+                System.out.println((char) in.readByte());
+            }
+
+            //如果不使用上边的方法, 也可以用available来判断还剩余多少字符可读, 依然是一个一个读取
+            while (in.available() != 0) {
+                System.out.println(in.readByte());
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
