@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 补强 IO 续</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">Java补强 IO 续</h1>
+
+<ol>
+    <li><a href="#con1">标准IO</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">标准 IO</h2>
+<p>学过底层都知道, 012三个描述符分别对应标准输入, 标准输出和标准错误输入</p>
+<p>这三个东西分别对应的是System.in, System.out 和 System.err.</p>
+<p>System.out和System.erro实际上是一个经过包装的PrintStream对象, 可以直接使用.</p>
+<p>但是System.in 是一个没有被包装过的原始InputStream类, 所以需要对齐进行包装.</p>
+<p>这也是为什么很多时候使用in的话, 要将其当成其他类的构造器参数的作用.</p>
+
+<p>System.out是一个PrintStream, 因此也可以适配成Writer.</p>
+<p>I/O可以重定向, 但是要注意, 操作的是字节流而不是字符流, 所以要使用InputStream和OutputStream.</p>
+
+
+<h2 style="text-align: center;" id="con2">NIO</h2>
+<p>前边的I/O体系一般可以成为老IO, 而Java 4中引入了nio包. </p>
+<p>NIO的思路和之前的IO发生了变化, 主要思想是创建一个通道, 然后使用缓冲器来读取.</p>
+<p>基础的缓冲器是ByteBuffer. </p>
+<p>旧I/O中有三个库被修改了, FileInputStream, FileOutputStream 和 RandomAccessFile, 都可以产生一个FileChannel通道类. 这些都是字节流才能产生通道, 字符流不能直接产生通道.</p>
+<p>java.nio.channels.Channels提供了一些方法可以用于在字符流中产生Reader和Writer.</p>
+<p>下边是字节的示例:</p>
+<pre>
+public class GetChannel {
+
+    private static final int BSIZE = 1024;
+
+    public static void main(String[] args) throws IOException {
+        FileChannel fc = new FileOutputStream("newfile.txt").getChannel();
+        fc.write(ByteBuffer.wrap("Monster Hunter Iceborne".getBytes()));
+        fc.close();
+
+        fc = new RandomAccessFile("newfile.txt", "rw").getChannel();
+        fc.write(ByteBuffer.wrap("New DLC".getBytes()));
+
+        fc = new FileInputStream("newfile.txt").getChannel();
+        //创建一个缓冲区对象
+        ByteBuffer buffer = ByteBuffer.allocate(BSIZE);
+        //读到这个缓冲区里, 其实和CSAPP好像, 采用一个数组当成缓冲区.
+        fc.read(buffer);
+        buffer.flip();
+
+        while (buffer.hasRemaining()) {
+            System.out.println((char)buffer.get());
+        }
+
+    }
+}
+</pre>
+<p>FileInputStream, FileOutputStream 和 RandomAccessFile都产生了FileChannel类, 这个类在读写的时候都要使用到ByteBuffer对象, 只不过在读和写的时候ByteBuffer的作用不同.</p>
+
+
+
+
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

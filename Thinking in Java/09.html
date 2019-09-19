@@ -25,7 +25,10 @@
     <li><a href="#con3">InputStream</a></li>
     <li><a href="#con4">OutputStream</a></li>
     <li><a href="#con5">FilterInputStream 从 InputStream 中读取数据</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con6">FilterOutputStream</a></li>
+    <li><a href="#con7">Reader 和 Writer</a></li>
+    <li><a href="#con8">常用组合方式</a></li>
+    <li><a href="#con9">RandomAccessFile</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">File类</h2>
@@ -199,7 +202,7 @@ public class DirList2 {
 <p>Java 1.1时代新添加了Reader 和 Writer. 实际上1.0时代的类现在主要面向字节了. Reader和Writer则提供了兼容Unicode和面向字符的I/O. 老I/O只能面向8位字节流.</p>
 <p>这意味着从Java 1.1开始, 实际上你可以在面向字节和面向字符中做选择, 而不用费力的用同一个库去读写.</p>
 <p>明智的做法是尽量尝试Reader和Writer.不行再改用字节.</p>
-<p>还有一批对应关系, 不列出了.</p>
+<p>还有一批对应关系, 实际上的本质就是Reader 和 Writer也和之前的类在使用的时候要套壳是一样的, 外部是装饰Reader或者Writer, 而内部是基础的Reader或者Writer.</p>
 
 <h2 style="text-align: center;" id="con8">常用组合方式</h2>
 <p>虽然类有很多, 但其实也就用到其中的几种组合. 比如从二进制文件中读字节, 从文本文件中读字符.</p>
@@ -278,11 +281,173 @@ public class FormattedMemoryInput {
     }
 }
 </pre>
+<h3>从文本文件读出, 然后向文件输出字符</h3>
+<p>既然是字符, 那就是Writer和Reader类, 读取文件的内层FileInputStream对应的是FileReader, 外层套壳用BufferedReader. 写入的时候内层是FileWriter, 外层套壳可以用PrintWriter也可以用BufferedWriter:</p>
+<pre>
+public class BasicFileOutput {
+
+    static String file = "out.out";
+
+    public static void main(String[] args) throws IOException {
+        //采取从文件中读字符的方式
+        BufferedReader in = new BufferedReader(new FileReader("D:\\test.txt"));
+
+        //实际上应该使用BufferedWriter去写, 不过PrintWriter进行了装饰, 可以更方便的写
+        //PrintWriter有print系列方法,比较方便
+        PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(file)));
+
+//        BufferedWriter out = new BufferedWriter(new FileWriter(file));
+        int lineCount = 1;
+        String s;
+        while ((s = in.readLine()) != null) {
+//            out.write(lineCount++ + ": " + s + "\n");
+            out.println(lineCount++ + ": " + s);
+        }
+        out.close();
+        System.out.println(BufferedInputFile.read(file));
+    }
+}
+</pre>
+<p>PrintWriter还可以直接用一个文件名来初始化, 直接写入, 比较方便:</p>
+<pre>
+public class BasicFileOutputShort {
+
+    static String file = "out.out";
+
+    public static void main(String[] args) throws IOException {
+        BufferedReader in = new BufferedReader(new FileReader("D:\\test.txt"));
+        <span style="color: red">PrintWriter out = new PrintWriter(file);</span>
+        int lineCount = 1;
+        String s;
+        while ((s = in.readLine()) != null) {
+            out.println(lineCount++ + ": " + s);
+        }
+        out.close();
+        System.out.println(BufferedInputFile.read(file));
+
+    }
+}
+</pre>
+<p>如上边的红色部分所示, 可以大大简化套壳创建流的过程.</p>
+<p>这内部已经使用了带有缓存的输出, 不过除了PrintWriter之外的IO都没有这个简化创建文件绑定流的功能.</p>
+
+<h3>字节写和读文件</h3>
+<pre>
+import java.io.*;
+
+public class StoringData {
+
+    public static void main(String[] args) throws IOException {
+
+        //写入字节(二进制文件)
+        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream("target.txt")));
+
+        //write系列方法,需要指定数据类型, 其中的UTF是UTF-8,但是前边加入了Java自己的编码
+        out.writeDouble(4.04);
+        out.writeInt(10000);
+        out.writeUTF("saner");
+        out.writeDouble(1.4134);
+        out.writeUTF("Square root of 2");
+        out.close();
+
+        DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream("data.io")));
+
+        //用相同的顺序, 就可以将数据读出, 这也可以用来序列化
+        System.out.println(in.readDouble());
+        System.out.println(in.readInt());
+        System.out.println(in.readUTF());
+        System.out.println(in.readDouble());
+        System.out.println(in.readUTF());
+    }
+}
+</pre>
+<p>这实际上是写入二进制文件, 就可以用一个二进制文件来传输数据. 比如一个特定的头部加上其他内容. 这个好处是只要其他地方也是Java, 可以读出来, 就算将数据和字符串混合起来也没有问题.</p>
+
+<h2 style="text-align: center;" id="con9">RandomAccessFile</h2>
+<p>这是一个独立的类, 与Java IO库并没有关系. 适合于已知大小的文件, 而不是一个流. 可以在文件中使用seek()来移动位置. 其中一些主要方法如下:</p>
+<ol>
+    <li>.getFilePointer(), 获取位置</li>
+    <li>.seek(), 移动位置</li>
+    <li>.length(), 判断文件的尺寸</li>
+    <li>构造器需要第二个参数, 指明r 还是 rw ,即读写方式. 不支持只写文件.</li>
+</ol>
+<p>读写这种文件, 一般是采取固定的格式, 这样可以快捷的移动位置来读取. 例子如下:</p>
+<pre>
+import java.io.IOException;
+import java.io.RandomAccessFile;
+
+public class UsingRandomAccessFile {
+
+    static String file = "rtest.data";
+
+    static void display() throws IOException {
+        RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r");
+
+        for (int i = 0; i < 7; i++) {
+            System.out.println("Value " + i + ": " + randomAccessFile.readDouble());
+        }
+
+        System.out.println(randomAccessFile.readUTF());
+        randomAccessFile.close();
+    }
+
+    public static void main(String[] args) throws IOException {
+        RandomAccessFile rf = new RandomAccessFile(file, "rw");
+
+        //写7个double和一个字符串
+        for (int i = 0; i < 7; i++) {
+            rf.writeDouble(i * 1.414);
+        }
+        rf.writeUTF("This is end of file");
+        rf.close();
+
+        display();
+
+        //一个double长度是64位, 也就是8字节, 初始是0
+        //已经关闭了就不能再使用, 必须重新打开
+        RandomAccessFile rf2 = new RandomAccessFile(file, "rw");
+        //0的位置是第一个数字, 很显然这里就应该是第6个数字
+        rf2.seek(40);
+        //修改第6个数字
+        rf2.writeDouble(99999);
+        rf2.close();
+
+        //再打印就可以看到第6个数字也就是Value 5发生了改变
+        display();
+    }
+}
+</pre>
+<p>这种适合已经知道了结构的文件, 写入的数据要和原来位置上的数据一致, 否则会破坏数据.</p>
+<p>读取二进制文件如下:</p>
+<pre>
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+
+public class BinaryFile {
+
+    public static byte[] read(File bFile) throws IOException {
+        BufferedInputStream in = new BufferedInputStream(new FileInputStream(bFile));
+
+        try {
+            byte[] result = new byte[in.available()];
+            in.read(result);
+            return result;
+        } finally {
+            in.close();
+
+        }
+    }
+
+    public static byte[] read(String bFile) throws IOException {
+        return read(new File(bFile).getAbsoluteFile());
+    }
+}
+</pre>
 
 
-
-
-
+<p>管道流用于任务间的通信, 还是要学啊, 没这么简单.</p>
 
 
 
