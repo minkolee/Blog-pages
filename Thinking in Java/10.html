@@ -15,15 +15,15 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">Java补强 IO 续</h1>
+<h1 style="text-align: center;">Java补强 NIO</h1>
 
 <ol>
     <li><a href="#con1">标准IO</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">NIO</a></li>
+    <li><a href="#con3">编码的问题</a></li>
+    <li><a href="#con4">操作ByteBuffer内部的数据</a></li>
+    <li><a href="#con5">大小端</a></li>
+    <li><a href="#con6">ByteBuffer内部的指针变量</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">标准 IO</h2>
@@ -40,7 +40,7 @@
 <h2 style="text-align: center;" id="con2">NIO</h2>
 <p>前边的I/O体系一般可以成为老IO, 而Java 4中引入了nio包. </p>
 <p>NIO的思路和之前的IO发生了变化, 主要思想是创建一个通道, 然后使用缓冲器来读取.</p>
-<p>基础的缓冲器是ByteBuffer. </p>
+<p>基础的缓冲器是ByteBuffer. 也是Channel中唯一可以操作的对象.</p>
 <p>旧I/O中有三个库被修改了, FileInputStream, FileOutputStream 和 RandomAccessFile, 都可以产生一个FileChannel通道类. 这些都是字节流才能产生通道, 字符流不能直接产生通道.</p>
 <p>java.nio.channels.Channels提供了一些方法可以用于在字符流中产生Reader和Writer.</p>
 <p>下边是字节的示例:</p>
@@ -51,6 +51,8 @@ public class GetChannel {
 
     public static void main(String[] args) throws IOException {
         FileChannel fc = new FileOutputStream("newfile.txt").getChannel();
+        //这里ByteBuffer的作用是存储要写入的内容,调用wrap直接就可以生成一个所需要的内容
+        //wrap方法返回的也是一个ByteBuffer对象
         fc.write(ByteBuffer.wrap("Monster Hunter Iceborne".getBytes()));
         fc.close();
 
@@ -58,34 +60,261 @@ public class GetChannel {
         fc.write(ByteBuffer.wrap("New DLC".getBytes()));
 
         fc = new FileInputStream("newfile.txt").getChannel();
-        //创建一个缓冲区对象
+        //这里ByteBuffer的另外一个作用是当成读入和读出的缓冲区
         ByteBuffer buffer = ByteBuffer.allocate(BSIZE);
         //读到这个缓冲区里, 其实和CSAPP好像, 采用一个数组当成缓冲区.
         fc.read(buffer);
+        //每次缓冲区中存了数据之后，就要调用flip，做好让其被读取的准备。
         buffer.flip();
 
         while (buffer.hasRemaining()) {
             System.out.println((char)buffer.get());
         }
-
     }
 }
 </pre>
 <p>FileInputStream, FileOutputStream 和 RandomAccessFile都产生了FileChannel类, 这个类在读写的时候都要使用到ByteBuffer对象, 只不过在读和写的时候ByteBuffer的作用不同.</p>
-in.readLine()
+<p>这个ByteBuffer由于既可以作为读入的缓冲区，也可以作为读出的对象，所以有两个方法flip和clear。</p>
+<p>flip()使用在把内容读取到ByteBuffer中，然后需要被读走之前使用。读走之后并不清除其中的内容，要调用clear()来清除其中的位置,以重新放入数据.</p>
+<p>所以从一个Channel复制到另外一个Channel,需要如下循环:</p>
+<pre>
+while(in.read(buffer) != -1){
+    //读完了就flip
+    buffer.flip()
+    //写入
+    out.write(buffer)
+    //写完了clear
+    buffer.clear
+}
+</pre>
+<p>不过一般可以采取将两个channel连起来一次性传输:</p>
+<pre>
+import java.io.*;
+import java.nio.channels.FileChannel;
+
+public class Copy {
+
+    public static void main(String[] args) throws IOException {
+        File file1 = new File("D:\\Coding\\Java-Exercises\\out.out");
+        File file2 = new File("D:\\test2.txt");
+
+        FileChannel in = new FileInputStream(file1).getChannel();
+        FileChannel out = new FileOutputStream(file2).getChannel();
+
+        in.transferTo(0, in.size(), out);
+    }
+
+}
+</pre>
+<p>分别从一个FileInputStream和一个FileOutputStream中获取输入和输出的通道,然后使用transferTo,第一个参数是位置, 第二个参数是写几个字节, 最后一个参数是一个输出Channel. 这样直接完成了复制.</p>
+
+<h2 style="text-align: center;" id="con3">编码的问题</h2>
+<p>既然是读字符,就涉及到编码的问题,需要使用Charset类:</p>
+<pre>
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.Charset;
+
+public class BufferToText {
+
+    private static final int BSIZE = 1024;
+
+    public static void main(String[] args) throws IOException {
+        //打开一个文件写入一小段字符
+        FileChannel fc = new FileOutputStream("new.out").getChannel();
+        fc.write(ByteBuffer.wrap("三鹅".getBytes()));
+        fc.close();
+
+        //打开这个文件,尝试用ByteBuffer直接读字符串
+        fc = new FileInputStream("new.out").getChannel();
+        ByteBuffer buffer = ByteBuffer.allocate(BSIZE);
+        fc.read(buffer);
+        buffer.flip();
+        //这里无法工作
+        System.out.println(buffer.asCharBuffer());
+
+        //设置buffer重新可以读
+        buffer.rewind();
+
+        //使用Charset类,采用系统环境解码buffer, Charset也是新NIO的类
+        String encodedString = System.getProperty("file.encoding");
+        System.out.println("Decoding using " + encodedString + ": " + Charset.forName(encodedString).decode(buffer));
+
+    }
+}
+</pre>
+<p>同理, 写入文件的时候也可以按照一定的方法进行编码, 读出的时候也同样进行解码即可.</p>
+<pre>
+//写入的时候就指定编码
+fc = new FileOutputStream("encodedin.txt").getChannel();
+//使用UTF-16小端法写入
+buffer = ByteBuffer.wrap("采用UTF-16写入的内容".getBytes(StandardCharsets.UTF_8));
+fc.write(buffer);
+fc.close();
+
+//同样UI踹死UTF-16LE读出,经过测试可以发现默认的UTF-16就是UTF-16BE
+fc = new FileInputStream("encodedin.txt").getChannel();
+buffer = ByteBuffer.allocate(BSIZE);
+fc.read(buffer);
+buffer.flip();
+fc.close();
+System.out.println(StandardCharsets.UTF_8.decode(buffer));
+</pre>
+<p>这里使用了StandardCharsets这个也是nio包中的类, 用于常见的UTF-16和UTF-8的格式转换.</p>
+<p>一般推荐在写入和读出的时候都要设置编码, 而不要依赖系统, 尤其是对于非英文语言, 因为Windows和Linux对于很多字符的编码是不同的. Linux统一使用UTF-8, 而Windows对于很多语言使用不同的字符集.</p>
+
+<h2 style="text-align: center;" id="con4">操作ByteBuffer内部的数据</h2>
+<p>由于ByteBuffer内部就是一段字节, 因此可以在其上调用不同的视图, 从中取出任意格式的基本类型数据.</p>
+<pre>
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+
+public class GetData {
+
+    private static final int BSIZE = 1024;
+
+    public static void main(String[] args) throws IOException {
+        ByteBuffer bb = ByteBuffer.allocate(BSIZE);
+        int i =0;
+
+        //文件内容是UTF-8格式存放的 "三鹅"
+        FileChannel fc = new FileInputStream("new.out").getChannel();
+        fc.read(bb);
+        bb.flip();
+        //bb.limit是总长度, 打印出了6个Non-zero, 可见读入了6字节, bb.limit()就是6
+        while (i++ < bb.limit()) {
+            if (bb.get() != 0) {
+                System.out.println("Non-zero");
+
+            }
+        }
+        //将内部指针返回到开头
+        bb.rewind();
+
+        //通过ByteBuffer写点基本类型, 可以看到虽然写了一个a, 实际上文件大小是1024字节, 说明把空白也一起写进去了.
+        //而且写的是一个char, 也就是16位, 打开文件可以看到前边是一个0
+        ByteBuffer bbForOutput = ByteBuffer.allocate(BSIZE);
+        bbForOutput.asCharBuffer().put("a");
+        FileChannel out = new FileOutputStream("1.out").getChannel();
+        out.write(bbForOutput);
+        bbForOutput.clear();
+        out.close();
+
+        //读出来前两位是0 97, 说明写的是16位的 97 ,也就是a的ASCII码对应的数字
+        FileChannel in = new FileInputStream("1.out").getChannel();
+        in.read(bbForOutput);
+        bbForOutput.flip();
+        System.out.println(bbForOutput.get());
+        System.out.println(bbForOutput.get());
+
+    }
+}
+</pre>
+<p>这中间的bbForOutput.asCharBuffer()就是视图, 有很多基本类型的视图, 可以用put来放入需要的数据, 和老IO中的DataOutputStream一样的功能, 只不过套壳了.</p>
+<ul>
+    <li>CharBuffer</li>
+    <li>DoubleBuffer</li>
+    <li>FloatBuffer</li>
+    <li>IntBuffer</li>
+    <li>LongBuffer</li>
+    <li>ShortBuffer</li>
+</ul>
+<p>这些视图会把底层当成不同的数据类型来操作, 所以在给ByteBuffer设置大小的时候, 最好设置成一个各个长度的数据都可以是整数的大小.</p>
 
 
+<h2 style="text-align: center;" id="con5">大小端</h2>
+<p>在不同的操作系统之间互相传输数据的时候, 可能会有大小端的问题.</p>
+<pre>
+private static final int BSIZE = 256;
 
+public static void main(String[] args) throws IOException {
+    //写一个100
+    ByteBuffer byteBuffer = ByteBuffer.allocate(BSIZE);
+    byteBuffer.asShortBuffer().put((short) 100);
+    FileChannel out = new FileOutputStream("1.out").getChannel();
+    out.write(byteBuffer);
+    out.close();
 
-<h2 style="text-align: center;" id="con3"></h2>
+    //读刚才的文件
+    FileChannel in = new FileInputStream("1.out").getChannel();
+    byteBuffer.clear();
+    in.read(byteBuffer);
+    byteBuffer.flip();
+    //打印两个字节, 是 0 和 100
+    System.out.println(byteBuffer.get());
+    System.out.println(byteBuffer.get());
+</pre>
+<p>如果改成小端法来试试:</p>
+<pre>
+    //写一个100
+    ByteBuffer byteBuffer = ByteBuffer.allocate(BSIZE);
+    <span style="color: red">byteBuffer.order(ByteOrder.LITTLE_ENDIAN);</span>
+    byteBuffer.asShortBuffer().put((short) 100);
+    FileChannel out = new FileOutputStream("1.out").getChannel();
+    out.write(byteBuffer);
+    out.close();
 
-<h2 style="text-align: center;" id="con4"></h2>
+    //按字节读刚才的文件
+    FileChannel in = new FileInputStream("1.out").getChannel();
+    byteBuffer.clear();
+    in.read(byteBuffer);
+    byteBuffer.flip();
+    //打印两个字节, 是 100 和 0
+    System.out.println(byteBuffer.get());
+    System.out.println(byteBuffer.get());
+</pre>
+<p>改成小端法之后, 低位字节在前, 所以100在第一个字节的位置, 0在第二个字节的位置.</p>
 
-<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6">ByteBuffer内部的指针变量</h2>
+<p>这内部可以理解为一个数组, 有一个position指针, 指向当前位置, 有一个limit, 指向可以容纳的最大的位置.</p>
+<p>读取的时候就是从position读取到limit. 写入的时候, 每写一个, position会加1.</p>
+<p>内部调用的flip就是把limit设置到position的位置, 把position设置为0, 就可以准备读了.</p>
+<p>而clear就是把position和limit都清零, 就可以写入了(实际上是覆盖了原来的内容).</p>
+<p>此外还有一个mark, 可以通过mark()将其设置为当前的position. 注意mark必须先要被设置一下才行.</p>
+<p>有了这几个变量, 就可以自由的操作ByteBuffer中的数据了. 只需要注意一些方法会改变这些变量, 而一些方法不会.</p>
+<p>看一个将一个CharBuffer中每两个字符交换位置的程序:</p>
+<pre>
+public class UsingBuffers {
 
-<h2 style="text-align: center;" id="con6"></h2>
+    //交换两个buffer两个位置的字符
+    //一开始进来的时候position是0. 先获取两个字符, 此时position前进到了2
+    //之后将position向后返回2个位置.写完之后再进行下一次循环.这样每次完成交换之后, position实际上是前进了2个字符.
+    private static void symmertricScramble(CharBuffer buffer) {
+        while (buffer.hasRemaining()) {
+            //先获取两个位置的字符
+            char c1 = buffer.get();
+            char c2 = buffer.get();
+            //向后2步返回原位
+            buffer.position(buffer.position() - 2);
+            //按照相反顺序写入
+            buffer.put(c2).put(c1);
+        }
+    }
 
+    public static void main(String[] args) {
+        char[] data = "UsingBuffers".toCharArray();
+        //注意char是16位=2字节, 所以分配的长度是data.length的2倍
+        ByteBuffer byteBuffer = ByteBuffer.allocate(data.length * 2);
+        //转换成CharBuffer视图进行写入
+        CharBuffer charBuffer = byteBuffer.asCharBuffer();
+        charBuffer.put(data);
+        //写完之后复位position, 先打印一次写入的内容
+        charBuffer.rewind();
+        System.out.println(charBuffer);
 
+        //交换前两个字节的内容之后, 复位position,然后再打印
+        symmertricScramble(charBuffer);
+        charBuffer.rewind();
+        System.out.println(charBuffer);
+    }
+}
+</pre>
 
 
 
