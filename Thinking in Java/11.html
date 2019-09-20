@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 补强</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">Java IO库梳理</h1>
+我在第一次看Java的时候，看到IO的部分，说要区分字节流和字符流，字符流使用XXX类，字节流要使用XXX类，然后就抛出一堆类来谈使用方法。这一次通过看《Java编程思想》，总算搞清楚了JavaIO库的结构，其实很简单。这里就来理清一下这个感觉一身酸腐老学究气的IO库。这里的IO库指的是老的IO库，不是Java 4开始引入的NIO。
+
+<ol>
+    <li><a href="#con1">整体结构</a></li>
+    <li><a href="#con2">底层输入类</a></li>
+    <li><a href="#con3">装饰输入类</a></li>
+    <li><a href="#con4">如何使用</a></li>
+    <li><a href="#con5">输出的装饰类和底层类</a></li>
+    <li><a href="#con6">Reader和Writer</a></li>
+    <li><a href="#con7">Reader</a></li>
+    <li><a href="#con8">Writer</a></li>
+    <li><a href="#con9">总结</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">整体结构</h2>
+
+Java IO包令人迷惑的地方在于使用了装饰器的结构，就是一个类需要使用另外一个类作为构造器参数，而装饰类和底层类都继承自相同的类，导致创建一个IO对象可能需要创建两到三个嵌套的类，这和很多语言里直接通过函数打开一个文件对象很不同。这里笔者先不区分字节流和字符流以及对应的类，而是从装饰类和被装饰类来区分。
+
+在具体获得一个IO流对象的时候，写法是这样的：
+
+<pre>IO流对象 = new 装饰类(new 底层类)</pre>
+
+可见问题的关键在于搞清楚哪些是装饰类，哪些是底层类。下边就以输入为例来看一下装饰类和底层类。
+
+<h2 style="text-align: center;" id="con2">底层输入类</h2>
+
+常用的底层类根据来源有如下：
+<ul>
+    <li>ByteArrayInputStream - 输入字节数组</li>
+    <li>StringBufferInputStream - 输入字符串</li>
+    <li>FileInputStream - 从文件输入，即打开一个文件</li>
+    <li>PipedInputStream - 管道输入流，构造器接受一个管道输出流</li>
+</ul>
+
+这些类都是继承自InputStream，有些朋友会说，那都是字节流了。确实没错，不过现在我们不强调字节还是字符流的概念，而是先知道这些是底层类。学过计算机底层知识的朋友应该也知道，基础的IO都是按字节来的，字符尤其是多字节字符编码只是在字节基础上的进一步抽象，所以这里暂时不要考虑字节还是字符流的区分，把重点放到Java IO的使用方法上。我把这些类也叫做内层类。有内层类自然就有外层类了。
+
+<h2 style="text-align: center;" id="con3">装饰输入类</h2>
+
+我把这一类东西称作外层类，就是使用一个内层类对象作为构造器参数，由于内层类对象本身已经是一个流了，外层类相当于你要选择以何种方式去使用流，不同的外层类提供了不同的使用方式（也就是方法）。来看看常用的外层类：
+<ul>
+    <li>DataInputStream - 从流中读取基本类型数据</li>
+    <li>BufferedInputStream - 采用缓冲区方式读写</li>
+    <li>LineNumberInputStream - 有一些方法来跟踪输入流中的行号</li>
+</ul>
+
+这些类同样也继承自InputStream，这也是令人迷惑的地方之一。所以不要去想继承关系，就记住这个是套在底层类外边的类。从这里开始我就混合使用外层类=装饰类，内层类=底层类来解说了。
+
+<h2 style="text-align: center;" id="con4">如何使用</h2>
+
+
+知道了装饰类和底层类，就可以根据需要来选择使用了。分为三步：
+<ul>
+    <li>1 选择来源对应的底层类
+    </li>
+    <li>2 选择装饰类
+    </li>
+    <li>3 套壳得到IO对象
+    </li>
+</ul>
+
+例如：
+想要从一个ASCII编码的文本文件 test.txt 里读出所有字符：
+<ul>
+    <li>1 选择来源，是一个文件，选用FileInputStream类
+    </li>
+    <li>2 既然是ASCII编码，每个字节就是一个字符，因此需要读取基础数据，则选用DataInputStream
+    </li>
+    <li>3 套壳，外层是DataInputStream， 内层是FileInputStream，写成代码如下：
+<pre>
+    DataInputStream in = new DataInputStream(new FileInputStream("test.txt"));
+</pre>
+    </li>
+</ul>
+
+代码一层一层抽象的本质就是一层一层套壳， 在这里又得到了充分说明。
+
+再例如：
+想要从一个二进制文件 data.out 中采用缓冲的方式读取基本类型数据，已经知道这个文件按照顺序存放了一个int类型，一个long类型，四个ASCII字符。
+<ul>
+    <li>1 选择来源，这里依然是FileInputStream类
+    </li>
+    <li>2 这里需要分析一下，要采取缓冲的方式读取基本类型数据，则我们最后要操作的是读取基本类型数据的API，但还要带有缓冲，因此先将带缓冲的装饰类BufferedInputStream套在FileInputStream外边，然后在最外层套上符合我们需求的DataInputStream类。
+    </li>
+    <li>3 进行套壳，按照上一步的分析，代码如下：
+<pre>
+    DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream("data.out")));
+</pre>
+    之后就可以调用in.read​Int()之类方法来获取其中的基本类型数据。
+    </li>
+</ul>
+
+现在回头来看装饰类和底层类，就清晰很多了，装饰类的构造器接受的都是InputStream对象，所以可以多层套壳。读者有兴趣的话可以实验一下，再套几层DataInputStream和BufferedInputStream，代码依然可以正常工作。而底层类的构造器接受的就不是InputStream对象了。底层类和装饰类都继承自InputStream的原因是让装饰类可以有效的工作。
+
+所以按照我的分析，脑子里可以不用过多的关注IO库里各个类的继承体系，而是根据具体需要，直接来选用就可以了。
+
+<h2 style="text-align: center;" id="con5">输出的装饰类和底层类</h2>
+
+有了上边输入流的分析，对于输出流也是一样的，只要区分出底层类和装饰类即可，这里简单罗列一下：
+
+输出流的底层类：
+<ul>
+    <li>ByteArrayOutputStream - 字节数组输出，实际上是在内存中创建一个缓冲区输出
+    </li>
+    <li>FileOutputStream - 输出到文件
+    </li>
+    <li>PipedOutputStream - 管道输出流，构造器接受一个管道输入流
+    </li>
+</ul>
+
+输出流的装饰类：
+<ul>
+    <li>DataOutputStream - 向流中写入基本类型数据
+    </li>
+    <li>PrintStream - 产生格式化输出，有print()和println()两个方法
+    </li>
+    <li>BufferedOutputStream - 带缓冲区的写操作，带有flush()方法用于清空缓冲区并实际执行写操作
+    </li>
+</ul>
+
+使用方法实际上和之前的输入和输出流相同，也是先选内层类，再选外层类，套壳组装得到想要的IO流对象。
+
+这样就把Java IO包里的所有类分成了内层类和外层类，组装IO对象的时候就会清晰很多。
+
+<h2 style="text-align: center;" id="con6">Reader和Writer</h2>
+
+Reader和Writer提供了针对Unicode字符的支持，是面向字符的类。我一直强调不要一开始就用字符流和字节流的方式来学习IO库，而是使用内外层类的方式。到了Reader和Writer就可以发现，与其区分字节流与字符流来割裂的看待InputStream+OutputStream和Reader+Writer，更好的方式是探究其在背后使用装饰类和底层类设计思想的一致性。
+
+对于上边的所有输入和输出流的底层类，Java 提供了对应的Reader和Writer类；对于装饰类，同样也提供了对应的Reader和Writer类。这意味着要读取和写入字符的时候，其实就是重新挑选对应的Reader和Writer类即可，外层套内层的装饰器设计模式理念是不变的。
+
+<h2 style="text-align: center;" id="con7">Reader</h2>
+
+常见的Reader底层类有：
+<ul>
+    <li>FileReader - 读取文件
+    </li>
+    <li>StringReader - 读取字符串
+    </li>
+    <li>CharArrayReader - 读取字符数组
+    </li>
+    <li>PipedReader - 读取管道数据
+    </li>
+</ul>
+
+可见这一批类，实际上与基于字节的那批底层类是同一个体系的。
+
+常见的Reader装饰类有：
+<ul>
+    <li>BufferedReader - 通用的带缓冲读取字符
+    </li>
+    <li>LineNumberReader - 带有行号API的读取
+    </li>
+</ul>
+这里没有按照基本类型读取的装饰类，因为Reader是基于字符的。
+
+例子：
+
+想从一个文本文件 story.txt 中按行读取字符：
+<ul>
+    <li>1 选择底层类，很显然是FileReader
+    </li>
+    <li>2 BufferedReader就带有readLine功能，也没有其他的读取类可以选，带有行号的API的类其实不如自己操作行号方便。
+    </li>
+    <li>3 进行套壳，代码如下：
+<pre>
+    BufferedReader in = new BufferedReader(new FileReader("story.txt"));
+</pre>
+        之后可以使用in.readLine()来读取行，读取的结果不会包括换行符。如果读取到末尾，会返回null，因此使用一个循环就可以不断读取：
+
+<pre>
+    while ((s = in.readLine()) != null) {
+        doSomething(s)
+    }
+</pre>
+    </li>
+</ul>
+
+<h2 style="text-align: center;" id="con8">Writer</h2>
+
+按照同样的理念来分析，Writer的底层类有：
+<ul>
+    <li>FileWriter - 写文件
+    </li>
+    <li>StringWriter - 写字符串
+    </li>
+    <li>CharArrayWriter - 写字符数组
+    </li>
+    <li>PipedWriter - 向管道中写入字符
+    </li>
+</ul>
+
+Writer的装饰类有：
+<ul>
+    <li>BufferedWriter - 通用的带缓冲写字符
+    </li>
+    <li>PrintWriter - 格式化输出，带有print()和println()方法
+    </li>
+</ul>
+
+例子：
+向一个文件 test.data 中带缓冲写字符串，写完之后自动换行：
+<ul>
+    <li>1 需要写文件，底层类选用FileWriter
+    </li>
+    <li>2 写的话一般都需要缓冲，否则性能太差，可见需要先套一个BufferedWriter，这里可以每次加上一个换行符写入。但为了省事，我们可以再套一层PrintWriter
+    </li>
+    <li>3 代码如下：
+<pre>
+    PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter("test.data")));
+</pre>
+
+    </li>
+</ul>
+
+只要理念搞清楚，套再多的壳也不怕。
+
+这里还一个小要点就是PrintWriter提供了一个简便的构造器，可以直接使用 <kbd>new PrintWriter(String filename)</kbd> 来创建带有缓冲写入和格式化写入功能的输出流。其他的装饰流不具备这个功能。
+
+<h2 style="text-align: center;" id="con9">总结</h2>
+
+在看Java IO的时候，确实理解了为什么有些人批评Java又臭又长，这IO库的设计模式采用了装饰器，真的有些扭曲，好在理解了设计思想之后，很容易就可以梳理出脉络。
+
+文里的这些文件读写的底层类除了接受字符串格式的文件名之外，还可以接受File对象，没有写在里边是不想让代码看上去太复杂。
+
+最近冰原的开荒阶段结束了，在练习狩猎笛的同时终于把Java IO的体系看明白了，按照上一篇文章立的Flag，赶快写一篇心得。
+
+点击原文可以到我的博客里看本文。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
