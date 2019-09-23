@@ -24,6 +24,7 @@
     <li><a href="#con4">操作ByteBuffer内部的数据</a></li>
     <li><a href="#con5">大小端</a></li>
     <li><a href="#con6">ByteBuffer内部的指针变量</a></li>
+    <li><a href="#con7">文件映射到内存</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">标准 IO</h2>
@@ -316,7 +317,9 @@ public class UsingBuffers {
 }
 </pre>
 
-
+<h2 style="text-align: center;" id="con7">文件映射到内存</h2>
+<p>回想起CSAPP中加载文件到内存的内容了.</p>
+<p>NIO可以将一个比较大的文件的一部分映射到内存中, 当成一个超大的数组来操作, 这简化了操作大文件的方式.</p>
 
 
 

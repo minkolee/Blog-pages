@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 补强 注解</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">注解</h1>
+<p>在学习Java的过程中, 注解关注的不多, 这次就来看一下.</p>
+<ol>
+    <li><a href="#con1">注解</a></li>
+    <li><a href="#con2">创建注解, 使用注解 和 获取注解的元数据</a></li>
+    <li><a href="#con3">深入看注解</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">注解</h2>
+<p>注解的核心就是给被注解的内容添加一些元数据. 可以把元数据和代码结合在一起. 加上注解的类或者方法, 实际就是代表了一种元数据.</p>
+<p>java.lang中有三个注解:</p>
+<ol>
+    <li><code>@Override</code>, 用来表示当前的方法定义覆盖超类的方法</li>
+    <li><code>@Depreciated</code>, 如果程序员使用了被注解的元素, 编译器会发出警告, 提示这个方法或者类已经被标记为不再使用.</li>
+    <li><code>@SuppressWarnings</code>, 强制关闭编译器警告</li>
+</ol>
+<p>每当创建描述符性质的类或者接口的时候, 如果其中包含了重复性的工作, 就可以考虑使用注解了.</p>
+<p>注意注解不同于文档, 注解的信息是直接保存在源代码级别.</p>
+
+
+<h2 style="text-align: center;" id="con2">创建注解, 使用注解 和 获取注解的元数据</h2>
+<p>注解的使用方式本质上像一个修饰符, 通常将注解单独放在一行:</p>
+<pre>
+@Test
+void testExecute() {
+    execute();
+}
+</pre>
+<p>或者写成:</p>
+<pre>
+@Test void testExecute() {
+    execute();
+}
+</pre>
+<p>定义注解的方式, 类似于声明一个类或者接口, 需要用到特殊的关键字 <code>@interface</code>:</p>
+<pre>
+public @interface Test {
+
+}
+</pre>
+<p>这样一个注解并没有任何实际用途, 因为没有携带任何元数据, 要让注解有实际用途, 还需要用到一些元注解, 也就是Java提供给注解用的注解.</p>
+<pre>
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Test {
+}
+</pre>
+<p>@Target表示这个注解可以用于哪里, 可以选方法, 类, 可以设置多个Target, @Retention表示注解在哪一个级别可用, 是源代码, 类文件还是运行时.</p>
+<p>前边说了注解是为了携带元数据, 注解内部的元素就是用来包含元数据的. 注解的元数据实际上看上去像方法.</p>
+<pre>
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Test {
+    public int id();
+
+    public String description() default "no description";
+}
+</pre>
+<p>这里定义了两个元数据名称叫做id 和 description, 注意虽然看上去是方法, 但是只是类似于方法定义, 而且会被类型检查. default关键字表示注解如果没有给出对应的值, 就使用该默认值.</p>
+<p>使用注解的时候, 在注解之后加上括号, 然后写上注解的名称与对应的值, 看上去就像是一个构造器, 但是其中指定了值.</p>
+<pre>
+<span style="color: red">@Test(id = 1, description = "first")</span>
+void testExecute() {
+
+    execute();
+}
+</pre>
+<p>现在已经知道了创建注解和向其中添加元数据的方法, 以及使用注解的方法, 最后一步是如何获取注解. 因为如果无法获取注解的内容, 那就和注释没有什么区别了.</p>
+<p>读取注解通过的是反射的机制:</p>
+<pre>
+public class UserCaseTracker {
+
+    public static void trackUserCases(Class<?> cl) {
+        //对于类的每个方法, 获取其中Test类型的注解
+        for (Method m : cl.getDeclaredMethods()) {
+            Test uc = m.getAnnotation(Test.class);
+            if (uc != null) {
+                System.out.println(uc.id());
+                System.out.println(uc.description());
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        trackUserCases(UserCase.class);
+
+    }
+
+}
+
+
+class UserCase {
+
+    @Test(id = 1, description = "first method")
+    public void exe() {
+        System.out.println("exed");
+    }
+
+    @Test(id = 2)
+    public void exe2() {
+
+    }
+}
+</pre>
+<p>通过反射获取一个类的方法, 然后针对方法,传入要获取的注解的类型, 然后打印其中的方法, 就可以得到注解的内容.</p>
+<p>因此注解绝对不是注释, 而是可以通过获取注解来进行相对应的工作.</p>
+
+
+
+<h2 style="text-align: center;" id="con3">深入看注解</h2>
+<p>首先是注解里能使用哪些元素, 实际上只能使用如下:</p>
+<ol>
+    <li>所有基本类型</li>
+    <li>String</li>
+    <li>Class</li>
+    <li>enum</li>
+    <li>Annotation, 也就是注解类型</li>
+    <li>以上类型的数组</li>
+</ol>
+<p>也就是说注解内部的方法的返回值只能是上边这些类型. 此外注解类型也可以作为返回值, 意味着注解可以嵌套, 由于注解不能继承, 所以注解嵌套可以用来稍微复用一下注解. 然后要注意的就是元素不能没有值, 要么在加注解的时候赋值, 要么在注解的时候使用元素提供的值. 没有值指的是基本类型不能不赋值, 非基本类型不能等于null.</p>
+<p>所以一般可以用特殊值或者空字符串来代表不存在的值. 注解不支持继承.</p>
+<p>注解的主要使用场合, 一般是用于一些特殊的要设置一些名称, 但其他很多方面相同的对象, 通过给类的域加上注解, 可以很方便的在处理对象的时候使用元数据.</p>
+<p>比如最常用的就是数据表对应的Bean, 就像Spring的@Bean:</p>
+<pre>
+@Target(ElementType.TYPE)   //表示作用于类
+@Retention(RetentionPolicy.RUNTIME)
+public @interface DBTable {
+
+    public String name() default "";
+}
+
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Constrains {
+    boolean primaryKey() default false;
+
+    boolean allowNull() default true;
+
+    boolean unique() default false;
+}
+
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface SQLString {
+
+    int value() default 0;
+
+    String name() default "";
+
+    Constrains constrains() default @Constrains;
+
+}
+
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface SQLInteger {
+
+    String name() default "";
+    Constrains constrains() default @Constrains;
+}
+
+public @interface Uniqueness {
+    Constrains constrains() default @Constrains(unique = true);
+}
+</pre>
+<p>这是一批注解, 分别是注解在类上, 表示数据表名是多少; 注释在域上, 表示对应的字段设置; 注释在字段上, 设置SQL查询内容; 设置SQL查询的值, 以及一个实际上就是unique=true的Constrains注解.</p>
+<p>利用上述注解就可以定义一个Bean:</p>
+<pre>
+@DBTable(name = "Member")
+public class Member {
+
+    @SQLString(30)
+    String firstname;
+
+    @SQLString(50)
+    String lastName;
+
+    @SQLInteger
+    Integer age;
+
+    @SQLString(value = 30, constrains = @Constrains(primaryKey = true))
+    String handle;
+
+    static int memberCount;
+
+    public String getFirstname() {
+        return firstname;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public String getHandle() {
+        return handle;
+    }
+
+    public static int getMemberCount() {
+        return memberCount;
+    }
+
+    @Override
+    public String toString() {
+        return "Member{" +
+                "firstname='" + firstname + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", age=" + age +
+                ", handle='" + handle + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>在使用这个Bean的时候, 就可以通过使用注解的元数据, 来对这个类的对象进行操作.</p>
+<p>如果注解中使用了名称为value的元素, 可以在赋值的时候直接使用括号内部值, 而不用写出value=xxx这种语法.</p>
+<p>现在先知道注解的基本内容, 之后的就等学了设计模式再来看如何高级的根据注解来操作对象吧.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
