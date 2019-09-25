@@ -25,9 +25,9 @@
     <li><a href="#con1">多线程竞争</a></li>
     <li><a href="#con2">Lock对象</a></li>
     <li><a href="#con3">原子性 与 可视性</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">原子类</a></li>
+    <li><a href="#con5">临界区</a></li>
+    <li><a href="#con6">分隔存储</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">多线程竞争</h2>
@@ -409,16 +409,75 @@ class DualSynch {
 <p>注意其中的红色部分, 由于对象监视器不同, 所以两个函数虽然在同一个对象里, 也都使用也 synchroized, 但是实际上没有影响.</p>
 <p>如果将syncObject改成this, 输出就会有所变化, f() 和 g() 一个执行完才会执行另外一个.</p>
 
+<h2 style="text-align: center;" id="con6">分割存储</h2>
+<p>如果让不同的线程操作不同的内存空间, 那就不会有竞争问题了. 可以使用一个ThreadLocal对象, 使用get()和set()来获取值, 返回和设置的都是与当前线程相关的值, 而不是被所有线程共享的值.</p>
+<p>这个实际上感觉就是一个封了一层的语法糖.</p>
+<pre>
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+class Accessor implements Runnable {
+
+    private final int id;
+
+    public Accessor(int idn) {
+        id = idn;
+    }
+
+    @Override
+    public void run() {
+        ThreadLocalVariableHolder.set(new Random().nextInt(100));
+        while (!Thread.currentThread().isInterrupted()) {
+            ThreadLocalVariableHolder.increment();
+            System.out.println(this);
+            Thread.yield();
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "#" + id + ": " + ThreadLocalVariableHolder.get();
+    }
+}
+
+public class ThreadLocalVariableHolder {
+
+    //一般ThreadLocal对象可以做成一个静态的,这里创建一个int类型的ThreadLocal对象
+    private static ThreadLocal&lt;Integer> value = new ThreadLocal&lt;>();
+
+    //自增1然后设置新的值, 这些值由于都互相独立, 所以根本不需要同步
+    public static void increment() {
+        value.set(value.get() + 1);
+    }
+
+    public static void set(int i) {
+        value.set(i);
+    }
 
 
+    //获取值
+    public static int get() {
+        return value.get();
+    }
 
+    public static void main(String[] args) throws InterruptedException {
 
+        ExecutorService executorService = Executors.newCachedThreadPool();
 
-
-
-
-<h2 style="text-align: center;" id="con6"></h2>
-
+        //启动10个线程, 自己读写自己的变量,互相不会冲突
+        for (int i = 0; i < 3; i++) {
+            executorService.submit(new Accessor(i));
+        }
+        //main线程3秒之后退出, 可以看到各个线程自增的数字互相不影响
+        TimeUnit.MILLISECONDS.sleep(300);
+        executorService.shutdown();
+        System.exit(0);
+    }
+}
+</pre>
+<p>这段程序实际上是验证一个ThreadLocal对象可以同时为多个线程提供存取服务, 如果每个线程创建一个新对象, 那就不是竞争资源了.</p>
 
 
 
