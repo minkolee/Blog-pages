@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 补强</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">Java Reinforcement 10 并发 - 其他问题</h1>
+
+<ol>
+    <li><a href="#con1">死锁</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">死锁</h2>
+<p>Java编程思想给出了更一般的死锁四个条件:</p>
+<ol>
+    <li>存在互斥的资源, 任务所使用的资源里至少有一个是互斥的</li>
+    <li>至少有一个任务获取了一个资源以后还等待另外一个资源才能工作</li>
+    <li>资源无法被抢占, 只能等待解锁</li>
+    <li>必须有循环等待</li>
+</ol>
+<p>死锁本身是一个设计问题, 所以需要小心的设置才行.</p>
+
+
+
+<h2 style="text-align: center;" id="con2">活动对象</h2>
+<p>有没有办法可以替代多线程模型, 有一个办法是让每个对象都有自己的消息队列和和工作器线程, 也就是每个对象都像流水线的机器一样, 只要把对象交给这个机器处理就可以了.</p>
+<p>这被称为活动对象.看例子:</p>
+<pre>
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.*;
+
+public class ActiveObjectDemo {
+
+    //事件驱动的情况下, 用单个线程就足够了
+    //这个单线程的执行器, 本身就维护着一个单线程的队列, 向其中不断添加新任务的时候, 也是单线程执行完一个再执行一个
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    private Random random = new Random(47);
+
+    private void pause(int factor) {
+        try {
+            TimeUnit.MILLISECONDS.sleep(100 + random.nextInt(factor));
+
+        } catch (InterruptedException e) {
+            System.out.println("睡眠被打断");
+        }
+    }
+
+    public Future&lt;Integer> calculateInt(final int x, final int y) {
+        return executorService.submit(new Callable&lt;Integer>() {
+            @Override
+            public Integer call() throws Exception {
+                System.out.println("starting " + x + " + " + y);
+                pause(500);
+                return x + y;
+            }
+        });
+    }
+
+    public Future&lt;Float> calculateFloat(final float x, final float y) {
+        return executorService.submit(new Callable&lt;Float>() {
+            @Override
+            public Float call() throws Exception {
+                System.out.println("starting " + x + " + " + y);
+                pause(500);
+                return x + y;
+            }
+        });
+    }
+
+    public void shutdown() {
+        executorService.shutdown();
+    }
+
+    public static void main(String[] args) {
+        ActiveObjectDemo a1 = new ActiveObjectDemo();
+
+        //实际上是把从submit()方法 返回的 future对象放入一个列表中
+        List&lt;Future&lt;?>> results = new CopyOnWriteArrayList&lt;Future&lt;?>>();
+
+        for (float f = 0.0f; f &lt; 1.0f; f += 0.2f) {
+            results.add(a1.calculateFloat(f, f));
+        }
+
+        for (int i = 0; i &lt; 5; i++) {
+            results.add(a1.calculateInt(i, i));
+        }
+
+        System.out.println("所有异步任务都添加完毕");
+
+        //然后遍历列表看看是否执行完毕
+        while (results.size() > 0) {
+            for (Future&lt;?> f : results) {
+                //检查Future对象的是否工作完毕会立刻返回, 不会阻塞
+                //这样可以不断的检查已经提交的任务是否完成了, 直到全部结束, 由于当前main方法干的事是一个线程提交任务和检查任务, 而使用executorService作为另外一个线程处理任务.
+                if (f.isDone()) {
+                    try {
+                        System.out.println(f.get());
+
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                    //从列表里去掉拿出来的东西
+                    results.remove(f);
+                }
+            }
+        }
+        a1.shutdown();
+    }
+}
+</pre>
+<p>可见这个Future对象和 executorService.submit() 是关键, 有了这两个东西, 就可以实现这样的活动对象.</p>
+
+
+
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

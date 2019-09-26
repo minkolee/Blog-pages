@@ -15,15 +15,16 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">Java Reinforcement 09 并发 - 线程的任务同步</h1>
+<h1 style="text-align: center;">Java Reinforcement 09 并发 - 线程协作</h1>
 
 <ol>
     <li><a href="#con1">资源共享和终止的例子</a></li>
     <li><a href="#con2">线程状态</a></li>
     <li><a href="#con3">打断任务</a></li>
     <li><a href="#con4">线程协作</a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">生产者消费者模型</a></li>
+    <li><a href="#con6">同步队列</a></li>
+    <li><a href="#con7">管道</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1"></h2>
@@ -526,19 +527,364 @@ class Chef implements Runnable {
 <p>这个模型是一个线程的消费者和一个线程的生产者, 餐馆是数据对象Meal的持有者.</p>
 <p>这里由于是两个单独的线程, 所以在生产和消费数据, 也就是读写meal的时候, 用自己加锁, 而在唤醒另一个生产者/消费者的时候, 用对应的对象加锁.</p>
 <p>如果meal是一个容器, 还可以全部都对meal进行加锁, 在其中设置一些变量用来取数据.可以很容易的就把CSAPP的模型移植到Java中来, 只要对象监视器都是同一个就可以了.</p>
+<p>然后自己根据练习24的要求, 写了个内部是定长数组的缓冲区队列持有数据, 然后有多个消费者和生产者对象的模型:</p>
+<pre>
+import java.util.Arrays;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * 解决带有缓冲区的单个生产者和消费者的问题
+ * 初步想法是先随便弄一个数据对象
+ * 然后弄一个缓冲区对象持有数据对象
+ * 然后弄一个内部索引, 不断的循环取数据, 放数据的标记一旦到达长度就要wait(), 取数据取成0之后也要wait()
+ */
+
+//
+public class Ex24 {
+
+    public static void main(String[] args) throws InterruptedException {
+        Buffer buffer = Buffer.getBuffer(20);
+
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        for (int i = 0; i < 1; i++) {
+            executorService.execute(new Producer(buffer));
+
+        }
+        for (int j = 0; j < 3; j++) {
+            executorService.execute(new Consumer(buffer));
+        }
+
+        TimeUnit.SECONDS.sleep(3);
+        executorService.shutdownNow();
+        System.out.println(buffer);
+    }
 
 
 
-<h2 style="text-align: center;" id="con6"></h2>
+
+}
+
+//这个作为数据对象
+class Data {
+
+//    public static synchronized Data getData() {
+//        return new Data(anInt++);
+//    }
+//
+    private int number;
+//
+//    private static volatile int anInt = 0;
+
+    public Data(int i) {
+        this.number = i;
+    }
+
+    @Override
+    public String toString() {
+        return "Data{" +
+                "number=" + number +
+                '}';
+    }
+}
+
+//Buffer类作为数据对象的持有者
+//有一个取出数据的方法, 一个放入数据的方法, 用于同步
+//还需要有可以取出几个和可以放入几个的标志
+class Buffer {
+
+    //用工厂模式
+    public static Buffer getBuffer(int i) {
+        if (i <= 0) {
+            throw new RuntimeException("长度必须大于0");
+        }
+        return new Buffer(i);
+    }
+
+    private Data[] datas;
+
+    //用两个索引保存上次放入数据开始的地方, 和放完数据后的位置
+    private int lastIndex = 0;
+    private int currentIndex = 0;
+
+    //缓冲区长度
+    private int length;
+    //一开始有几个空槽可以放入数据, 设置为和长度一样
+    private int availableToPut;
+    //一开始有几个空槽可以取出数据, 设置为0
+    private int avaiableToGet = 0;
+
+    //私有构造器, 用工厂模式创建新的Buffer
+    private Buffer(int i) {
+        this.length = i;
+        this.availableToPut = length;
+        //初始化一个Data对象的数组, 全部初始化为null
+        datas = new Data[i];
+        for (int j = 0; j < length; j++) {
+            datas[j] = null;
+        }
+    }
+
+    //放入数据
+    public synchronized void putData(Data data) throws InterruptedException {
+
+        //如果可以放入数据的数量为0,就阻塞
+        while (availableToPut == 0) {
+            wait();
+        }
+        //如果成功通过阻塞, 说明可以放入数据了, 就放入数据, 同时更新相关指标
+        //更新currentIndex到最新的可以放入数据的位置
+        datas[currentIndex] = data;
+        currentIndex++;
+        currentIndex = currentIndex % length;
+
+        //更新可用槽位和可读槽位
+        availableToPut--;
+        avaiableToGet++;
+        //当前线程取出数据后唤醒其他放入数据,也就是生产者线程
+        notifyAll();
+//        System.out.println("成功放入了数据, 当前状态是: " + this);
+    }
+
+    public synchronized Data getData() throws InterruptedException {
+        while (avaiableToGet == 0) {
+            wait();
+        }
+
+        //从上次放入数据的地方取数据, 然后更新lastindex
+        Data result = datas[lastIndex];
+        lastIndex++;
+        lastIndex = lastIndex % length;
+        availableToPut++;
+        avaiableToGet--;
+        //当前线程取出数据后唤醒其他写入数据, 也就是消费者线程
+        notifyAll();
+//        System.out.println("成功取出了数据, 当前状态是: " + this);
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "Buffer{" +
+                "datas=" + Arrays.toString(datas) +
+                ", lastIndex=" + lastIndex +
+                ", currentIndex=" + currentIndex +
+                ", length=" + length +
+                ", availableToPut=" + availableToPut +
+                ", avaiableToGet=" + avaiableToGet +
+                ", 尚未取出的数据等于=" + (currentIndex >= lastIndex ? currentIndex - lastIndex : currentIndex - lastIndex + length) +
+                '}';
+    }
+}
+
+class Producer implements Runnable {
+
+    private static volatile int number = 0;
+
+    private static Random random = new Random();
+
+    private final Buffer buffer;
+
+    Producer(Buffer buffer) {
+        this.buffer = buffer;
+    }
+
+    public static synchronized int getNumber() {
+        int temp = number;
+        number++;
+        return temp;
+    }
+
+    @Override
+    public void run() {
+        try {
+            while (true) {
+                Data newData = new Data(Producer.getNumber());
+                TimeUnit.MILLISECONDS.sleep(random.nextInt(30) * random.nextInt(20));
+                System.out.println("生产者尝试放入新数据:" + newData);
+                buffer.putData(newData);
+            }
+        } catch (InterruptedException e) {
+            System.out.println("生产者被中断了");
+        }
+
+    }
+}
+
+class Consumer implements Runnable {
+    private static Random random = new Random();
+
+    private final Buffer buffer;
+
+    Consumer(Buffer buffer) {
+        this.buffer = buffer;
+    }
+
+    @Override
+    public void run() {
+        try {
+            while (true) {
+                TimeUnit.MILLISECONDS.sleep(random.nextInt(30) * random.nextInt(20));
+                Data data = buffer.getData();
+                System.out.println("消费者取出了数据: " + data);
+            }
+
+        } catch (InterruptedException e) {
+            System.out.println("消费者被中断了");
+        }
+    }
+}
+</pre>
+<p></p>
+
+<h2 style="text-align: center;" id="con6">同步队列</h2>
+<p>在自己编写的模型中, 实际上同步出现在对缓冲区的读写中, 如果有一个缓冲区已经实现了这种同步方法, 那么所有的线程之间操作缓冲区就可以了, 无需自行编写同步代码.</p>
+<p>java.util.BlockingQueue提供了这个接口, 还有很多具体实现, 常用的有LinkedBlockingQueue, ArrayBlockingQueue.</p>
+<p>这些同步队列都支持泛型, 平常使用的方法主要就是 .take() 返回放入的泛型类型对象, .put() 放入一个泛型类型的对象</p>
+<p>这个其实就是缓冲区底层使用不同的数据结构, 外部封装好同步读写功能即可. 本质上和上边自行编写的Buffer类是一样的.</p>
 
 
+<h2 style="text-align: center;" id="con7">管道</h2>
+<p>在之前的IO里留下了Piped类型的输入和输出没有用到, 实际上管道就是一个阻塞队列, PipedWriter允许任务向管道写, PipedReader允许不同任务从同一个管道读取. 可以看成是一个生产者-消费者模型的封装好的解决方案.</p>
+<p>一个简单的例子如下, sender 每半秒钟发一个字符到管道里, 另外一端的receiver进行输出, 核心是其中的创建管道的语句: </p>
+<pre>
+import java.io.IOException;
+import java.io.PipedReader;
+import java.io.PipedWriter;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+public class PipedIO {
+
+    public static void main(String[] args) throws IOException, InterruptedException {
+        Sender sender = new Sender();
+        Receiver receiver = new Receiver(sender);
+
+        ExecutorService executorService = Executors.newCachedThreadPool();
+
+        executorService.execute(sender);
+        executorService.execute(receiver);
+
+        TimeUnit.SECONDS.sleep(4);
+        executorService.shutdownNow();
+    }
+}
 
 
+class Sender implements Runnable {
 
+    private Random random = new Random(47);
+    //要向管道输出的任务创建一个PipedWriter()对象
+    <span style="color: red">private PipedWriter out = new PipedWriter();</span>
 
+    public PipedWriter getPipedWriter() {
+        return out;
+    }
 
+    public void run() {
+        try {
+            while (true) {
+                for (char c = 'A'; c <= 'z'; c++) {
+                    out.write(c);
+                    TimeUnit.MILLISECONDS.sleep(500);
+                }
+            }
+        } catch (IOException | InterruptedException e) {
+            System.out.println("IO错误或者被打断");
+        }
+    }
+}
 
+class Receiver implements Runnable {
 
+    private PipedReader in;
+
+    public Receiver(Sender sender) throws IOException {
+        //需要从管道中读取数据的任务需要以一个PipedWriter对象作为PipedReader对象的构造器参数
+        //获取之后相当于写入任务的out是管道的写入端, 这边是读取端
+        //
+        <span style="color: red">in = new PipedReader(sender.getPipedWriter());</span>
+    }
+
+    public void run() {
+        try {
+            while (true) {
+                //这里直接调用read()方法即可, 如果读完了, 会阻塞.
+                char c = (char) in.read();
+                System.out.println(c);
+            }
+        } catch (IOException e) {
+            System.out.println("被打断");
+        }
+    }
+}
+</pre>
+<p>如果要多线程读写管道, 注意一个PipedReader只能针对管道只能创建一次, 但是PipedReader对象可以复用, 如果要用多个线程去读管道, 需要修改成这样:</p>
+<pre>
+import java.io.IOException;
+import java.io.PipedReader;
+import java.io.PipedWriter;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+public class PipedIO {
+
+    public static void main(String[] args) throws IOException, InterruptedException {
+        Sender sender = new Sender();
+
+        //创建一个共用的PipedReader对象
+        PipedReader in = new PipedReader(sender.getPipedWriter());
+
+        //让每个线程都使用这个共用对象即可
+        Receiver receiver0 = new Receiver(sender,0, in);
+        Receiver receiver1 = new Receiver(sender,1, in);
+
+        ExecutorService executorService = Executors.newCachedThreadPool();
+
+        executorService.execute(sender);
+        executorService.execute(receiver0);
+        executorService.execute(receiver1);
+
+        TimeUnit.SECONDS.sleep(4);
+        executorService.shutdownNow();
+    }
+}
+
+//Sender代码不变, 省略, 这里要调整一下Receiver的构造器
+class Receiver implements Runnable {
+
+    private PipedReader in;
+
+    private int number;
+
+    public Receiver(Sender sender, int i, PipedReader in) throws IOException {
+        this.in = in;
+        this.number = i;
+        //这个是关键, PipedReader以一个PipedWriter对象作为构造器参数, 获取一个Reader对象
+//        in = new PipedReader(sender.getPipedWriter());
+    }
+
+    public void run() {
+        try {
+            while (true) {
+                //这里直接调用read()方法即可, 如果读完了, 会阻塞.
+                char c = (char) in.read();
+                System.out.println("ID: " + number + " " + c);
+            }
+        } catch (IOException e) {
+            System.out.println("被打断");
+        }
+    }
+
+}
+</pre>
+<p>管道是没有sleep()和wait()方法可供调用的, 只需要调用.read(), 如果没数据就会自动阻塞.</p>
 
 
 
