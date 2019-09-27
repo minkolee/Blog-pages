@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>设计模式</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">设计模式 02 模板模式</h1>
+
+<ol>
+    <li><a href="#con1">模板模式</a></li>
+    <li><a href="#con2">练习</a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">模板模式</h2>
+<p>什么是模板, 其实就是一套早已规定好的东西, 整体的操作流程都已经被模板规定好了, 你可以在模板的内部进行自己的实现.</p>
+<p>一般模板用抽象类来进行约束, 具体的实现交给子类. 在流程中都是按照抽象类类型来使用多态方法.</p>
+<p>一般如果使用抽象类不仅定义方法, 还定义了操作方法的方法, 就可以看成是一种模板模式.</p>
+<p>来看一个例子, 一个抽象类定义了若干显示字符串的方法以及一个方法调用这些抽象方法进行工作. 两个子类进行了具体实现</p>
+<pre>
+//抽象类:
+public abstract class AbstractDisplay {
+
+    //三个抽象方法
+    public abstract void open();
+    public abstract void print();
+    public abstract void close();
+
+    //规定好的操作流程
+    <span style="color: red">public final void display(){
+        open();
+        for (int i = 0; i < 5; i++) {
+            print();
+        }
+        close();
+    };</span>
+}
+</pre>
+<p>这里个人理解, 模板模式的关键在于, 抽象类中已经有了一个具体方法规定好了操作流程, 比如上边的红字部分. 如果只是单纯的抽象方法, 而没有操作流程, 使用抽象类还不如去使用接口来的方便.</p>
+<p>然后就是具体实现类了, 这里使用了两个具体实现类, 以体现不同:</p>
+<pre>
+//第一个实现类, 打印<< 5次字符 >>
+public class CharDisplay extends AbstractDisplay {
+
+    private char aChar;
+
+    public CharDisplay(char aChar) {
+        this.aChar = aChar;
+    }
+
+    @Override
+    public void open() {
+        System.out.print("<<");
+    }
+
+    @Override
+    public void print() {
+        System.out.print(aChar);
+    }
+
+    @Override
+    public void close() {
+        System.out.println(">>");
+    }
+}
+</pre>
+<pre>
+//另外一个抽象类, 里边的方法只是为了用和上一个抽象类不同的方式显示而已
+public class SingleDisplay extends AbstractDisplay {
+
+    private String string;
+
+    private int width;
+
+    public SingleDisplay(String string) {
+        this.string = string;
+        //获取字节长度
+        this.width = string.getBytes().length;
+    }
+
+    //画了一条两端是+号的线
+    private void printLine() {
+        System.out.print("+");
+        for (int i = 0; i < width; i++) {
+            System.out.print('-');
+        }
+        System.out.println("+");
+    }
+
+    @Override
+    public void open() {
+        printLine();
+    }
+
+    @Override
+    public void print() {
+        System.out.println("|" + string + "|");
+    }
+
+    @Override
+    public void close() {
+        printLine();
+    }
+}
+</pre>
+<p>之后都使用抽象类类型, 来进行多态调用:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        AbstractDisplay a1 = new CharDisplay('s');
+        AbstractDisplay a2 = new SingleDisplay("s");
+        a1.display();
+        a2.display();
+    }
+}
+</pre>
+<p>可以看到, display()方法的结果, 根据不同的子类发生了变化, 这个就是模板模式.</p>
+<p>模板模式的关键是父类的方法里已经编写好了程序操作的流程, 抽象类中不全是抽象方法, 即模板模式下父类和子类需要协同工作.</p>
+<p>所以这和接口还是不同的. 调用的时候采用多态, 这个倒是和接口相同.</p>
+<p>模板模式中子类不会重写父类的流程操作, 比如display()方法, 如果子类重写了, 那就等于子类自己干自己的, 和父类没有什么很大关系了; 只需要实现抽象方法, 也就是子类实现了子类责任, 工作就算完成了.</p>
+
+<h2 style="text-align: center;" id="con2">练习</h2>
+<p>习题3-1 找出java.io.InputStream要求子类实现的抽象方法:</p>
+<pre>
+//源码如下:
+public abstract class InputStream implements Closeable {
+    ......
+    public abstract int read() throws IOException;
+
+}
+</pre>
+<p>可见要求实现的就是这个read()方法, 其实也很简单, 可以利用IDE创建一个匿名类或者继承InputStream, 然后通过IDE的提示就可以发现这个方法.</p>
+<p>习题3-2 类中在方法上的final修饰符, 意义表示该方法无法被继承也无法被重写.</p>
+<p>习题3-3 如果想让继承关系和同一个包内的类使用, 只要在抽象类和子类中都使用protected修饰符就可以了.</p>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

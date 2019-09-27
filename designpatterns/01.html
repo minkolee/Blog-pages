@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>设计模式</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">设计模式 01 迭代器和适配器模式</h1>
+<p>Java 编程思想看完, 重新强化了一下Java基础之后, 觉得功力有点增加了, 现在可以考虑看设计模式了.</p>
+<p>果然, 现在发现可以很容易的就看明白了, 不像几个月以前感觉还是看天书一样. 这次就结合<a href="https://item.jd.com/12019365.html" target="_blank">图解设计模式</a>这本书来过一遍.</p>
+<p>在看的过程中发现这本书写的相当早, 是在2001年就成书了, 其中的一些Java代码估计还是非常老的版本, 这次也按照自己的想法更新一下其中的代码.</p>
+
+<ol>
+    <li><a href="#con1">Iterator 迭代器模式</a></li>
+    <li><a href="#con2">Java提供的迭代器模式接口</a></li>
+    <li><a href="#con3">练习</a></li>
+    <li><a href="#con4">Adapter 适配器模式</a></li>
+    <li><a href="#con5">Adapter 适配器模式 - 委托</a></li>
+    <li><a href="#con6">练习</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Iterator模式</h2>
+<p>迭代器模式现在很容易就看懂了, 一个持有其他的类的对象有一个方法返回一个迭代器对象, 就可以了.</p>
+<p>先来看书上的实现, 一个书架持有多个书对象, 然后实现一个接口, 返回迭代器对象, 而迭代器对象实现迭代器接口规定的.next()和.hasNext()方法就可以了.</p>
+<p>这本书里的模式和设计体现的很好, 几乎所有的设计模式都是先搭接口, 再用实现类, 接口之间的关系其实就是设计模式了, 实现类其实就是模式的具体实现.</p>
+<p>先看两个接口, 即类的集合的接口和迭代器的接口:</p>
+<pre>
+//集合的接口
+public interface Aggregate {
+
+    Iterator iterator();
+
+}
+</pre>
+<pre>
+//迭代器的接口
+public interface Iterator {
+
+    boolean hasNext();
+
+    Object next();
+
+}
+</pre>
+<p>原书这里的代码在接口里还用了 public abstract 修饰, 按照现在的Java接口规范已经没有必要了. 还使用了Object, 在之后强制转型, 实际上在有了内部类之后, 其实可以更方便的使用内部类来编写迭代器了.</p>
+<p>之后是数据对象, 集合和迭代器的实现:</p>
+<pre>
+//数据对象Book, 很简单
+public class Book {
+
+    private String name;
+
+    public Book(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public String toString() {
+        return "Book{" +
+                "name='" + name + '\'' +
+                '}';
+    }
+}
+</pre>
+<pre>
+//书架, 作为持有书对象的一个集合
+public class BookShelf implements Aggregate {
+
+    //这个方法很重要, 要返回对于自身的迭代器对象
+    @Override
+    public Iterator iterator() {
+        return new BookShelfIterator(this);
+    }
+
+    private int last = 0;
+
+    private Book[] books;
+
+    public BookShelf(int length) {
+        books = new Book[length];
+    }
+
+    public Book getBookAt(int index) {
+        return this.books[index];
+    }
+
+    public void appendBook(Book book) {
+        if (last == this.books.length) {
+            System.out.println("书架已满, 放入失败");
+            return;
+        }
+        books[last] = book;
+        last++;
+    }
+
+    //这个方法实际上是暴露给迭代器对象, 用于控制迭代器工作的
+    public int getLength() {
+        return this.last;
+    }
+}
+</pre>
+<pre>
+public class BookShelfIterator implements Iterator {
+
+    //要根据一个书架对象生成对应的迭代器, 所以在构造器中传入一个书架对象
+    private BookShelf bookShelf;
+
+    BookShelfIterator(BookShelf bookShelf) {
+        this.bookShelf = bookShelf;
+        this.index = 0;
+    }
+
+    //然后需要有一个遍历书架的内容的变量
+    private int index;
+
+    //这个方法的关键是判断是否还能继续取下一个, 当索引小于书架内书的数量的时候, 就说明可以来取出书对象
+    @Override
+    public boolean hasNext() {
+        return index < bookShelf.getLength();
+    }
+
+    //这个是实际取出下一个
+    @Override
+    public Object next() {
+        return bookShelf.getBookAt(index++);
+    }
+}
+</pre>
+<p>使用迭代器的方法, 就是先获取之, 然后通过判断.hasNext()是否为真, 来取出下一个对象:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        BookShelf bookShelf = new BookShelf(10);
+
+        for (int i = 0; i < 15; i++) {
+            bookShelf.appendBook(new Book(i + ""));
+        }
+        Iterator bookshelfIterator = bookShelf.iterator();
+
+        while (bookshelfIterator.hasNext()) {
+            System.out.println(bookshelfIterator.next());
+        }
+    }
+}
+</pre>
+<p>这里可以发现, 每一个集合的迭代器, 都必须包含一个这个集合的对象才能够具体工作, 在这里是通过给迭代器的构造器传入一个集合引用来做到的.</p>
+<p>但实际上在现代Java里, 哪个东西可以隐含一个指向另外一个对象的引用呢, 就是非静态内部类了. 每一个非静态内部类对象都有一个引用指向外围类.</p>
+<p>所以可以改写一下, 用一个书架对象加上内部类就可以搞定了, 而且代码更加优雅, 语义也更加明显, 迭代器就是和当前的对象绑定的, 而且也实现了对应的接口:</p>
+<pre>
+public class BookShelfWithInnerClass implements Aggregate {
+
+    //返回内部类对象
+    @Override
+    public Iterator iterator() {
+        return new BookShelfInnerIterator();
+    }
+
+    private int last = 0;
+
+    private Book[] books;
+
+    public BookShelfWithInnerClass(int length) {
+        books = new Book[length];
+    }
+
+    public Book getBookAt(int index) {
+        return this.books[index];
+    }
+
+    public void appendBook(Book book) {
+        if (last == this.books.length) {
+            System.out.println("书架已满, 放入失败");
+            return;
+        }
+        books[last] = book;
+        last++;
+    }
+
+    public int getLength() {
+        return this.last;
+    }
+
+    public class BookShelfInnerIterator implements Iterator {
+
+        private int index;
+
+        BookShelfInnerIterator() {
+            index = 0;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return index < last;
+        }
+
+        @Override
+        public Book next() {
+            //红字部分是对外围类的引用, 其实也可以省略, 直接调用外围类方法即可.
+            return <span style="color: red">BookShelfWithInnerClass.this.</span>getBookAt(index++);
+        }
+    }
+}
+</pre>
+<p>然后可以测试一下带有内部类迭代器的集合对象:</p>
+<pre>
+public static void main(String[] args) {
+    //测试内部类
+    BookShelfWithInnerClass bookShelfWithInnerClass = new BookShelfWithInnerClass(10);
+    for (int j = 0; j < 8; j++) {
+        bookShelfWithInnerClass.appendBook(new Book(j + ""));
+    }
+    Iterator innerIterator = bookShelfWithInnerClass.iterator();
+    while (innerIterator.hasNext()) {
+        System.out.println(innerIterator.next());
+    }
+}
+</pre>
+<p>Java内部的一些带有迭代器的集合对象, 也是使用了该模式. 如果要让增强for语句对我们自己编写的类产生效果, 就不是继承我们自己的接口, 而是Java提供的接口才可以了.</p>
+
+<h2 style="text-align: center;" id="con2">Java提供的迭代器模式接口</h2>
+<p>在例子中我们自己编写了Aggregate接口用于规范集合一定要提供一个迭代器, 然后编写了Iterator接口, 规定了一定要提供.hasNext()和.next()方法.</p>
+<p>可见只要实现这两个接口, 就可以完成迭代器模式. Java对于我们自己编写的这两个接口也提供了两个对应的接口, 实现这两个接口之后, Java的增强for语句就能够作用于我们的代码.</p>
+<p>这两个接口分别是:</p>
+<ol>
+    <li><code>public interface Iterable&lt;T></code>, 位于java.lang中, 其中规定了方法: <code>Iterator&lt;T> iterator()</code></li>
+    <li><code>public interface Iterator&lt;E></code>, 位于java.util中, 其中规定了方法: <code>boolean hasNext()</code>和<code>E next()</code>方法</li>
+</ol>
+<p>两个接口都支持泛型. 现在想让我们的书架集合被增强for支持, 我们只要将自己的类继承的接口换成这两个就可以:</p>
+<pre>
+import java.util.Iterator;
+
+//这里由于我们给定的就是Book对象, 因此不使用泛型参数, 直接固定死类型, 就继承Iterable&lt;Book>接口
+public class BookShelfForEachSupported implements <span style="color: red">Iterable&lt;Book></span> {
+
+    @Override
+    //不需要泛型所以这里类型就定好了
+    public <span style="color: red">Iterator&lt;Book></span> iterator() {
+        return new BookShelfInnerIterator();
+    }
+
+    private int last = 0;
+
+    private Book[] books;
+
+    public BookShelfForEachSupported(int length) {
+        books = new Book[length];
+    }
+
+    public Book getBookAt(int index) {
+        return this.books[index];
+    }
+
+    public void appendBook(Book book) {
+        if (last == this.books.length) {
+            System.out.println("书架已满, 放入失败");
+            return;
+        }
+        books[last] = book;
+        last++;
+    }
+
+    public int getLength() {
+        return this.last;
+    }
+
+    //内部迭代器类继承Iterator&lt;Book>接口, 实现对应方法
+    public class BookShelfInnerIterator implements <span style="color: red">Iterator&lt;Book></span> {
+
+        private int index;
+
+        BookShelfInnerIterator() {
+            index = 0;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return index &lt; last;
+        }
+
+        @Override
+        public Book next() {
+            return BookShelfForEachSupported.this.getBookAt(index++);
+        }
+    }
+}
+</pre>
+<p>这里的泛型要和增强for语句中使用的泛型一致, 来测试一下:</p>
+<pre>
+public static void main(String[] args) {
+        //测试增强for对我们编写的书架类的支持
+        BookShelfForEachSupported bookShelfForEachSupported  = new BookShelfForEachSupported(10);
+        for (int j = 0; j < 8; j++) {
+            bookShelfForEachSupported.appendBook(new Book(j + ""));
+        }
+        for (Book book : bookShelfForEachSupported) {
+            System.out.println(book);
+        }
+    }
+</pre>
+<p>一切OK, 迭代器模式就搞定了. 我又阅读了一下其他的文章, 包括Java 编程思想, 现在还是比较推荐使用内部类的方式来使用迭代器. 而且都是推荐直接使用外部类的方法返回内部类对象, 而无需直接创建内部类对象.</p>
+
+<h2 style="text-align: center;" id="con3">练习</h2>
+<p>练习的要求是使用ArrayList作为书架类持有对象的内部集合. 则书架类等于了一个ArrayList的包装, 修改代码也很容易:</p>
+<pre>
+import java.util.ArrayList;
+import java.util.Iterator;
+
+public class BookShelfUsingArrayList implements Iterable&lt;Book> {
+
+    @Override
+    public Iterator&lt;Book> iterator() {
+        return new BookShelfInnerIterator();
+    }
+
+    //改用ArrayList进行实际存放Book对象的容器
+    private ArrayList&lt;Book> books = new ArrayList&lt;>();
+
+    //以下的方法都是对ArrayList API的包装
+    public Book getBookAt(int index) {
+        return books.get(index);
+    }
+
+    public void appendBook(Book book) {
+        books.add(book);
+    }
+
+    public int getLength() {
+        return books.size();
+    }
+
+    //内部类在初始化的时候加上一个获取当前总Book数量的变量
+    public class BookShelfInnerIterator implements Iterator&lt;Book> {
+
+        private int index;
+
+        private int size;
+
+        BookShelfInnerIterator() {
+            index = 0;
+            size = getLength();
+        }
+
+        @Override
+        public boolean hasNext() {
+            return index &lt; size;
+        }
+
+        @Override
+        public Book next() {
+            return getBookAt(index++);
+        }
+    }
+}
+</pre>
+<p>测试如下:</p>
+<pre>
+public static void main(String[] args) {
+
+    //测试使用ArrayLIst的书架类, 无需在构造器中传入长度了
+    BookShelfUsingArrayList bookShelfUsingArrayList  = new BookShelfUsingArrayList();
+    for (int j = 0; j < 10; j++) {
+        bookShelfUsingArrayList.appendBook(new Book(j + ""));
+    }
+    for (Book book : bookShelfUsingArrayList) {
+        System.out.println(book);
+    }
+}
+</pre>
+<p>以后想要编写集合类的时候, 一定要注意随着集合类编写一个迭代器, 可以方便的取出其中的元素进行操作.</p>
+
+<h2 style="text-align: center;" id="con4">Adapter 适配器模式 - 继承</h2>
+<p>最常见的是什么, 就是电源适配器. 计算机的电源都是使用直流电的, 而市电是交流电. 将计算机的电源当做一种规范, 也就是接口的话, 市电可以看成是现实中已经编写好的具体类或者说功能, 想要让计算机的其他部件能够正确的调用电源接口来获取电源, 我们就需要使用一个电源适配器.</p>
+<p>这个适配器实现了电源接口, 这样计算机的其他部件就可以从其中获得所需要的直流电, 而电源适配器另外一端和市电的功能相匹配, 这样就可以工作在市电上, 这就是适配器模式. 即将接口规范与实际功能联系起来. 看起来也有点像一个代理.</p>
+<p>适配器有两种模式, 一种是使用继承; 一种是适配器对象持有另外一个对象,也叫做委托模式.</p>
+<p>这里先来看看继承模式. 书中的例子是, 一个实际用于显示字符串的Banner类的有若干个方法, 而程序的规范要求是使用Print接口和其中的方法来显示字符串, Banner类和Print接口如下:</p>
+<pre>
+public class Banner {
+
+    private String string;
+
+    public Banner(String string) {
+        this.string = string;
+    }
+
+    public void showWithParen() {
+        System.out.print('(');
+        System.out.print(string);
+        System.out.println(')');
+    }
+
+    public void showWithAster() {
+        System.out.print('*');
+        System.out.print(string);
+        System.out.println('*');
+    }
+}
+</pre>
+<pre>
+public interface Print {
+
+    void printWeak();
+
+    void printStrong();
+}
+</pre>
+<p>由于规范调用的Print接口, 而实际工作的类Banner并没有实现Print接口, 想让Banner类也可以融入我们的程序进行工作, 就可以创建一个适配器类:</p>
+<pre>
+public class PrintBannerAdapter <span style="color: red">extends Banner implements Print</span> {
+
+    public PrintBannerAdapter(String string) {
+        super(string);
+    }
+
+    @Override
+    public void printWeak() {
+        showWithParen();
+    }
+
+    @Override
+    public void printStrong() {
+        showWithAster();
+    }
+}
+</pre>
+<p>注意其中的红字部分, 适配器要实现接口, 继承被适配的类. 在被其他按照规范的程序调用Print接口中的方法的时候, 实际工作采用Banner父类的方法来操作. 由于继承, 域和构造器还有方法都可以直接使用Banner类, 方便很多.</p>
+<p>测试的程序很简单, 都是只根据Print接口规范来调用, 而适配器类就成功的让原本没有实现接口的类, 也能根据规范得到使用:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        Print p = new PrintBannerAdapter("saner");
+        p.printStrong();
+        p.printWeak();
+
+    }
+}
+</pre>
+<p>可以看到, PrintBannerAdapter的实例使用Print类型, 采用多态调用, 即规范不关心具体的实现类. 而通过适配器, 可以把原本不直接属于规范的类, 纳入到规范中进行使用.</p>
+
+<h2 style="text-align: center;" id="con5">Adapter 适配器模式 - 委托</h2>
+<p>委托模式只需要略微的修改一下适配器的代码, 让其中持有一个实际提供服务的类即可, 而不是直接继承实际提供服务的类:</p>
+<pre>
+public class PrintBannerAdapter2 implements Print {
+
+    //持有一个banner对象, 实例化的时候将字符串交给banner对象
+    private Banner banner;
+
+    public PrintBannerAdapter2(String string) {
+        this.banner = new Banner(string);
+    }
+
+    //方法中实际干活的依然是banner对象
+    @Override
+    public void printWeak() {
+        banner.showWithParen();
+    }
+
+    @Override
+    public void printStrong() {
+        banner.showWithAster();
+    }
+}
+</pre>
+<p>测试代码几乎无需变化, 因为都是统一根据接口调用:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        Print p = new PrintBannerAdapter2("saner");
+        p.printStrong();
+        p.printWeak();
+
+    }
+}
+</pre>
+<p>适配器模式看上去好像增加了代码, 比如为什么不在接口中直接定义好要适配的类呢, 这是由于解耦的需要, 让适配器可以更灵活的工作.特别是软件升级, 新功能使用新开发的部分, 旧功能通过适配器, 交给原来老的稳定的部分, 是一种非常常见的设计模式.</p>
+<p>当然, 适配器和实际工作的代码, 其作用必须是一致的, 只是类的具体结构上有所不同, 是不能把一个打印字符串的接口适配画图的功能上去的.</p>
+<p>可以将适配器模式用于填补不同API但是相同功能之间的裂缝, 像胶水一样粘合起相同的功能, 所以适配器一是要连接不同的类, 而是需要改变API(比如banner的API就不是直接由Main调用, 而是调用接口的方法). 所以和Bridge以及装饰器模式有所区别.</p>
+
+<h2 style="text-align: center;" id="con6">练习</h2>
+<p>练习2.1 很简单, 由于针对的是接口, 如果使用PrintBanner类型, 则只能用于这个适配器, 无法作用于其他类型的适配器. 使用了接口之后, 可以作用于所有实现了该接口的适配器. 如果要特别的调用某个适配器的方法, 进行类型转换即可. 一切都是为了解耦啊.</p>
+<p>练习2.2, 需要编写一个 将 java.util.Properties 类适配到自行编写的 FileIO 接口中的适配器类. FileIO接口如下:</p>
+<pre>
+import java.io.IOException;
+
+public interface FileIO {
+
+    void readFromFile(String filename) throws IOException;
+
+    void writeToFile(String filename) throws IOException;
+
+    void setValue(String key, String value);
+
+    String getValue(String key);
+
+}
+</pre>
+<p>上边的接口要抛异常, 不然一会编写具体方法的时候, 也会让你在接口方法上声明异常.</p>
+<p>而底层实际干活的是java.util.Properties类, 我们需要编写一个适配器名称叫做FileProperties. 思路其实很简单, 可以采取委托模式:</p>
+<pre>
+import java.io.*;
+import java.util.Properties;
+
+public class FileProperties <span style="color: red">implements FileIO</span> {
+
+    //实际干活的java.util.Properties对象
+    Properties properties = new Properties();
+
+    //看了一下API, 可以支持Reader对象, 正好用刚学的I/O套壳
+    @Override
+    public void readFromFile(String filename) throws IOException {
+        properties.load(new BufferedReader(new FileReader("file.txt")));
+    }
+
+    //写入方法也使用刚学的PrintWriter简便方法
+    @Override
+    public void writeToFile(String filename) throws IOException {
+        properties.store(new PrintWriter(filename), "written by FileProperties");
+
+    }
+
+    //剩下两个方法都是直接套用java.util.Properties的方法
+    @Override
+    public void setValue(String key, String value) {
+        properties.setProperty(key, value);
+    }
+
+    @Override
+    public String getValue(String key) {
+        return properties.getProperty(key);
+    }
+}
+</pre>
+<p>实际使用的时候不管具体实现类, 按照接口规范使用:</p>
+<pre>
+import java.io.IOException;
+
+public class Main {
+
+    public static void main(String[] args) {
+        FileIO f = new FileProperties();
+        try {
+            f.readFromFile("file.txt");
+            f.setValue("year", "2014");
+            f.setValue("month", "6");
+            f.setValue("day", "29");
+            f.writeToFile("newfile.txt");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+</pre>
+<p>至此看完了第一部分: 适应设计模式. 这一部分作者讲是挑出了最简单的设计模式. 难的还在后边呢, 回想起第一次看这个书真的是稀里糊涂, 到现在很明晰的就看明白了. 功力确实有所增加.</p>
+<p>不过不光是Java, 依然推荐要自学计算机的朋友不管怎么样, 先操起C语言然后把CSAPP看了, CSAPP可是真正的易筋经.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
