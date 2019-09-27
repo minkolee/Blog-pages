@@ -15,15 +15,15 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">设计模式 02 模板模式</h1>
+<h1 style="text-align: center;">设计模式 02 模板模式和工厂模式</h1>
+<p>这一部分是模板模式, 外加模板模式的应用, 就是工厂模式.</p>
+<p>多个互相组织好交互模式的模板, 就构成了框架. 这是我看这一部分最核心的心得.</p>
 
 <ol>
-    <li><a href="#con1">模板模式</a></li>
+    <li><a href="#con1">Template Method 模板模式</a></li>
     <li><a href="#con2">练习</a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con3">Factory Method 工厂模式</a></li>
+    <li><a href="#con4">练习</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">模板模式</h2>
@@ -147,10 +147,241 @@ public abstract class InputStream implements Closeable {
 <p>可见要求实现的就是这个read()方法, 其实也很简单, 可以利用IDE创建一个匿名类或者继承InputStream, 然后通过IDE的提示就可以发现这个方法.</p>
 <p>习题3-2 类中在方法上的final修饰符, 意义表示该方法无法被继承也无法被重写.</p>
 <p>习题3-3 如果想让继承关系和同一个包内的类使用, 只要在抽象类和子类中都使用protected修饰符就可以了.</p>
+<p>习题3-4 这是因为模板模式要求抽象类实现部分方法, 接口中的方法全部都是抽象方法, 不能有方法体, 无法提供具体实现, 所以不能用于模板模式.</p>
 
-<h2 style="text-align: center;" id="con3"></h2>
+<h2 style="text-align: center;" id="con3">工厂模式</h2>
+<p>使用模板模式来创建实例, 就是工厂模式. 工厂模式逐步演变成了一种独立的模式.</p>
+<p>父类规定好实例的生成方式, 但是具体生成什么类, 就交给子类决定, 这样父类相当于一种框架, 子类负责实际工作, 实现了解耦.</p>
+<p>这里发现工厂模式就分成了两套东西, 一套是framework类, 提供了Factory和Product两个抽象类, 然后一套是具体的实现类, 分别继承这两个类:</p>
+<pre>
+//framework类
+public abstract class Factory {
+    //这个类本身就使用了模板模式, 两个抽象方法需要子类实现, 然后规定了操作流程
+    //其中一个方法用于创建一个Product类型的对象
+    public final Product create(String name) {
+        Product p = createProduct(name);
+        registerProduct(p);
+        return p;
+    }
 
-<h2 style="text-align: center;" id="con4"></h2>
+    protected abstract Product createProduct(String name);
+
+    protected abstract void registerProduct(Product product);
+}
+</pre>
+<p>Product类很简单, 也是一个抽象类:</p>
+<pre>
+public abstract class Product {
+    public abstract void use();
+}
+</pre>
+<p>只规定了一个方法由子类实现.</p>
+<p>然后的重点就是一个工厂的实现类和一个实际的产品类分别继承这两个类:</p>
+<pre>
+//继承Product的具体类, 这里是一个身份证类, 其中的方法很简单, 就保留一个owner域
+public class IDCard extends Product {
+
+    private String owner;
+
+    IDCard(String owner) {
+        System.out.println("制作" + owner + "的身份证");
+        this.owner = owner;
+    }
+
+    @Override
+    public void use() {
+        System.out.println("使用" + owner + "的身份证");
+    }
+
+    @Override
+    public String toString() {
+        return "IDCard{" +
+                "owner='" + owner + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>之后是继承Factory的工厂类, 既然产品是身份证, 所以这个就是身份证工厂, 其中制作和注册IDCard对象:</p>
+<pre>
+import java.util.ArrayList;
+import java.util.List;
+
+public class IDCardFactory extends Factory {
+
+    private List&lt;Product> owners = new ArrayList&lt;>();
+
+    //这里创建IDCard对象, 返回类型注意是Product
+    @Override
+    protected Product createProduct(String name) {
+        return new IDCard(name);
+    }
+
+    @Override
+    protected void registerProduct(Product product) {
+        owners.add(product);
+    }
+
+    public List&lt;Product> getOwners() {
+        return owners;
+    }
+}
+</pre>
+<p>然后就可以用工厂来生产身份证了:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        Factory factory = new IDCardFactory();
+
+        Product idCard1 = factory.create("saner");
+        Product idCard2 = factory.create("sixtuan");
+        Product idCard3 = factory.create("owl");
+
+        idCard1.use();
+        idCard2.use();
+        idCard3.use();
+
+    }
+}
+</pre>
+<p>这里实际上Factory 是一个模板, Product也可以是一个模板, 这两个模板之间, 又通过抽象类定义好了交互的办法.</p>
+<p>以后无论需要生产什么对象, 都各自继承一个Factory和Product类, 那么这个工厂对象和创建出来的产品对象也依然能够复核之前模板规定好的交互方式和用途.</p>
+<p>一般我们就把Factory和Product组成的抽象类部分叫做框架, 把具体的实现叫做具体加工.</p>
+<p>框架在使用对象的时候, 可以发现Factory和Product中都没有出现具体实现类的名称. 在Main方法中, 仅仅只有创建新工厂的时候, 要根据需要创建什么样的产品来选择工厂, 而在产品调用的时候, 也无需使用具体的产品类型.</p>
+<p>这就将框架和具体实现有效解耦了, 框架甚至可以先编写好所有代码, 仅仅只需要改变工厂的类型, 整个框架处理的具体产品的类型就全部跟着变化.</p>
+<p>个人的理解, 其实就是用模板模式搭建出一套系统. 在具体运行的时候, 所有的抽象类都用具体实现来替换, 这样框架就可以脱离具体类. 好比一条流水线, 只要产品符合这个流水线上各个处理步骤调用的标准, 那这个流水线就可以处理任意的符合标准的产品.</p>
+<p>框架可以看做是流水线和标准的组合, 比如一条只能加工谷物的流水线. 在实际的操作中, 先加工一批大米, 那么就用一个大米工厂生产大米对象放到流水线上处理; 然后加工一批麦子, 这个时候只要将大米工厂换成麦子工厂即可, 流水线反正就加工具体工厂生产出来的产品, 而不管产品的类型.</p>
+
+<h2 style="text-align: center;" id="con4">练习</h2>
+<p>练习4-1 构造函数不是public, 表示这个构造器是包访问权限.</p>
+<br>
+<p>练习4-2 修改程序, 为IDCard增加卡的编号, 在IDCardFactory类中保存编号与所有者之间的关系</p>
+<p>这个也比较简单, 我这里采取了编号自动生成的方式, 在IDCardFactory中可以创建一个Map对象来保存编号和姓名的关系. 具体代码需要先编写模板类, 再写实现类:</p>
+<p>为了尽量减少修改, 为IDCard类新使用一个构造器, 这样Factory模板无需修改, 修改一下Product模板支持取出序号和姓名就可以了, 在IDCardFactory中添加一个Map数据结构存放对应关系.</p>
+<pre>
+//新的Product抽象类
+public abstract class Product {
+    public abstract void use();
+
+    public abstract int getSerial();
+
+    public abstract String getOwner();
+}
+</pre>
+<pre>
+//新的IDCard类, 添加了用于统计数量的变量和新的构造器
+public class IDCard extends Product {
+
+    //加一个静态变量用于统计数量
+    private static int serial = 0;
+
+    private int number;
+
+    private String owner;
+
+    IDCard(String owner) {
+        this(owner, getNumber());
+    }
+
+    //新增一个构造器, 为了无需修改Factory模板的代码
+    IDCard(String owner, int number) {
+        System.out.println("制作" + owner + "的身份证, 编号是: " + number);
+        this.owner = owner;
+        this.number = number;
+    }
+
+    @Override
+    public void use() {
+        System.out.println("使用" + this);
+    }
+
+    @Override
+    public String toString() {
+        return "IDCard{" +
+                "number=" + number +
+                ", owner='" + owner + '\'' +
+                '}';
+    }
+
+    //加上同步
+    private synchronized static int getNumber() {
+        return serial++;
+    }
+
+    //根据Product模板实现两个方法
+    @Override
+    public int getSerial() {
+        //返回自己的序号
+        return number;
+    }
+
+    @Override
+    public String getOwner() {
+        return owner;
+    }
+}
+</pre>
+<pre>
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class IDCardFactory extends Factory {
+
+    private List&lt;Product> owners = new ArrayList&lt;>();
+
+    //新增一个符号表
+    private Map&lt;Integer, String> numberToName = new HashMap&lt;>();
+
+
+    @Override
+    protected Product createProduct(String name) {
+        return new IDCard(name);
+    }
+
+    @Override
+    protected void registerProduct(Product product) {
+        owners.add(product);
+        //新增一行放入键值对
+        numberToName.put(product.getSerial(), product.getOwner());
+    }
+
+    public List&lt;Product> getOwners() {
+        return owners;
+    }
+
+    @Override
+    public String toString() {
+        return "IDCardFactory{" +
+                "owners=" + owners +
+                ", numberToName=" + numberToName +
+                '}';
+    }
+}
+</pre>
+<p>之后测试新的程序, 就可以看到框架与具体实现分离的好处, 由于测试程序就相当于使用框架, 可以发现无需修改代码, 一样可以跑起来:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        Factory factory = new IDCardFactory();
+
+        Product idCard1 = factory.create("saner");
+        Product idCard2 = factory.create("sixtuan");
+        Product idCard3 = factory.create("owl");
+
+        idCard1.use();
+        idCard2.use();
+        idCard3.use();
+
+        System.out.println(factory);
+    }
+}
+</pre>
+<p>最后打印了一下此时的factory对象, 其中持有了三个对象和一个编号与姓名的符号表.</p>
+<br>
+<p>练习4-3 这个其实也很简单, 因为抽象类无法创建对象, 在其中定义和构造器同名的函数, 自然是不允许的了. 这里还有一点要注意, <span style="color: red">Java 中的构造函数是不会继承的, 每个类的构造函数是独立的</span>.</p>
 
 <h2 style="text-align: center;" id="con5"></h2>
 
