@@ -15,25 +15,374 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">设计模式 03 </h1>
+<h1 style="text-align: center;">设计模式 03 生成实例</h1>
+<p>对于面向对象的语言, 如何创建对象一直是一大学问, 这一章就是各种和创建对象有关的模式.</p>
+
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con1">Singleton 单例模式</a></li>
+    <li><a href="#con2">练习</a></li>
+    <li><a href="#con3">Prototype 原型模式</a></li>
+    <li><a href="#con4">练习</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">Singleton 单例模式</h2>
+<p>单例模式可不简单的是我自己控制在程序里只生成一个对象就可以了, 而是要确保在任何情况下都仅有一个实例, 不同的程序用到这个实例, 都要是同一个.</p>
+<p>单例模式在Java中依赖与语言的特性, 即构造器函数是可以有访问权限的. 凡是想要实现单例模式的类, 都要将其构造器设置为private, 然后在类中创建一个对象. 对外暴露一个API, 每次总是返回同一个对象.</p>
+<p>单例模式从代码量来说是最少的设计模式, 所以也易于理解, 在很多地方都可以见到.</p>
+<pre>
+public class SingleTon {
+
+    private SingleTon() {
+        System.out.println("创建了一个单例的实例");
+    }
+
+    private static SingleTon singleTon = new SingleTon();
+
+    public static SingleTon getInstance() {
+        return singleTon;
+    }
+}
+</pre>
+<p>由于是单例, 只有一个类, 也只有一个实例, 因此可以用静态域来存储单例对象, 也用静态方法暴露即可.</p>
+<p>在使用这个单例的时候, 不能创建, 只能通过静态方法获取引用, 不管获取多少次, 都是同样一个对象:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        System.out.println("Start.");
+        SingleTon singleTon1 = SingleTon.getInstance();
+        SingleTon singleTon2 = SingleTon.getInstance();
+        SingleTon singleTon3 = SingleTon.getInstance();
+
+        System.out.println(singleTon1);
+        System.out.println(singleTon2);
+        System.out.println(singleTon3);
+        System.out.println(singleTon1==singleTon2);
+        System.out.println(singleTon1==singleTon3);
+        System.out.println(singleTon3==singleTon1);
+
+    }
+}
+</pre>
+<p>获取了三次单例对象, 然后打印, 可以看到打印出了同一个内存地址. 默认的比较==其实也是比较内存地址, 都是true. 这说明单例模式成功了.</p>
+<p>这里实际上在类初始化的时候, 第一次访问静态方法, 才会去加载, 所以创建类的那句话会显示在Start.之后, 这里也顺便复习了Java加载类的知识点.</p>
+<p>单例模式是一个相当基础也应用广泛的设计模式, 很多其他的设计模式如抽象工厂, 创建者和原型等都(可以)使用到单例模式.</p>
+
+<h2 style="text-align: center;" id="con2">练习</h2>
+<p>习题5-1 修改成单例:</p>
+<pre>
+public class TicketMaker {
+
+    private int ticket = 1000;
+
+    public int getNextTicketNumber() {
+        return ticket++;
+    }
+
+    //添加如下三个让类采用单例模式的方法
+    private TicketMaker() {}
+
+    private static TicketMaker ticketMaker = new TicketMaker();
+
+    private static TicketMaker getInstance() {
+        return ticketMaker;
+    }
+}
+</pre>
+<p>无需改动原来的域和方法, 只需要将构造器设置成私有, 然后添加上静态域和获取单例的静态方法即可.</p>
+<br>
+<p>习题5-2 指定数量的实例</p>
+<p>这个思路也很简单, 内部可以用一个容器放着指定数量的实例, 然后通过静态方法按照索引来返回指定编号的实例:</p>
+<pre>
+public class Triple {
+
+    //单例所需的静态域, 存放长度为3的Triple数组
+    private static Triple[] triples = new Triple[3];
+
+    //静态块来初始化, 创建并向数组中填充三个对象
+    static {
+        for (int i = 0; i < 3; i++) {
+            triples[i] = new Triple(i);
+        }
+    }
+
+    //为了持有编号加上的域
+    private int number;
+
+    //私有的构造器
+    private Triple(int i) {
+        this.number = i;
+    }
+
+    //按照索引返回对象的静态方法
+    private static Triple getInstance(int index) {
+        if (index < 0 || index > 2) {
+            throw new RuntimeException("索引错误");
+        }
+        return triples[index];
+    }
+}
+</pre>
+<p>可见想把任何类变成单例或者类似的有限个数的类, 只需要先将构造器私有化, 再添加上持有对象的静态域和获取对象的静态方法就可以了.</p>
+<br>
+<p>练习5-3 纠错</p>
+<pre>
+public class FakeSingleton {
+
+    private static FakeSingleton singleton = null;
+
+    private FakeSingleton() {
+        System.out.println("创建一个实例");
+    }
+
+    public static FakeSingleton getInstance() {
+        if (singleton == null) {
+            singleton = new FakeSingleton();
+        }
+        return singleton;
+    }
+}
+</pre>
+<p>这个例子为什么不是严格的单例, 是因为在调用getInstance()方法的时候, 如果是多线程程序, 很可能创建了对象之后还没有赋值就被打断, 由于非基本类型的赋值操作不是原子的.</p>
+<p>于是可以出现线程1创建了一个new FakeSingleton(), 但是还没有赋值, 另外线程2也创建了一个new FakeSingleton()并且赋值, 然后使用这个单例的程序可能先获取了线程2创建的对象, 之后线程1赋值完之后, 使用单例的程序再去获取, 就获得了另外一个对象. 所以还是直接在类初始化的时候固定好静态变量比较好.</p>
+<p>想要修改也很简单, 将getInstance()加上 synchronized 修饰即可, 或者严格按照单例模式, 在类初始化的时候就创建好 FakeSingleton() 对象.</p>
+
+<h2 style="text-align: center;" id="con3">Prototype 原型模式</h2>
+<p>原型模式, 我个人理解, 就是不使用 new 类名() 这种方式来生成实例, 而是根据现有的实例来生成实例.</p>
+<p>乍一听好像有点奇怪, 不new 一个对象出来, 要如何生成新对象.</p>
+<p>先看一下示例在回头过来谈谈理解, 这是一个先利用了模板设计模式的框架:</p>
+<pre>
+public interface Product extends Cloneable {
+
+    void use(String s);
+
+    Product createClone();
+}
+</pre>
+<p>先是一个Product接口, 这个接口继承了Cloneable接口, 实现了该接口的类的对象可以调用.clone()方法来复制自己.</p>
+<p>然后是Manager类, 这个类将使用Product接口类型来复制实例:</p>
+<pre>
+public class Manager {
+
+    private HashMap&lt;String, Product> showcase = new HashMap&lt;>();
+
+    public void register(String name, Product product) {
+        showcase.put(name, product);
+    }
+
+    public Product create(String productName) {
+        Product p = showcase.get(productName);
+        return p.createClone();
+    }
+}
+</pre>
+<p>看了一下Manager类, 其主要作用是将一个对象注册到自己的容器里来, 如果外部有需要, 就用同名的产品复制出一个实例返回给外部, 而不是直接返回容器中的实例.</p>
+<p>Manager和Product结合起来, 就是之前模板模式中提到的框架, 两个类互相有交互, 但没有使用任何具体实现类的类名.</p>
+<p>从目前的框架来看, 实际上要实现的就是一个复制功能.来看看具体两个具体的Product实现类, 首先是MessageBox:</p>
+<pre>
+public class MessageBox implements Product {
+
+    private char decochar;
+
+    public MessageBox(char decochar) {
+        this.decochar = decochar;
+    }
+
+    //没有什么实际意义的use, 仅仅为了实现
+    @Override
+    public void use(String s) {
+        int length = s.getBytes().length;
+        for (int i = 0; i < length + 4; i++) {
+            System.out.print(decochar);
+        }
+        System.out.println();
+        System.out.println(decochar + " " + s + " " + decochar);
+        for (int i = 0; i < length + 4; i++) {
+            System.out.print(decochar);
+        }
+        System.out.println();
+    }
 
 
-<h2 style="text-align: center;" id="con2"></h2>
+    @Override
+    public Product createClone() {
+        Product p = null;
+        try{
+            //clone()方法调用之后得到的是Object类型, 需要转型. 调用.clone()方法得到的是当前对象的复制
+            p = (Product) clone();
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+        return p;
+    }
+}
+</pre>
+<p>这里的关键是createClone()方法, 其中在自身上调用的 .clone() 方法要求类必须继承Cloneable接口, 我们已经在Product接口中继承了, 所以MessageBox类也是继承的.</p>
+<p>如果不继承就调用, 会抛出CloneNotSupportedException, 所以要try-catch一下. </p>
+<p>再来一个实现类 UnderlinePen:</p>
+<pre>
+public class UnderlinePen implements Product {
 
-<h2 style="text-align: center;" id="con3"></h2>
+    private char decochar;
 
-<h2 style="text-align: center;" id="con4"></h2>
+    public UnderlinePen(char decochar) {
+        this.decochar = decochar;
+    }
+
+    //没有什么实际意义的use, 仅仅为了实现
+    @Override
+    public void use(String s) {
+        int length = s.getBytes().length;
+        System.out.println("\"" + s + "\"");
+        System.out.print(" ");
+        for (int i = 0; i < length; i++) {
+            System.out.print(decochar);
+        }
+        System.out.println();
+    }
+
+
+    @Override
+    public Product createClone() {
+        Product p = null;
+        try{
+            //clone()方法调用之后得到的是Object类型, 需要转型. 调用.clone()方法得到的是当前对象的复制
+            p = (Product) clone();
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+        return p;
+    }
+}
+</pre>
+<p>这两个类只有.use()方法是不同的. 现在就可以通过Manager类, 来复制出对应的类了. 看一下测试代码:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        //创建出所需对象
+        Manager manager = new Manager();
+        UnderlinePen upen = new UnderlinePen('~');
+        MessageBox mbox = new MessageBox('*');
+        MessageBox sbox = new MessageBox('/');
+
+        //注册到manager对象中
+        manager.register("strong", upen);
+        manager.register("warning", mbox);
+        manager.register("slash", sbox);
+
+        //根据strong名称创建对象, 得到的是什么呢, 是upen吗?
+        Product p1 = manager.create("strong");
+        System.out.println(p1);
+        System.out.println(upen);
+        System.out.println(p1 == upen);
+        //行为一样吗?
+        p1.use("saner");
+        upen.use("saner");
+
+        Product p2 = manager.create("warning");
+        p2.use("owl");
+
+        Product p3 = manager.create("slash");
+        p2.use("sixtuan");
+    }
+}
+</pre>
+<p>通过测试, 可以发现我们创建了一个制造不同实例的框架. 利用了Java 的clone机制, 我们在Manager中注册好了所有需要生成的对象之后, 通过create()加上指定的参数, 就创建出来了不同的对象. </p>
+<p>在这里我们把Product类型叫做原型, MessageBox, UnderlinePen等原型的实现类, 叫做具体原型, 负责复制现有实例然后返回新实例.</p>
+<p>Manager类被称为Client - 使用者, 程序的其他部分, 通过使用者来获取新的实例并使用. 这里每调用一次manager.create()并传入一个标识具体原型的参数, 就会根据具体原型创建一个新类型返回. 这个类型能够在Product接口之下正常工作.</p>
+<p>看到这里终于有点明白原型模式了, 与通过一个类直接创建对象不同, 原型模式是通过了一个中介(Manager)来有选择的在多个实现了同一个接口的具体原型中间做选择, 去创建新的实例.</p>
+<p>前边工厂模式是一种具体类型创建一个具体工厂. 而这里针对不同的具体原型, 一个代理就可以根据参数来创建不同的具体对象. 由于框架规定好了操作, 因此具体原型对框架的执行完全没有影响.</p>
+<p>确实有意思啊设计模式.</p>
+<p>这里额外要注意的是利用了Java 的 .clone() 特性, .clone()是在Object里定义的方法, 但只有使用了Cloneable标记接口的对象才能调用. Cloneable就和序列化接口一样都是一种标记接口.</p>
+<p>而且clone只是浅复制, 会复制对象的域中的值和引用, 对于对象持有的对象, 不会再进行复制, 如果要深复制, 需要自行编写针对某个对象的.clone()方法, 不过要记得先要调用父类的super.clone()方法.</p>
+<p>关于浅复制可以简单的测试一下, 给MessageBox类加上一个数组引用和打印数组的方法:</p>
+<pre>
+public class MessageBox implements Product {
+
+    ......
+
+    private List&lt;Integer> list = new ArrayList<>();
+
+    public void showList() {
+        System.out.println(list);
+    }
+
+    ......
+}
+</pre>
+<p>然后进行测试:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        //创建出所需对象
+        Manager manager = new Manager();
+        UnderlinePen upen = new UnderlinePen('~');
+        MessageBox mbox = new MessageBox('*');
+        MessageBox sbox = new MessageBox('/');
+
+        //注册到manager对象中
+        manager.register("strong", upen);
+        manager.register("warning", mbox);
+        manager.register("slash", sbox);
+
+        //测试浅复制, 都复制自同一个具体原型
+        Product messagebox1 = manager.create("warning");
+        Product messagebox2 = manager.create("warning");
+
+        //给具体原型put一个10
+        mbox.put(10);
+        //打印出来发现所有克隆出来的对象的数组里都有了10
+        mbox.showList();
+        ((MessageBox) messagebox1).showList();
+        ((MessageBox) messagebox2).showList();
+
+        //给一个对象再put一个20
+        mbox.put(20);
+        //再打印, 发现所有对象的数组也都变成了[10, 20]
+        mbox.showList();
+        ((MessageBox) messagebox1).showList();
+        ((MessageBox) messagebox2).showList();
+    }
+}
+</pre>
+<p>另外我这里也细细体会了一下书里说的, 就是摆脱类名的束缚, 使用字符串或者其他标记来生成具体对象, 确实可以有效的提高解耦程度. 可以无需知道类名就可以进行创建对象, 极大的提高了灵活程度.</p>
+<p>以后如果是一批实现了同一个接口的对象, 具体实现不同, 都可以考虑使用这种原型模式来批量生产, 而不是每次都一个一个创建实例.</p>
+
+<h2 style="text-align: center;" id="con4">练习</h2>
+<p>练习6-1 让两个类共用的方法</p>
+<p>我想了一下, 站在今天的角度来说, 可能有如下方案:</p>
+<ol>
+    <li>编写一个父类具备该方法, 继承即可.</li>
+    <li>在接口中编写默认方法</li>
+</ol>
+<p>不过我尝试在接口中编写默认方法如下:</p>
+<pre>
+public interface Product extends Cloneable {
+
+    void use(String s);
+
+    default Product createClone() {
+        Product p = null;
+        try {
+            //clone()方法调用之后得到的是Object类型, 需要转型. 调用.clone()方法得到的是当前对象的复制
+            p = (Product) clone();
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+        return p;
+    }
+}
+</pre>
+<p>是无法通过编译的, 这是因为接口不继承Object, 因此找不到clone()方法. 看来还是只能采取继承的方式才行.</p>
+<br>
+<p>练习 6-2 java.lang.Object 类实现了 java.lang.Cloneable 接口了吗?</p>
+<p>这个问题有点意思, Object中首先实现了clone()方法, 如果clone()方法会检查是不是具备Cloneable接口从而抛出异常. 所以Object肯定没有实现Cloneable接口, 因为其他类都继承自Object, 如果实现的话, 永远也不会抛出异常了.</p>
+
 
 <h2 style="text-align: center;" id="con5"></h2>
 
