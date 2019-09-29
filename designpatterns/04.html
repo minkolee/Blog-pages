@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>设计模式</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">设计模式 04 分离功能和实现</h1>
+<p>已经看完了8个模式, 继续前进了.</p>
+
+
+<ol>
+    <li><a href="#con1">Bridge 桥接模式</a></li>
+    <li><a href="#con2">练习</a></li>
+    <li><a href="#con3">Prototype 原型模式</a></li>
+    <li><a href="#con4">练习</a></li>
+    <li><a href="#con5">Builder 建造者模式</a></li>
+    <li><a href="#con6">练习</a></li>
+    <li><a href="#con7">Abstract Factory 抽象工厂</a></li>
+    <li><a href="#con8">练习</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Bridge 桥接模式</h2>
+<p>桥接模式用来连接功能层次结构和实现层次结构.</p>
+<p>听上去有点抽象, 什么是功能层次结构和实现层次结构. 我看了一下书上的介绍, 然后理解了一下: 所谓功能层次, 就是API有没有增加, 即类是否可以提供新的服务. 在A类中定义了1个方法, B类继承A类, 然后又新增一个方法, 这就是添加功能, 即类的功能层次结构.</p>
+<p>而实现指的是不新增API, 只是新增具体实现, 比如B和C类都继承A类, 但都是重写了A的抽象方法, 没有添加新的功能, 这就是类的实现层次结构.</p>
+<p>看一个例子: 如果有一个A类具有一个抽象方法, B类继承A类, 实现了抽象方法然后又新增一个方法, 这就是同时增加了新功能和新实现, 在体系结构里同时改动了类的功能层次结构和实现层次结构.</p>
+<p>在这个例子里只有一层, 功能层次结构和实现层次结构都混杂在B类中, 如果可以将其分离, 就会好很多. 可能会想到分成两个体系, 一个功能层次体系里只从A继承和声明抽象方法, 一个实现层次体系仅仅只实现继承体系中的抽象类, 不新增任何方法.</p>
+<p>这就是Bridge模式的意义, 即在功能层次结构和实现层次结构之间架起桥梁.</p>
+<p>到这里其实我也还没完全懂, 看一下例子吧. 先来看功能层次体系的类:</p>
+<pre>
+//这个类传入了一个DisplayImpl impl对象, 然后使用这个对象来进行工作. 单看这一个还看不出来, 再继续看
+public class Display {
+
+    private DisplayImpl impl;
+
+    public Display(DisplayImpl impl) {
+        this.impl = impl;
+    }
+
+    public void open() {
+        impl.rawOpen();
+    }
+
+    public void print() {
+        impl.rawPrint();
+    }
+
+    public void close() {
+        impl.rawClose();
+    }
+
+    public final void display() {
+        open();
+        print();
+        close();
+    }
+}
+</pre>
+<pre>
+public class CountDisplay extends Display {
+
+    //这里调用父类构造器, 同样传入一个DisplayImpl对象
+    public CountDisplay(DisplayImpl impl) {
+        super(impl);
+    }
+
+    public void multiDisplay(int times) {
+        open();
+        for (int i = 0; i < times; i++) {
+            print();
+        }
+        close();
+    }
+}
+</pre>
+<p>CountDisplay是功能的扩展, 可以看到, 这个类继承了Display类, 没有新的实现, 而是增添了新的方法. 看到这里我自己琢磨明白了, 问题的关键在于DisplayImpl impl对象.</p>
+<p>DisplayImpl impl对象肯定会有其他类来继承, 但是只重写其中的方法, 不管这些方法具体实现是什么, 都能够被CountDisplay这个新功能所使用. 这样Display及其衍生类只需要注重添加新功能, DisplayImpl类及其衍生类只需要注重重写新实现.</p>
+<p>Display - DisplayImpl类就是这样一个桥梁, 两个基类编写好自己之间的交互体系, 桥的两边各自是两个基类自己衍生开来的一片区域, 怪不得叫桥接模式.</p>
+<p>还没开始看实现层次结构的类, 就自己琢磨明白了:</p>
+<pre>
+public abstract class DisplayImpl {
+
+    public abstract void rawOpen();
+
+    public abstract void rawPrint();
+
+    public abstract void rawClose();
+}
+</pre>
+<p>果然是一个抽象类, 注意全部是抽象方法的话, 其实改成一个接口也可以, 另外一个岸边就变成了接口的衍生类. 所以桥两边可以一边是接口,一边是具体类.</p>
+<p>那实现层次的类肯定就要开始具体实现了:</p>
+<pre>
+public class StringDisplayImpl extends DisplayImpl {
+
+    private String string;
+
+    private int width;
+
+    public StringDisplayImpl(String string) {
+        this.string = string;
+        this.width = string.getBytes().length;
+    }
+
+    @Override
+    public void rawOpen() {
+       printLine();
+    }
+
+    @Override
+    public void rawPrint() {
+        System.out.println("|" + string + "|");
+    }
+
+    @Override
+    public void rawClose() {
+        printLine();
+    }
+
+    private void printLine() {
+        System.out.print("+");
+        for (int i = 0; i < width; i++) {
+            System.out.print("-");
+        }
+        System.out.println("+");
+    }
+}
+</pre>
+<p>这个实现类实现了装饰性的打印, 不过功能是其次的, 主要可以看到, 这里的核心功能在于重写方法, 所以属于功能实现层次.</p>
+<p>然后可以来使用一下桥接模式:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        //创建实现类对象, 这里创建的要点是, 根据功能层次选择对应的类型, 传入的参数则是实现层次的对象.
+
+        //创建一个实现层次的对象
+        DisplayImpl stringDisplay = new StringDisplayImpl("saner");
+
+        //要使用普通显示功能, 即Display类
+        Display display = new Display(stringDisplay);
+        display.display();
+
+        //要使用重复显示功能, 即CountDisplay类
+        CountDisplay countDisplay = new CountDisplay(stringDisplay);
+        countDisplay.multiDisplay(10);
+    }
+}
+</pre>
+<p>这里的桥, 其实就是Display - DisplayImpl这座桥. 使用了这个模式之后, 需要修改功能, 就专注在桥的功能层次这边, 需要修改实现, 就专注于桥的实现层次这一侧.</p>
+<p>仅仅用一个基类互相连通, 就可以分离功能和实现, 确实有意思.</p>
+<p>最后来看看这个模式的名词:</p>
+<ol>
+    <li>Abstraction: 抽象化, 指位于功能层次结构最上层的类, 在例子中就是Display类, 用于定义基本功能和保存实现层次中的基础实现者.</li>
+    <li>RefinedAbstraction: 改善后的抽象化, 指功能层次结构中在基类上添加了新功能的类, 例子中就是指CountDisplay</li>
+    <li>Implementor: 实现者, 指实现层次结构中的最上层, 一般指抽象类或者接口, 例子中就是指DisplayImpl.</li>
+    <li>ConcreteImplementor: 具体实现者, 就是指实现层次结构中的具体实现类了.</li>
+</ol>
+<p>这里还需要知道的是委托关系. Display - DisplayImpl这个桥其中的两个类是什么关系, 这两个类由于没有继承关系, 所以不是强关系. 实际上两者可以说是委托关系, Display将所需要完成的工作交给DisplayImpl来完成, 这是弱关联关系, 因为直到运行的时候, 委托对象和被委托对象才发生关系, 弱关系的类在关系改变的时候, 修改的代码比较少.</p>
+
+<h2 style="text-align: center;" id="con2">练习</h2>
+<p>习题 9-1 添加一个显示字符串随机次数的类</p>
+<p>这个首先应该考虑, 是修改功能层次还是实现层次, 很显然, 这是一个新功能(显示字符串若干次), 而不是一个新实现, 因为已经有了显示字符串的实现. </p>
+<p>这里还要注意的就是选择在何种程度上分离功能和实现. 如果你说显示一次字符串和显示五次是不同的实现, 那就应该修改实现类. 但是如果进一步解耦的话, 还是会想到显示字符串应该是最基础的实现, 如何实现可以放到功能中.</p>
+<p>当然在现实中分离功能与实现的点未必这么容易, 可能要有丰富的经验才行.</p>
+<p>这里经过分析, 很显然我们应该新增一个功能层次的类:</p>
+<pre>
+public class RandomDisplay extends Display {
+
+    private static Random random = new Random();
+
+    public RandomDisplay(DisplayImpl impl) {
+        super(impl);
+    }
+
+    public void randomDisplay(int times) {
+        open();
+        for (int i = 0; i < random.nextInt(times); i++) {
+            print();
+        }
+        close();
+    }
+}
+</pre>
+<p>这样和原来一样, 传入一个实现类就可以正常工作了.</p>
+<hr>
+<p>习题 9-2 显示文本文件的内容</p>
+<p>很显然, 这次应该就是新增实现类了, 因为display是通用的显示, 显示文本文件是一个基础功能.</p>
+<pre>
+public class TextFileDisplayImpl extends DisplayImpl {
+
+    private String filename;
+
+    public TextFileDisplayImpl(String filename) {
+        this.filename = filename;
+    }
+
+    private StringBuilder content = new StringBuilder();
+
+    @Override
+    public void rawOpen() throws IOException {
+        BufferedReader bufferedReader = null;
+        try {
+            File file = new File(filename);
+            bufferedReader = new BufferedReader(new FileReader(file));
+            String s;
+            while ((s = bufferedReader.readLine()) != null) {
+                content.append(s).append("\n");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (bufferedReader != null) {
+                bufferedReader.close();
+            }
+        }
+    }
+
+    @Override
+    public void rawPrint() {
+        System.out.print(content.toString());
+    }
+
+    @Override
+    public void rawClose() {
+        System.out.println("End of file");
+    }
+}
+</pre>
+<p>这里要注意的是使用了IO, 所以要在很多使用到这个方法的地方加上抛出异常的声明, 会导致其他类里也会跟着修改.</p>
+<hr>
+<p>习题 9-3 这个就要涉及到拆分功能和实现了</p>
+<p>哪个部分算是基础的实现可以复用, 哪个功能算是功能, 即控制这些基础的实现. 我的思路是显示几行很显然是功能. 显示起始字符, 显示终止字符, 和显示其中的一个字符, 这些是实现.</p>
+<p>所以功能类重在显示几次, 而实现类重在显示三种字符, 现在马上要下班, 回家编写这个类.</p>
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

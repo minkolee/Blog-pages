@@ -24,8 +24,10 @@
     <li><a href="#con2">练习</a></li>
     <li><a href="#con3">Prototype 原型模式</a></li>
     <li><a href="#con4">练习</a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">Builder 建造者模式</a></li>
+    <li><a href="#con6">练习</a></li>
+    <li><a href="#con7">Abstract Factory 抽象工厂</a></li>
+    <li><a href="#con8">练习</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">Singleton 单例模式</h2>
@@ -384,13 +386,494 @@ public interface Product extends Cloneable {
 <p>这个问题有点意思, Object中首先实现了clone()方法, 如果clone()方法会检查是不是具备Cloneable接口从而抛出异常. 所以Object肯定没有实现Cloneable接口, 因为其他类都继承自Object, 如果实现的话, 永远也不会抛出异常了.</p>
 
 
-<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con5">Builder 建造者模式</h2>
+<p>建造者模式用于创建一个比较复杂的实例, 并不能简单的new一下就得到需要的实例, 而是需要针对一个实例调用各种建造方法, 全部完毕之后, 再调用一个方法, 就可以获得建造成功的实例.</p>
+<p>建造者模式也通常用于配置文件的创立, 其本质就是不断通过API改变对象的状态, 最后创建完毕.</p>
+<p>建造者模式的核心就是一个建造者接口, 然后还有一个使用这个建造者接口对象的监工对象. 需要创建的时候, 通过监工对象去调用就可以了. 本质上也不需要监工对象, 直接使用建造者也可以.</p>
+<p>建造者的接口如下:</p>
+<pre>
+public interface Builder {
 
-<h2 style="text-align: center;" id="con6"></h2>
+    void makeTitle(String title);
+
+    void makeString(String string);
+
+    void makeItems(String[] items);
+
+    void close();
+}
+</pre>
+<p>这个接口意图在创建一篇带有标题, 正文和项目的文章, 可以是文本(字符串格式), 也可以是HTML格式, 就根据文本和HTML来编写接口的实现类:</p>
+<pre>
+public class TextBuilder implements Builder {
+
+    private StringBuffer result = new StringBuffer();
+
+    @Override
+    public void makeTitle(String title) {
+        result.append("===========================================\n").append("[").append(title).append("]\n").append("\n");
+    }
+
+    @Override
+    public void makeString(String string) {
+        result.append("*").append(string).append("\n").append("\n");
+    }
+
+    @Override
+    public void makeItems(String[] items) {
+        for (String item : items) {
+            result.append(" . ").append(item).append("\n");
+        }
+    }
+
+    @Override
+    public void close() {
+        result.append("===========================================\n");
+    }
+
+    public String getResult() {
+        return result.toString();
+    }
+}
+</pre>
+<p>这里很有意思的是, 作者原来的代码是反复调用StringBuffer, 但现在新的Java里StringBuffer就是Builder模式, 只不过返回自身对象, 所以可以链式调用.</p>
+<p>通过阅读代码可以知道, 作者这里对于调用方法的顺序还是有要求的, 否则文章会乱掉, 其实如果开发一个成熟的类的话, 还需要加上各种标记来标志建造的阶段等等. 这里因为是一个例子, 就简化了.</p>
+<p>创建HTML文件的代码如下:</p>
+<pre>
+public class HTMLBuilder implements Builder {
+
+    private String filename;
+
+    private PrintWriter writer;
+
+    @Override
+    public void makeTitle(String title) {
+        filename = title + ".html";
+        try {
+            writer = new PrintWriter(filename);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        writer.println("&lt;html>&lt;head>&lt;title>" + title + "&lt;/title>&lt;/head>&lt;body>");
+        writer.println("&lt;h1>" + title + "&lt;/h1>");
+    }
+
+    @Override
+    public void makeString(String string) {
+        writer.println("&lt;p>" + string + "&lt;/p>");
+    }
+
+    @Override
+    public void makeItems(String[] items) {
+        writer.println("&lt;ol>");
+        for (String item : items) {
+            writer.println("&lt;li>" + item + "&lt;/li>");
+        }
+        writer.println("&lt;/ol>");
+    }
+
+    @Override
+    public void close() {
+        writer.println("&lt;/body>&lt;/html>");
+        writer.close();
+    }
+
+    public String getFilename() {
+        return filename;
+    }
+}
+</pre>
+<p>代码都很简单, 作者就是为了演示. 然后是使用建造者的Director类:</p>
+<pre>
+public class Director {
+
+    private Builder builder;
+
+    public Director(Builder builder) {
+        this.builder = builder;
+    }
+
+    public void construct(String title, String string, String[] items) {
+        builder.makeTitle(title);
+        builder.makeString(string);
+        builder.makeItems(items);
+        builder.close();
+    }
+}
+</pre>
+<p>这样我们可以解耦, 给Director传入具体的建造者对象就可以进行创建, 在Main类中进行测试:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        String title = "设计模式";
+        String string = "23种设计模式";
+        String[] items = new String[]{"适配器模式", "建造者模式", "工厂模式", "迭代器模式", "原型模式", "单例模式", "模板模式"};
+
+        HTMLBuilder htmlBuilder = new HTMLBuilder();
+        new Director(htmlBuilder).construct(title, string, items);
+        System.out.println(htmlBuilder.getFilename());
+
+        TextBuilder textBuilder = new TextBuilder();
+        new Director(textBuilder).construct(title, string, items);
+        System.out.println(textBuilder.getResult());
+    }
+}
+</pre>
+<p>可以看到监工模式其实没什么用, 只是套一层壳, 直接也可以使用建造者对象.</p>
+
+<h2 style="text-align: center;" id="con6">练习</h2>
+<p>其实第一题已经做掉了, 作者原书的Builder是抽象类, 我给直接修改成了接口. 因为遵循纯粹的抽象类, 不如修改成接口. 模板模式的抽象类才有设计模式上的价值.</p>
+<p>习题 7-2 就是我之前提出的思考, 也就是建造者调用方法的顺序. 代码也很简单, 加一个标志位就可以了:</p>
+<pre>
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+
+public class HTMLBuilderTitleFirst implements Builder {
+
+    <span style="color: red">private boolean titled = false;</span>
+
+    private String filename;
+
+    private PrintWriter writer;
+
+    @Override
+    public void makeTitle(String title) {
+
+<span style="color: red">        //添加判断
+        if (titled) {
+            System.out.println("无法重复创建标题");
+            return;
+        }</span>
+
+        filename = title + ".html";
+        try {
+            writer = new PrintWriter(filename);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        writer.println("&lt;html>&lt;head>&lt;title>" + title + "&lt;/title>&lt;/head>&lt;body>");
+        writer.println("&lt;h1>" + title + "&lt;/h1>");
+
+<span style="color: red">        //成功写入标题之后设置标志位
+        titled = true;</span>
+    }
+
+    @Override
+    public void makeString(String string) {
+
+<span style="color: red">        //判断标志位的代码
+        if (!titled) {
+            System.out.println("必须先创建标题");
+            return;
+        }</span>
+
+        writer.println("&lt;p>" + string + "&lt;/p>");
+    }
+
+    @Override
+    public void makeItems(String[] items) {
+
+<span style="color: red">        //判断标志位的代码
+        if (!titled) {
+            System.out.println("必须先创建标题");
+            return;
+        }</span>
+
+        writer.println("&lt;ol>");
+        for (String item : items) {
+            writer.println("&lt;li>" + item + "&lt;/li>");
+        }
+        writer.println("&lt;/ol>");
+    }
+
+    @Override
+    public void close() {
+
+<span style="color: red">        //判断标志位的代码
+        if (!titled) {
+            System.out.println("必须先创建标题");
+            return;
+        }</span>
+
+        writer.println("&lt;/body>&lt;/html>");
+        writer.close();
+    }
+
+    public String getFilename() {
+        return filename;
+    }
+}
+</pre>
+<p>习题 7-3 就略过了, 就是纯粹的再新编写一个类.</p>
+<p>习题 7-4 , 如果连续用String拼接, 每个字符串都会创建一个对象, 用StringBuffer的话效率会高很多.</p>
+
+<h2 style="text-align: center;" id="con7">Abstract Factory 抽象工厂</h2>
+<p>之前学习了工厂模式, 就是将模板模式用在创建实例上, 有一个Factory抽象类和一个Product接口, 用不同的Factory实现类, 就可以制造出不同的, 但是都符合Product接口规范的产品.</p>
+<p>抽象工厂在这个基础上更进一步, 用于组装复杂的对象. 这些对象未必简简单单实现一个接口, 而可能还由其他对象或者说零件来组成.</p>
+<p>抽象工厂模式就是有抽象的工厂, 还有抽象的零件, 然后也像框架一样搭建好生产过程, 最后靠实现类来完成组装.</p>
+<p>作者用了一个把带有层次关系的链接制作成HTML文件的例子, 先来看一批抽象类:</p>
+<pre>
+//这是一个抽象类, 当做具体链接和链接列表的父类, 其中规定了构造器传入一个标题, 而makeHTML()方法交给子类实现
+public abstract class Item {
+
+    protected String caption;
+
+    public Item(String caption) {
+        this.caption = caption;
+    }
+
+    public abstract String makeHTML();
+}
+</pre>
+<pre>
+//link类表示一个链接, 增加了一个url域, 但是没有实现makeHTML(), 也是一个抽象类
+public abstract class Link extends Item {
+
+    protected String url;
+
+    public Link(String caption, String url) {
+        super(caption);
+        this.url = url;
+    }
+
+}
+</pre>
+<pre>
+//trayl类要理解一下, 这个类继承Item, 其中又定义了一个Item容器. 这里要注意一下泛型是Item, 因为Link表示单个链接, 而Tray可以表示多个链接组成的列表. 由于列表中又可以包含单个链接或者列表, 所以Tray同时可以装入为Item类的Link和Tray类.
+public abstract class Tray extends Item {
+    protected ArrayList&lt;Item> trays = new ArrayList<>();
+
+    public Tray(String caption) {
+        super(caption);
+    }
+
+    public void add(Item item) {
+        trays.add(item);
+    }
+}
+</pre>
+<p>到了这里基本上明白了, 最终要组装的产品 - Page类, 其实是由多层次的Tray和Link类的实现类构成的. Tray和Link都是零件, Item是对这些零件的更高一层抽象. Page类是对使用这些零件组装的产品的抽象:</p>
+<pre>
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.List;
+
+public abstract class Page {
+
+    protected String title;
+
+    protected String author;
+
+    protected List&lt;Item> content = new ArrayList&lt;>();
+
+    public Page(String title, String author) {
+        this.title = title;
+        this.author = author;
+    }
+
+    public void add(Item item) {
+        content.add(item);
+    }
+
+    public void output() {
+        try {
+            String filename = title + ".html";
+            Writer writer = new PrintWriter(filename);
+            writer.write(this.makeHTML());
+            writer.close();
+            System.out.println("编写完成");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public abstract String makeHTML();
+}
+</pre>
+<p>可以看到, Page类中有一个内容列表, 其实就是先获得这个页面构成的所有要素, 然后也有一个抽象方法 makeHTML(), 交给子类来实现. 这本身也是模板模式.</p>
+<p>零件和产品的抽象类都有了, 之后是Factory类:</p>
+<pre>
+public abstract class Factory {
+
+    public static Factory getFactory(String classname){
+        Factory factory = null;
+
+        try {
+            factory = (Factory) Class.forName(classname).newInstance();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return factory;
+    };
+
+    public abstract Link createLink(String caption, String url);
+    public abstract Tray createTray(String caption);
+    public abstract Page createPage(String title, String author);
+
+}
+</pre>
+<p>抽象的Factory采用了反射的方式, 可以通过类名返回一个任意的Factory具体对象. 而创建Link, Tray和组装Page的方法也是抽象的, 交给具体工厂来实现.</p>
+<p>通过这几个抽象类, 我们可以发现已经像一个框架一样搭建好了组装Page产品的过程:</p>
+<ol>
+    <li>1 获取具体的工厂对象</li>
+    <li>2 根据内容创建Link 和 Tray对象, 如果有多个层次, 需要一层一层创建</li>
+    <li>3 根据内容创建Page对象</li>
+</ol>
+<p>这里仅仅是过程, 具体每个对象的实际行为, 也就是makeHTML()方法, 就交给各个子类具体实现了. 虽然还没有实现, 但是已经可以看出来端倪了, 就是一个嵌套的列表.</p>
+<p>下边是实体类, 对应我们的具体产品, 即生产出来的具体产品是HTML列表元素.</p>
+<pre>
+//ListLink是将标题和url创建为单个列表项目的具体实现类
+public class ListLink extends Link {
+
+    public ListLink(String caption, String url) {
+        super(caption, url);
+    }
+
+    //Link类是创建单独的链接
+    @Override
+    public String makeHTML() {
+        return "&lt;li>&lt;a href=\"" + url + "\">" + caption + "&lt;/a>&lt;/li>";
+    }
+}
+</pre>
+<pre>
+public class ListTray extends Tray {
+    public ListTray(String caption) {
+        super(caption);
+    }
+
+    //Tray的makeHTML()要注意, 内部的ArrayList中可能存放有List或者Tray对象, List对象我们已经编写完毕了.
+    //Tray内部有Tray对象的话, 遍历然后调用makeHTML()方法, 这样即使嵌套, 也可以正确的自动递归来实现.
+    //这里除了抽象工厂的方法之外, 可以看到, 对于嵌套的内容, 如果最深层都是同样的零件, 通过把最深层的零件和外壳零件声明为同一个类型, 然后编写方法, 可以自然而然的实现递归, 而不用人工去递归. 感觉这个思想比面向对象还重要.
+    @Override
+    public String makeHTML() {
+        StringBuilder result = new StringBuilder();
+
+        //先写入标题部分
+        result.append("&lt;li>\n")
+                .append(caption)
+                .append("\n")
+
+                .append("&lt;ul>\n");
+
+        for (Item tray : this.trays) {
+            result.append(tray.makeHTML());
+        }
+
+        result.append("&lt;ul>\n").append("&lt;li>\n");
+        return result.toString();
+    }
+}
+</pre>
+<p>看设计模式竟然发现了面向对象的思想可以自然而然的解决递归, 功力又要涨了. 然后是具体产品类:</p>
+<pre>
+public class ListPage extends Page {
+
+    public ListPage(String title, String author) {
+        super(title, author);
+    }
+
+    //这个方法比较简单,添加标题信息, 然后就递归将其中所有的Item对象的HTML代码放进一个ul列表, 最后生成HTML文件.
+    @Override
+    public String makeHTML() {
+        StringBuilder result = new StringBuilder();
+
+        result.append("&lt;html>&lt;head>&lt;title>" + title + "&lt;/title>&lt;/head>\n")
+                .append("&lt;body>\n")
+                .append("&lt;h1>" + title + "&lt;/h1>")
+                .append("&lt;ul>");
+
+        for (Item item : content) {
+            result.append(item.makeHTML());
+        }
+
+        result.append("&lt;/ul>").append("&lt;hr>&lt;address>" + author + "&lt;/address>")
+        .append("&lt;/body>&lt;/html>");
+        return result.toString();
+    }
+}
+</pre>
+<p>ListPage也没有什么花头, 其实就是外层的一个最大的容器, 底部依然都是落到Link项目上, 所以就再套一层. 话说这个声明成同一个类型然后使用递归的思想真的学到了.</p>
+<p>最后是ListFactory类:</p>
+<pre>
+public class ListFactory extends Factory {
+
+    @Override
+    public Link createLink(String caption, String url) {
+        return new ListLink(caption, url);
+    }
+
+    @Override
+    public Tray createTray(String caption) {
+        return new ListTray(caption);
+    }
+
+    @Override
+    public Page createPage(String title, String author) {
+        return new ListPage(title, author);
+    }
+}
+</pre>
+<p>这个类现在回头看看就很清晰了, 先组装List, 再组装Tray, 再组装二者的嵌套, 最后组装Page对象.</p>
+
+<p>现在就可以用Main来实际组装一下List产品了:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) throws IOException {
+        //反射获取类对象
+        Factory listFactory = Factory.getFactory("designpatterns.abstractfactory.listfactory.ListFactory");
+
+        //开始组装内容
+        Link link1=  listFactory.createLink("柚子小站", "http://conyli.cc");
+        Link link2=  listFactory.createLink("柚子小站2", "http://conyli.cc");
+        Link link3=  listFactory.createLink("柚子小站3", "http://conyli.cc");
+        Link link4=  listFactory.createLink("柚子小站4", "http://conyli.cc");
+
+        Tray tray1 = listFactory.createTray("柚子小站列表1");
+        tray1.add(link2);
+        tray1.add(link3);
+
+        Page page = listFactory.createPage("test", "minko");
+        page.add(link1);
+        page.add(tray1);
+        page.add(link4);
+
+        String re = page.makeHTML();
+        System.out.println(re);
+
+        Writer out = new PrintWriter("test.html");
+        out.write(re);
+        out.close();
+    }
+}
+</pre>
+<p>抽象工厂终于搞明白了, 这里的例子还同时学习到了利用接口完成递归的好处. 这里是产生了列表, 如果是产生其他对象, 只需要再编写一套工厂,零件和产品的实现类即可.</p>
+<p>其实这里就是普通的工厂模式和模板模式, 再加上了零件的设定, 用来组装更加复杂的类, 对于复杂的类确实棒.</p>
+<p>这时候还可以回忆一下创建实例的方法:</p>
+<ol>
+    <li>直接使用new关键字和单例模式: 耦合高, 需要具体类名出现在源代码中</li>
+    <li>工厂模式, 包括抽象工厂: 只需要知道工厂和产品抽象类的类名</li>
+    <li>原型模式: 只需要知道标示了原型的字符串和原型的基类</li>
+    <li>反射模式: 需要知道表示类名的字符串</li>
+</ol>
+<p>在大型开发中一般都是规定好的接口, 所以第二种情况用的比较多. 后边三种情况都比第一种要解耦.</p>
 
 
-
-
+<h2 style="text-align: center;" id="con8">练习</h2>
+<p>习题 8-1 如果将其修改为private, 继承的类虽然也隐含继承了该域, 但无法访问, 必须通过父类的方法才可以访问. 好处是更加私密, 坏处就是要会给继承带来不便.</p>
+<p>习题 8-2 这个其实就是改几行代码, 不再具体写了</p>
+<p>习题 8-3 由于父类没有无参构造器, 而且编译器提供的默认构造器会先默认调用父类的无参构造器, 因此不能依靠默认构造器, 必须显式指定构造器, 而且父类构造器必须先调用.</p>
+<p>习题 8-4 这个我思考了一下, 在这个例子里, Page最终也是由Link类构成的, 理论上是可以将其也声明为Item对象来获得统一的处理方法. 实际上也确实都有同名的方法<code>public abstract String
+    makeHTML()</code>, 但这样做会让Tray对象可以添加Page对象, 但Page对象是成品, 从语义上还是要与其他零件区分开来.</p>
 
 
 
