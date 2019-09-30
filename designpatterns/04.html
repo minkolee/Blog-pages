@@ -15,19 +15,16 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">设计模式 04 分离功能和实现</h1>
+<h1 style="text-align: center;">设计模式 04 分离功能和实现 一致性</h1>
 <p>已经看完了8个模式, 继续前进了.</p>
-
 
 <ol>
     <li><a href="#con1">Bridge 桥接模式</a></li>
     <li><a href="#con2">练习</a></li>
-    <li><a href="#con3">Prototype 原型模式</a></li>
-    <li><a href="#con4">练习</a></li>
-    <li><a href="#con5">Builder 建造者模式</a></li>
-    <li><a href="#con6">练习</a></li>
-    <li><a href="#con7">Abstract Factory 抽象工厂</a></li>
-    <li><a href="#con8">练习</a></li>
+    <li><a href="#con3">Strategy 策略模式</a></li>
+    <li><a href="#con4">Composite 组合模式</a></li>
+    <li><a href="#con5">练习</a></li>
+    <li><a href="#con6">Decorator 装饰器模式</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">Bridge 桥接模式</h2>
@@ -241,9 +238,467 @@ public class TextFileDisplayImpl extends DisplayImpl {
 <hr>
 <p>习题 9-3 这个就要涉及到拆分功能和实现了</p>
 <p>哪个部分算是基础的实现可以复用, 哪个功能算是功能, 即控制这些基础的实现. 我的思路是显示几行很显然是功能. 显示起始字符, 显示终止字符, 和显示其中的一个字符, 这些是实现.</p>
-<p>所以功能类重在显示几次, 而实现类重在显示三种字符, 现在马上要下班, 回家编写这个类.</p>
+<p>所以功能类重在显示几次, 而实现类重在显示三种字符, 编写如下:</p>
+<pre>
+//这个是实现层次的类, 构造器接受三个字符参数, 分别是前缀, 装饰字符, 后缀, 然后重写三个方法, 分别打印这三个字符
+public class DecoDisplayImpl extends DisplayImpl {
+
+    private char prefix;
+    private char deco;
+    private char suffix;
 
 
+    public DecoDisplayImpl(char prefix, char deco, char suffix) {
+        this.prefix = prefix;
+        this.suffix = suffix;
+        this.deco = deco;
+    }
+
+    @Override
+    public void rawOpen() throws IOException {
+        System.out.print(prefix);
+    }
+
+    @Override
+    public void rawPrint() {
+        System.out.print(deco);
+    }
+
+    @Override
+    public void rawClose() {
+        System.out.println(suffix);
+    }
+}
+</pre>
+<p>之后是功能类:</p>
+<pre>
+public class DecoDisplay extends Display {
+
+
+    public DecoDisplay(DisplayImpl impl) {
+        super(impl);
+    }
+
+    // 新增添的功能, 接受两个参数, 一个行数, 一个乘数, 用于控制具体显示
+    public void decoDisplay(int times, int multi) throws IOException {
+        if (times < 0 || multi <= 0) {
+            throw new RuntimeException("times大于等于0, multi大于0");
+        }
+
+        for (int i = 0; i < times; i++) {
+            open();
+            for (int j = 0; j < multi * i; j++) {
+                print();
+            }
+            close();
+        }
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con3">Strategy 策略模式</h2>
+<p>这个策略模式我看了一下, 其实没有什么新花样, 要使用策略的对象实际上也是采取了委托的模式, 传入一个Strategy类型, 在实际运行起来的时候, 传入的是实际的Strategy实现类. </p>
+<p>然后还是依靠Strategy类型对象提供的服务来完成类的功能. </p>
+<p>这里作者举的例子是猜拳, 每次传入的Strategy对象不同, 猜拳的策略就不同.代码就省略了. </p>
+<p>策略模式的特点是替换算法类型. 与模板模式的算法已经定死在父类中完全不同, 策略模式替换的是算法本身.</p>
+<p>桥接模式和策略模式都是分离功能和实现的方式. 当然作者这里和原版GOF的分类不同. 设计模式本身也具有交叉的一些特性, 不过要记住一切都是为了解耦.</p>
+
+<h2 style="text-align: center;" id="con4">Composite 组合模式</h2>
+<p>在上一篇博客学习抽象工厂的时候, 我自己悟出来了用共同的类型来自动实现递归的模式. 没想到这竟然是一种设计模式, 就是Composite, 即容器与内容的一致性.</p>
+<p>如果一个系统中, 最根本的内容都可以落到固定的几种类型上, 然后还有这些最基础的类型的容器, 这些共同组成了一个系统, 那么可以将容器和元素都声明为同一种类型(及一致性), 来创造出递归结构.</p>
+<p>最常见的这种结构就是操作系统的文件系统, 一个目录可以包含若干个目录和文件, 但最终一个目录内只会有一些文件, 所以整个文件系统就是由文件以及文件的容器构成的. 因此可以将文件和容器都看做同样的一种类型, 作者的例子也是据此展开的:</p>
+<p>文件用File类来表示, 目录用Directory类来表示, 为了达成一致性, 不能简单的使用两个没有关系的类, 所以要让File和Directory都作为一个接口或者抽象类Entry的实现类.</p>
+<pre>
+//通用的条目类, 其实前边自己琢磨过之后, 这个就明白多了, 里边的抽象方法供File和Directory类来使用, 只要调用统一的方法, 自动就递归了.
+public abstract class Entry {
+
+    public abstract String getName();
+
+    public abstract int getSize();
+
+    //这个方法供覆盖
+    public Entry addEntry(Entry entry) throws FileTreatmentException{
+        throw new FileTreatmentException();
+    };
+
+    //这个是默认无前缀的打印, 调用了printList(String prefix)方法
+    public void printList() {
+        printList("");
+    }
+
+    //供子类覆盖的方法, 打印前缀, 由子类实现
+    protected abstract void printList(String prefix);
+
+    @Override
+    public String toString() {
+        return getName() + "(" + getSize() + ")";
+    }
+}
+</pre>
+<pre>
+//File就是一个有了额外的文件名和文件大小的Entry条目, 也是文件系统的基础
+public class File extends Entry {
+
+    private String filename;
+
+    private int size;
+
+    public File(String filename, int size) {
+        this.filename = filename;
+        this.size = size;
+    }
+
+    @Override
+    public String getName() {
+        return filename;
+    }
+
+    @Override
+    public int getSize() {
+        return size;
+    }
+
+    //重写方法, 打印出自身
+    //虽然这个方法名称叫做printList, 但不要被名称迷惑, 这就是一个打印出条目自身内容的方法, 也是递归方法
+    @Override
+    protected void printList(String prefix) {
+        System.out.println(prefix + "/" + this);
+    }
+}
+</pre>
+<p>然后是File类的容器Directory类:</p>
+<pre>
+import java.util.ArrayList;
+
+public class Directory extends Entry {
+
+    private String directoryName;
+
+    //这个容器要注意, 目录可以嵌套目录, 所以泛型是一个Entry, 这是实现Composite设计模式的关键
+    private ArrayList&lt;Entry> directory = new ArrayList&lt;>();
+
+    public Directory(String directoryName) {
+        this.directoryName = directoryName;
+    }
+
+    @Override
+    public String getName() {
+        return directoryName;
+    }
+
+    //注意获取大小, 是不能够直接获取, 而是要用容器中的元素计算的
+    //这个方法也是要递归的, 所以放到了抽象类中作为Entry的方法让大家来实现
+    @Override
+    public int getSize() {
+        int totalSize = 0;
+        for (Entry entry : directory) {
+            totalSize += entry.getSize();
+        }
+        return totalSize;
+    }
+
+    //这个也是递归方法, 这里就要打印容器中的全部Entry对象
+    @Override
+    protected void printList(String prefix) {
+        //由于是一个目录, 因此先显示自身的目录名称, toString()方法已经由Entry类实现
+        System.out.println(prefix + "/" + this);
+        //再打印容器内的所有Entry条目, 这里要调用Entry自己的打印方法, 打印出传入的前缀和自己的名称, 这个传入的前缀在每次都会递归增加上一层目录
+        for (Entry entry : directory) {
+            entry.printList(prefix + "/" + directoryName);
+        }
+    }
+
+    //可供链式调用的添加一个条目的方法, 用于组装目录结构
+    @Override
+    public Entry addEntry(Entry entry) throws FileTreatmentException {
+        directory.add(entry);
+        return this;
+    }
+}
+</pre>
+<p>然后就可以创建一系列目录和文件的嵌套结构来测试:</p>
+<pre>
+public class Main {
+    public static void main(String[] args) {
+        try {
+            System.out.println("Making entries...");
+            Directory rootdir = new Directory("root");
+            Directory bindir = new Directory("bin");
+            Directory tmpdir = new Directory("tmp");
+            Directory usrdir = new Directory("usr");
+
+            rootdir.addEntry(bindir).addEntry(tmpdir).addEntry(usrdir);
+
+            bindir.addEntry(new File("vi", 10000));
+            bindir.addEntry(new File("latex", 20000));
+
+            Directory yukidir = new Directory("yuki");
+            Directory hanakodir = new Directory("hanako");
+            Directory tomuradir = new Directory("tomura");
+
+            usrdir.addEntry(yukidir).addEntry(hanakodir).addEntry(tomuradir);
+
+            yukidir.addEntry(new File("diary.html", 100));
+            yukidir.addEntry(new File("Composite.java", 200));
+
+            hanakodir.addEntry(new File("memo.tex", 300));
+
+            tomuradir.addEntry(new File("game.doc", 400));
+            tomuradir.addEntry(new File("iunk.mail", 500));
+
+            rootdir.printList();
+
+        } catch (FileTreatmentException e) {
+            System.out.println(e);
+        }
+    }
+}
+</pre>
+<p>打印出来的结果是:</p>
+<pre>
+Making entries...
+/root(31500)
+/root/bin(30000)
+/root/bin/vi(10000)
+/root/bin/latex(20000)
+/root/tmp(0)
+/root/usr(1500)
+/root/usr/yuki(300)
+/root/usr/yuki/diary.html(100)
+/root/usr/yuki/Composite.java(200)
+/root/usr/hanako(300)
+/root/usr/hanako/memo.tex(300)
+/root/usr/tomura(900)
+/root/usr/tomura/game.doc(400)
+/root/usr/tomura/iunk.mail(500)
+</pre>
+<p>凡是涉及到递归的东西, 都要好好理解一下, 尤其是打印目录的递归方法, 只要记住, 不要过多的考虑递归, 然后每个对象就关注于自己的容器中的东西, 然后对其进行Entry类中一致的操作即可.</p>
+<p>实际上在原版GOF里, 这是一个树结构, 树结构的末端就是File对象的角色, 叫做树叶(Leaf), 也就是基础数据, 其中不能再嵌套其他内容, 树枝类似于容器, 叫做Composite - 复合物, 其中既可以包含复合物, 也可以包含叶子, 在例子里就是Directory类.</p>
+<p>将叶子和复合物统一的东西叫做Component, 即一致性对象, 在例子中就是Entry类.</p>
+<p>作者这里提出的一点思考很不错, 我也发现了, 因为一致性统一了具体数据和容器, 而容器一定会有一个添加(或者其他操作内部容器)的方法, 这个方法究竟定义在哪里比较好. 如果定义在Directory类中, 则要转型, 很麻烦.</p>
+<p>如果将这个方法定义为抽象方法, 则File类中也必须实现这个方法, 代码量有所增加.</p>
+<p>作者采取将方法定义在Entry类中, 然后直接报错, 让Directory去重写这个方法, 是一个比较巧妙的方法, 如果报错, 就会知道一定是在非容器类上调用了这个方法.</p>
+<p>这也是一招, 可以学一下, 即基类的某个方法只想被部分子类调用, 干脆就写一个直接报错的方法, 让需要这个方法的子类去重写.</p>
+<p>树结构的嵌套类型的数据结构, 都可以考虑来使用Composite模式.</p>
+
+<h2 style="text-align: center;" id="con5">练习</h2>
+<p>为Entry类获取完整路径的方法.</p>
+<p>我个人考虑, 由于每个Entry只有一个父Entry, 其实可以在Entry类中增加一个指向父Entry条目的引用. 这样就可以方便快速的获取绝对路径, 只需要递归打印然后拼接就可以了.</p>
+<p>在添加条目的时候, 其实可以反向的来, 就是设置当前条目的父条目. 然后就可以递归打印来获取完整路径, 我的实现是这样的:</p>
+<pre>
+public abstract class Entry {
+
+    public abstract String getName();
+
+    public abstract int getSize();
+
+    //这个方法供覆盖
+    public Entry addEntry(Entry entry) throws FileTreatmentException{
+        throw new FileTreatmentException();
+    };
+
+    public void printList() {
+        printList("");
+    }
+
+    //供子类覆盖的方法, 打印前缀, 由子类实现
+    protected abstract void printList(String prefix);
+
+    @Override
+    public String toString() {
+        return getName() + "(" + getSize() + ")";
+    }
+
+    //新添加的部分, 保存一个指向父Entry的引用, 然后递归的打印出所有父目录的路径拼接成绝对路径
+<span style="color: red">    protected String getAbsoultePath(){
+        Entry entry = this.fatherEntry;
+        StringBuilder path = new StringBuilder();
+        while (entry != null) {
+            path.insert(0, "/" + entry.getName());
+            entry = entry.fatherEntry;
+        }
+        return path + "/" + this.getName();
+    };
+
+    //默认的指向父目录的引用
+    private Entry fatherEntry = null;
+
+    //用于指向设置父目录引用的方法
+    protected void setFatherEntry(Entry entry){
+        fatherEntry = entry;
+    };</span>
+}
+</pre>
+<p>然后只需要修改一下Directory的add方法即可:</p>
+<pre>
+public class Directory extends Entry {
+
+    ......
+
+    //可供链式调用的添加一个条目的方法, 用于组装目录结构
+    @Override
+    public Entry addEntry(Entry entry) throws FileTreatmentException {
+        directory.add(entry);
+        <span style="color: red">entry.setFatherEntry(this);</span>
+        return this;
+    }
+}
+</pre>
+<p>在add方法里同时设置子条目的父Entry条目是当前条目即可. 然后就可以获取绝对路径了. 然后看了一下答案的实现, 果然就是我的思路. 顺利搞定了</p>
+
+<h2 style="text-align: center;" id="con6">Decorator 装饰器模式</h2>
+<p>装饰器在之前学PY的时候对新手来说是一个小难点, 但是在经过了函数式编程洗礼之后, 都不成什么问题了.</p>
+<p>现在来看看装饰器设计模式, 其实就是对一个对象不断的对其增加功能, 变成使用目的更加明确的对象, 相当于在外边套壳来做一些原本这个类无法进行的工作.</p>
+<p>这里作者的例子也很直接, 就是装饰一个打印字符串的程序. Display是用于显示的抽象功能类, StringDisplay是实现类, 显示字符串.</p>
+<p>Border是装饰类的抽象类, SideBorder是显示左右边框的装饰实现类, FullBorder是显示全部边框的装饰实现类. </p>
+<p>先看功能类:</p>
+<pre>
+public abstract class Display {
+
+    public abstract int getColumns();
+
+    public abstract int getRows();
+
+    public abstract String getRowText(int rowNumber);
+
+    public final void show() {
+        for (int i = 0; i < getRows(); i++) {
+            System.out.println(getRowText(i));
+        }
+    }
+}
+</pre>
+<p>具体实现类:</p>
+<pre>
+public class StringDisplay extends Display {
+
+    private String string;
+
+    public StringDisplay(String string) {
+        this.string = string;
+    }
+
+    @Override
+    public int getColumns() {
+        return string.length();
+    }
+
+    @Override
+    public int getRows() {
+        return 1;
+    }
+
+    @Override
+    public String getRowText(int rowNumber) {
+        if (rowNumber == 0) {
+            return string;
+        } else {
+            return "";
+        }
+    }
+}
+</pre>
+<p>可以发现, Display的意图是可以显示多行的一个文本, StringDisplay实现了其显示一个字符串的功能, 即仅仅只有一行的文本.</p>
+<p>然后我们来看装饰类:</p>
+<pre>
+public abstract class Border <span style="color: red">extends Display</span> {
+
+    protected Display display;
+
+    public Border(Display display) {
+        this.display = display;
+    }
+}
+</pre>
+<p>装饰类的核心就是委托功能, 即要做的工作委托给了Display类. 当然, 与单纯的委托不同, 注意红字的部分, 继承了Display, 也就是说装饰类和被装饰类, 其实也属于同一种类型, 这也是为了之后可以解耦, 互换对象.</p>
+<pre>
+public class SideBorder extends Border {
+
+    private char decoChar;
+
+    public SideBorder(Display display, char decoChar) {
+        super(display);
+        this.decoChar = decoChar;
+    }
+
+
+    public int getColumns() {
+        return 2 + display.getColumns();
+    }
+
+    public int getRows() {
+        return display.getRows();
+    }
+
+    public String getRowText(int row) {
+        return decoChar + display.getRowText(row) + decoChar;
+    }
+}
+</pre>
+<p>看实现类就知道, 装饰器的核心就是对外暴露的API与被装饰类是一样的, 因此可以直接来使用被装饰类即可. 由于Border也继承Display, 因此对外来说, 都用Display对象即可, 可以透明的互换装饰类和被装饰类,这是API接口的透明性, 不管装饰几次, 暴露的接口依然是相同的. </p>
+<p>再来一个实现类, 其实看到这里可以知道核心的内容不是在于如何实现, 而是装饰类继承被装饰类, 然后暴露一样的API这样一个设计模式了:</p>
+<pre>
+public class FullBorder extends Border {
+
+    public FullBorder(Display display) {
+        super(display);
+    }
+
+    public int getColumns() {
+        return display.getColumns() + 2;
+    }
+
+    //上下都加框, 所以加2
+    public int getRows() {
+        return display.getRows() + 2;
+    }
+
+    public String getRowText(int row) {
+        StringBuilder stringBuilder = new StringBuilder();
+
+        stringBuilder.append("-".repeat(Math.max(0, getColumns())));
+        stringBuilder.append("\n").append('|' + display.getRowText(0) + "|\n");
+        stringBuilder.append("-".repeat(Math.max(0, getColumns())));
+        return stringBuilder.toString();
+    }
+}
+</pre>
+<p>这是一个打印全部边框的实现类, 不过关键要到使用这些类的时候才能看出装饰器的好处:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        Display display = new StringDisplay("saner");
+
+        System.out.println(display.getRowText(0));
+        System.out.println(display.getColumns());
+        System.out.println(display.getRows());
+
+        System.out.println("================================");
+
+        <span style="color: red">Display decoratedDisplay = new SideBorder(display, '|');</span>
+
+        System.out.println(decoratedDisplay.getRowText(0));
+        System.out.println(decoratedDisplay.getColumns());
+        System.out.println(decoratedDisplay.getRows());
+
+        System.out.println("================================");
+
+        <span style="color: red">decoratedDisplay = new FullBorder(display);</span>
+        System.out.println(decoratedDisplay.getRowText(0));
+        System.out.println(decoratedDisplay.getColumns());
+        System.out.println(decoratedDisplay.getRows());
+
+        //连续套壳使用, 也可以工作, 当然这里代码没有按照书上写, 输出的格式有点问题, 不过不影响装饰器的用途
+        <span style="color: red">decoratedDisplay = new FullBorder(new SideBorder(new SideBorder(new FullBorder(display), '|'), '*'));</span>
+        System.out.println(decoratedDisplay.getRowText(0));
+    }
+}
+</pre>
+<p>测试代码中先创建一个StringDisplay对象, 是原始的, 然后创建两个装饰器, 这里看红字部分, 依然用Display类型来多态调用, 装饰器套壳之后, 所有的API不变. 所以像最后红字连续套壳使用, 也没有问题.</p>
+<p>这样的最大好处, 就是可以无缝的将程序中的类替换为其装饰类, 从而完成额外的功能, 这就要求装饰类和被装饰类继承属于同一类型, 并且暴露相同的API.</p>
+<p>装饰等于是结合了委托, 以及一致性来让API透明, 这也是一个重要的点.</p>
+<p>装饰器的练习是继续写实现类, 就省略了. 核心思想理解了.</p>
 
 
 

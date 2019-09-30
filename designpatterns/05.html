@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>设计模式</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">设计模式 05 访问数据结构</h1>
+
+<ol>
+    <li><a href="#con1">Visitor 访问者模式</a></li>
+    <li><a href="#con2">练习13-1</a></li>
+    <li><a href="#con3">练习13-2</a></li>
+    <li><a href="#con4">练习13-3</a></li>
+    <li><a href="#con5">Chain of Responsibility 职责链模式</a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Visitor 访问者模式</h2>
+<p>访问者模式用来访问一个数据结构. 虽然在刚学面向对象的时候, 说数据的自身处理和数据放在一起, 集成成为对象.</p>
+<p>但如果要解耦的话, 实际上对象和对对象的处理, 是可以分离的, 如果将处理和对象绑在一起, 修改起来很麻烦, 如果将对对象的处理放置到对象之外, 那么就方便很多了, 只需要变更访问者, 就可以改变对对象的处理.</p>
+<p>这里要访问的对象就是之前用过的Composite模式中的Entry对象.</p>
+<p>重点在于编写不同的访问者. 访问者有一个抽象类叫做Visitor, 然后有具体的访问者. 而为了要让访问者可以访问自己, Entry类还要实现一个访问者接口.来看具体代码.</p>
+<p>首先是访问者的基类Visitor:</p>
+<pre>
+public abstract class Visitor {
+
+    public abstract void visit(File file);
+
+    public abstract void visit(Directory directory);
+}
+</pre>
+<p>这里可以看到, 访问者的关键点之一在于使用了重载的方法以适应各个类型.</p>
+<p>然后是Element接口, 这里与Composite的不同在于要让Entry类实现Element接口, 以标志这是一个能够被Visitor模式访问的类:</p>
+<pre>
+public interface Element {
+
+    void accept(Visitor visitor);
+
+}
+</pre>
+<p>接口比较简单, 现在仅仅只有这两个类还看不出来有什么端倪. 现在来修改一下Entry类:</p>
+<pre>
+public abstract class Entry <span style="color: red">implements Element</span> {
+
+    ......
+
+    //这里新增加了一个iterator方法,原理和上边的add一样, 仅能用于Directory类, 父类该方法直接抛异常是为了避免错误调用
+    //这个迭代器用来在visit()方法中递归调用
+    public Iterator iterator() throws FileTreatmentException {
+        throw new FileTreatmentException();
+    }
+
+}
+</pre>
+<p>可以发现这里仅仅标上了实现接口, 但是没有实现, 由于是抽象类, 所以可以让子类去实现.</p>
+<p>下边就来看Entry的子类是如何实现的:</p>
+<pre>
+public class File extends Entry {
+
+    ......
+
+    @Override
+    public void accept(Visitor visitor) {
+        visitor.visit(this);
+    }
+}
+
+public class Directory extends Entry {
+
+    ......
+
+    @Override
+    public void accept(Visitor visitor) {
+        visitor.visit(this);
+    }
+}
+</pre>
+<p>注意看, 这里很有意思, 接受访问者访问的对象, 自己调用访问者的访问自身的方法.</p>
+<p>这样就是化被动为主动, 即对象使用访问者的方法调用自己.</p>
+<p>现在基本上就知道大概了, 即先要有一个数据对象, 然后无论访问者的具体类型, 只要是符合Visitor类型, 就可以让其访问自己, 看ListVisitor实现类:</p>
+<pre>
+public class ListVisitor extends Visitor {
+
+    public String currentdir = "";
+
+    @Override
+    public void visit(File file) {
+        System.out.println(currentdir + "/" + file);
+    }
+
+    //这个方法也是递归方法, 直接访问到一棵树的所有叶子, 可以看到递归的对其中的每个Entry对象, 都调用其上的visit方法.
+    @Override
+    public void visit(Directory directory) {
+        System.out.println(currentdir + "/" + directory);
+        String savedir = currentdir;
+
+        currentdir = currentdir + "/" + directory.getName();
+        //这是递归调用, 即访问一个Directory类型的对象, 会继续递归访问. 这里实际上是Composite模式的应用.
+        Iterator&lt;Entry> iterator = directory.iterator();
+        while (iterator.hasNext()) {
+            Entry entry = iterator.next();
+            <span style="color: red">entry.accept(this);</span>
+        }
+        //这一行不起眼的也是递归, 即更改了当前的目录到新的拼接后的目录.
+        currentdir = savedir;
+    }
+}
+</pre>
+<p>然后就可以来测试了, 想想看, 在Composite模式中, 每个Entry自己有打印自己列表的方法. 现在我们换了一种思路, 即使用访问者来打印:</p>
+<pre>
+public class Main {
+    public static void main(String[] args) {
+        try {
+            //和Composite模式中一样的目录结构
+            Directory rootdir = new Directory("root");
+            Directory bindir = new Directory("bin");
+            Directory tmpdir = new Directory("tmp");
+            Directory usrdir = new Directory("usr");
+            rootdir.addEntry(bindir).addEntry(tmpdir).addEntry(usrdir);
+            bindir.addEntry(new File("vi", 10000));
+            bindir.addEntry(new File("latex", 20000));
+            Directory yukidir = new Directory("yuki");
+            Directory hanakodir = new Directory("hanako");
+            Directory tomuradir = new Directory("tomura");
+            usrdir.addEntry(yukidir).addEntry(hanakodir).addEntry(tomuradir);
+            yukidir.addEntry(new File("diary.html", 100));
+            yukidir.addEntry(new File("Composite.java", 200));
+            hanakodir.addEntry(new File("memo.tex", 300));
+            tomuradir.addEntry(new File("game.doc", 400));
+            File file = new File("iunk.mail", 500);
+            tomuradir.addEntry(file);
+
+<span style="color: red">            //不再使用Entry对象的方法
+            //rootdir.printList();
+
+            Visitor visitor = new ListVisitor();
+
+            visitor.visit(rootdir);
+
+            rootdir.accept(visitor);</span>
+
+        } catch (FileTreatmentException e) {
+            System.out.println(e);
+        }
+    }
+}
+</pre>
+<p>visitor.visit(rootdir); 和 rootdir.accept(visitor); 这两行代码的效果是一样的, 一个是从访问者发起访问, 一个是从数据对象自己接受访问. 然后最终都是进入到访问的visit方法中进行操作.</p>
+<p>因此只需要更换一个访问者, 就可以进行完全不同的操作, 但数据对象完全不需要修改代码, 只有创建访问者的代码需要修改.</p>
+<p>这里的互相调用还是比较复杂的, 要理解的是, 只有一个访问者, 这个访问者对于每个数据对象, 都通过数据对象的visitor()访问了一遍. 每个数据结构都只调用一次accept()方法, 即接受了一次访问者的访问.</p>
+<p>访问者则每次根据不同类型的对象, 进行不同的处理(直接显示还是递归访问).</p>
+<p>Visitor模式有如下几点思考:</p>
+<ol>
+    <li>除了访问者 - 被访问者之外, 还有处理方法这个抽象, 只不过处理方法在例子中被写死在了visit方法里(实际上是在Entry类中的那些toString()方法), 如果单独将处理方法抽象出来, 就更复杂</li>
+    <li>采用了双重分发的思路, 可以发现visitor.visit()是访问者访问数据, entry.accept()是上一个方法的反向处理, 即自己来接受一个访问者对象. 双重分发一般用在两个类共同决定实际进行的处理时, 这也增加了复杂度, 但是提高了灵活性.</li>
+    <li>为何如此复杂, 是为了将处理从数据结构中分离出来, 所以必然要提供一个接口, 用于便利的访问一个数据结构. 将处理分离出来之后, 为了显示目录, 我们完全可以删除Entry内部的那一些toString()和printList()方法, 改成仅仅向外返回数据即可. 访问者根据数据结构的关系, 就可以进行访问. 以后如果要编写新的数据结构, 就可以完全无需编写具体处理方法.</li>
+    <li>开闭原则, 对扩展开放, 对修改关闭. 如果想要给数据结构添加新的功能, 在没有引入访问者模式之前, 只能修改数据结构自己的方法, 有了访问者之后, 添加新功能也无需修改数据结构自身, 这就是访问者解耦的一大特点.</li>
+</ol>
+<p>在现实中, 一旦要自己制作一个数据结构, 比如数据库中取出对象的列表, 就要想到可能会使用访问者模式. 此外对于嵌套的数据结构, 访问者模式经常和Composite模式以及Iterator模式搭配使用.</p>
+<p>谈谈我自己的心得, 访问者模式, 就是让数据结构需要具备一个接口, 与访问者的方法一起构成双重分发, 然后在访问者的方法内部编写实际处理程序. 这样无论来自数据结构内外部, 都走双重分发, 最终找到对应的访问者.</p>
+<p>如果不使用双重分发, 站在访问者的角度可以访问结构, 但是反过来就比较麻烦了.</p>
+
+<h2 style="text-align: center;" id="con2">练习 13-1 编写一个查找所有html文件的功能</h2>
+<p>思路很简单, 不断的递归访问, 遇到html文件, 就将其加入一个列表, 然后显示出来.</p>
+<pre>
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+public class FileFindVisitor extends Visitor {
+
+    private String suffix;
+
+    private List&lt;File> files = new ArrayList&lt;>();
+
+
+    public FileFindVisitor(String suffix) {
+        this.suffix = suffix;
+    }
+
+    //访问到文件的时候, 将文件记录到数组中
+    @Override
+    public void visit(File file) {
+        if (file.getName().endsWith(suffix)) {
+            files.add(file);
+        }
+    }
+
+    //访问的如果是目录, 对其递归的调用所有的方法
+    @Override
+    public void visit(Directory directory) {
+
+        Iterator&lt;Entry> entryIterator = directory.iterator();
+        while (entryIterator.hasNext()) {
+            entryIterator.next().accept(this);
+        }
+    }
+
+    public Iterator&lt;File> iterator() {
+        return files.iterator();
+    }
+}
+</pre>
+<p>使用的时候完全无需更改任何Entry代码, 直接使用:</p>
+<pre>
+    FileFindVisitor fileFindVisitor = new FileFindVisitor(".html");
+
+    rootdir.accept(fileFindVisitor);
+
+    for (Iterator&lt;File> it = fileFindVisitor.iterator(); it.hasNext(); ) {
+        System.out.println(it.next());
+    }
+</pre>
+
+<h2 style="text-align: center;" id="con3">练习 13-2 完全通过访问者来计算大小, 而不是通过数据结构的getSize()方法</h2>
+<p>由于也是仅仅只有File才具有size, Directory对象的大小是通过file计算出来的, 所以可以编写一个递归的方法. 这里自己还思考了一下, 数据结构采用何种设计模式或者说具体的结构, 也决定了如何编写访问者的方法.</p>
+<p>这个方法不难, 由于Composite模式的实现, 还是递归调用然后求和就可以了:</p>
+<pre>
+import java.util.Iterator;
+
+public class SizeVisitor extends Visitor {
+
+    private int size = 0;
+
+    @Override
+    public void visit(File file) {
+        this.size += file.getSize();
+    }
+
+    @Override
+    public void visit(Directory directory) {
+        for (Iterator&lt;Entry> entries = directory.iterator(); entries.hasNext(); ) {
+            entries.next().accept(this);
+        }
+    }
+
+    public int getSize() {
+        return size;
+    }
+}
+</pre>
+<p>调用很简单:</p>
+<pre>
+    SizeVisitor sizeVisitor = new SizeVisitor();
+
+    rootdir.accept(sizeVisitor);
+
+    System.out.println(sizeVisitor.getSize());
+</pre>
+
+<h2 style="text-align: center;" id="con4">习题 13-3 </h2>
+<p>这个很简单, 就是在Directory和File类上再套了一层, 也算作一种数据类型.</p>
+<pre>
+import java.util.ArrayList;
+
+public class ElementArrayList implements Element {
+
+    private ArrayList&lt;Entry> entries = new ArrayList&lt;>();
+
+    public void add(Entry entry) {
+        entries.add(entry);
+    }
+
+    //依然是递归访问
+    @Override
+    public void accept(Visitor visitor) {
+        for (Entry entry : entries) {
+            entry.accept(visitor);
+        }
+    }
+}
+</pre>
+<p>使用:</p>
+<pre>
+    Directory root1 = new Directory("root1");
+    root1.addEntry(new File("diary.html", 10));
+    root1.addEntry(new File("index.html", 20));
+
+    Directory root2 = new Directory("root2");
+    root2.addEntry(new File("diary.html", 1000));
+    root2.addEntry(new File("index.html", 2000));
+
+    ElementArrayList elementArrayList = new ElementArrayList();
+
+    elementArrayList.add(root1);
+    elementArrayList.add(root2);
+    elementArrayList.add(new File("etc.html", 1234));
+
+    elementArrayList.accept(new ListVisitor());
+</pre>
+
+<h2 style="text-align: center;" id="con5">Chain of Responsibility 职责链模式</h2>
+<p>职责链模式就是外部需求过来的时候, 如果不知道由哪个对象进行处理, 就需要将多个对象组成一条职责链, 然后按照这个链条一个一个的找过去, 直到能找到能处理的类.</p>
+<p>使用这个方法, 可以解耦请求方和处理方之间的强耦合关系, 让双方都成为各自可以复用的组件. 另外看到链, 可以想到链式调用.</p>
+<p>例子使用了一个问题类Trouble, 一个解决问题的抽象类 Support, 以及只能解决部分问题的四个实现类.</p>
+<p>先看Trouble类, 一个很简单的POJO:</p>
+<pre>
+public class Trouble {
+
+    private int number;
+
+    public Trouble(int number) {
+        this.number = number;
+    }
+
+    public int getNumber() {
+        return number;
+    }
+
+    @Override
+    public String toString() {
+        return "Trouble{" +
+                "number=" + number +
+                '}';
+    }
+}
+</pre>
+<p>然后是抽象类Support, 用于解决问题的基类:</p>
+<pre>
+public abstract class Support {
+
+    private String name;
+
+    private Support next;
+
+    public Support(String name) {
+        this.name = name;
+    }
+
+    public Support setNext(Support next) {
+        this.next = next;
+        return next;
+    }
+
+    //这是一种模板模式, 即算法在抽象类中规定好了.
+    //这里先尝试用当前对象进行解决问题, 如果不行, 就将其交给下一个对象
+    public final void support(Trouble trouble) {
+        if (resolve(trouble)) {
+            done(trouble);
+        } else if (next != null) {
+            next.support(trouble);
+        } else {
+            fail(trouble);
+        }
+    }
+
+    protected abstract boolean resolve(Trouble trouble);
+
+    protected void done(Trouble trouble) {
+        System.out.println(trouble + " is resolved by " + this);
+    }
+
+    protected void fail(Trouble trouble) {
+        System.out.println("No Supporter can resolve " + trouble);
+    }
+
+}
+</pre>
+<p>这个类很关键, 这也是一种模板, 即给定了解决办法, 另外还有一个setNext()方法用于注册成一个链条, 注意其中返回的是next, 这就很有意思, 可以链式注册.</p>
+<p>然后是四个实现类, 由于算法很清晰, 沿着链条一个一个调用, 所以实现类重点就在于实现 resolve() 方法:</p>
+<pre>
+//不解决问题的类永远返回false
+public class NoSupport extends Support {
+
+    public NoSupport(String name) {
+        super(name);
+    }
+
+    @Override
+    protected boolean resolve(Trouble trouble) {
+        return false;
+    }
+}
+</pre>
+<pre>
+//这个类仅解决小于指定数字的问题
+public class LimitSupport extends Support {
+
+    private int limit;
+
+    public LimitSupport(String name, int limit) {
+        super(name);
+        this.limit = limit;
+    }
+
+    @Override
+    protected boolean resolve(Trouble trouble) {
+        if (trouble.getNumber() < limit) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+</pre>
+<pre>
+//只解决奇数问题的类
+public class OddSupport extends Support {
+    public OddSupport(String name) {
+        super(name);
+    }
+
+    @Override
+    protected boolean resolve(Trouble trouble) {
+        return trouble.getNumber() % 2 != 0;
+    }
+}
+</pre>
+<pre>
+//只解决指定编号的问题
+public class SpecialSupport extends Support {
+
+    private int number;
+
+    public SpecialSupport(String name, int number) {
+        super(name);
+        this.number = number;
+    }
+
+    @Override
+    protected boolean resolve(Trouble trouble) {
+        return trouble.getNumber() == number;
+    }
+}
+</pre>
+<p>类很简单, 如何使用是关键, 首先要注册成一个链条, 然后从链条的头部开始调用resolve方法:</p>
+<pre>
+
+</pre>
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
