@@ -23,7 +23,7 @@
     <li><a href="#con3">练习13-2</a></li>
     <li><a href="#con4">练习13-3</a></li>
     <li><a href="#con5">Chain of Responsibility 职责链模式</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con6">练习</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">Visitor 访问者模式</h2>
@@ -436,22 +436,46 @@ public class SpecialSupport extends Support {
 </pre>
 <p>类很简单, 如何使用是关键, 首先要注册成一个链条, 然后从链条的头部开始调用resolve方法:</p>
 <pre>
+public class Main {
 
+    public static void main(String[] args) {
+        //创建各种解决问题的对象
+        Support a = new NoSupport("a");
+        Support b = new LimitSupport("b", 3);
+        Support c = new SpecialSupport("c", 5);
+        Support d = new OddSupport("d");
+        Support e = new SpecialSupport("e", 8);
+
+        //串成一个链, 注意我们的方法里返回next, 很巧妙
+        a.setNext(b).setNext(c).setNext(d).setNext(e);
+
+        //然后来解决问题
+        for (int i = 0; i < 10; i++) {
+            //从链条的第一个方法开始调用解决问题的方法
+            a.support(new Trouble(i));
+        }
+    }
+}
 </pre>
+<p>这个模式可以有效的弱化发出请求和处理者之间的关系, 不使用该模式的话, 就必须要知道具体能够解决问题的类.</p>
+<p>此外在串起链条的时候有顺序, 可以将一些通用的处理程序尽量靠前, 这样整体效率会提升.</p>
+<p>这个模式会导致处理的问题比直接处理会慢, 不过是以提高灵活性为代价的.</p>
+<p>虽然之前我很少听过这个职责链, 但是一旦学了之后, 发现这个模式用途很广泛的. 像浏览器中的事件传播和处理, 就是采用了职责链模式.</p>
 
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con6"></h2>
-
-
-
+<h2 style="text-align: center;" id="con6">练习</h2>
+<p>习题 14-1 这是一个鼠标点击的职责链.</p>
+<p>我想了一下, 鼠标在屏幕上的点击, 由于鼠标是I/O设备, 其点击的位置必定是先由操作系统捕获.</p>
+<p>然后操作系统应该会去看屏幕当前的位置是被那个应用程序占据, 然后按照操作系统的规则将控制权交给给这个应用程序.</p>
+<p>应用程序接到这个事件消息之后, 肯定也会按照点击的位置来看需要具体谁来处理这个事件.</p>
+<p>不过我看答案, 控件里保存的是父窗口, 然后事件如果不被处理, 会一层一层向上传播, 这果然就是浏览器的事件捕获机制.</p>
+<hr>
+<p>习题 14-2</p>
+<p>这个我看了答案才意识到, 按键之后的结果不同, 实际上就说明控件对于按键事件处理的方式不同, 能够移动到其他控件就说明交给了父窗口, 否则就会自行去处理, 这就很有意思</p>
+<hr>
+<p>习题 14-3</p>
+<p>由于support要对外暴露, 用于解决问题, 所以是public权限. 而protect方法主要是用于解决问题的类内部解决问题, 所以用protect就可以了.</p>
+<p>习题 14-4 </p>
+<p>这个只要使用一个while(next!=null)就可以了</p>
 
 
 
