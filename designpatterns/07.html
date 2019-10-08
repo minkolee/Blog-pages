@@ -179,12 +179,148 @@ public class IncrementNumberGenerator extends NumberGenerator {
 </pre>
 <hr>
 
-
 <h2 style="text-align: center;" id="con3">Memento 模式</h2>
 <p>这个模式的名称是一个非常经典的电影 - 记忆碎片. 在很多棋类软件中, 有悔棋的设定, 只要按一下, 就可以将棋局恢复到若干步之前的状态.</p>
 <p>如果我们仅仅用一个对象来保存棋局的状态, 那就会丢失历史状态, 因此有了这么一个模式, 可以让一个对象来保存不同的时候的该对象的状态, 用来恢复.</p>
 <p>其实在之前我遇到的一些例子里已经有这种用法了, 比如一个游戏的Game对象, 可以利用一系列数据生成, 于是每走动一步, 就会新创建一个Game对象保存起来. 这里的例子也是如此, 来看看吧.</p>
+<p>这里的例子也是一个小游戏, 有一个Gamer对象, Gamer对象会创建Memento对象用于保存状态, 必要的时候可以通过Memento对象来读取状态.</p>
+<pre>
+import java.util.ArrayList;
+import java.util.List;
 
+public class Memento {
+
+    int money;
+
+    ArrayList&lt;String> fruits;
+
+    public int getMoney() {
+        return money;
+    }
+
+    Memento(int money) {
+        this.money = money;
+        this.fruits = new ArrayList<>();
+    }
+
+    void addFruit(String fruit) {
+        fruits.add(fruit);
+    }
+
+    List getFruits() {
+        return (List) fruits.clone();
+    }
+}
+</pre>
+<p>Memento类用来保存游戏中的某个状态锁需要的数据, 也就是金钱和所持有的水果. 相当于一个游戏存档一样, 让游戏可以从存档中恢复状态.</p>
+<p>然后是Gamer类, 可以认为是一个游戏的主体:</p>
+<pre>
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+public class Gamer {
+
+    private int money;
+    private List&lt;String> fruits = new ArrayList&lt;>();
+    private Random random = new Random();
+    private static String[] fruitsname = {"Apple", "Grapes", "Banana", "Orange"};
+
+    public Gamer(int money) {
+        this.money = money;
+    }
+
+    public int getMoney() {
+        return money;
+    }
+
+    public void bet() {
+        int dice = random.nextInt(6) + 1;
+
+        if (dice == 1) {
+            money += 100;
+            System.out.println("所持金钱增加了.");
+        } else if (dice == 2) {
+            money /= 2;
+            System.out.println("所持金钱减少了");
+        } else if (dice == 6) {
+            String f = getFruit();
+            System.out.println("获得了水果: " + f);
+            fruits.add(f);
+        } else {
+            System.out.println("什么都没有发生");
+        }
+
+    }
+
+    private String getFruit() {
+        String prefix = "";
+        if (random.nextBoolean()) {
+            prefix = "好吃的";
+        }
+        return prefix + fruitsname[random.nextInt(fruitsname.length)];
+    }
+
+    @Override
+    public String toString() {
+        return "Gamer{" +
+                "money=" + money +
+                ", fruits=" + fruits +
+                '}';
+    }
+
+    //与Memento相关的代码
+
+    //依照现在的游戏状态创建Memento对象, 相当于保存存档
+    public Memento createMemento() {
+        Memento m = new Memento(money);
+        for (String fruit : fruits) {
+            m.addFruit(fruit);
+        }
+        return m;
+    }
+
+    //加载状态
+    public void restoreMemento(Memento memento) {
+        this.money = memento.getMoney();
+        this.fruits = memento.getFruits();
+    }
+
+}
+</pre>
+<p>这个游戏逻辑很简单, 重点在于Memento相关的部分, 相当于一个保存存档, 一个加载存档. 然后来使用一下看看:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        Gamer newGamer = new Gamer(100);
+
+        int i = 0;
+
+        for (; i < 5; i++) {
+            System.out.println("---------------------回合" + i + "-----------------------");
+            newGamer.bet();
+            System.out.println(newGamer);
+        }
+
+        System.out.println("保存存档");
+        Memento memento = newGamer.createMemento();
+
+        for (; i < 10; i++) {
+            System.out.println("---------------------回合" + i + "-----------------------");
+            newGamer.bet();
+            System.out.println(newGamer);
+        }
+
+        newGamer.restoreMemento(memento);
+
+        System.out.println(newGamer);
+    }
+}
+</pre>
+<p>在进行了5次bet()之后, 保存存档, 再进行5次bet(), 然后加载存档, 再打印出此时的游戏状态, 可以看到已经恢复到了原来的状态.</p>
+<p>这里还可以使用一个某个长度的容器, 每次状态改变之后, 都保存一个状态, 这样就可以实现类似悔棋的功能了.</p>
+<p>本质上说, 这里就像一个系统的快照一样, 只保存必要的数据, 然后通过其中恢复.</p>
 
 
 
