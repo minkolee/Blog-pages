@@ -29,15 +29,164 @@
 <h2 style="text-align: center;" id="con1">Observer 模式</h2>
 <p>这个模式相当经典, 一定要好好看, 其本质是在自身状态发生变化的时候, 通知已经在自己这里注册的一系列观察者.</p>
 <p>很多类库都使用了这个模式, 包括后边打算看的Java 8 和Java 9新增的流式API等等.</p>
+<p>观察者模式的核心, 其实就是要在被观察的类里边用一个容器装着观察者, 只要一发生变化, 就挨个通知容器中的观察者. 这个模式适合根据对象状态进行相应处理的情况.</p>
+<p>惯例, 先上Observer接口. 然后在需要改变状态的类里注册一批Observer类型的观察者.</p>
+<pre>
+public interface Observer {
+
+    void update(NumberGenerator generator);
+
+}
+
+</pre>
+<p>然后是被观察者的抽象类:</p>
+<pre>
+import java.util.ArrayList;
+
+public abstract class NumberGenerator {
+
+    private ArrayList&lt;Observer> observers = new ArrayList&lt;>();
+
+    //注册新的观察者
+    public void addObserver(Observer observer) {
+        this.observers.add(observer);
+    }
+    //去除观察者
+    public void deleteObserver(Observer observer) {
+        this.observers.remove(observer);
+    }
+
+    //通知观察者
+    public void notifyObserver() {
+        for (Observer observer : observers) {
+            observer.update(this);
+        }
+    }
+
+    public abstract int getNumber();
+
+    public abstract void execute();
+}
+</pre>
+<p>这里的被观察者的抽象类核心实现的就是注册观察者和通知观察者的方法, 来看实现类:</p>
+<pre>
+import java.util.Random;
+
+public class RandomNumberGenerator extends NumberGenerator {
+
+    private Random random = new Random();
+
+    private int number;
+
+    @Override
+    public int getNumber() {
+        return number;
+    }
+
+    @Override
+    public void execute() {
+        number = random.nextInt(1000);
+        notifyObserver();
+    }
+}
+</pre>
+<p>两个观察者则是在update方法中获取被观察对象的数据:</p>
+<pre>
+public class DigitObserver implements Observer {
+
+    @Override
+    public void update(NumberGenerator generator) {
+        System.out.println("接收到被观察者的的通知, 数值是: " + generator.getNumber());
+    }
+}
+</pre>
+<pre>
+public class GraphObserver implements Observer {
+
+    @Override
+    public void update(NumberGenerator generator) {
+        System.out.println("****" + generator.getNumber() + "****");
+    }
+}
+</pre>
+<p>然后就可以来使用了:</p>
+<pre>
+public class Main {
+    public static void main(String[] args) {
+        //创建一个被观察者和两个观察者
+        RandomNumberGenerator randomNumberGenerator = new RandomNumberGenerator();
+        DigitObserver digitObserver = new DigitObserver();
+        GraphObserver graphObserver = new GraphObserver();
+
+        //向被观察者中注册两个观察者
+        randomNumberGenerator.addObserver(digitObserver);
+        randomNumberGenerator.addObserver(graphObserver);
+
+        //反复改变被观察者的状态
+        randomNumberGenerator.execute();
+        randomNumberGenerator.execute();
+        randomNumberGenerator.execute();
+
+    }
+}
+</pre>
+<p>观察者的一大特点也是解耦, 即无需知道观察者的具体类, 只要符合观察者接口, 就可以工作, 每个观察者对于拿到的状态变化如何进行处理, 互相之间也不相干.</p>
+<p>同样, 观察者由于是被动得到通知, 也无需知道自己观察了谁, 只要符合被观察者的接口即可.</p>
+<p>所以设计模式的基础就是抽象类和接口这一类可以复用的API和对象. 一般只要是出现以类作为参数并且依靠参数的类提供服务的时候, 都要考虑接口或者抽象类来替代具体类.</p>
+<p>由于这里其实观察者并不是主动的看, 而是等待被观察者的通知, 所以观察者模式又叫做Publish-Subscribe 发布-订阅模式.</p>
+
+<p>额外的知识, Java也提供了对于观察者模式的支持, 就像对于迭代器模式的支持一样. 有一个接口叫做java.util.Observer, 还有一个类叫做java.util.Observable, 很显然, 前者是观察者接口, 后者是被观察者的类.</p>
+<p>java.util.Observer接口中定义的方法是: update(Observable obj, Object arg), 第一个参数就是被观察对象, 第二个是额外附带的参数. 其结构与我们的观察者模式是一样的.</p>
+<p>所以要使用的话, 我们只要实现java.util.Observer, 然后让被观察者继承java.util.Observable就可以了. 不过java.util.Observable是一个类而不是接口, 如果我们自己的类已经有了继承体系, 就不太好用了.</p>
+
+
+<h2 style="text-align: center;" id="con2">练习</h2>
+<p>习题17-1</p>
+<p>这个也很容易了, 每次计算即可:</p>
+<pre>
+public class IncrementNumberGenerator extends NumberGenerator {
+
+    private int start;
+    private int step;
+    private int end;
+    private int count = 0;
+    private int currentNumber = 0;
+
+    public IncrementNumberGenerator(int start, int step, int end) {
+        this.start = start;
+        this.step = step;
+        this.end = end;
+    }
+
+    @Override
+    public int getNumber() {
+        return currentNumber;
+    }
+
+    @Override
+    public void execute() {
+        if (count == 0) {
+            currentNumber = start;
+        } else {
+            if (currentNumber + step < end) {
+                currentNumber += step;
+            }
+        }
+        count++;
+        notifyObserver();
+    }
+}
+</pre>
+<hr>
+
+
+<h2 style="text-align: center;" id="con3">Memento 模式</h2>
+<p>这个模式的名称是一个非常经典的电影 - 记忆碎片. 在很多棋类软件中, 有悔棋的设定, 只要按一下, 就可以将棋局恢复到若干步之前的状态.</p>
+<p>如果我们仅仅用一个对象来保存棋局的状态, 那就会丢失历史状态, 因此有了这么一个模式, 可以让一个对象来保存不同的时候的该对象的状态, 用来恢复.</p>
+<p>其实在之前我遇到的一些例子里已经有这种用法了, 比如一个游戏的Game对象, 可以利用一系列数据生成, 于是每走动一步, 就会新创建一个Game对象保存起来. 这里的例子也是如此, 来看看吧.</p>
 
 
 
-
-
-
-<h2 style="text-align: center;" id="con2"></h2>
-
-<h2 style="text-align: center;" id="con3"></h2>
 
 <h2 style="text-align: center;" id="con4"></h2>
 
