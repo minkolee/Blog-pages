@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>设计模式</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">设计模式 06 简单化与管理状态</h1>
+
+<ol>
+    <li><a href="#con1">Facade 模式</a></li>
+    <li><a href="#con2">练习</a></li>
+    <li><a href="#con3">Mediator 仲裁者模式</a></li>
+    <li><a href="#con4">练习</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Facade 模式</h2>
+<p>这个模式其实很简单, 就是如果一个程序内部很复杂, 与其对外要求程序的使用者先做这个在做这个, 不如用一个东西包装一下, 用一个窗口对外即可.</p>
+<p>用术语就是将互相关联在一起的类整理出高层接口API, Facade角色来具备这个API, 对外只需要暴露Facade角色即可.</p>
+<p>作者的例子也很简单, 是一个生成HTML页面的类. 类里有一个生成段落和生成HTML结构的两个类, 这里隐含着必须先生成title等内容, 才能再生成正文的顺序.</p>
+<p>如果将类交给用户使用, 用户就必须注意其中的顺序, 然而我们可以包装一个类, 只需要名字和文件名, 就可以隐藏其中的细节, 直接生成HTML文件.</p>
+<p>先来看生成名字的类:</p>
+<pre>
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.Properties;
+
+public class Database {
+
+    private Database() {
+
+    }
+
+    public static Properties getProperties(String name) {
+        String filename = name + ".txt";
+        Properties properties = new Properties();
+
+        try {
+            properties.load(new FileInputStream(filename));
+
+        } catch (IOException e) {
+            System.out.println("加载文件失败");
+        }
+        return properties;
+    }
+
+}
+</pre>
+<p>这个类是一个通过文件加载Properties的类, 很简单. 然后是写HTML的类, 之前已经很多次编写过类似的类了:</p>
+<pre>
+import java.io.IOException;
+import java.io.Writer;
+
+public class HtmlWriter {
+
+    private Writer writer;
+
+    public HtmlWriter(Writer writer) {
+        this.writer = writer;
+    }
+
+    public void title(String title) throws IOException {
+        writer.write("&lt;html>");
+        writer.write("&lt;head>");
+        writer.write("&lt;title>");
+        writer.write(title);
+        writer.write("&lt;/title>");
+        writer.write("&lt;/head>");
+        writer.write("&lt;body>\n");
+        writer.write("&lt;h1>\n");
+        writer.write(title);
+        writer.write("&lt;/h1>");
+
+    }
+
+    public void paragraph(String msg) throws IOException {
+        writer.write("&lt;p>");
+        writer.write(msg);
+        writer.write("&lt;/p>");
+    }
+
+    public void link(String href, String caption) throws IOException {
+        paragraph("&lt;a href=\"" + href + "\">" + caption + "&lt;/a>");
+    }
+
+    public void mailto(String address, String username) throws IOException {
+        link("mailto:" + address, username);
+    }
+
+    public void close() throws IOException {
+        writer.write("&lt;/body>");
+        writer.write("&lt;/html>\n");
+        writer.close();
+    }
+}
+</pre>
+<p>其中拼接HTML都是传统艺能了, 这里主要是看一个顺序, 即必须先生成头部信息, 然后填充正文才行. 如果交给用户自己使用这个类, 则用户必须按照这个顺序调用.</p>
+<p>现在就该Facade角色出场了, 我们编写一个PageMaker类, 使用用户名然后在其中正确的调用这些方法并且生成文件:</p>
+<pre>
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Properties;
+
+public class PageMaker {
+
+    private PageMaker() {
+
+    }
+
+    public static void makeWelcomePage(String mailaddr, String filename) {
+        try {
+            Properties mailprop = Database.getProperties("maildata.txt");
+            String username = mailprop.getProperty(mailaddr);
+            HtmlWriter writer = new HtmlWriter(new PrintWriter(filename));
+            writer.title("Welcome to" + username + "'s page!");
+            writer.paragraph("waiting....");
+            writer.mailto(mailaddr, username);
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+</pre>
+<p>这个类也很简单, 重点看其中只用了一个API就可以操作了.</p>
+<pre>
+public class Main {
+    public static void main(String[] args) {
+        PageMaker.makeWelcomePage("conyli@conyli.cc", "welcome.html");
+    }
+}
+</pre>
+<p>这个模式我感觉其实就是最基本的封装, 而且Facade角色可以嵌套, 一层套一层来使用.</p>
+
+
+<h2 style="text-align: center;" id="con2">练习</h2>
+<p>习题15-1</p>
+<p>这个很简单,如果不想要外边的包访问Database和HtmlWriter, 只需要将其权限改为包访问权限即可.</p>
+<hr>
+<p>习题15-2</p>
+<p>这个也很简单, 只不过是再添加一个方法即可. 其中的title部分可以复用. 从Properties中取出所有的邮件地址和用户名来复用生成link的方法即可.</p>
+<pre>
+public static void makeLinkPage(String filename) {
+    try {
+        Properties mailprop = Database.getProperties("maildata");
+        HtmlWriter writer = new HtmlWriter(new PrintWriter(filename));
+        writer.title("Link Page");
+
+        for (String name : mailprop.stringPropertyNames()) {
+            writer.mailto(name, mailprop.getProperty(name) );
+        }
+        writer.close();
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con3">Mediator 仲裁者模式</h2>
+<p>这个模式我想了一下, 应该适用那些整体状态非常多的时候, 每个组件都需要向一个集中管理状态的组件进行报告的时候使用. 以后自己如果写前端的话, 应该可以使用到这个模式.</p>
+<p>简单的说, 调整多个对象之间的关系, 就可以用到仲裁者模式, 即不让各个组件之间通信, 而是增加一个角色负责管理.</p>
+<p>这里作者举了一个AWT的例子, 其本质和Web开发的理念是一样的. 其中有两个接口, 一个表示仲裁者, 一个表示成员对象.</p>
+<pre>
+public interface Mediator {
+
+    //创建符合仲裁者模式要求的成员对象
+    void createColleagues();
+
+    //让组员向仲裁者报告变化的方法, 由组员调用
+    void colleagueChanged();
+}
+</pre>
+<pre>
+public interface Colleague {
+
+    //设置自己的仲裁者
+    void setMediator(Mediator mediator);
+
+    //设置自己的状态为是否可用, 这个方法教给仲裁者来调用, 而不是自己设置
+    void setColleagueEnabled(boolean enabled);
+
+}
+</pre>
+<p>在这两个接口的状态下, 我们就可以来编写仲裁者和团队成员类了:</p>
+<pre>
+import java.awt.Button;
+
+public class ColleagueButton  extends Button implements Colleague {
+
+    private Mediator mediator;
+
+    public ColleagueButton(String caption) {
+        super(caption);
+    }
+
+    @Override
+    public void setMediator(Mediator mediator) {
+        this.mediator = mediator;
+    }
+
+    //这个其实是利用了awt包里的特性, 比如setEnabled表示是否禁用
+    @Override
+    public void setColleagueEnabled(boolean enabled) {
+        setEnabled(enabled);
+    }
+}
+</pre>
+<pre>
+import java.awt.*;
+import java.awt.event.TextEvent;
+
+public class ColleagueTextField extends TextField implements Colleague, <span style="color: red">TextListener</span> {
+
+    private Mediator mediator;
+
+    public ColleagueTextField(String text, int columns) {
+        super(text, columns);
+    }
+
+    @Override
+    public void setMediator(Mediator mediator) {
+        this.mediator = mediator;
+    }
+
+    @Override
+    public void setColleagueEnabled(boolean enabled) {
+        setEnabled(enabled);
+        setBackground(enabled ? Color.white : Color.lightGray);
+    }
+
+    //自己的文字发生变化的时候通知仲裁者
+    //这是一个接口, 会在文字发生变化的时候被awt框架调用
+    public void textValueChanged(TextEvent event) {
+        mediator.colleagueChanged();
+    }
+
+}
+</pre>
+<p>这里注意红字的实现了一个额外的接口, 这是awt框架用来检测变化事件的.下边的Checkbox也类似:</p>
+<pre>
+import java.awt.*;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+
+public class ColleagueCheckbox extends Checkbox implements Colleague, <span style="color: red">ItemListener</span> {
+
+    private Mediator mediator;
+
+    public ColleagueCheckbox(String caption, CheckboxGroup checkboxGroup, boolean state) {
+        super(caption, checkboxGroup, state);
+    }
+
+    @Override
+    public void setMediator(Mediator mediator) {
+        this.mediator = mediator;
+    }
+
+    @Override
+    public void setColleagueEnabled(boolean enabled) {
+        setEnabled(enabled);
+    }
+
+    public void itemStateChanged(ItemEvent event) {
+        mediator.colleagueChanged();
+    }
+}
+</pre>
+<p>最后就可以来编写仲裁者类了, 会根据各个组件的通知来管理状态:</p>
+<pre>
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+public class LoginFrame extends Frame implements ActionListener, Mediator {
+
+
+    //这是为了实现界面所需要的各个组件
+    private ColleagueCheckbox checkGuest;
+    private ColleagueCheckbox checkLogin;
+    private ColleagueTextField textUser;
+    private ColleagueTextField textPass;
+    private ColleagueButton buttonOk;
+    private ColleagueButton buttonCancel;
+
+    public LoginFrame(String title) {
+
+        //绘制框体和创建组件
+        super(title);
+        setBackground(Color.lightGray);
+        setLayout(new GridLayout(4, 2));
+        createColleagues();
+
+        //添加所有组件
+        add(checkGuest);
+        add(checkLogin);
+        add(new Label("Username: "));
+        add(textUser);
+        add(new Label("Password: "));
+        add(textPass);
+        add(buttonOk);
+        add(buttonCancel);
+
+        //设置初始状态
+        colleagueChanged();
+
+        pack();
+        show();
+    }
+
+    @Override
+    public void createColleagues() {
+        CheckboxGroup g = new CheckboxGroup();
+        //这个猜着就能看懂, 一组两个checkbox, 一个默认选中 , 一个默认不选
+        checkGuest = new ColleagueCheckbox("Guest", g, true);
+        checkLogin = new ColleagueCheckbox("Login", g, false);
+
+        textUser = new ColleagueTextField("", 10);
+        textPass = new ColleagueTextField("", 10);
+        //设置密码框的覆盖字符
+        textPass.setEchoChar('*');
+
+        buttonOk = new ColleagueButton("OK");
+        buttonCancel = new ColleagueButton("Cancel");
+
+        //设置仲裁者为当前对象
+        checkGuest.setMediator(this);
+        checkLogin.setMediator(this);
+        textUser.setMediator(this);
+        textPass.setMediator(this);
+        buttonOk.setMediator(this);
+        buttonCancel.setMediator(this);
+
+        //添加事件监听器, 这个应该是套路
+        checkGuest.addItemListener(checkGuest);
+        checkLogin.addItemListener(checkLogin);
+        textUser.addTextListener(textUser);
+        textPass.addTextListener(textPass);
+        buttonOk.addActionListener(this);
+        buttonCancel.addActionListener(this);
+    }
+
+    @Override
+    public void colleagueChanged() {
+        //如果客户被选中, 禁止两个文本框, OK按钮可以选中
+        if (checkGuest.getState()) {
+            textUser.setColleagueEnabled(false);
+            textPass.setColleagueEnabled(false);
+            buttonOk.setColleagueEnabled(true);
+        } else {
+            textUser.setColleagueEnabled(true);
+            //这是抽取出来的方法, 用于改变状态
+            userpassChanged();
+        }
+    }
+
+    private void userpassChanged() {
+        buttonOk.setEnabled(false);
+        //如果用户名中输入了字符就让密码框可以使用. 密码框可用的时候, 如果有字符就让OK键可以用, 否则OK键无法使用
+        if (textUser.getText().length() > 0) {
+            textPass.setColleagueEnabled(true);
+            if (textPass.getText().length() > 0) {
+                buttonOk.setColleagueEnabled(true);
+            } else {
+                buttonOk.setColleagueEnabled(false);
+
+            }
+        }
+    }
+
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        System.out.println(e.toString());
+        System.exit(0);
+
+    }
+}
+</pre>
+<p>这个逻辑还是比较好懂的, 先创建一系列控件, 然后添加好, 之后每次监听到任何事件, 比如输入文字和单选框发生变化, 都跳到colleagueChanged()方法中对逻辑进行统一处理.</p>
+<p>使用起来就是使用awt框架:</p>
+<pre>
+public class Main {
+    public static void main(String[] args) {
+        new LoginFrame("Mediator Sample");
+    }
+}
+</pre>
+<p>回头看看这个模式, 这个模式的关键在于, 各个控件没有更改自身的状态, 而是统一交给仲裁者来管理, 这样有一大好处就是如果出现BUG, 几乎可以确定是仲裁者编写出现问题, 而无需一个一个到各个组件中寻找错误所在.</p>
+<p>一般仲裁者由于利用了其他类的一些具体功能特性, 使得难以复用. 不过组件一般都是可以复用的.</p>
+<p>这个模式特别适合使用在GUI模式中, 也就意味着在编写Web前端应用的时候, 可以考虑使用该模式.</p>
+
+<h2 style="text-align: center;" id="con4">练习</h2>
+
+<p>练习16-1</p>
+<p>修改成当用户名和密码的长度都大于等于4个字符的时候OK按钮才有效.</p>
+<p>很显然, 在修改需求的时候, 仲裁者模式只需要修改仲裁者类:</p>
+<pre>
+private void userpassChanged() {
+    buttonOk.setEnabled(false);
+    //如果用户名中输入了字符就让密码框可以使用. 密码框可用的时候, 如果有字符就让OK键可以用, 否则OK键无法使用
+    if (textUser.getText().length() > 0) {
+        textPass.setColleagueEnabled(true);
+        if (<span style="color: red">textPass.getText().length() >=4  && textUser.getText().length()>=4</span>) {
+            buttonOk.setColleagueEnabled(true);
+        } else {
+            buttonOk.setColleagueEnabled(false);
+
+        }
+    }
+}
+</pre>
+<hr>
+<p>练习16-2</p>
+<p>无法在接口中定义, 因为接口中如果定义域, 只能定义静态域.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
