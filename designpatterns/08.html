@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>设计模式</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">设计模式 08 类的复用</h1>
+
+<p>到了最后的几种模式, 其实已经超过了简单对象的范畴, 都是复杂对象的组合了. 可以说是一种更大层面上的设计模式了.</p>
+
+<ol>
+    <li><a href="#con1">Flyweight 模式</a></li>
+    <li><a href="#con2">练习</a></li>
+    <li><a href="#con3">Proxy 模式</a></li>
+    <li><a href="#con4">练习</a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Flyweight 模式</h2>
+<p>这个模式的关键在于通过共享空间来避免new实例出来.</p>
+<p>这个其实可以如下思考, 如果一个对象就有一个原始数据域, 并且不可变, 那么这个对象本身就可以当成这个数据域来使用. 对Python有过了解就会知道, Python中的小常数是固定的一片内存区域中存放的, 不会每次都读写新的内存来创建常数.</p>
+<p>Flyweight就是这个意思, 即如果一个对象的功能可以由若干小对象组成, 那么尽量复用这些小对象就比一个一个new出来要快并且占用内存空间也少.</p>
+<p>作者举的例子是一个类似字库的例子, 即用读取的字体显示一个字符串. 由于字体需要从文件中载入, 如果显示每一个字符都要去载入一次, 就慢了. 这个时候可以通过一个数据结构保存字体数据, 先查找是否可以复用已经读取过的字体.</p>
+<p>首先我们来看被复用的类, 也就是表示一个字体的对象BigChar:</p>
+<pre>
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+
+public class BigChar {
+
+    private char charname;
+
+    private String fontdata;
+
+    public BigChar(char charname) {
+        this.charname = charname;
+        try {
+            //读取字体数据到fontdata中
+            BufferedReader bufferedReader = new BufferedReader(new FileReader("big" + charname + ".txt"));
+            String line;
+            StringBuilder buffer = new StringBuilder();
+            while ((line = bufferedReader.readLine()) != null) {
+                buffer.append(line).append("\n");
+            }
+            bufferedReader.close();
+            this.fontdata = buffer.toString();
+        } catch (IOException e) {
+            this.fontdata = charname + "?";
+        }
+    }
+
+    public void print() {
+        System.out.print(fontdata);
+    }
+
+}
+</pre>
+<p>这个类会根据字符去读取字体数据, 目前可以使用0-9以及减号字符. 之后是BigCharFactory, 这个类负责复用BigChar类:</p>
+<pre>
+import java.util.HashMap;
+
+public class BigCharFactory {
+
+    //单例模式
+    private BigCharFactory() {
+
+    }
+
+    private static BigCharFactory singleton = new BigCharFactory();
+    public static BigCharFactory getInstance() {
+        return singleton;
+    }
+
+    //复用类的关键, 使用了一个Map, 保存已经生成的实例. 如果尚未生成, 就生成一个然后放入其中.
+    private HashMap&lt;String, BigChar> pool = new HashMap&lt;>();
+
+    public synchronized BigChar getBigChar(char charname) {
+        BigChar bigChar = pool.get(charname + "");
+        if (bigChar == null) {
+            bigChar = new BigChar(charname);
+            pool.put(charname + "", bigChar);
+        }
+        return bigChar;
+    }
+
+}
+</pre>
+<p>BigCharFactory类的功能就是对外提供BigChar类, 可能是新创建的, 也可能是复用的, 但是用过之后, 就肯定是复用了.</p>
+<p>然后是如何将一个字符串转换成BigChar的类, 这个类其实是Flyweight模式的使用者, 对外提供真正的服务, 前边的两个类都是提供底层的共享服务.</p>
+<pre>
+public class BigString {
+
+    private BigChar[] bigChars;
+
+    public BigString(String string) {
+        bigChars = new BigChar[string.length()];
+
+        BigCharFactory bigCharFactory = BigCharFactory.getInstance();
+
+        for (int i = 0; i < string.length(); i++) {
+            bigChars[i] = bigCharFactory.getBigChar(string.charAt(i));
+        }
+    }
+
+    public void print() {
+        for (BigChar bigChar : bigChars) {
+            bigChar.print();
+        }
+    }
+
+}
+</pre>
+<p>这个类很简单, 就是将字符串转换为BigChar类型的数组. 然后挨个显示出来.</p>
+<p>使用起来也很简单:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        String n = "21898-";
+
+        new BigString(n).print();
+    }
+}
+</pre>
+<p>这个模式的重点是依赖Map数据结构做的重用. 仔细思考一下这个模式, 还是很有意思的. 比如只要修改一个字体, 则会在所有使用该字体的程序中都会发生变化.</p>
+<p>此外哪些数据可以共享, 哪些数据不需要共享, 功能添加在哪一块, 是需要根据具体要求来定的, 还可以和其他的设计模式结合, 比如现在要增加一个显示红色字符串的功能, 很显然可以增加在BigString中, 如果修改BigChar, 则所有的地方都会变成红色.</p>
+
+<h2 style="text-align: center;" id="con2">练习</h2>
+<p>练习20-1</p>
+<p>这个题目很简单, true=共享, 即通过BigCharFactory来生产对象即可. 如果设置为false, 就直接new新对象放入数组中即可.</p>
+<pre>
+public BigString(String string, boolean shared) {
+    bigChars = new BigChar[string.length()];
+    if (shared) {
+        //和单参数构造器一样的代码
+        BigCharFactory bigCharFactory = BigCharFactory.getInstance();
+        for (int i = 0; i < string.length(); i++) {
+            bigChars[i] = bigCharFactory.getBigChar(string.charAt(i));
+        }
+    //如果不共享, 新建BigChar对象填充数组
+    } else{
+        for (int i = 0; i < string.length(); i++) {
+            bigChars[i] = new BigChar(string.charAt(i));
+        }
+    }
+}
+</pre>
+<hr>
+<p>练习20-3 synchronized</p>
+<p>这个涉及到多线程的安全问题. 由于每次生成BigChar的时候必须比对一次, 如果Map中没有该字符, 需要创建并放入进去.</p>
+<p>这个过程必须同步, 否则可能一个线程在放入对象之前被打断, 另外一个线程放入一个对象, 然后恰好一个线程取得了这个对象的引用, 然后原来线程紧接着又放入一个新对象, 这两个对象是不同的对象, 实际上就没有达到复用的要求.</p>
+
+
+<h2 style="text-align: center;" id="con3">Proxy 模式</h2>
+<p>Proxy可以说是一种惰性思想, 即A类代理B类, 但不是完全代理, A类自己也能实现一些功能. 在使用A类提供服务的时候, 如果一些服务依靠A类就可以完成, 那就无需创建B类的对象.</p>
+<p>只有确实使用到了需要B类才能够提供的服务, 再创建B类的对象. 这个模式本身的理念比较简单, 作者举了一个打印不同字符的例子:</p>
+<p>先是一个接口, 被代理的类和代理类都实现这个接口, 这样才能完美互相替换.</p>
+<pre>
+public interface Printable {
+
+    void setPrinterName(String name);
+
+    String getPrinterName();
+
+    void print(String s);
+}
+</pre>
+<p>之后是Printer类, 这个是被代理的类:</p>
+<pre>
+public class Printer implements Printable {
+
+    private String name;
+
+    public Printer() {
+        heavyJob("正在生成实例...");
+    }
+
+    public Printer(String name) {
+        this.name = name;
+        heavyJob("正在生成" + name + "实例...");
+    }
+
+    @Override
+    public synchronized void setPrinterName(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String getPrinterName() {
+        return name;
+    }
+
+    @Override
+    public void print(String s) {
+        System.out.print("=====");
+        System.out.print(name);
+        System.out.println("=====");
+        System.out.println(s);
+    }
+
+    private void heavyJob(String msg) {
+        System.out.println(msg);
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            System.out.print(e);
+        }
+        System.out.println("生成完毕");
+    }
+}
+</pre>
+<p>这个类很简单, 就是刻意在构造函数这里睡两秒, 以好看出来到底有没有创建这个对象.</p>
+<p>然后是代理类:</p>
+<pre>
+public class PrinterProxy implements Printable {
+
+    private String name;
+
+    //给被代理类留的一个指针
+    private Printer real;
+
+    public PrinterProxy(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public synchronized void  setPrinterName(String name) {
+        this.name = name;
+        if (real != null) {
+            real.setPrinterName(name);
+        }
+    }
+
+    @Override
+    public String getPrinterName() {
+        return name;
+    }
+
+    @Override
+    public void print(String s) {
+        createPrinter();
+        real.print(s);
+    }
+
+    private synchronized void createPrinter() {
+        real = new Printer(name);
+    }
+}
+</pre>
+<p>可以看出, 代理的本质还是委托. 只不过会先判断委托对象是否存在, 不存在, 用到了才会创建.</p>
+<p>代理类自己实现的功能是设置名称. 如果仅仅是设置和获取名称, 可以发现并不会创建Printer对象. 但是一旦要打印了, 就会创建Printer对象. 来使用一下:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        Printable proxy = new PrinterProxy("HP");
+
+        System.out.println(proxy.getPrinterName());
+        proxy.setPrinterName("Canon");
+        System.out.println(proxy.getPrinterName());
+        System.out.println("==============================");
+
+        proxy.print("Test Page");
+    }
+}
+</pre>
+<p>从运行结果可以看到, 在操作打印机名称的时候, 无需等待, 说明没有创建Printer对象. 调用print()方法之后, 就真的创建了被代理对象.</p>
+<p>这个本质上也有点类似于装饰器模式, 代理类和被代理类都实现了同一个接口. 所以代理也可以起到装饰的作用, 实现各种灵活的功能.</p>
+
+<h2 style="text-align: center;" id="con4">练习</h2>
+<p>练习21-1</p>
+<p>这个要求有很多种实现方法, 当然, 简单的修改成接口类型并不好, 因为这可能会导致传入另外一个代理类. 可以用很多新创建实例的方式即可, 比如工厂模式或者原型模式.</p>
+<p>作者的要求是在构造函数中传入字符串, 那么可以来采用反射的方式创建类, 给代理类新增一个构造器, 使用这个构造器的时候一开始就创建实际的打印机:</p>
+<pre>
+public PrinterProxy(String name, String classname) {
+    this.name = name;
+    try {
+        //反射方式获取类名, 然后调用单字符串参数的构造函数, 之后使用构造函数创建实例
+        Class printer = Class.forName(classname);
+        Constructor con = printer.getConstructor(String.class);
+        real = (Printable) con.newInstance(name);
+    } catch (Exception e) {
+        //如果找不到类, 就创建默认的打印机
+        System.out.println("创建打印机错误, 将创建默认打印机");
+        real = new Printer("默认打印机");
+    }
+}
+</pre>
+<p>使用起来很类似:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) {
+        Printable proxy = new PrinterProxy("HP", "designpatterns.proxy.Printer");
+
+        proxy.print("Test Page");
+    }
+}
+</pre>
+<p>如果故意让程序找不到类, 就可以发现创建了默认打印机.</p>
+<hr>
+<p>习题21-2</p>
+<p>原因很简单, java中不是基础数值直接赋值的都不是原子操作, 必须要加上同步, 在这个程序里如果不加, 可能会导致使用同一个打印机的代理对象出现问题.</p>
+
+
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

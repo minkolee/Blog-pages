@@ -19,11 +19,11 @@
 
 <ol>
     <li><a href="#con1">Observer 模式</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">练习</a></li>
+    <li><a href="#con3">Memento 模式</a></li>
+    <li><a href="#con4">练习</a></li>
+    <li><a href="#con5">State 模式</a></li>
+    <li><a href="#con6">练习</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">Observer 模式</h2>
@@ -322,15 +322,265 @@ public class Main {
 <p>这里还可以使用一个某个长度的容器, 每次状态改变之后, 都保存一个状态, 这样就可以实现类似悔棋的功能了.</p>
 <p>本质上说, 这里就像一个系统的快照一样, 只保存必要的数据, 然后通过其中恢复.</p>
 
+<h2 style="text-align: center;" id="con4">练习</h2>
+<p>练习18-1</p>
+<p>一般Caretaker都是在包外操作的, 如果让Caretaker角色可以任意的操作Memento对象, 则可以直接修改历史状态, 打破了这个模式对外的封装.</p>
+<hr>
+<p>练习18-2</p>
+<p>减少保存空间的方法不外乎减少基础数据量和压缩数据两种办法.</p>
+<hr>
+<p>练习18-3</p>
+<p>首先不管加上什么修饰符, Memento类对于自己的字段都是可以访问的. Gamer类可以获取但不能改变, 则设置成private比较好, 然后通过getter来暴露.</p>
+<p>既然是private, 自然Main类也就无法获取了.</p>
+<hr>
+<p>练习18-4</p>
+<p>这个就不实际做了, 其实就是套了一个输出对象序列化的外壳。</p>
+
+<h2 style="text-align: center;" id="con5">State 模式</h2>
+<p>用类来表示状态，这是state模式的核心思想。</p>
+<p>在传统的判断状态的方法里，需要用到if语句等等，现在我们将状态封装到一个类中，对于不同的状态，呼叫不同的类来提供服务。</p>
+<p>当然，在具体的语句中肯定还是会有if， 但是将其封到了类中之后，结构更加清晰了。</p>
+<p>书里举得例子是一个金库，这个金库有白天和黑夜两种模式。与其使用if判断，state模式将金库分成两个状态的对象， 即夜晚的金库和白天的金库， 两个对象的行为不同。来看接口先：</p>
+<pre>
+public interface State {
+
+    void doClock(Context context, int hour);
+
+    void doUse(Context context);
+
+    void doAlarm(Context context);
+
+    void doPhone(Context context);
+}
+</pre>
+<p>通过这个状态对象的接口，就可以发现，不同状态下的这些行为其实是不同的。Context也是一个接口，是为金库提供服务的对象。</p>
+<p>然后就是Context接口：</p>
+<pre>
+public interface Context {
+
+    void setClock(int hour);
+
+    void changeState(State state);
+
+    void callSecurityCenter(String msg);
+
+    void recordLog(String msg);
+}
+</pre>
+<p>这个接口其实是实现状态切换的类，其中使用State对象来提供具体服务。</p>
+<p>然后来看两个金库的具体实现类：</p>
+<pre>
+public class DayState implements State {
+
+    private DayState() {
+
+    }
+
+    private static DayState singleton = new DayState();
+
+    public static State getInstance() {
+        return singleton;
+    }
+
+    @Override
+    public void doClock(Context context, int hour) {
+        //在非上班时间, 将context对象中的金库对象切换成黑夜的金库
+        if (hour <= 9 || hour >= 17) {
+            context.changeState(NightState.getInstance());
+        }
+    }
+
+    @Override
+    public void doUse(Context context) {
+        context.recordLog("白天的金库运行中");
+    }
+
+    @Override
+    public void doAlarm(Context context) {
+        context.callSecurityCenter("按下警铃:白天");
+    }
+
+    @Override
+    public void doPhone(Context context) {
+        context.callSecurityCenter("正常通话:白天");
+    }
+
+    @Override
+    public String toString() {
+        return "[白天的金库]";
+    }
+}
+</pre>
+<p>程序运行起来只有一个金库的两个状态， 因此先使用了单例模式。doClock是核心方法，即将context对象使用的金库对象切换成夜晚，如果不是，就不进行切换。</p>
+<p>NightState类很相似：</p>
+<pre>
+public class NightState implements State {
+
+    private NightState() {
+
+    }
+
+    private static NightState singleton = new NightState();
+
+    public static State getInstance() {
+        return singleton;
+    }
+
+    @Override
+    public void doClock(Context context, int hour) {
+        //在上班时间, 切换成白天的金库
+        if (hour >= 9 && hour < 17) {
+            context.changeState(DayState.getInstance());
+        }
+    }
+
+    @Override
+    public void doUse(Context context) {
+        context.recordLog("夜晚的金库运行中");
+    }
+
+    @Override
+    public void doAlarm(Context context) {
+        context.callSecurityCenter("按下警铃:夜晚");
+    }
+
+    @Override
+    public void doPhone(Context context) {
+        context.callSecurityCenter("正常通话:夜晚");
+    }
+
+    @Override
+    public String toString() {
+        return "[夜晚的金库]";
+    }
+}
+</pre>
+<P>然后就是SetFrame类, 实现了Context接口, 可以将其理解为一个使用两个金库对象的管理对象, 也就是管理金库的两个状态. 作者这里使用了一个GUI界面, 对于我来说, 关键是要看如何管理两种状态:</P>
+<pre>
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+public class SafeFrame extends Frame implements Context, ActionListener {
+
+    private TextField textClock = new TextField(60);
+    private TextArea textScreen = new TextArea(10, 60);
+    private Button buttonUse = new Button("使用金库");
+    private Button buttonAlarm = new Button("按下警铃");
+    private Button buttonPhone = new Button("正常通话");
+    private Button buttonExit = new Button("退出");
 
 
-<h2 style="text-align: center;" id="con4"></h2>
+    //设置程序启动时候的状态, 这里状态直接就是一个对象
+    private State state = DayState.getInstance();
 
-<h2 style="text-align: center;" id="con5"></h2>
+    //这是构造器, 就是启动一个窗口和四个按钮
+    public SafeFrame(String title) {
+        super(title);
+        setBackground(Color.lightGray);
+        setLayout(new BorderLayout());
+        add(textClock, BorderLayout.NORTH);
+        textClock.setEditable(false);
+        add(textScreen, BorderLayout.CENTER);
+        textScreen.setEditable(false);
+        Panel panel = new Panel();
+        panel.add(buttonUse);
+        panel.add(buttonAlarm);
+        panel.add(buttonPhone);
+        panel.add(buttonExit);
 
-<h2 style="text-align: center;" id="con6"></h2>
+        add(panel, BorderLayout.SOUTH);
 
+        pack();
 
+        show();
+
+        buttonUse.addActionListener(this);
+        buttonAlarm.addActionListener(this);
+        buttonExit.addActionListener(this);
+        buttonPhone.addActionListener(this);
+    }
+
+    //这是核心方法, ActionListener接口的方法
+
+    //在按下按钮的时候, 调用state对象的方法, 具体是哪个状态, 是由时间决定的.
+<span style="color: red">    @Override
+    public void actionPerformed(ActionEvent e) {
+        System.out.println(e.toString());
+        if (e.getSource() == buttonUse) {
+            state.doUse(this);
+        } else if (e.getSource() == buttonPhone) {
+            state.doPhone(this);
+        } else if (e.getSource() == buttonAlarm) {
+            state.doAlarm(this);
+        } else if (e.getSource() == buttonExit) {
+            System.exit(0);
+        } else {
+            System.out.println("-->");
+        }
+    }</span>
+
+    //这个方法也很关键, 由此可见, context和state对象是采取双向分发的方式, context中调用state对象的动作, state对象根据时间设置context中要使用的状态对象
+    @Override
+    public void setClock(int hour) {
+        String current = "现在时间是: ";
+        if (hour < 10) {
+            current = "0" + hour + ":00";
+        } else {
+            current = hour + ":00";
+        }
+        System.out.println(current);
+        textClock.setText(current);
+        <span style="color: red">state.doClock(this, hour);</span>
+    }
+
+    //state对象根据当前状态设置不同的状态对象
+    @Override
+    public void changeState(State state) {
+        System.out.println("从" + this.state + "变成" + state);
+        this.state = state;
+    }
+
+    @Override
+    public void callSecurityCenter(String msg) {
+        textScreen.append("call " + msg + "\n");
+    }
+
+    @Override
+    public void recordLog(String msg) {
+        textScreen.append("record " + msg + "\n");
+
+    }
+}
+</pre>
+<p>使用起来很简单:</p>
+<pre>
+public class Main {
+
+    public static void main(String[] args) throws InterruptedException {
+        SafeFrame safeFrame = new SafeFrame("金库模式");
+        while (true) {
+
+            for (int hour = 0; hour < 24; hour++) {
+                safeFrame.setClock(hour);
+                Thread.sleep(500);
+            }
+        }
+    }
+}
+</pre>
+<p>这个模式状态对象和使用状态的对象之间联系还是挺紧密的. 看上去其实是state对象在操作context对象, 确实很有意思.</p>
+<p>看了一下作者的总结,State对象是不由外部使用的, 外部使用Context对象及其API. Context是一个状态管理器, 负责持有状态并根据状态做出响应.</p>
+<p>想了一下, 如果要添加更多的状态, 比如把时间分的更细一些, 只需要新增一个状态类, 然后修改自己的doClock方法来根据条件改变成其他状态对象即可. Context的代码完全无需修改, 依然是将改变的条件传给state对象.</p>
+<p>由此可见双向分发和单例模式在state模式中都是必须的. 书中最后也提到了, 状态处理和切换实际上分散在各个状态对象中, Context对象永远就做两件事情, 设置时间, 调用方法, 就结束了. 这是很好的解耦办法.</p>
+<p>不过书中234也提到了, 谁负责状态切换, 谁就要知道其他所有的状态对象, 我们这里是State对象, 当然也可以让Context对象来切换. 这时候就有点像仲裁者模式了. 如果状态实在太复杂, 就可以考虑状态机算法.</p>
+
+<h2 style="text-align: center;" id="con6">练习</h2>
+<p>练习19-1</p>
+<p>这是因为awt体系里已经有继承了, 所以无法采用抽象类. 如果是自行编写的其他程序, 可以考虑抽象类, 这样可以少写几个方法和域的定义.</p>
+<hr>
+<p>练习19-2</p>
+<p>这里引入了分钟,可以单独判断分钟, 也可以通过获取系统时间. 不一一写代码了.</p>
 
 
 
