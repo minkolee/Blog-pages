@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>设计模式</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">设计模式 09 Interpreter 解释器模式</h1>
+<p>这个解释器模式可以说是终极的设计模式了. 也就是程序语言本身, 就像Java语言一样, 不管写了什么程序, 底层都在复用Java虚拟机. 有了这个东西, 等于只要修改对于问题的描述(语言), 而编写的解释器是一直可以复用的.</p>
+
+<ol>
+    <li><a href="#con1">Interpreter 模式</a></li>
+    <li><a href="#con2">例子中使用的类</a></li>
+    <li><a href="#con3">ProgramNode</a></li>
+    <li><a href="#con4">CommandListNode</a></li>
+    <li><a href="#con5">CommandNode</a></li>
+    <li><a href="#con6">RepeatCommandNode</a></li>
+    <li><a href="#con7">PrimitiveCommandNode</a></li>
+    <li><a href="#con8">Context</a></li>
+    <li><a href="#con9">ParseException</a></li>
+    <li><a href="#con10">使用解释器模式</a></li>
+    <li><a href="#con11">练习</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Interpreter 模式</h2>
+
+<p>当问题可以用一种语言描述的时候, 可以针对这种语言编写一个解释器. 如果以后问题发生了变化, 只需要更新描述, 而不是代码即可.</p>
+<p>作者的例子是一个简单的控制车辆前进的语言, 采用了EBNF, 扩展的巴斯科范式(看来这些语言逻辑方面的东西也很有意思), 体现了语法解析中递归的思想.</p>
+<p>最基础的指令则是由 go right left组成, 然后引入了循环的概念, 使用 repeat + end 来包围起循环体. 程序的开始和结束则是 program + end 来表示.</p>
+<p>这里关键是要理解如何将语法解析成类, 其本质就是生成一棵语法树, 各个节点的类型由语法定义得来. 这样就可以逐步将一个语言解析成所有以最基础的指令组成的体系, 然后逐步执行.</p>
+
+<h2 style="text-align: center;" id="con2">例子中使用的类</h2>
+
+<p>使用的类有点多, 是和语法单元对应的:</p>
+<ol>
+    <li><code>Node</code>, 语法树节点的抽象类</li>
+    <li><code>ProgramNode</code>, 对应&lt;program>语法单元</li>
+    <li><code>CommandListNode</code>, 对应&lt;command list>语法单元</li>
+    <li><code>CommandNode</code>, 对应&lt;command>语法单元</li>
+    <li><code>RepeatCommandNode</code>, 对应&lt;repeat command>语法单元</li>
+    <li><code>PrimitiveCommandNode</code>, 对应&lt;primitive command>语法单元</li>
+    <li><code>Context</code>, 上下文对象, 其实就是整段程序在解析过程中的当前状态, 这个需要在后边好好理解</li>
+    <li><code>ParseException</code>, 自定义的表示语法错误的异常</li>
+    <li><code>Main</code>, 测试类</li>
+</ol>
+<p>Node抽象类, 就一个parse方法, 只看这个类还不知道如何实现解释器:</p>
+<pre>
+public abstract class Node {
+    public abstract void parse(Context context) throws ParseException;
+}
+</pre>
+<p>下边就来看看如何实现.</p>
+
+<h2 style="text-align: center;" id="con3">ProgramNode</h2>
+<p>观察语法定义中的: &lt;program>::= program &lt;command list>, 可以知道, 如果一个节点是ProgramNode, 必定以program开头, 之后是一个command list节点.</p>
+<p>有了这个概念, 就可以来编写ProgramNode类了:</p>
+<pre>
+public class ProgramNode extends Node {
+
+    private Node commandListNode;
+
+    @Override
+    public void parse(Context context) throws ParseException {
+        context.skipToken("program");
+        commandListNode = new CommandListNode();
+        commandListNode.parse(context);
+    }
+
+    @Override
+    public String toString() {
+        return "[Program " + commandListNode + "]";
+    }
+}
+</pre>
+<p>从这里可以看出, 解析实际上从根节点开始的, <code>context.skipToken("program");</code>用于跳过第一个token = program这个单词. 如果程序不是以program开头, 就会抛出异常, 这个方法等会会在Context类中实现.</p>
+<p>在跳过了第一个token之后, 实际上剩下的部分根据语法规则, 就是一个 command list 语法单元, 因此这个类内部会有一个commandListNode变量, 用来新创建一个对应的节点, 来解析这个语法单元.</p>
+<p>实际上从这里就可以发现, 解析就是这样一层一层, 按照规定好的语法格式, 创建不同的对应节点挂在当前对象之下, 最后组成一个大的组合对象来完成的.</p>
+
+<h2 style="text-align: center;" id="con4">CommandListNode</h2>
+<p>继续看语法结构: &lt;command list>::= &lt;command>* end, 这表示这个节点内有至少0个command节点, 然后还会有一个end来标识结束.</p>
+<p>首先需要一个容器来保存command节点, 然后也要利用context对象, 用循环反复的将token使用command节点解析, 最后应该是一个end, 如果不是end, 就抛异常.</p>
+<p>代码如下:</p>
+<pre>
+import java.util.ArrayList;
+
+public class CommandListNode extends Node {
+
+    private ArrayList&lt;Node> list = new ArrayList&lt;>();
+
+    @Override
+    public void parse(Context context) throws ParseException {
+        while (true) {
+            //如果解析到了null, 抛异常, 如果正常情况下是不会进入到null的情况
+            if (context.currentToken() == null) {
+                throw new ParseException("Missing end");
+            //如果解析到了end, 就跳出循环
+            } else if (context.currentToken().equals("end")) {
+                context.skipToken("end");
+                break;
+            } else {
+            //如果不是end, 说明是一个command语法单元, 创建一个对应的Node进行解析, 并放入到list中去
+                Node commandNode = new CommandNode();
+                commandNode.parse(context);
+                list.add(commandNode);
+            }
+        }
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("[List ");
+        for (Node node : list) {
+            stringBuilder.append(node.toString());
+        }
+        stringBuilder.append("]");
+        return stringBuilder.toString();
+    }
+}
+</pre>
+<p>从这里可以看出, 基本上就是严格按照语法的规定, 将其解析为具体的类. 现在这里还没有编写context对象, 看来context对象是个很重要的内容.</p>
+
+
+<h2 style="text-align: center;" id="con5">CommandNode</h2>
+<p>语法规则是: &lt;command>::=&lt;repeat command> | &lt;primitive command>, 这里和之前不同的是, 有两个选择, 可以是一个repeat语法, 也可以是一个基础语句的对象.</p>
+<p>repeat语法的开头一定是repeat, 所以这里需要做一个判断, 究竟是repeat还是基础语句:</p>
+<pre>
+public class CommandNode extends Node {
+
+    private Node node;
+
+    @Override
+    public void parse(Context context) throws ParseException {
+        if (context.currentToken().equals("repeat")) {
+            node = new RepeatCommandNode();
+        } else {
+            node = new PrimitiveCommandNode();
+        }
+        node.parse(context);
+    }
+
+    @Override
+    public String toString() {
+        return node.toString();
+    }
+}
+</pre>
+<p>有了前边两个类做铺垫, 这个类就更容易懂了, 会判断context的当前标记是不是一个repeat, 如果是就用Repeat节点解析, 如果不是, 就用Primitive节点解析.</p>
+
+<h2 style="text-align: center;" id="con6">RepeatCommandNode</h2>
+<p>还是先看语法结构: &lt;repeat command>::=repeat &lt;number> &lt;command list>, 这里就出现了递归现象, 当然, 最后的节点一定是primitive, 所以递归可以正常终止.</p>
+<p>遇到递归不用多想, 只要按照逻辑操作就行. 所以一个Repeat节点里包含两个节点 一个是获取的number值, 一个是commandListNode:</p>
+<pre>
+public class RepeatCommandNode extends Node {
+
+    private int number;
+
+    private Node commandListNode;
+
+    //获取数字, 然后跳过一个token, 解析剩下的commandListNode
+    @Override
+    public void parse(Context context) throws ParseException {
+        context.skipToken("repeat");
+        number = context.currentNumber();
+        context.nextToken();
+        commandListNode = new CommandListNode();
+        commandListNode.parse(context);
+    }
+
+    @Override
+    public String toString() {
+        return "[repeat " + number + " " + commandListNode + "]";
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con7">PrimitiveCommandNode</h2>
+<p>这个是最基础的类, 也是递归的终点, 其内容就是解析三个最基础的命令, go, right ,left:</p>
+<pre>
+public class PrimitiveCommandNode extends Node {
+
+    private String name;
+
+    @Override
+    public void parse(Context context) throws ParseException {
+        name = context.currentToken();
+        context.skipToken(name);
+
+        if (!name.equals("go") && !name.equals("left") && !name.equals("right")) {
+            throw new ParseException(name + " is undefined.");
+        }
+    }
+
+    @Override
+    public String toString() {
+        return name;
+    }
+}
+</pre>
+<p>解析一个token, 如果是go left right之一, 说明正确, 否则抛出异常.</p>
+<p>这里的parse()方法没有再继续调用其他的parse方法, 说明是递归的终点. 不过还一个重要的是context类, 合起来才能看懂.</p>
+
+<h2 style="text-align: center;" id="con8">Context</h2>
+<p>Context对象要将其理解为当前需要解析的内容, 会随着每次解析不断变化. 在这个例子中, 就是一个不断改变着状态的字符串形式的源代码:</p>
+<pre>
+import java.util.StringTokenizer;
+
+public class Context {
+
+    //使用了内置的StringTokenizer库, 直接将字符串分割成token, 操作这个tokenizer对象即可
+    private StringTokenizer tokenizer;
+
+    //当前的token
+    private String currentToken;
+
+
+    //构造器使用StringTokenizer生成token
+    public Context(String sourceCode) {
+        tokenizer = new StringTokenizer(sourceCode);
+        nextToken();
+    }
+
+    //这个是返回下一个token, 同时将内容设置当前token, 可以看成是往前移动了一步
+    public String nextToken() {
+        if (tokenizer.hasMoreTokens()) {
+            currentToken = tokenizer.nextToken();
+        } else {
+            currentToken = null;
+        }
+        return currentToken;
+    }
+
+    //这个是获取当前token, 相比上一个方法, 不会向前移动
+    public String currentToken() {
+        return currentToken;
+    }
+
+    //这个方法用来跳过一个token ,如果跳过的不是指定的token 就要抛异常. 当前token是要跳过的token,就向前一步
+    public void skipToken(String token) throws ParseException {
+        if (!token.equals(currentToken)) {
+            throw new ParseException("Warning:" + token + " is expected, but" + currentToken + "is found");
+        }
+        nextToken();
+    }
+
+    public int currentNumber() {
+        int number = 0;
+        try {
+            number = Integer.parseInt(currentToken);
+        } catch (NumberFormatException e) {
+            throw new ParseException("Warning: 数字解析错误" + currentToken);
+        }
+        return number;
+    }
+
+}
+</pre>
+<p>nextToken()相当于无条件前进一步, currentToken()是不前进, 仅仅获取当前的token, skipToken(String token)是检查并跳过, 会抛异常. 这是三个操作token的方法.</p>
+<p>此外还有一个currentNumber用于将当前token转换成数字, 也会报异常.</p>
+<p>这里可以先想一想, 最后我们得到了什么, 一定是一个逐级展开的, 中间是其他各种节点, 但最后的叶子节点一定是PrimitiveCommandNode的一棵语法树.</p>
+
+<h2 style="text-align: center;" id="con9">ParseException</h2>
+<p>最后是异常类, 比较简单:</p>
+<pre>
+public class ParseException extends Exception {
+
+    public ParseException(String msg) {
+        super(msg);
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con10">使用解释器模式</h2>
+<p>使用解释器, 实际上就是按照语法规则写一段程序, 然后看是否能够正确的被解析成语法树.</p>
+<pre>
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+
+public class Main {
+
+    public static void main(String[] args) {
+        try {
+            BufferedReader bufferedReader = new BufferedReader(new FileReader("program.txt"));
+
+            String text;
+
+            while ((text = bufferedReader.readLine()) != null) {
+                System.out.println("text = " + text + "\"");
+                Node node = new ProgramNode();
+                node.parse(new Context(text));
+                System.out.println(node);
+            }
+        } catch (IOException e) {
+            System.out.print("文件读取错误");
+        } catch (ParseException e) {
+            System.out.print("解析错误");
+        }
+
+    }
+}
+</pre>
+<p>我们的program.txt中一行就是一个程序, 每次读取一行, 然后尝试解析, 如果解析不正确, 就会报错.</p>
+<p>这个利用了递归的思想进行解析实在是太妙了, 程序会一直解析到基础命令, 中间的过程的节点全都是持有其他对象而已, 这样就形成了一个清晰的结构.</p>
+<p>估计一般程序的解释器, 也是这么工作的吧.</p>
+<p>这里回头看看理论, 这个模式中有如下的角色:</p>
+<ol>
+    <li>抽象表达式: 就是指语法树的抽象节点, 共同API是parse, 通过从根节点开始的逐层parse创建整棵语法树</li>
+    <li>终结符表达式: 就是指语法规则中, 不再有其他语法单元的表达式, 这里就是指PrimitiveCommandNode类, 这是所有最基础的指令构成的节点</li>
+    <li>非终结符表达式: 就是指语法规则中, 包含再有其他语法单元结构的表达式, 这里就是指Node实现类中除了PrimitiveCommandNode之外的其他类, 他们都是各种各样的持有其他相关节点的对象, 而且必定不是树的最终叶子节点.</li>
+    <li>上下文: 可以看做程序当前解析到哪里的一个对象, 其内部的本质是一个源程序经过处理之后的文本. 这也是为何编程其实都是写文本文件的道理. 应该说前三者构成了解释器, 而上下文对象就是解释器要进行解释的对象.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con11">练习 运行语法树</h2>
+<p>现在已经有了解析完成的语法树, 该如何运行程序呢.</p>
+<p>从运行的角度来说, 其实只是运行最基本的PrimitiveNode中的指令. 但是还需要考虑循环, 看起来其实就是一个逐步展开语法树的过程.</p>
+<p>这里可以发现, 都继承了Node节点, 如果将node节点稍微改造一下, 似乎就可以变成Composite模式.</p>
+<pre>
+
+</pre>
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

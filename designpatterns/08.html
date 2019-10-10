@@ -20,12 +20,12 @@
 <p>到了最后的几种模式, 其实已经超过了简单对象的范畴, 都是复杂对象的组合了. 可以说是一种更大层面上的设计模式了.</p>
 
 <ol>
-    <li><a href="#con1">Flyweight 模式</a></li>
+    <li><a href="#con1">Flyweight 轻量模式</a></li>
     <li><a href="#con2">练习</a></li>
-    <li><a href="#con3">Proxy 模式</a></li>
+    <li><a href="#con3">Proxy 代理模式</a></li>
     <li><a href="#con4">练习</a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">Command 命令模式</a></li>
+    <li><a href="#con6">练习</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">Flyweight 模式</h2>
@@ -64,8 +64,8 @@ public class BigChar {
 
     public void print() {
         System.out.print(fontdata);
-    }
 
+    }
 }
 </pre>
 <p>这个类会根据字符去读取字体数据, 目前可以使用0-9以及减号字符. 之后是BigCharFactory, 这个类负责复用BigChar类:</p>
@@ -318,32 +318,384 @@ public class Main {
 
 
 
-<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con5">Command 命令模式</h2>
+<p>我们将一个动作写在一个方法里, 每次这个方法执行的时候, 确实完成了一项工作, 然而并不会留下方法的历史记录. 命令模式则是把一项动作抽象成物品, 这样可以管理多个命令, 还可以执行已经执行过的命令.</p>
+<p>在GUI编程中, 一个事件就类似于一个Command对象, 好比鼠标点击, 点击就点击了, 但是这个点击发生的位置, 都会包装成一个事件对象, 供相关程序进行处理. 如果不这样处理, 那点击这个事情就会立刻消失并且无法追踪.</p>
+<p>作者的示例比较有意思, 也是利用了GUI, 用户拖动鼠标的时候绘制一个红色圆点, 这里没有用事件监听一直去画图, 而是包装了一个在某个位置绘制点的命令, 只要复用这个实例就可以了:</p>
+<p>类的组成首先就是Command接口, 表示最基础的命令接口, 然后有单个命令类DrawCommand 和 多个命令整合成一个复杂命令的类 MacroCommand.</p>
+<p>之后是使用这些命令的接口Drawable 和具体的接口实现类DrawCanvas.</p>
+<pre>
+public interface Command {
 
-<h2 style="text-align: center;" id="con6"></h2>
+    void execute();
+
+}
+</pre>
+<p>Command接口一般只定义一个执行命令的方法. 然后来看MacroCommand类:</p>
+<pre>
+import java.util.Stack;
+
+public class MacroCommand implements Command {
+
+    //使用栈结构来存放命令
+    private Stack&lt;Command> commands = new Stack&lt;>();
+
+    //宏命令的执行方法是执行所有其中装载的命令
+    @Override
+    public void execute() {
+        for (Command command : commands) {
+            command.execute();
+        }
+    }
+
+    //添加一个命令
+    public void append(Command command) {
+        if (command != null) {
+            commands.push(command);
+        }
+    }
+
+    //弹出最后的命令, 相当于undo
+    public void undo() {
+        if (!commands.isEmpty()) {
+            commands.pop();
+        }
+    }
+
+    //清空所有命令
+    public void clear() {
+        commands.clear();
+    }
+
+    public void showCommands() {
+        for (Command command : commands) {
+            System.out.println(command);
+        }
+    }
+}
+</pre>
+<p>从这个MacroCommand中可以看出宏命令设计的思想, 使用栈结构来追踪命令, 正好利用了栈结构的特点. 在执行的时候很方便的可以undo上一条命令.</p>
+<p>来看具体的DrawCommand:</p>
+<pre>
+import java.awt.*;
+
+public class DrawCommand implements Command {
+
+    protected Drawable drawable;
+
+    private Point position;
+
+    public DrawCommand(Drawable drawable, Point position) {
+        this.drawable = drawable;
+        this.position = position;
+    }
+
+    @Override
+    public void execute() {
+        drawable.draw(position.x, position.y);
+    }
+
+    @Override
+    public String toString() {
+        return "DrawCommand{" +
+                "position=" + position +
+                '}';
+    }
+}
+</pre>
+<p>具体命令的类引入了一个Drawable对象和一个Point对象, 然后执行这个命令, 就是在指定的位置进行绘图.</p>
+<p>之后来看看绘图的类, 虽然还没有开始看, 但是这里已经可以看出命令模式的特点了, 可以有单个命令, 也可以有宏命令. </p>
+<pre>
+public interface Drawable {
+
+    void draw(int x, int y);
+}
+
+</pre>
+<p>绘图接口就一个方法, 在指定的坐标绘制. 然后看实现类:</p>
+<pre>
+import java.awt.*;
+
+public class DrawCanvas extends Canvas implements Drawable {
+
+    private Color color = Color.red;
+
+    private int radius = 6;
+
+    private MacroCommand history;
+
+    public DrawCanvas(int width, int height, MacroCommand history) {
+        setSize(width, height);
+        setBackground(color);
+        this.history = history;
+    }
+
+    //这个命令用于重复执行一次, 也就是重复绘制一次
+    public void paint(Graphics graphics) {
+        history.execute();
+    }
+
+    public void draw(int x, int y) {
+        Graphics g = getGraphics();
+        g.setColor(color);
+        g.fillOval(x - radius, y - radius, radius * 2, radius * 2);
+    }
+
+}
+</pre>
+<p>虽然有一些AWT的类, 但是不影响理解.先设置好颜色, 然后用构造器传入画布的大小, 在画布的中间区域进行绘制. 绘制有两种方法, 一种是在指定的点进行绘制, 一种是直接执行一次宏命令.</p>
+<p>为了实现功能, Main类要来使用这个命令和绘图, 还要设置AWT的事件监听, 有些复杂, 不过重点还是关注命令对象是如何发挥作用的:</p>
+<pre>
+import javax.swing.*;
+import java.awt.event.*;
+
+public class Main extends JFrame implements ActionListener, MouseMotionListener, WindowListener {
+
+    private MacroCommand history = new MacroCommand();
+
+    private DrawCanvas canvas = new DrawCanvas(400, 400, history);
+
+    private JButton clearButton = new JButton("CLEAR");
+
+    public Main(String title) {
+        super(title);
+        this.addWindowListener(this);
+        canvas.addMouseMotionListener(this);
+        clearButton.addActionListener(this);
+
+        Box buttonBox = new Box(BoxLayout.X_AXIS);
+        buttonBox.add(clearButton);
+        Box mainBox = new Box(BoxLayout.Y_AXIS);
+        mainBox.add(buttonBox);
+        mainBox.add(canvas);
+        getContentPane().add(mainBox);
+        pack();
+        show();
+    }
+
+    //以下是监听事件和鼠标事件的接口方法
+
+    //点击clear按钮之后, 清除历史命令, 重置画布
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (e.getSource() == clearButton) {
+            history.showCommands();
+            history.clear();
+            canvas.repaint();
+        }
+
+    }
+
+    //这个方法处理鼠标拖动的事件
+    //每次拖动鼠标, 创建一个保存了当前位置的command命令, 执行, 之后加入到历史命令中
+    @Override
+    public void mouseDragged(MouseEvent e) {
+        Command command = new DrawCommand(canvas, e.getPoint());
+        command.execute();
+        history.append(command);
+    }
+
+    //这个留空, 即鼠标移动的时候不做处理
+    @Override
+    public void mouseMoved(MouseEvent e) {
+
+    }
+
+    //以下是WindowListener的方法, 仅仅使用到了窗口关闭的功能, 其他都留空
+    @Override
+    public void windowOpened(WindowEvent e) {
+
+    }
+
+    @Override
+    public void windowClosing(WindowEvent e) {
+        System.exit(0);
+    }
+
+    @Override
+    public void windowClosed(WindowEvent e) {
+
+    }
+
+    @Override
+    public void windowIconified(WindowEvent e) {
+
+    }
+
+    @Override
+    public void windowDeiconified(WindowEvent e) {
+
+    }
+
+    @Override
+    public void windowActivated(WindowEvent e) {
+
+    }
+
+    @Override
+    public void windowDeactivated(WindowEvent e) {
+
+    }
+
+    public static void main(String[] args) {
+        new Main("Command Pattern");
+    }
+}
+</pre>
+<p>开始的几个地方准备了宏命令变量,画布和设置一些按钮. Main方法用来准备画布和添加按钮, 核心的方法是mouseDragged方法, 每次拖动鼠标的时候, 将鼠标的位置传给一个新命令对象, 执行命令(即在当前点画红点), 然后将命令保存至宏命令中.</p>
+<p>点击CLEAR按钮的时候会打印出宏命令中的所有命令, 然后清空画布.</p>
+<p>这个模式的关键在于可以追踪操作的全过程, 如果有必要的话, 可以执行history的execute()方法来复现用户的操作.</p>
+
+<h2 style="text-align: center;" id="con6">练习</h2>
+<p>练习22-1</p>
+<p>添加一个设置颜色的功能, 可以绘制新的颜色.</p>
+<p>这个功能如果要添加, 就涉及到添加新的按钮了, 来尝试一下吧. 目前绘制点的颜色是在DrawCanvas类中的color域控制的, 只要针对这个域做文章就可以了. 首先需要改造一下, 以让外部可以设置颜色:</p>
+<pre>
+//添加一个设置颜色的方法
+public void setColor(Color color) {
+    this.color = color;
+}
+</pre>
+<p>之后添加两个按钮:</p>
+<pre>
+public class Main extends JFrame implements ActionListener, MouseMotionListener, WindowListener {
+
+    ......
+
+    //新建一个绿色按钮和红色按钮
+    private JButton greenButton = new JButton("GREEN");
+    private JButton redButton = new JButton("RED");
+
+    public Main(String title) {
+        ......
+
+        //为颜色按钮添加事件监听
+        greenButton.addActionListener(this);
+        redButton.addActionListener(this);
+
+        ......
+
+        //添加颜色按钮到界面上
+        buttonBox.add(greenButton);
+        buttonBox.add(redButton);
+
+        ......
+
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (e.getSource() == clearButton) {
+            history.showCommands();
+            history.clear();
+            canvas.repaint();
+        }
+
+        //为绿色按钮编写事件
+        if (e.getSource() == greenButton) {
+            canvas.setColor(Color.green);
+        }
+        //为红色按钮编写事件
+        if (e.getSource() == redButton) {
+            canvas.setColor(Color.red);
+        }
+    }
+
+    ......
+}
+</pre>
+<hr>
+<p>习题22-2</p>
+<p>删除上一次画的点, 也可以理解成在上一次画的点的地方画与底色相同的颜色或者是无色, 然后再重复绘制一下历史命令里的上一条命令. 只要再添加一个按钮, 按的时候从History中弹出一个命令, 然后用这个命令来绘制底色相同的点, 在重复新的宏命令的最后一个点, 这样就平滑很多了.</p>
+<p>为此需要先修改MacroCommand, 增加几个新方法:</p>
+<pre>
+public class MacroCommand implements Command {
+
+    ......
+
+    //新添加命令, 仅撤销最后一个
+    public Command pop() {
+        if (!commands.isEmpty()) {
+            return commands.pop();
+        } else {
+            return null;
+        }
+    }
+
+    //新添加命令, 获取栈的最后一个元素
+    public Command getLastCommand() {
+        if (!commands.isEmpty()) {
+            return commands.lastElement();
+        } else {
+            return null;
+        }
+    }
+
+}
+</pre>
+<p>然后给DrawCanvas增加一个返回当前颜色的方法:</p>
+<pre>
+public class DrawCanvas extends Canvas implements Drawable {
+
+    ......
+
+    public Color getColor() {
+        return color;
+    }
+}
+</pre>
+<p>最后来修改Main, 添加按钮和事件:</p>
+<pre>
+public class Main extends JFrame implements ActionListener, MouseMotionListener, WindowListener {
+
+    ......
+
+    //创建撤销按键
+    private JButton undoButton = new JButton("Undo");
+
+    public Main(String title) {
+        ......
+
+        //为撤销按键添加事件监听
+        undoButton.addActionListener(this);
+
+
+        //添加撤销按钮到界面上
+        buttonBox.add(undoButton);
+
+        ......
+    }
 
 
 
+    //关键方法
+    @Override
+    public void actionPerformed(ActionEvent e) {
 
+        ......
 
+        //编写撤销按键的事件
+        if (e.getSource() == undoButton) {
+            //弹出历史中的最后一个命令并且绘制底色, 然后恢复原来的颜色
+            Command command = history.pop();
+            if (command != null) {
+                Color color = canvas.getColor();
+                canvas.setColor(Color.white);
+                command.execute();
+                canvas.setColor(color);
+            }
 
+            //获取剩下的宏命令中的最后一个命令, 绘制一次
+            command = history.getLastCommand();
+            if (command != null) {
+                command.execute();
+            }
+        }
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    ......
+}
+</pre>
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
