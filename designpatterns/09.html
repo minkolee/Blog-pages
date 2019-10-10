@@ -30,6 +30,7 @@
     <li><a href="#con9">ParseException</a></li>
     <li><a href="#con10">使用解释器模式</a></li>
     <li><a href="#con11">练习</a></li>
+    <li><a href="#con12">原版设计模式的分类</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">Interpreter 模式</h2>
@@ -406,6 +407,38 @@ public class RepeatCommandNode extends Node {
 }
 </pre>
 <p>这样只需要在解析完语法树之后, 使用ProgramNode的run()方法, 即可启动解析后的程序.</p>
+
+<h2 style="text-align: center;" id="con12">原版设计模式分类</h2>
+<p>这里借着原版设计模式的分类, 再来回忆一下全部的设计模式吧:</p>
+<ol>创建型设计模式
+    <li><code>Abstract Factory</code>, 组装复杂的产品时候使用</li>
+    <li><code>Builder</code>, 创建一个对象需要多个步骤的时候使用</li>
+    <li><code>Factory Method</code>, 工厂方法, 简单的的工厂模式</li>
+    <li><code>Prototype</code>, 根据原型复制或者创建对象的模式</li>
+    <li><code>Singleton</code>, 单例模式</li>
+</ol>
+<ol>结构型设计模式
+    <li><code>Adapter</code>, 适配两个类</li>
+    <li><code>Bridge</code>, 桥接模式, 用于分离类的功能和类的实现层次</li>
+    <li><code>Composite</code>, 用于数据结构最终都是由同一类别组成, 可以实现递归</li>
+    <li><code>Decorator</code>, 装饰器和被装饰类的为同一类型, 可互相替换, 用于实现额外的功能</li>
+    <li><code>Facade</code>, 将复杂的内容对外暴露为简单的接口</li>
+    <li><code>Flyweight</code>, 重用类, 一般用于不可变对象</li>
+    <li><code>Proxy</code>, 仅仅在需要被代理类的时候才生成被代理类</li>
+</ol>
+<ol>行为型设计模式
+    <li><code>Chain of Responsibility</code>, 职责链模式, 串起一批用来解决问题的类.</li>
+    <li><code>Command</code>, 将命令也就是行为抽象成类.</li>
+    <li><code>Interpreter</code>, 解释器模式, 终极复用.</li>
+    <li><code>Iterator</code>, 迭代器模式, 这模式回头看看确实简单.</li>
+    <li><code>Mediator</code>, 有很多类共同组成复杂的状态, 可以设置一个仲裁者对象.</li>
+    <li><code>Memento</code>, 相当于游戏存档一样的快照, 可以用类来保存状态.</li>
+    <li><code>Observer</code>, 被观察者在内部注册一系列观察者, 只要发生变化就通知观察者.</li>
+    <li><code>State</code>, 将状态和对应的功能包装在类里, 切换状态的时候切换类就可以了.</li>
+    <li><code>Strategy</code>, 算法部分委托给具体的实现, 可以替换算法.</li>
+    <li><code>Template Method</code>, 模板模式, 定好了算法, 具体实现交给子类. 注意和Strategy模式的区别, 一个定好了算法, 一个可以替换算法</li>
+    <li><code>Visitor</code>, 访问者模式, 这个访问者是双向分发, 其实是通过数据对象被动的访问, 好处是分离了数据和数据的处理, 可以随便替换访问者就可以完成不同的处理.</li>
+</ol>
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
