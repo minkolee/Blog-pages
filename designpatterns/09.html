@@ -121,7 +121,7 @@ public class CommandListNode extends Node {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("[List ");
         for (Node node : list) {
-            stringBuilder.append(node.toString());
+            stringBuilder.append(node.toString()).append(" ");
         }
         stringBuilder.append("]");
         return stringBuilder.toString();
@@ -324,16 +324,88 @@ public class Main {
 <h2 style="text-align: center;" id="con11">练习 运行语法树</h2>
 <p>现在已经有了解析完成的语法树, 该如何运行程序呢.</p>
 <p>从运行的角度来说, 其实只是运行最基本的PrimitiveNode中的指令. 但是还需要考虑循环, 看起来其实就是一个逐步展开语法树的过程.</p>
-<p>这里可以发现, 都继承了Node节点, 如果将node节点稍微改造一下, 似乎就可以变成Composite模式.</p>
+<p>这里可以发现, 都继承了Node节点, 如果将node节点稍微改造一下, 就可以变成Composite模式, 于是考虑给每个node添加一个方法 run(), 由于解析本身就是按照顺序放入到list中的, 不会影响顺序.</p>
 <pre>
+public abstract class Node {
 
+    public abstract void parse(Context context) throws ParseException;
+
+<span style="color: red">    public abstract void run();</span>
+}
 </pre>
+<p>实际上真正执行指令的, 只有PrimitiveCommandNode:</p>
+<pre>
+public class PrimitiveCommandNode extends Node {
 
+    ......
 
+    @Override
+    public void run() {
+        switch (name) {
+            case "go":
+                System.out.println("小车前进");
+                break;
+            case "left":
+                System.out.println("小车左转");
+                break;
+            case "right":
+                System.out.println("小车右转");
+                break;
+        }
+    }
+}
+</pre>
+<p>剩下的各个仅仅持有其他对象的类, 都调用自己内部的持有的对象的run()方法即可:</p>
+<pre>
+public class ProgramNode extends Node {
 
+    ......
 
+    @Override
+    public void run() {
+        commandListNode.run();
+    }
+}
+</pre>
+<pre>
+public class CommandListNode extends Node {
 
+    ......
 
+    @Override
+    public void run() {
+        for (Node node : list) {
+            node.run();
+        }
+    }
+}
+</pre>
+<pre>
+public class CommandNode extends Node {
+
+    ......
+
+    @Override
+    public void run() {
+        node.run();
+    }
+}
+</pre>
+<p>RepeatCommandNode要注意语义, 要利用解析所得的数字, 来重复执行其中包含的命令.</p>
+<pre>
+public class RepeatCommandNode extends Node {
+
+    ......
+
+    @Override
+    public void run() {
+        for (int i = 0; i < number; i++) {
+            commandListNode.run();
+        }
+    }
+}
+</pre>
+<p>这样只需要在解析完语法树之后, 使用ProgramNode的run()方法, 即可启动解析后的程序.</p>
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
