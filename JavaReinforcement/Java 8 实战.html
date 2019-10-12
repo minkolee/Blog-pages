@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 补强</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">Java Reinforcement 10 Java 8 新特性</h1>
+<p>Java 8 的新特性主要是两大方面, 一是引入了lambda表达式, 二是引入了Stream流, 三是接口中的默认方法. 在看完了基于Java 5的Thinking in Java之后, 就来补一下Java 8 的知识了.</p>
+<p>函数式编程其实在之前自己有看过书学习过, 这里根据《Java 8 实战》这本书再来过一遍.</p>
+
+<ol>
+    <li><a href="#con1">行为参数化</a></li>
+    <li><a href="#con2">lambda表达式</a></li>
+    <li><a href="#con3">如何改造程序</a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">行为参数化</h2>
+<p>有一个苹果类, 以及筛选苹果的方法, 如果更改筛选条件, 修改方法签名的话, 会导致大量代码被重用, 而且难以扩展.</p>
+<pre>
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+public class Apple {
+
+    private String color;
+
+    public Apple() {
+        Random random = new Random();
+        if (random.nextBoolean()) {
+            color = "red";
+        } else {
+            color = "green";
+        }
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    @Override
+    public String toString() {
+        return "Apple{" +
+                "color='" + color + '\'' +
+                '}';
+    }
+
+    public static void main(String[] args) {
+
+        List&lt;Apple> apples = new ArrayList&lt;>();
+
+        for (int i = 0; i &lt; 10; i++) {
+            apples.add(new Apple());
+        }
+        System.out.println(apples);
+
+        List&lt;Apple> greenApples = filterGreenApples(apples);
+        System.out.println(greenApples);
+
+    }
+
+    public static List&lt;Apple> filterGreenApples(List&lt;Apple> inventory) {
+        List&lt;Apple> result = new ArrayList&lt;>();
+        for (Apple apple : inventory) {
+            if ("green".equals(apple.getColor())) {
+                result.add(apple);
+            }
+        }
+        return result;
+    }
+
+}
+</pre>
+<p>注意我们执行的筛选工作, 即对每个苹果是否满足我们的条件有一个真或者假的结论. 我们要做的就是, 传入这个条件和对应的判断方法. 而我们的过滤方法, 每次仅仅只使用返回true的苹果本身.</p>
+<p>所以我们就无需扩展具体的要比较的参数, 而是扩展出一个条件参数. 由于Java 中毕竟不能直接传方法, 所以其实这个参数是一个类, 这个类里边的方法就是用来判断每个苹果是否符合类中的条件. 而我们的程序只要调用这个类就可以了.</p>
+<p>假如我们的类叫做Condition, 其中判断的方法叫做boolean test(Apple apple), 程序可以修改如下:</p>
+<pre>
+public static List&lt;Apple> filterApples(List&lt;Apple> inventory, Condition condition) {
+    List&lt;Apple> result = new ArrayList&lt;>();
+    for (Apple apple : inventory) {
+        <span style="color: red">if (condition.test(apple))</span> {
+            result.add(apple);
+        }
+    }
+    return result;
+}
+</pre>
+<p>为了解耦, 很显然我们需要把Condition声明为一个接口, 然后在其中标注抽象方法boolean test(Apple apple):</p>
+<pre>
+public interface Condition {
+
+    boolean test(Apple apple);
+}
+</pre>
+<p>现在我们就完成了一个传入参数化条件的雏形, 也就是传入一个使用一定的条件测试的对象, 在实际使用中, 是这个样子:</p>
+<pre>
+public static void main(String[] args) {
+
+    //随机准备10个颜色的苹果
+    List&lt;Apple> apples = new ArrayList&lt;>();
+    for (int i = 0; i &lt; 10; i++) {
+        apples.add(new Apple());
+    }
+
+
+    List&lt;Apple> greenApples = filterApples(apples, <span style="color: red">new Condition() {
+        @Override
+        public boolean test(Apple apple) {
+            return "green".equals(apple.getColor());
+        }
+    }</span>);
+}
+</pre>
+<p>红色部分是一个匿名类, 在Java 8 之前, 只能这么写了(注意这里实际上是Strategy设计模式, 设计模式无处不在哦), 能不能进一步简化呢.</p>
+<p>需要回过头来到我们的Condition接口中, 这个接口中仅仅有一个方法, 这个方法仅仅有一个签名, 没有重载, 接受一个参数返回一个值. 而且由于传递的是匿名对象, 那么能不能就用这个方法代替Condition对象, 然后让编译器自动创建一个匿名对象呢?</p>
+<p>Java 8 就实现了这个功能, 虽然本质上传入一个包含所需要的方法的匿名类, 但是在编写代码的时候, 可以用lambda表达式(就是换了皮的一个方法)来代替匿名类, 这就是行为参数化.</p>
+<p>还是上边的例子, 如果为了复用, 创建了一个过滤绿色的Condition实现类:</p>
+<pre>
+public class GreenCondition implements Condition {
+
+    @Override
+    public boolean test(Apple apple) {
+        return "green".equals(apple.getColor());
+    }
+}
+</pre>
+<p>在使用的时候, 就不是传入匿名类, 而是传入这个对象:</p>
+<pre>
+List&lt;Apple> greenApples = filterApples(apples, <span style="color: red">new GreenCondition()</span>);
+</pre>
+<p>此时能不能使用方法代替具体的类呢, 也是可以的.</p>
+<p>无论上边哪种情况, 使用匿名类还是可复用的类, 其中起到关键作用的, 不是类, 而是其中的那个测试方法, 类是什么根本无所谓, 只要类型是我们的方法需要的类型即可.</p>
+<p>所以可以先把我们的方法改成lambda表达式, 再传给方法即可.</p>
+<p>这个方法首先接受一个Apple参数, 可以写成(Apple apple), 然后加上一个 -> 来表示从参数到结果. 结果里我们返回的是 "green".equals(apple.getColor()), lambda如果返回单个结果, 可以直接不写return, 所以这个表达式就是: </p>
+<pre>"green".equals(apple.getColor())</pre>
+<p>然后就把这段东西传给方法, 再进一步, 可以发现参数的类型都无需传递, 因为已经知道了Condition接口中方法的签名:</p>
+<pre>
+List&lt;Apple> greenApples = filterApples(apples, (apple) -> "green".equals(apple.getColor()));
+</pre>
+<p>当然还没完, 仔细想想就知道, 直接传一个表达式, 其实适合匿名类, 用一次就完事. 如果已经有了GreenCondition类如何呢?</p>
+<p>对于已经存在的实体类, lambda表达式就需要修改一下, 这里依然注意观察, lambda表达式究竟是什么, 其实是一个方法签名加上方法体. 而对于已经存在的类来说, 方法签名和方法体都有了, 只需要类名和方法名就可以了. 于是就出现了方法引用:</p>
+<p>不过这里要注意的是, GreenCondition::test不能使用在静态方法里, 需要调整一下代码放到一个非静态方法里.</p>
+<pre>
+List&lt;Apple> greenApples = filterApples(apples, GreenCondition::test);
+</pre>
+<p>不过对于方法引用先放在后边, 还是先看lambda表达式.</p>
+
+<h2 style="text-align: center;" id="con2">lambda表达式</h2>
+<p>lambda表达式由参数, 箭头, 主体组成.</p>
+<p>参数可以不指明类型, 只要编译器能够知道你传入的参数匹配的方法签名, 当然写上类型也是可以的.</p>
+<p>箭头是固定的, 用在参数和返回值之间, 当然, 在嵌套的时候可能有些难懂, 符合左结合的规律.</p>
+<p>主体是具体执行的操作, 也就是Condition接口里方法的具体实现, 可以是一行, 如果是一行, 就无需写return和末尾的分号. 也可以是多行, 多行的话就要用一个{}包起来, 然后需要使用return语句.</p>
+<p>这里注意, 如果仅仅有一行, 但是想使用return语句, 则必须加上花括号, 而且这一行要以分号结束.</p>
+
+<p>知道了lambda表达式, 有没有想过为什么可以传入一个lambda表达式, 这是因为我们定义的Condition接口, 只有一个抽象方法, 因此恰好符合Java 8 中函数式接口的定义, 如果再添加一个方法:</p>
+<pre>
+public interface Condition {
+
+    boolean test(Apple apple);
+
+    boolean test2(Apple apple);
+}
+</pre>
+<p>就会发现无法使用lambda表达式了, 因为编译器无法知道到底要对应哪一个方法. 也就是说, 符合函数式接口的类(或者接口), 就可以通过lambda表达式, 将其当成一个函数对象(而不是带有一个方法的对象)来使用.</p>
+<p>注意, 函数式接口只定义了一个抽象方法, 而不是只有一个方法, 还可以有若干默认方法, 但抽象方法只能有一个.</p>
+<p>想编写一个函数式接口, 为了不出错, Java 8 提供了一个新的注解 @FunctionalInterface, 将其加在接口上, 就可以保证这个接口必须符合函数式接口, 否则无法编译通过. 这个注解来自于java.util.function, 这是Java 8 提供的函数式编程包, 晚点来专门看其中的奥秘.</p>
+<p>时刻要记住, lambda表达式等于一个函数式接口的对象, 因此可以被返回, 可以被重用, 这很重要, 有了这个之后, 就可以来改造程序, 让其可以接受参数化对象.</p>
+
+<h2 style="text-align: center;" id="con3">如何改造程序</h2>
+<p>现在了解了参数化行为的思想之后, 很多程序就无需写死了, 而是可以灵活的进行改造.</p>
+<p>在IO的时候, 经常需要读取文件. 如果要读取第一行, 可能就写死了读一行, 如果全部读出并放到一个字符串里, 可能又要写一个方法, 然后每次调用不同的方法.</p>
+<p>在改造的时候, 采取如下步骤:</p>
+<ol>
+    <li>捕捉不同行为下的相同点, 无论读取一行, 还是读取两行, 最后返回的都是一个字符串, 因此 这是一个接受一个Reader对象, 返回字符串的行为</li>
+    <li>用函数式接口来规范行为</li>
+    <li>编写使用函数式接口对象的方法</li>
+    <li>在实际使用方法的时候, 传递lambda表达式</li>
+</ol>
+<p>下边就按照上述步骤, 写一个可以参数化读取文件的方法. 捕捉行为的相同点已经分析过了, 那么先写接口:</p>
+<pre>
+@FunctionalInterface
+public interface ReadFile {
+
+    String read(BufferedReader bufferedReader) throws IOException;
+
+}
+</pre>
+<p>这个接口符合函数式接口, 因此本身可以当成一个函数对象, 接受一个BufferedReader, 返回字符串.</p>
+<p>然后像苹果那个例子一样, 编写一个静态方法, 其中只要使用了这个函数式接口即可:</p>
+<pre>
+public static String getContent(String filename, ReadFile p) {
+    String result = "";
+    try {
+        BufferedReader bufferedReader = new BufferedReader(new FileReader(filename));
+        result = p.read(bufferedReader);
+    } catch (IOException e) {
+        System.out.println("处理错误");
+    }
+    return result;
+}
+</pre>
+<p>之后就可以传入参数化行为了:</p>
+<pre>
+public static void main(String[] args) {
+    String result = getContent("program.txt", bufferedReader -> bufferedReader.readLine()+ "\n"+bufferedReader.readLine());
+
+    System.out.println(result);
+
+    String result2 = getContent("program.txt", bufferedReader -> bufferedReader.readLine());
+
+    System.out.println(result2);
+}
+</pre>
+<p>可见, 这里的ReadFile p 实际上和lambda 表达式是等价的, 所以lambda本质就是一个函数式接口的实现类的对象.</p>
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
