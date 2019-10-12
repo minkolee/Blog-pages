@@ -227,22 +227,69 @@ public static void main(String[] args) {
 </pre>
 <p>可见, 这里的ReadFile p 实际上和lambda 表达式是等价的, 所以lambda本质就是一个函数式接口的实现类的对象.</p>
 
+<h2 style="text-align: center;" id="con4">Java 8 提供的函数式接口</h2>
+<p>在之前看函数式编程的时候, 简略的看过这一段, 但是没有总结充分. 现在可以列出常见的了:</p>
+<ol>
+    <li><code>Predicate&lt;T></code>, 这个接口定义了test方法, 接受泛型T, 返回boolean类型. 这个类似于一个测试, 凡是需要过滤和判断的地方, 都可以采用此接口</li>
+    <li><code>Consumer&lt;T></code>, 这个接口定义了一个accept的方法, 接受泛型T, 返回void, 其实顾名思义, 就相当于消费掉了这个数据, 没有返回值.</li>
+    <li><code>Function&lt;T, R></code>, 这个顾名思义, 就是一个抽象的函数, 其中有一个apply方法, 接受T类型, 返回R类型, 相当于从T到R的映射. 当然这其中还有一个compose和一个andthen, 属于高级的用法</li>
+    <li><code>类型特化接口</code>, 这个是针对java.util.function中所有的泛型接口, 在操作基本类型的时候, 因为自动装箱拆箱机制造成的性能低下, 直接会接受泛型返回基本类型或者在基本类型之间转换, 具体有很多, 只要记住涉及到基本类型, 就要想起类型特化接口</li>
+    <li><code>Supplier&lt;T></code>, 其中定义了get()方法, 无参数, 返回T类型, 由于这个函数的意义就是无中生有, 创造出T类型, 所以顾名思义称作Supplier接口</li>
+    <li><code>UnaryOperator&lt;T></code>, 这其中定义了一个:
+    <pre>
+    static &lt;T> UnaryOperator&lt;T> identity() {
+        return (t) -> {
+            return t;
+        };
+    }
+    </pre>
+    本质就是接受一个T返回一个T, 是一个对一个对象进行某些操作的抽象. 这个接口实际上是继承了Function&lt;T,T>接口.
+    </li>
+    <li><code>BiFunction&lt;T, U, R></code>, 二元得到一元, 其中也是apply方法, 接受T和U类型参数, 返回R参数.</li>
+    <li><code>BinaryOperator&lt;T></code>, 这个接口实际上继承BiFunction&lt;T, T, T>, 即接受两个T类型, 返回一个T类型, 可以用于聚合. 还提供了minBy和maxBy两个方法.</li>
+    <li><code>BiPredicate&lt;L, R></code>, 这个接口的方法是 test(T var1, U var2);接受L和R类型, 返回boolean, 用来同时测试两个对象. 此外还有几个默认方法.</li>
+    <li><code>BiConsumer&lt;T, U></code>,  和Consumer接口一样, 方法是accept(T var1, U var2);接受T和U类型, 返回void, 所以也是一个Consumer</li>
+</ol>
 
+<h2 style="text-align: center;" id="con5">局部变量与闭包</h2>
+<p>前边编写的lambda表达式都仅仅使用了其自己方法体内部的局部变量, 如果使用了外部的局部变量会如何呢.</p>
+<p>实际上, 在lambda执行的时候, 会捕获当时的局部变量, 实际上那个局部变量事实上成为final. </p>
+<p>原因是程序基础, 一个类相当于一个C语言的模板, 局部变量是在栈中, 运行完毕之后就无法保证其中的内容, 所以不能访问栈空间, 实际上保存的是这个栈中的变量的副本, 所以也不能重新赋值.</p>
+<p>使用实例变量则是可以的, 因为实例变量保存在堆中, 这和线程也有关系.</p>
 
+<h2 style="text-align: center;" id="con6">方法引用</h2>
+<p>关于方法引用要明确的就是, 方法引用不是一种新写法, 只是lambda表达式的快捷写法. 用在你已经知道了具体的类和具体的方法.</p>
+<p>在之前我们程序中使用的都是接口, 传入的lambda其实表示匿名对象, 但如果确定的知道要使用某一个类的某一个方法, 就可以考虑直接传入符合接口的方法引用形式, 而无需采用lambda 表达式.</p>
+<p>来看一个简单的例子:</p>
+<pre>
+public interface ConsumeApple extends Consumer&lt;Apple> {
+}
+</pre>
+<p>这个接口继承Consumer&lt;Apple>, 则其中有了一个方法 accept接受Apple对象, 返回void, 其实就可以消费Apple对象了.</p>
+<p>再编写一个程序, 接受Apple对象和这个消费Apple对象的方法:</p>
+<pre>
+public class UseApple {
 
+    public static void processApple(Apple apple, ConsumeApple consumeApple) {
+        consumeApple.accept(apple);
+    }
 
+}
+</pre>
+<p>UseApple类中的processApple方法, 用参数化的行为来处理传入的apple对象.</p>
+<p>在使用的时候, 我们可以手写一个lambda表达式:</p>
+<pre>
+public static void main(String[] args) {
 
+    Apple apple = new Apple();
 
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-
-<h2 style="text-align: center;" id="con6"></h2>
-
-
-
-
+    processApple(apple, apple1 -> {
+        System.out.println("apple is" + apple);
+    });
+}
+</pre>
+<p>注意我们这里的lambda表达式, 是接受Apple返回void的函数. 从之前的学习知道, 传入一个符合这个方法签名的lambda即可.</p>
+<p>如果我们指明了要打印这个苹果方法就是System.out.println()方法, 可以传入这个方法吗?</p>
 
 
 
