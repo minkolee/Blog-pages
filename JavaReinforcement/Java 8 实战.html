@@ -23,9 +23,9 @@
     <li><a href="#con1">行为参数化</a></li>
     <li><a href="#con2">lambda表达式</a></li>
     <li><a href="#con3">如何改造程序</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">Java 8 提供的函数式接口</a></li>
+    <li><a href="#con5">局部变量与闭包</a></li>
+    <li><a href="#con6">方法引用</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">行为参数化</h2>
@@ -176,6 +176,7 @@ public interface Condition {
 }
 </pre>
 <p>就会发现无法使用lambda表达式了, 因为编译器无法知道到底要对应哪一个方法. 也就是说, 符合函数式接口的类(或者接口), 就可以通过lambda表达式, 将其当成一个函数对象(而不是带有一个方法的对象)来使用.</p>
+<p>这里有人可能会问, 那我添加一个返回值不同的抽象方法呢, 是不是就可以区分了, 答案依然是不行, 因为<span style="color: red">Java中的函数签名不包含返回值</span></p>
 <p>注意, 函数式接口只定义了一个抽象方法, 而不是只有一个方法, 还可以有若干默认方法, 但抽象方法只能有一个.</p>
 <p>想编写一个函数式接口, 为了不出错, Java 8 提供了一个新的注解 @FunctionalInterface, 将其加在接口上, 就可以保证这个接口必须符合函数式接口, 否则无法编译通过. 这个注解来自于java.util.function, 这是Java 8 提供的函数式编程包, 晚点来专门看其中的奥秘.</p>
 <p>时刻要记住, lambda表达式等于一个函数式接口的对象, 因此可以被返回, 可以被重用, 这很重要, 有了这个之后, 就可以来改造程序, 让其可以接受参数化对象.</p>
@@ -289,11 +290,61 @@ public static void main(String[] args) {
 }
 </pre>
 <p>注意我们这里的lambda表达式, 是接受Apple返回void的函数. 从之前的学习知道, 传入一个符合这个方法签名的lambda即可.</p>
-<p>如果我们指明了要打印这个苹果方法就是System.out.println()方法, 可以传入这个方法吗?</p>
+<p>然后发现System.out.println()方法, 恰好也符合接受Apple返回void的要求, 是不是可以传呢, 是可以传的, println是一个静态方法, 因此可以使用方法引用, 即类名::方法名:</p>
+<pre>
+public static void main(String[] args) {
+
+    Apple apple = new Apple();
+
+    processApple(apple, <span style="color: red">System.out::println</span>);
+}
+</pre>
+<p>注意这里是静态方法引用, 只是方法引用的一种, 这是为了说明一个要点: 方法引用不过是lambda的语法糖, 用在精确的知道什么类和具体方法的时候, 而不像lambda实际上是匿名对象.</p>
+<p>方法引用一共有三种, 需要仔细注意其中的区分:</p>
+<ol>
+    <li>指向静态方法的方法引用, 使用类名::方法名. 注意这个类名和方法名都是不会改变的, 所以就直接用类名::方法名</li>
+    <li>第二种比较特殊, 指向不特定对象的实例方法, 指的是这个方法能够接受一个任意的类的实例, 然后调用对应的方法, 这个对应lambda表达式的关系如下:
+    <pre>
+    (arg0, rest) -> arg0.instanceMethod(rest)
+    </pre>
+    简单的说, lambda表达式接受两个参数, 一个是对象, 一个是目标参数, 在程序中会调用对象的实例方法, 传入目标参数, 这个时候就需要用arg0所属的类名::实例方法.<br>
+    第二种是最让人迷惑的, 我之前自学的时候就没有区分这三类, 导致看不懂, 现在就明白多了.
+    </li>
+    <li>第三类, 是指向现有特定对象的实例方法, 使用实例变量名::方法名. </li>
+</ol>
+<p>此外还有指向构造函数的类名::new, 数组构造函数和父类调用.</p>
+<p>要注意还是第二种, 看到类似于两个对象进行比较, 一个参数使用以第二个参数为参数的实例方法,都要想到第二种, 只要lambda符合, 就可以用.</p>
+<p>还有一点时刻要记住, lambda是一个对象, 可以用接口类型变量为其赋值一个lambda, 一定要时刻记住.</p>
 
 
-
-
+<h2 style="text-align: center;" id="con7">复合Lambda表达式</h2>
+<p>函数式接口有一些默认方法, 其实是起到复合作用, 即对结果再应用函数. 比如常见的谓词, 就是一个判断, 则谓词很显然可以用逻辑运算符来连接, 其中的默认方法起到的就是这个作用.</p>
+<p>常见的有:</p>
+<ol>
+    <li>比较器复合, inventory.sort(comparing(Apple::getWeight).reversed());</li>
+    <li>比较器链, inventory.sort(comparing(Apple::getWeight).reversed().thenComparing(Apple::getCountry));</li>
+    <li>谓词复合, negate、and和or, 用来重用Predicte&lt;T>:
+        <br>
+        Predicate&lt;Apple> notRedApple = redApple.negate();
+            <br>
+        Predicate&lt;Apple> redAndHeavyApple = redApple.and(a -> a.getWeight() > 150);
+        <br>
+        Predicate&lt;Apple> redAndHeavyAppleOrGreen = redApple.and(a -> a.getWeight() > 150).or(a -> "green".equals(a.getColor()));
+    </li>
+    <li>函数复合, Function接口提供了andThen和compose, 返回Function的一个实例, 例如可以很方便的实现 g(f(x)):&lt;br>
+        Function&lt;Integer, Integer> f = x -> x + 1;<br>
+        Function&lt;Integer, Integer> g = x -> x * 2;<br>
+        Function&lt;Integer, Integer> h = f.andThen(g);<br>
+        int result = h.apply(1);<br>
+        而compose表示自己把作为compose参数的函数当成自己的参数, 即自己的组成部件是g, 例如: <br>
+        Function&lt;Integer, Integer> f = x -> x + 1; <br>
+        Function&lt;Integer, Integer> g = x -> x * 2;<br>
+        Function&lt;Integer, Integer> h = f.compose(g);<br>
+        int result = h.apply(1);<br>
+        这表示的是f(g(x))
+    </li>
+</ol>
+<p>有了函数式编程之后, 在今后的编程中, 就要注意使用策略模式, 然后传递lambda表达式了.</p>
 
 
 
