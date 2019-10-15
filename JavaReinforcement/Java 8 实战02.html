@@ -19,39 +19,218 @@
 
 <ol>
     <li><a href="#con1">流</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">流操作的整体步骤</a></li>
+    <li><a href="#con3">中间操作 - 筛选和切片</a></li>
+    <li><a href="#con4">中间操作 - 映射</a></li>
+    <li><a href="#con5">查找</a></li>
+    <li><a href="#con6">终端操作 - 归约</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">流</h2>
+<p>流可以说是操作集合的新方法, 结合前边的函数式编程, 可以更高效的编写代码, 可以看成是高级的迭代器.</p>
+
+<p>流有几个术语:</p>
+<ol>
+    <li>元素序列, 就是一个流对象提供的接口, 可以访问到一组元素.</li>
+    <li>源, 流会使用一个提供数据的源, 由其他集合生成的流, 排序情况(或者无序)与原集合一致</li>
+    <li>数据处理操作, 这个类似于SQL语句, 对每一个流中的元素进行一些操作, 比如filter, map, reduce, find, match, sort等, 都是函数式编程中的常见操作.</li>
+    <li>流水线, 很多流操作不会变更原来的流, 而是返回一个新的流, 这和操作集合对象有些不同. 这些操作可以串起来成为一个流水线</li>
+    <li>内部迭代, 很多流的数据处理操作暗含了迭代, 无需编写显式的迭代代码.</li>
+</ol>
+<p>下边这个例子可以说明上边的术语:</p>
+<pre>
+public static void main(String[] args) {
+
+    //一个Dish的List
+    List&lt;Dish> dishes = Dish.getMenu();
+
+    //转换成一个Dish的流对象源
+    Stream&lt;Dish> dishes1 = dishes.stream();
+
+    List&lt;String> newDishes = dishes.stream()
+            //数据处理操作filter, 这个操作生成了一个新的流
+            .filter(dish -> dish.getCalories() > 300)
+            //map方法表示接受一个lambda, 将元素转换成其他形式, map的意思表示对每个元素应用其中的lambda表达式, 收集应用后的结果
+            //map操作也生成了一个新的流
+            .map(dish -> dish.getName())
+            //获取前三个, 生成一个新的流
+            .limit(3)
+            //收集成一个列表, 这个是终结流的操作, 每个流必须有一个终结操作, 否则之前确定的动作不会执行
+            .collect(Collectors.toList());
+
+    System.out.println(newDishes);
+}
+</pre>
+<p>流只能遍历一次, 之后这个流就会被消费掉, 需要从原始数据源那里获取一个新的流来遍历一次. 像集合之类可以反复调用方法来生成流, 但是像IO就没戏了.</p>
+<pre>
+public class Consume {
+
+    public static void main(String[] args) {
+        List&lt;String> title = Arrays.asList("Java8", "in", "action");
+
+        Stream&lt;String> s = title.stream();
+        //这一行工作正常
+        s.forEach(System.out::println);
+        //想再次输出, 就会抛出流已经消费的异常
+        s.forEach(System.out::println);
+    }
+}
+</pre>
+<p></p>
 
 
+<h2 style="text-align: center;" id="con2">流操作的整体步骤</h2>
+<p>总体上来说, 流的操作分为两大类:</p>
+<ol>
+    <li>中间操作: 返回一个流的操作. 可以互相连接, 在连接的过程中不会发生实际操作.</li>
+    <li>终端操作: 会从流生成一个结果, 并且消费掉这个流. 在执行了终端操作之后, 所有的中间操作才会启动.</li>
+</ol>
+<p>所以使用流就是三步:</p>
+<ol>
+    <li>获取流, 常见的集合都提供了.stream()方法, 此外Stream库中也有生成流的方法</li>
+    <li>中间操作, 常见的有filter, map, limit, sorted, distinct</li>
+    <li>终端操作, 常见的有forEach, count, collect, 其中collect是将流规约, 其中又有很多操作</li>
+</ol>
 
+<h2 style="text-align: center;" id="con3">筛选和切片</h2>
+<p>filter的定义如下:</p>
+<pre>
+Stream&lt;T> filter(Predicate&lt;? super T> predicate);
+</pre>
+<p>可见filter方法接收的是一个Predicate接口, 这个接口已经很熟悉了, 就是根据返回的布尔值来过滤为true的元素.</p>
+<p>需要注意的是, 调用过filter之后, 得到了符合条件的一个新流, 但是流中的元素并没有改变类型. 所以一个Stream&lt;T>在过滤之后, 还是一个Stream&lt;T>.</p>
+<p>还有一个distinct()方法, 没有参数, 这个方法调用之后, 会根据流中元素的的hashCode和equals方法, 来去掉重复的元素, 仅保留不同的元素, 然后生成一个新流, 元素类型依然不会改变.</p>
+<p>如果只需要部分元素, limit(n)可以只从流中获取n个元素, 如果流有序, 则就是最开始的n个, 如果流无序, 则获取的是无序的n个元素.</p>
+<p>如果需要跳过部分元素, 则可以使用skip(n). 例如:</p>
+<pre>
+public static void main(String[] args) {
+    List&lt;Dish> dishes = Dish.getMenu();
 
+    List&lt;Dish> dishes1 = dishes.stream().filter(dish -> dish.getCalories() > 200).limit(2).collect(Collectors.toList());
+    System.out.println(dishes1);
 
+    List&lt;Dish> dishes2 = dishes.stream().filter(dish -> dish.getCalories() > 400).skip(2).collect(Collectors.toList());
+    System.out.println(dishes2);
+}
+</pre>
+<p>筛选, 切片和跳过的最大特点就是不改变其中的元素类型, 只是将流变得不会多于原来的流.</p>
 
+<h2 style="text-align: center;" id="con4">映射</h2>
+<p>映射对于流来讲, 就是把一个流中的元素, 转换成另外一个新流中的经过处理的元素, 元素的类型可能改变, 也可能不改变, 但通常会改变</p>
+<p>最典型的映射就是map()方法:</p>
+<pre>
+&lt;R> Stream&lt;R> map(Function&lt;? super T, ? extends R> mapper);
+</pre>
+<p>这是定义在Stream类中的一个泛型方法, 接受的是一个Function&lt;T, R>接口对象, 也就是接受T返回R类型的函数式接口, 会使用这个函数对流中的元素进行操作.</p>
+<p>而每一个元素被操作之后的结果, 会组成一个新流, 这就是map的特点所在:</p>
+<pre>
+List&lt;String> dishNames = dishes.stream()
+        //第二种方法引用, 即任意实例的方法
+        .map(Dish::getName)
+        //组成一个List,此时List的类型是什么呢, 是Dish::getName返回的类型,也就是String
+        .collect(Collectors.toList());
+</pre>
+<p>将一个流中的元素进行操作并且转换成另外一个类型的流是比较直观的. 扁平化就是不是很容易了, 扁平化我个人这么理解, 就是流中的每个元素都是流, 如果仅仅使用map, 那流中的元素还是流, 使用flatmap, 就会把流中的每个流都拆成其中的元素, 再把这些元素拼起来成新的流.</p>
+<p>将List&lt;String> s = ["Hello","World"]展开成["H","e","l", "o","W","r","d"], 用map的话, 一定要注意返回类型:</p>
+<pre>
+public static void main(String[] args) {
 
+    List&lt;String> ss = Arrays.asList("Hello", "world!");
 
+    ss.stream().map(s -> s.split("")).forEach(System.out::println);
+    ss.stream().map(s -> s.split("")).forEach(strings -> System.out.println(Arrays.toString(strings)));
 
+}
+</pre>
+<p>这个打印的结果是什么呢, 注意map的操作, 将列表转换成流后, 流中的元素类型是原来集合中的元素类型, 也就是一个个字符串.</p>
+<p>s -> s.split("") 的返回值是一个String数组, 这就意味着, 在使用完map之后, 流中的元素类型从字符串变成了字符串数组, 个数不变, 还是两个.</p>
+<p>所以上边程序执行的结果是:</p>
+<pre>
+[H, e, l, l, o]
+[w, o, r, l, d, !]
+[Ljava.lang.String;@783e6358
+[Ljava.lang.String;@17550481
+</pre>
+<p>可以看到, map是无法改变元素的个数的. 很显然使用map是不行的. 这个时候就需要使用flatmap了.</p>
+<p>fflatmap的定义如下:</p>
+<pre>
+&lt;R> Stream&lt;R> flatMap(Function&lt;? super T, ? extends Stream&lt;? extends R>> mapper);
+</pre>
+<p>首先这是一个泛型方法, 关键是其中的参数, 可以简化成 Function&lt;T, Stream&lt;R>的一个函数接口, 这个接口的意思表示接受一个T类型, 返回一个流对象. 这个函数对象表示如何将流中每个元素变成一个流, flatmap本身做的事情就是使用这个函数展开流, 再扁平化.</p>
+<p>再简单一点说, flatMap接受的匿名对象的方法是用来产生一个流的, flatMap会把这个流展开, 当成当前流的内容. 虽然有点拗口, 但是确实需要仔细体会.</p>
+<p>我可以理解成, 就是把每个元素当成一个流, 展开后合并起来成为一个流, 再来试试:</p>
+<pre>
+List&lt;String> uniqueCharacters =
+        ss.stream()
+                //生成了一个流元素是字符串数组的流
+                .map(w -> w.split(""))
+                //传入的函数对象是将数组变成流
+                //flatMap使用这个函数将每个数组变成流, 再将流中的每个元素合并到当前的流中
+                .flatMap(Arrays::stream)
+                .distinct()
+                .collect(Collectors.toList());
+</pre>
+<p>这样就可以操作了, 所以要注意flatMap和map接受的lambda表达式的意义是不同的.</p>
+<p>书上有一道题目, 写的和书上不一样, 但是是经过了自己的思考:</p>
+<p>给定两个数字列表，如何返回所有的数对呢？例如，给定列表[1, 2, 3]和列表[3, 4]，应该返回[(1, 3), (1, 4), (2, 3), (2, 4), (3, 3), (3, 4)]:</p>
+<pre>
+import java.util.Arrays;
 
+public class Ex52 {
 
+    public static void main(String[] args) {
+        int[] a1 = {1, 2, 3};
+        int[] a2 = {3, 4};
 
+        //想法, 用一个流和另外一个流生成对象, 再扁平化展开就可以了, 试验一下吧
+        //这是将a1和一个数字10转换成一个Tuple流的代码, 现在要解决的就是把10改成来自于另外一个流
+        Arrays.stream(a1).mapToObj(operand -> new Tuple&lt;Integer>(operand, 10)).forEach(System.out::println);
 
+        //对于a1中的每一个int, 返回一个Arrays.stream(a2).mapToObj(last -> new Tuple&lt;Integer>(first, last))
+        //Arrays.stream(a2).mapToObj(last -> new Tuple&lt;Integer>(first, last)) 是针对a2中的每个 int 将其换成一个Tuple的流.
 
+        //这样执行完之后, 实际上就得到了一个所有的元素都是流的流对象
+        Arrays.stream(a1).mapToObj(first ->
+                Arrays.stream(a2).mapToObj(last -> new Tuple&lt;Integer>(first, last))
+        ).forEach(s -> System.out.println(s.getClass()));
 
+        //然后就需要展开了, 由于其中每一个流已经是流了, flatMap这里无需做任何处理, 就是 s -> s
+        Arrays.stream(a1).mapToObj(first ->
+                Arrays.stream(a2).mapToObj(last -> new Tuple&lt;Integer>(first, last))
+        ).flatMap(s -> s).forEach(System.out::println);
 
+    }
+}
+</pre>
+<p>原书的解法确实棒, 利用了flatMap, 将生成流的代码直接写在flatMap之内.</p>
 
+<h2 style="text-align: center;" id="con5">查找</h2>
+<p>相比在集合中查找返回的boolean, 要先看一个Java 8的新类叫做Optional&ltT>.</p>
+<p>这个类位于java.util.Optional中, 是一个容器类, 代表一个值存在或者不存在, 这样不容易出现null问题.</p>
+<p>这个类有几个实例方法:</p>
+<ol>
+    <li>isPresent(), 是否包含值, 包含返回true</li>
+    <li>ifPresent(Consumer T consumer), 在值存在的时候对其执行consumer函数. 这个Consumer接口已经学过了, 接受T类型返回void.</li>
+    <li>T get(), 存在值的时候返回值, 否则抛出NoSuchElement异常.</li>
+    <li>T orElse(T other), 如果不存在的时候, 返回传入的other作为默认值, 如果存在, 等于 T get().</li>
+</ol>
+<p>然后就可以来看看查找方法了, 首先是一些找到或者找不到的方法:</p>
+<ol>
+    <li>boolean anyMatch(Predicate&lt;? super T> predicate); 根据条件只要有一个匹配, 就返回true</li>
+    <li>boolean allMatch(Predicate&lt;? super T> predicate); 如果全部匹配, 才返回true</li>
+    <li>boolean noneMatch(Predicate&lt;? super T> predicate); 如果全部不匹配, 才返回true</li>
+</ol>
+<p>这些方法中都使用了短路, 所以不必处理完全部的流, 就可以得到结果(假如满足条件的话).</p>
+<p>之后是查找某个具体元素的方法, 这些方法返回的都是Optional对象:</p>
+<ol>
+    <li>findFirst(), 找有顺序的第一个元素, 如果流无序, 则不确定是哪一个</li>
+    <li>findAny(), 找有顺序的第一个元素, 如果流无序, 则不确定是哪一个</li>
+</ol>
 
-<h2 style="text-align: center;" id="con2">流</h2>
-<h2 style="text-align: center;" id="con3">流</h2>
-<h2 style="text-align: center;" id="con4">流</h2>
-<h2 style="text-align: center;" id="con5">流</h2>
-<h2 style="text-align: center;" id="con6">流</h2>
-
-
+<h2 style="text-align: center;" id="con6">终端操作 - 归约</h2>
+<p>前边除了查找之外, 都是中间操作, 只是中间操作的话, 流的操作没有执行, 也无法得到结果. 只有执行了终端操作, 流才能转换成实际可以使用的数据.</p>
+<p>这里的归约指的是reduce方法, 还不是collect()方法. collect()要单独来学习.</p>
+<p>之前写过一篇<a href="http://www.conyli.cc/archives/2498" target="_blank">Reduce的三种重载</a>, reduce的基础使用就不再赘述了.</p>
 
 
 
