@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 补强</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<h1 style="text-align: center;">Java Reinforcement 11 收集器与并行流</h1>
+<p>在流中一开始没有讲收集器, 而是学习了规约的一般操作. 这是因为收集器本质上就是一种归约, 但是更加抽象.</p>
+
+<ol>
+    <li><a href="#con1">收集器</a></li>
+    <li><a href="#con2">预定义收集器</a></li>
+    <li><a href="#con3">广义的归约汇总</a></li>
+    <li><a href="#con4">并行流与ForkJoin框架</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">收集器</h2>
+<p>与流搭配使用的收集器是新的java.util.stream.Collector接口, 这个接口本质上也是规约操作, 汇总成一个结果. 注意汇总成一个集合依然是汇总成一个结果.</p>
+<p>传递给流的.collect()方法的参数, 是一个java.util.stream.collector接口实现, 也就是给Stream中元素如何进行汇总的方法.</p>
+<p>最常用的是Collector.toList(), 用于将元素收集成一个List集合.</p>
+
+
+
+<h2 style="text-align: center;" id="con2">预定义收集器</h2>
+<p>预定义收集器就一些Collector接口中定义好的静态方法, 返回一个函数对象以当成collect()方法的参数. 有以下一些常用的:</p>
+<ol>
+    <li>Collectors.counting(),无参数,返回流元素的个数, 还可以直接对stream()对象使用.count(), 这个方法本身就是终端操作</li>
+    <li>Collectors.maxBy()和，Collectors.minBy(), 参数是是一个Comparator.</li>
+    <li>Collectors.summingInt(), 参数是一个把流元素映射为int的函数, 用于汇总. 对于Long和Double类型也有类型特化的Collectors.summingLong和Collectors.summingDouble</li>
+    <li>Collectors.averagingInt(),参数也是一个把流元素映射为int的函数, 求平均值. 同样有类型特化版本.</li>
+    <li>Collectors.summarizingInt(),参数也是一个把流元素映射为int的函数, 这个方法会一次性求出最大, 最小, 平均值, 求和, 个数, 结果是一个IntSummaryStatistics对象, 可以取出上边的结果. 同样也有类型特化版本.</li>
+    <li>Collectors.joining(), 无参数的版本, 是将流元素中每个对象的toString()的结果连接起来, 有一个重载的版本可以传入字符串参数当成分隔符.</li>
+    <li>Collectors.joining(), 无参数的版本, 是将流元素中每个对象的toString()的结果连接起来, 有一个重载的版本可以传入字符串参数当成分隔符.</li>
+    <li>Collectors.groupingBy, 下边详细讲述</li>
+    <li>Collectors.partitioningBy, 本质上就是按照布尔值的分组, 下边详细讲述</li>
+    <li>Collectors.toSet(), 收集成集合, 自动去重</li>
+    <li>Collectors.toCollection(), 收集成指定的集合, 使用在collect()方法内部的时候, 第二个参数要传一个集合类型的构造器, 比如menuStream.collect(toCollection(), ArrayList::new);</li>
+</ol>
+<p>除了上边这些之外, 还有一个分组静态方法Collectors.groupingBy</p>
+<p>所谓分组, 就是将流按照分组的关键字, 收集成为一个Map对象. 内置的Collectors.groupingBy()接受一个用于分组的函数, 用来按分组的函数返回的类型作为键, 然后将对应的元素收集到这个键对应的值(一个列表)中, 看定义:</p>
+<pre>
+public static &lt;T, K> Collector&lt;T, ?, Map&lt;K, List&lt;T>>> groupingBy(Function&lt;? super T, ? extends K> classifier) {
+    return groupingBy(classifier, toList());
+}
+</pre>
+<p>通过定义可以看出, Map&lt;K, List&lt;T>>就是要返回的类型, K类型是Function&lt;? super T, ? extends K>的返回类型, T是流元素的类型.</p>
+<p>分组还可以多级分组, groupingBy方法有一个重载, 第一个参数依然是Function&lt;? super T, ? extends K>, 第二个参数又是一个collector类型的函数. 第二个收集器执行得到的结果, 作为第grouppingBy的值.</p>
+<p>分区是分组的特殊情况, 就是将流元素映射成布尔值, 根据布尔值来分组, 这个方法接收的是一个Predicate谓词函数, 也已经很熟悉了. 同样也有重载版本, 可以传递第二个收集器.</p>
+
+<h2 style="text-align: center;" id="con3">广义的归约汇总</h2>
+<p>实际上所有的收集器, 都是一个reducing工厂方法定义的归约过程的常用情况抽取出来编写而成的代码, 只是为了方便使用. 本质上都是使用reducing工厂方法.</p>
+<p>reducing静态方法需要三个参数, 第一个是归约操作的起始值, 第二个是处理每一个元素的函数, 也就是普通传递给各个静态方法的函数, 第三个是一个BinaryOperator&lt;T, T>(BiFunction&lt;T,T,T>), 这是表示如何累计经过第二个参数转换之后的流中的每两个元素, 也就是处理叠加过程.</p>
+<p>reducing静态方法有一个单参数版本, 只需要传递三参数版本的第三个参数, 把流的第一个元素当成起点, 转换函数是恒等函数, 这样就等于从流的第一个元素开始不断按照行为参数处理每两个元素. 由于没有初始值, 所以单参数版本返回的是一个Optional对象.</p>
+<p>所以即使不写代码, 也可以知道比如toList()的reducing版本大概是什么样子, 第一个参数是新建的List对象, </p>
+<p>至于自定义收集器的方法, 就以后有余力再看吧.</p>
+<p>学到现在给自己又定下了两个原则, 1 是现在遇到集合就尽量使用stream操作, 2 是文件IO要逐步用流处理.</p>
+
+<h2 style="text-align: center;" id="con4">并行流</h2>
+<p>流中间串一个.parallel()方法就可以将流改成并行的. 听上去很美好, 但不是这么简单. 调用.sequential()可以变成顺序流 ,但这只是做一个标记, 哪个方法最后调用, 就成为对应的设置.</p>
+<p>此外, 要顺序流执行的代码, 还不能够访问共享数据, 否则就会出问题, 这与普通的多线程问题是一样的. 最方便并行的, 就是可以将问题分治, 然后再合并起来的问题, 而不是反复在同一个变量上操作的问题.</p>
+<p>举一个并行流会出问题的例子:</p>
+<pre>
+public class TestTime {
+
+    public static long measureSumPerf(Function&lt;Long, Long> adder, long n) {
+        long fastest = Long.MAX_VALUE;
+        for (int i = 0; i &lt; 10; i++) {
+            long start = System.nanoTime();
+            long sum = adder.apply(n);
+            long duration = (System.nanoTime() - start) / 1_000_000;
+            System.out.println("Result: " + sum);
+            if (duration < fastest) fastest = duration;
+        }
+        return fastest;
+    }
+
+    public static long noSideEffectSum(long n) {
+        Accumulator accumulator = new Accumulator();
+        LongStream.rangeClosed(1, n).forEach(accumulator::add);
+        return accumulator.total;
+    }
+
+    public static long sideEffectParallelSum(long n) {
+        Accumulator accumulator = new Accumulator();
+        LongStream.rangeClosed(1, n)<span style="color: red">.parallel().</span>forEach(accumulator::add);
+        return accumulator.total;
+    }
+
+    public static void main(String[] args) {
+        //多线程竞争的情况
+        System.out.println("SideEffect parallel sum done in: " + measureSumPerf(TestTime::sideEffectParallelSum, 10_000_000L) + "msecs");
+
+        //单线程处理,不会有竞争的情况
+        System.out.println("SideEffect parallel sum done in: " + measureSumPerf(TestTime::noSideEffectSum, 10_000_000L) + "msecs");
+    }
+
+}
+</pre>
+<p>sideEffectParallelSum方法将noSideEffectSum中的流运算改成了并行计算, 结果因为累加器在反复的读写同一个实例变量造成多线程竞争, 这说明流并不带有同步机制, 如果强制改成多线程, 就会得到错误的结果.</p>
+<p>一般要注意集合操作的话, ArrayList, Intstream.range等方法很好, 而Stream.iterate和链表数据结构都不太适合使用并行, 因为始终会操作同一个对象.</p>
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

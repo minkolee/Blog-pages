@@ -15,7 +15,7 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">Java Reinforcement 11 Java 8 流</h1>
+<h1 style="text-align: center;">Java Reinforcement 11 流</h1>
 
 <ol>
     <li><a href="#con1">流</a></li>
@@ -24,6 +24,8 @@
     <li><a href="#con4">中间操作 - 映射</a></li>
     <li><a href="#con5">查找</a></li>
     <li><a href="#con6">终端操作 - 归约</a></li>
+    <li><a href="#con7">基本类型特化的流</a></li>
+    <li><a href="#con8">其他应用</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">流</h2>
@@ -231,6 +233,32 @@ public class Ex52 {
 <p>前边除了查找之外, 都是中间操作, 只是中间操作的话, 流的操作没有执行, 也无法得到结果. 只有执行了终端操作, 流才能转换成实际可以使用的数据.</p>
 <p>这里的归约指的是reduce方法, 还不是collect()方法. collect()要单独来学习.</p>
 <p>之前写过一篇<a href="http://www.conyli.cc/archives/2498" target="_blank">Reduce的三种重载</a>, reduce的基础使用就不再赘述了.</p>
+<p>由于最后是将流规约为一个数字, 所以比较最大最小之类的也可以来操作了, 比如:</p>
+<pre>
+//这里是静态方法引用
+Optional&lt;Integer> min = numbers.stream().reduce(Integer::min);
+</pre>
+
+<h2 style="text-align: center;" id="con7">特化基础类型流</h2>
+<p>和之前的lambda表达式类似, 也有类型特化的流来避免不必要的开销.</p>
+<p>Java 8引入了三个原始类型特化流接口：IntStream、DoubleStream和LongStream, 而且每个接口都带了一些特有的简化归约方法.</p>
+<p>还可以将一个流映射成特化的基础类型流, 常用方法是mapToInt、mapToDouble和mapToLong, 会返回上边的三个类型的流接口对象.</p>
+<p>而数值流还可转换成装箱后的Stream流对象, 只要调用box()方法即可.</p>
+<p>对于Optional, 也提供了OptionalInt、OptionalDouble和OptionalLong这三个对应的版本.</p>
+
+<h2 style="text-align: center;" id="con8">其他应用</h2>
+<p>其他应用有如下几个:</p>
+<ol>
+    <li>两个可以用于IntStream和LongStream的静态方法，帮助生成范文中的数：range和rangeClosed. 两者的区别是第一个方法是左闭右开, 第二个是两端都闭口.</li>
+    <li>从值创建流, Stream.of("Java 8 ", "Lambdas ", "In ", "Action");, Stream 的 of 静态方法可以支持基础类型和很多内置的类型</li>
+    <li>从数组创建流, Arrays.stream(numbers), 从数组创建流, 一样也支持很多内置类型</li>
+    <li>从文件创建流, java.nio.file.Files中的很多静态方法都能够生成流, 比如File.lines(). NIO在1.4引入, 但随着1.8 的到来也加入了流要素, 估计也要看看才行.</li>
+    <li>从函数生成流, Stream.iterate静态方法接受一个初始值和一个依次应用在初始值上的函数对象, 生成一个流, 这个流是无限流. 一般需要限制大小</li>
+    <li>创造新的值, Stream.generate,静态方法接受一个Supplier&lt;T>, 每次根据Supplier生成流, 也是无限流.</li>
+</ol>
+
+
+
 
 
 
