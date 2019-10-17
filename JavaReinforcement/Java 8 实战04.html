@@ -15,20 +15,22 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">Java Reinforcement 12 收集器与并行流</h1>
-<p>在流中一开始没有讲收集器, 而是学习了规约的一般操作. 这是因为收集器本质上就是一种归约, 但是更加抽象.</p>
+<h1 style="text-align: center;">Java Reinforcement 13 接口与默认方法</h1>
+<p>接口中本来只能有抽象方法, 如果有域会变成静态域, 现在接口新增了默认方法, 其实是让接口更加灵活, 也便于在原来的类的基础上进行扩展出一套新的体系.</p>
+<p>Java 8 接口的两大变化 一是允许在接口内声明静态方法, 二是一个新功能:默认方法, 可以指定接口方法的默认实现.</p>
+<p>一言以蔽之, 原来接口仅仅是抽象的, 现在接口也可以带有方法实现. 仅仅增加接口而不重新编写接口的方法, 就可以实现新功能.</p>
+<p>传统的Java编写方式, 会为一个类提供一个辅助的工具类, 其中存放静态方法, 有了默认方法之后, 可以将静态方法转移到默认接口中, 就无需编写辅助工具类, 而且更加合理.</p>
 
 <ol>
-    <li><a href="#con1">收集器</a></li>
+    <li><a href="#con1">默认方法的使用</a></li>
     <li><a href="#con2">预定义收集器</a></li>
     <li><a href="#con3">广义的归约汇总</a></li>
     <li><a href="#con4">并行流与ForkJoin框架</a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1">收集器</h2>
-<p>与流搭配使用的收集器是新的java.util.stream.Collector接口, 这个接口本质上也是规约操作, 汇总成一个结果. 注意汇总成一个集合依然是汇总成一个结果.</p>
-<p>传递给流的.collect()方法的参数, 是一个java.util.stream.collector接口实现, 也就是给Stream中元素如何进行汇总的方法.</p>
-<p>最常用的是Collector.toList(), 用于将元素收集成一个List集合.</p>
+<h2 style="text-align: center;" id="con1">默认方法的使用</h2>
+<p>在接口中定义默认方法的关键字是default, 其他就和普通的方法修饰一样, 注意这个方法也会自动成为public方法.</p>
+<p>默认方法是非抽象方法, 因此函数式接口可以附带默认方法.</p>
 
 
 
