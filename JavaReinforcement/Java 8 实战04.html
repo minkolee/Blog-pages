@@ -15,7 +15,7 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">Java Reinforcement 13 接口与默认方法</h1>
+<h1 style="text-align: center;">Java Reinforcement 13 默认方法和Optional</h1>
 <p>接口中本来只能有抽象方法, 如果有域会变成静态域, 现在接口新增了默认方法, 其实是让接口更加灵活, 也便于在原来的类的基础上进行扩展出一套新的体系.</p>
 <p>Java 8 接口的两大变化 一是允许在接口内声明静态方法, 二是一个新功能:默认方法, 可以指定接口方法的默认实现.</p>
 <p>一言以蔽之, 原来接口仅仅是抽象的, 现在接口也可以带有方法实现. 仅仅增加接口而不重新编写接口的方法, 就可以实现新功能.</p>
@@ -23,175 +23,254 @@
 
 <ol>
     <li><a href="#con1">默认方法的使用</a></li>
-    <li><a href="#con2">预定义收集器</a></li>
-    <li><a href="#con3">广义的归约汇总</a></li>
-    <li><a href="#con4">并行流与ForkJoin框架</a></li>
+    <li><a href="#con2">解决冲突的规则</a></li>
+    <li><a href="#con3">Optional对象</a></li>
+    <li><a href="#con4">Optional类的使用</a></li>
+    <li><a href="#con5">Optional解引用</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">默认方法的使用</h2>
 <p>在接口中定义默认方法的关键字是default, 其他就和普通的方法修饰一样, 注意这个方法也会自动成为public方法.</p>
-<p>默认方法是非抽象方法, 因此函数式接口可以附带默认方法.</p>
+<p>默认方法是非抽象方法, 因此函数式接口可以附带默认方法. 默认方法也可以由具体实现类覆盖.</p>
+<p>有了默认方法之后, 通过在接口中定义一些抽象方法和一个默认方法, 就可以组成一套功能体系, 可以用来方便快捷的通过实现接口来得到不同的功能.</p>
+<p>之后在开发的时候也要注意使用默认接口, 以及将工具方法写在接口中.</p>
+<p>书中有一点非常好, 即尽量不要简单的遇到问题就使用继承, 可以使用代理或者分解成接口, 以及适当的使用final来保护核心类.</p>
 
-
-
-<h2 style="text-align: center;" id="con2">预定义收集器</h2>
-<p>预定义收集器就一些Collector接口中定义好的静态方法, 返回一个函数对象以当成collect()方法的参数. 有以下一些常用的:</p>
+<h2 style="text-align: center;" id="con2">解决冲突的规则</h2>
+<p>默认方法解决冲突的规则如下三个:</p>
 <ol>
-    <li>Collectors.counting(),无参数,返回流元素的个数, 还可以直接对stream()对象使用.count(), 这个方法本身就是终端操作</li>
-    <li>Collectors.maxBy()和，Collectors.minBy(), 参数是是一个Comparator.</li>
-    <li>Collectors.summingInt(), 参数是一个把流元素映射为int的函数, 用于汇总. 对于Long和Double类型也有类型特化的Collectors.summingLong和Collectors.summingDouble</li>
-    <li>Collectors.averagingInt(),参数也是一个把流元素映射为int的函数, 求平均值. 同样有类型特化版本.</li>
-    <li>Collectors.summarizingInt(),参数也是一个把流元素映射为int的函数, 这个方法会一次性求出最大, 最小, 平均值, 求和, 个数, 结果是一个IntSummaryStatistics对象, 可以取出上边的结果. 同样也有类型特化版本.</li>
-    <li>Collectors.joining(), 无参数的版本, 是将流元素中每个对象的toString()的结果连接起来, 有一个重载的版本可以传入字符串参数当成分隔符.</li>
-    <li>Collectors.joining(), 无参数的版本, 是将流元素中每个对象的toString()的结果连接起来, 有一个重载的版本可以传入字符串参数当成分隔符.</li>
-    <li>Collectors.groupingBy, 下边详细讲述</li>
-    <li>Collectors.partitioningBy, 本质上就是按照布尔值的分组, 下边详细讲述</li>
-    <li>Collectors.toSet(), 收集成集合, 自动去重</li>
-    <li>Collectors.toCollection(), 收集成指定的集合, 使用在collect()方法内部的时候, 第二个参数要传一个集合类型的构造器, 比如menuStream.collect(toCollection(), ArrayList::new);</li>
+    <li>类里的方法优先</li>
+    <li>没有类实现方法, 先把所有的接口的方法排出来找到根源, 再进行对比, 越详细的接口的方法越优先. 这个方法指的是要追根溯源的方法</li>
+    <li>手工指定</li>
 </ol>
-<p>除了上边这些之外, 还有一个分组静态方法Collectors.groupingBy</p>
-<p>所谓分组, 就是将流按照分组的关键字, 收集成为一个Map对象. 内置的Collectors.groupingBy()接受一个用于分组的函数, 用来按分组的函数返回的类型作为键, 然后将对应的元素收集到这个键对应的值(一个列表)中, 看定义:</p>
+<p>看几个例子:</p>
 <pre>
-public static &lt;T, K> Collector&lt;T, ?, Map&lt;K, List&lt;T>>> groupingBy(Function&lt;? super T, ? extends K> classifier) {
-    return groupingBy(classifier, toList());
+public interface A {
+    default void hello() {
+        System.out.println("Hello from A");
+    }
+}
+public interface B extends A {
+    default void hello() {
+        System.out.println("Hello from B");
+    }
+}
+public class C implements B, A {
+    public static void main(String... args) {
+        new C().hello();
+    }
 }
 </pre>
-<p>通过定义可以看出, Map&lt;K, List&lt;T>>就是要返回的类型, K类型是Function&lt;? super T, ? extends K>的返回类型, T是流元素的类型.</p>
-<p>分组还可以多级分组, groupingBy方法有一个重载, 第一个参数依然是Function&lt;? super T, ? extends K>, 第二个参数又是一个collector类型的函数. 第二个收集器执行得到的结果, 作为第grouppingBy的值.</p>
-<p>分区是分组的特殊情况, 就是将流元素映射成布尔值, 根据布尔值来分组, 这个方法接收的是一个Predicate谓词函数, 也已经很熟悉了. 同样也有重载版本, 可以传递第二个收集器.</p>
-
-<h2 style="text-align: center;" id="con3">广义的归约汇总</h2>
-<p>实际上所有的收集器, 都是一个reducing工厂方法定义的归约过程的常用情况抽取出来编写而成的代码, 只是为了方便使用. 本质上都是使用reducing工厂方法.</p>
-<p>reducing静态方法需要三个参数, 第一个是归约操作的起始值, 第二个是处理每一个元素的函数, 也就是普通传递给各个静态方法的函数, 第三个是一个BinaryOperator&lt;T, T>(BiFunction&lt;T,T,T>), 这是表示如何累计经过第二个参数转换之后的流中的每两个元素, 也就是处理叠加过程.</p>
-<p>reducing静态方法有一个单参数版本, 只需要传递三参数版本的第三个参数, 把流的第一个元素当成起点, 转换函数是恒等函数, 这样就等于从流的第一个元素开始不断按照行为参数处理每两个元素. 由于没有初始值, 所以单参数版本返回的是一个Optional对象.</p>
-<p>所以即使不写代码, 也可以知道比如toList()的reducing版本大概是什么样子, 第一个参数是新建的List对象, </p>
-<p>至于自定义收集器的方法, 就以后有余力再看吧.</p>
-<p>学到现在给自己又定下了两个原则, 1 是现在遇到集合就尽量使用stream操作, 2 是文件IO要逐步用流处理.</p>
-
-<h2 style="text-align: center;" id="con4">并行流</h2>
-<p>流中间串一个.parallel()方法就可以将流改成并行的. 听上去很美好, 但不是这么简单. 调用.sequential()可以变成顺序流 ,但这只是做一个标记, 哪个方法最后调用, 就成为对应的设置.</p>
-<p>此外, 要顺序流执行的代码, 还不能够访问共享数据, 否则就会出问题, 这与普通的多线程问题是一样的. 最方便并行的, 就是可以将问题分治, 然后再合并起来的问题, 而不是反复在同一个变量上操作的问题.</p>
-<p>举一个并行流会出问题的例子:</p>
+<p>这个继承链条很清晰, B继承A然后覆盖了A的默认方法, C同时实现B和A, 由于B中更具体, 所以使用的是接口B中的方法.</p>
+<p>现在引入一个新的类D, D与A和B都没有关系:</p>
 <pre>
-public class TestTime {
-
-    public static long measureSumPerf(Function&lt;Long, Long> adder, long n) {
-        long fastest = Long.MAX_VALUE;
-        for (int i = 0; i &lt; 10; i++) {
-            long start = System.nanoTime();
-            long sum = adder.apply(n);
-            long duration = (System.nanoTime() - start) / 1_000_000;
-            System.out.println("Result: " + sum);
-            if (duration < fastest) fastest = duration;
-        }
-        return fastest;
+public class D {
+    public void hello() {
+        System.out.println("Hello from D");
     }
-
-    public static long noSideEffectSum(long n) {
-        Accumulator accumulator = new Accumulator();
-        LongStream.rangeClosed(1, n).forEach(accumulator::add);
-        return accumulator.total;
+}
+</pre>
+<p>让C继承D:</p>
+<pre>
+public class C extends D implements B, A {
+    public static void main(String... args) {
+        new C().hello();
     }
+}
+</pre>
+<p>这个时候类中的方法比接口的方法要优先, 所以使用的是D的方法.</p>
+<p>如果复杂一些, 比如D仅仅实现A接口, 然后C继承D,实现A和B:</p>
+<pre>
+public class D implements A {
 
-    public static long sideEffectParallelSum(long n) {
-        Accumulator accumulator = new Accumulator();
-        LongStream.rangeClosed(1, n)<span style="color: red">.parallel().</span>forEach(accumulator::add);
-        return accumulator.total;
+}
+
+public class C extends D implements B, A {
+    public static void main(String... args) {
+        new C().hello();
     }
+}
+</pre>
+<p>这个时候就要分析, 始终记得方法要追根溯源. 首先C继承D, D中没有覆盖默认方法, 因此D中的默认方法来自A, 那么C继承的所有方法的备选中首先是来自A的方法.</p>
+<p>之后由于实现B, 所以方法备选也有一个是来自B的方法. 还实现A, 也是一个来自A的方法.</p>
+<p>由于没有类方法, 所以需要比较所有来自接口的方法的所在接口的详细程度, 由于B继承A, 所以B更具体, 所以依然选择的是B中的方法.</p>
+<p>如果两个接口的地位相等, 没有继承关系, 也没有更具体的实现, 那么编译器会报错, 让你手工指定一个来自于某个接口的方法.</p>
+<p>指定的方式在Java 8 中是一个新的语法, 比如现在需要强行指定C的方法来自于A, 需要先覆盖方法, 然后在方法中采取特殊的写法:</p>
+<pre>
+//在上边的例子中, B不再继承A, 这样A,B无关系, C同时实现A和B
+public interface B {
+    default void hello() {
+        System.out.println("Hello from B");
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con3">Optional对象</h2>
+<p>Optional是Java 8 新引入的, 为了配合流和函数式编程, 同时也为了处理null指针问题而引入的一个新对象.</p>
+<p>Optional带有泛型, 用于包裹可能(也可以强制不为null)为null的对象, 用于处理, 可以将其抽象成只有一个元素的流.</p>
+<p>看一个简单的例子, 一个人拥有车, 车有保险, 保险有一个名称, 这是一个对象的组合关系. 如果我们得到一个Person 对象, 就可以取出其中的保险名称.</p>
+<pre>
+public class Insurance {
+    private String name;
+    public String getName() { return name; }
+
+    public Insurance(String name) {
+        this.name = name;
+    }
+}
+
+public class Car {
+    private Insurance insurance;
+    public Insurance getInsurance() { return insurance; }
+}
+
+public class Person {
+    private Car car;
+    public Car getCar() { return car; }
+}
+
+public class Test {
 
     public static void main(String[] args) {
-        //多线程竞争的情况
-        System.out.println("SideEffect parallel sum done in: " + measureSumPerf(TestTime::sideEffectParallelSum, 10_000_000L) + "msecs");
-
-        //单线程处理,不会有竞争的情况
-        System.out.println("SideEffect parallel sum done in: " + measureSumPerf(TestTime::noSideEffectSum, 10_000_000L) + "msecs");
+        Person a = new Person();
+        a.getCar().getInsurance();
     }
-
 }
 </pre>
-<p>sideEffectParallelSum方法将noSideEffectSum中的流运算改成了并行计算, 结果因为累加器在反复的读写同一个实例变量造成多线程竞争, 这说明流并不带有同步机制, 如果强制改成多线程, 就会得到错误的结果.</p>
-<p>一般要注意集合操作的话, ArrayList, Intstream.range等方法很好, 而Stream.iterate和链表数据结构都不太适合使用并行, 因为始终会操作同一个对象.</p>
-<p>提到并行的话, 就看一看Java 7 中新增的Fork/Join框架, 得益于看过CSAPP, fork在系统编程里用于开启一个新的进程, 然后可以join等待其他进程结束再来执行.</p>
-<p>这个模式仿照了系统编程的模式, 只不过fork是开启一个新的线程, 而join可以等待线程执行结束.</p>
-<p>在Thinking in Java 里提到了内部的线程池一般都使用ExecutorService的静态方法来获取, 然后给其中传入Runnable对象.</p>
-<p>现在有了fork/join之后, 编写代码的方式有所改变, 可以在一个线程里开启任务, 然后指定一个任务fork到一个新的线程去.</p>
-<p>这个框架的核心并不是先获取线程池, 而是获取一个ForkJoinPool, 这其实是一个ExecutorService类型. 使用方法是编写任务, 然后在ForkJoinPool里执行任务:</p>
+<p>结果这段代码能通过编译, 但执行的时候会发现有空指针错误, 这是因为不一定每个Person都有车, 每个车都有保险. 如果为了防止空指针, 那需要在每个类的操作中都加上对空指针, 或者采取if判断. 导致代码臃肿, 而且无法应对变化.</p>
+<p>为了解决这个问题, 用Optional类.</p>
+<p>使用Optional类, 要先确定那个对象可能会出现空指针. 由于Person对象是要使用的, 所以不可能是空指针. 但一个Person对象中的Car对象可能是空指针, 因此就将其改成Optional类型.</p>
+<p>同样, Car也可能没有保险, 则Car 中的 Insurance 也要改成Optional对象:</p>
 <pre>
-import java.util.concurrent.RecursiveTask;
+public class Person {
+    private Optional&lt;Car> car;
 
-//编写任务, 继承java.util.concurrent.RecursiveTask&lt;Long>, 这是ForkJoin框架的任务, 是一个Future&lt;V>接口的实现类
-//这个接口只有一个抽象方法, 叫做compute(), 返回泛型类型
-
-public class ForkJoinSumCalculator extends RecursiveTask&lt;Long> {
-
-    //要操作一个数组, 由于不能多线程竞争, 因此引入数组的开始与结束的变量, 以合理拆分数组给各个线程
-    private final long[] numbers;
-    private final int start;
-    private final int end;
-
-    //不拆分的最小值
-    public static final long THRESHOLD = 10_000;
-
-    //私有构造器, 由于仅仅是在内部创建线程, 因此不暴露给外界
-    private ForkJoinSumCalculator(long[] numbers, int start, int end) {
-        this.numbers = numbers;
-        this.start = start;
-        this.end = end;
+    public Optional&lt;Car> getCar() {
+        return car;
     }
+}
 
-    //工具方法, 用于汇总numbers数组指定的区域
-    private long computeSequentially() {
-        long sum = 0;
-        for (int i = start; i < end; i++) {
-            sum += numbers[i];
+public class Car {
+    private Optional&lt;Insurance> insurance;
 
-        }
-        return sum;
+    public Optional&lt;Insurance> getInsurance() {
+        return insurance;
     }
+}
+</pre>
+<p>在这里IDEA会有提示, 将Optional字段设置为域, 感觉上不是太好, 不过这是为了说明如何使用Optional对象.</p>
+<p>在改造完成之后, 实际上看到Optional, 就要想到, 这可能是一个空指针. 这样修改以后, 如果代码出错, 几乎可以确定是Insurance类的问题, 因为通过Optional已经标识了可能出现的空指针. 当然现在还没有具体指向对象, 如何具体使用, 要来看看.</p>
 
-    //核心的compute方法, 将当前的任务分解为两个任务, 分解方法是分解索引, 然后将分解后的索引和同一个数组对象分成两个任务
-    @Override
-    protected Long compute() {
-        int length = end - start;
-        if (length <= THRESHOLD) {
-            return computeSequentially();
-        }
-        //左半边任务
-        ForkJoinSumCalculator leftTask =
-                new ForkJoinSumCalculator(numbers, start, start + length / 2);
-        //左半边任务交给新的线程
-        leftTask.fork();
-        //右半边任务, 直接在当前线程内启动
-        ForkJoinSumCalculator rightTask =
-                new ForkJoinSumCalculator(numbers, start + length / 2, end);
-        Long rightResult = rightTask.compute();
-        //等待左半边任务的结束, 然后合并结果
-        Long leftResult = leftTask.join();
-        return leftResult + rightResult;
-    }
 
-    //静态方法用于启动任务
-    public static long forkJoinSum(long n) {
-        long[] numbers = LongStream.rangeClosed(1, n).toArray();
-        //创建一个最初的任务, 然后交给ForkJoinPool()来执行
-        ForkJoinTask&lt;Long> task = new ForkJoinSumCalculator(numbers, 0, numbers.length);
-        return new ForkJoinPool().invoke(task);
-    }
 
+
+
+<h2 style="text-align: center;" id="con4">Optional类的使用</h2>
+<p>仅仅包裹原来的对象引用是不够的, 其中的对象如果确实是空指针, 使用 .get()方法, 依然会报错. 所以要系统的学习一下.</p>
+<p>首先是如何创建一个Optional对象, 首先任何Optional 对象 都可以被赋值为一个 Optional.empty() 得到的空Optional对象. 有点类似null可以赋值给任何对象引用:</p>
+<pre>
+//声明一个空的Optional对象
+Optional&lt;Car> optCar = Optional.empty();
+</pre>
+<p>使用静态工厂方法Optional.of来依据一个非空值创建一个Optional对象:</p>
+<pre>
+Optional&lt;Car> optCar = Optional.of(car);
+</pre>
+<p>这个.of()方法的好处是, 如果car是null, 会立刻抛出一个NullPointerException, 也就不会让你在访问的时候才出现空指针错误.</p>
+<p>还有一种方法是法Optional.ofNullable, 可以允许上边的car为空的时候调用. 如果car真的为空, 则会得到一个和Optional.empty()一样的空对象.</p>
+<p>使用上边三种方法来包裹可能出现null指针的对象的话, 得到的结果只有两种, 即包裹了一个正常引用的Optional对象, 或者一个空Optional对象.</p>
+<p>包裹之后, 如何取出其中的值就是关键了. 有一个.get()方法之前使用过, 但是如果其中是空的话, 依然会抛出异常, 所以必须按照一定的约定来使用.</p>
+<p>先看看一系列操作.</p>
+
+<h3>map</h3>
+<p>将Optional对象抽象成只有一个元素的流, 其也提供了一个map方法, 与流的map方法类似, 提供一个映射, 如果是空Optional, 就什么也不做.</p>
+<p>这就比简单的直接使用原始类型有意思的多. 比如我们可以把一个车的对象转换成一个其保险名称的String类型:</p>
+<pre>
+public class Test {
 
     public static void main(String[] args) {
-        long result = forkJoinSum(999);
-        System.out.println(result);
+        Insurance insurance = new Insurance("saner");
+
+        Car car = new Car();
+
+        car.setInsurance(Optional.of(insurance));
+
+        Optional&lt;Car> carOptional = Optional.of(car);
+
+        Optional&lt;String> carToString = carOptional.map(s -> s.getInsurance().get().getName());
+
+        System.out.println(carToString.get());
     }
 }
 </pre>
-<p>可见Fork/join并不是像系统编程的fork/join, 会在执行到的代码处就地分支, .fork()可以理解为将一个compute()函数对象传递给新的线程, 这样在线程中共享的数据, 可以通过类的构造器来进行传递, 这比使用Runnable和Callable要方便很多.</p>
-<p>在使用的时候, 先获取ForkJoinPool, 然后调用invoke(任务对象)来启动任务.</p>
-<p>至于自定义的Spliterator知道这个东西就行了, 以后在深入吧, 还有自定义的Collector也是一样. 目前能懂原理就好.</p>
+<p>这个和流操作很类似, 同样也有解包的flatmap, 注意上边的代码:</p>
+<pre>
+carOptional.map(s -> <span style="color: red">s.getInsurance()</span>);
+</pre>
+<p>其中的红色部分执行之后, 得到了是一个Option&lt;Insurance>对象, 如果去掉后边的.get().getName()这部分, 当前的代码的类型其实是Optional&lt;Optional&lt;Insurance>>类型.</p>
+<p>像极了之前的流中套流, 所以可以将其拆开, 让Optional&lt;Optional&lt;Insurance>>变成Option&lt;Insurance>, 代码如下改造:</p>
+<pre>
+Optional&lt;String> carToString = carOptional.flatMap(s -> s.getInsurance()).map(x -> x.getName());
+</pre>
+<p>通过Optional对象, 感觉flatMap的用法更清晰了.</p>
+<p>其他一个小要点就是Optional对象无法序列化. 下边就来看上边遗留的问题, 就是解引用, 即从Optional对象中获取数据</p>
+<p>map和flatMap的好处在于本身就已经使用了判断, 如果要操作的对象是一个空Optional, map和flatMap不会执行其中的lambda表达式参数. 因此可以将多个Optional判断是否为空, 直接改成map和flatMap的组合调用:</p>
+<pre>
+//像下边的先判断是否存在值, 可以修改成连续的调用, 并且用flatMap展开
+public Optional&lt;Insurance> nullSafeFindCheapestInsurance(Optional&lt;Person> person, Optional&lt;Car> car) {
+    if (<span style="color: red">person.isPresent() && car.isPresent()</span>) {
+        return Optional.of(findCheapestInsurance(person.get(), car.get()));
+    } else {
+        return Optional.empty();
+    }
+}
+</pre>
+<pre>
+//由于是两个Optional对象, 在使用的时候, car.map之后的得到一个Optional&lt;Insurance>, 然后传入的函数将Person对象转换成Optional&lt;Insurance>, 此时类型是Option&lt;Optional&lt;Insurance>>, 再使用flatMap展开成Optional&lt;Insurance>:
+public Optional&lt;Insurance> nullSafeFindCheapestInsurance(Optional&lt;Person> person, Optional&lt;Car> car) {
+    return person.flatMap(p -> car.map(c -> findCheapestInsurance(p, c)));
+}
+</pre>
+<p>既然可以看做单个元素的流, 自然也有filter方法了, 传递一个Predicate表达式, 然后根据表达式的结果, 保留内部的内容, 或者将其置空.</p>
 
 
 
+<h2 style="text-align: center;" id="con5">从Optional中取值</h2>
+<p>这一部分实际上和上一小节一样都是Optional类的API学习.</p>
+<p>要安全的从Optional中获取数据, 先看看如下API:</p>
+<ol>
+    <li>.get(), 最简单但不安全, 直接返回封装的变量, 否则抛出NoSuchElementException异常. 如果要使用这个方法, 需要搭配其他方法使用.</li>
+    <li>.orElse(T other), 如果不存在就提供默认值other.</li>
+    <li>.orElseGet(Supplier&lt;? extends T> other), 如果不存在就执行其中的Supplier方法, 返回一个值.</li>
+    <li>.orElseThrow(Supplier&lt;? extends X> exceptionSupplier), 如果不存在抛出异常, 这个方法在于可以指定想抛出的异常.</li>
+    <li>ifPresent(Consumer&lt;? super T>), 如果存在就对其执行一个操作.</li>
+    <li>isPresent(), 如果有值返回true, 如果是空就返回false.</li>
+</ol>
+<p>使用这些方法, 就可以操作Optional对象了.来看几个实际的例子.</p>
 
+<h3>使用Optional 封装可能为null的值</h3>
+<p>由于很多类库的历史原因, 都会返回null值. 典型的就是Map系列集合中, 如果找不到键, 就会返回null值.</p>
+<p>对于知道一定会存在null值的情况, 可以使用.ofNullable()进行封装, 比如:</p>
+<pre>
+Optional&lt;Object> value = Optional.ofNullable(map.get("key"));
+</pre>
+
+<h3>使用Optional 应对异常</h3>
+<p>类库中还有一些常用的工具方法, 比如 Integer.parseInt(String), 在遇到无法转换的时候, 肯定不能返回默认值, 而是抛出错误.</p>
+<p>对于此类异常, 我们可以将其通过一个方法转换成Optional对象, 使用try-catch语句即可, 如果在代码的初期就编写这种方法, 就会很少遇到null对象:</p>
+<pre>
+public static Optional&lt;Integer> stringToInt(String s) {
+    try {
+        return Optional.of(Integer.parseInt(s));
+    } catch (NumberFormatException e) {
+        return Optional.empty();
+    }
+}
+</pre>
+
+<h3>使用类型特化的Optional</h3>
+<p>OptionalInt、OptionalLong以及OptionalDouble都是存在的, 但这三个类型特化的类不支持map, flatMap 和 filter方法, 而且与Stream一样, 无法对其进行组合等操作.</p>
+<p>在选择使用通用的还是特化类型的时候, 要考虑是不是需要对其中的数据进行处理, 还是仅仅用作防止空指针的对象来用, 再结合对性能的考虑来使用.</p>
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
