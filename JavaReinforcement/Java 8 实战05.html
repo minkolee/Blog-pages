@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Java 补强</title>
+    <title>Java Reinforcement Java 8 新特性总结</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,21 +15,49 @@
     </style>
 </head>
 <body>
-<h1 style="text-align: center;">Java Reinforcement 14 CompletableFuture</h1>
-<p>在Thinking in Java 中, 知道了ExecutorService 的 .submit()方法会接受一个Callable ,返回一个Future对象, 其中包裹着返回值.</p>
-<p>而且使用Future对象不会阻塞, 之后可以使用Future.get()来获取其中的值, 这是简单的异步编程. 如果仅仅单独使用Future接口, 只能在一个线程中等待另一个, 无法完成复杂的带有条件的操作.</p>
-<p>Java 8 对于Future接口新实现了一个CompletableFuture类, 并且使用了lambda表达式和流的思想</p>
+<p>花了一个多星期的时间把Java 8 实战过了一遍, 我发现计算机的书, 其实都相当于字典的性质, 只是让你了解有这方面的技术, 真正要用到了, 还是要具体看如何编写. 每本书都是一个字典.</p>
+<p>现在就提纲挈领再来过一遍, 然后尽量在之后的代码中, 使用这些新特效</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
+    <li><a href="#con1">lambda表达式</a></li>
+    <li><a href="#con2">流</a></li>
+    <li><a href="#con3">默认方法</a></li>
+    <li><a href="#con4">Optional对象</a></li>
+    <li><a href="#con5">CompletableFuture</a></li>
+    <li><a href="#con6">新的时间API</a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1">默认方法的使用</h2>
-<p>在接口中定义默认方法的关键字是de
+<h2 style="text-align: center;" id="con1">lambda表达式</h2>
+<p>lambda 表达式可以用于传递行为给代码, 其本质是对匿名对象的简写. 方法引用是lambda表达式的一种简便使用方法, 有三种.</p>
+<p>函数式接口和java.util.functions中的各种接口可以直接拿来使用, 也可以根据需要自己实现泛型的这些接口.</p>
+<p>注意在策略模式中使用lambda表达式, 或者将策略代码柯里化以达到减少代码重复的目的.</p>
+
+<h2 style="text-align: center;" id="con2">流</h2>
+<p>在处理顺序数据或者是集合的时候, 只要用到迭代的地方, 都要想到优先改成流模式. 还要注意flatMap和分组的使用, 都可以让流更加好用.</p>
+
+<h2 style="text-align: center;" id="con3">默认方法</h2>
+<p>默认方法让一个接口代表一套易于扩展的完整功能变成了可能. 如果自行编写接口的话, 注意可以适当的编写默认方法.</p>
+<p>如果自己编写了一个数据结构的类, 可以考虑编写一个接口来将工具方法放入其中.</p>
+<p>注意默认方法解决冲突的规则: 类中的方法优先, 然后是最详细的接口中的方法优先, 如果手工指定, 需要使用接口名.super.方法名来具体指定.</p>
+
+<h2 style="text-align: center;" id="con4">Optional对象</h2>
+<p>在处理流的部分, 很多时候会使用到Optional对象, 如果处理可能为null的引用, 优先考虑使用Optional类.</p>
+
+
+<h2 style="text-align: center;" id="con5">CompletableFuture</h2>
+<p>这部分没有详细看, 是对Future的增强, 在需要多个Future对象协同工作的时候可以考虑, 另外反射式的Web编程后续还需要学习.</p>
+
+
+<h2 style="text-align: center;" id="con6">新的时间API</h2>
+<p>在使用时间的时候, 优先考虑LocalDate, LocalTime, Instant, Duration 和 Period类, 在需要时间片段的时候可以应用Duration的静态方法.</p>
+
+<h2 style="text-align: center;">后记</h2>
+<p>后记感觉不应该是后记, 而是后继...后续还要继续看Java 9, 11.....</p>
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
