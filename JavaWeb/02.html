@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java Web Reinforcement 02 servlet</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>servlet究竟是什么, 当然首先是一个对象, 来自于javax.servlet (与HTTP相关的在 javax.servlet.http 中), 不过servlet的实现类并不是由我们编写的, 而是由容器的提供商进行编写.</p>
+<p>在IDEA里如果创建web.xml并且使用tomcat, 在左侧的外部lib中可以看到Tomcat 9 提供的包, 其中有jsp-api.jar 以及 servlet-api.jar, 其中就有javax.servlet包.</p>
+<p>简单的说, Java的Web规范已经规定好了Servlet的所有API, 然后容器厂商来实现容器的时候, 同时实现Servlet类, 使用这个容器的应用程序员, 根据其提供的Servlet来编写具体应用, 这样写出来的类才可被容器正常使用.</p>
+<p>Servlet的本质, 就是一个向用户提供服务, 或者说实际处理请求和提供响应内容的单元. 自然也就是Java Web的核心, 这一次就来仔细看看Servlet.</p>
+
+<ol>
+    <li><a href="#con1">Servlet的生命周期</a></li>
+    <li><a href="#con2">HttpServlet对象</a></li>
+    <li><a href="#con3">HttpServletRequest</a></li>
+    <li><a href="#con4">HttpServletResponse</a></li>
+    <li><a href="#con5">请求分派与重定向</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">Servlet的生命周期</h2>
+<p>从之前已经可以知道, 我们启动一个Web服务, 实际上启动的是容器, 容器再去使用其中的Servlet. 容器如何使用呢, 因为是Java 环境, 本质上是创建对象, 使用对象, 销毁对象.</p>
+<p>Servlet也是如此, 有如下生命周期:</p>
+<ol>
+    <li>Web容器加载类文件</li>
+    <li>实例化Servlet</li>
+    <li>调用init()函数</li>
+    <li>调用service()方法</li>
+    <li>调用destroy()方法</li>
+    <li>销毁(容器不再引用这个servlet)</li>
+</ol>
+<p>对于Tomcat来说, 每个请求都会在一个新的线程内执行上述实例化到销毁的全过程, 注意一定是对应请求, 而不是用户, 比如用户连续刷新两次, 是两个请求, 会分别处理, 而不是一个请求.</p>
+<p>对于我们来说, 一般会覆盖service()方法中调用的具体处理某种请求的方法, 可能在init()和destroy中做一些必要的工作, 一般不覆盖service()方法.</p>
+
+<h2 style="text-align: center;" id="con2">Servlet接口</h2>
+<p>我们现在使用的是HTTPServlet, 顾名思义, 就是提供HTTP服务的Servlet. 通过IDEA的diagram类图可以看到这个类的体系如下:</p>
+<ol>
+    <li>HttpServlet 继承 GenericServlet, 这两个都是抽象类</li>
+    <li>GenericServlet 实现了 Servlet, ServletConfig, Serializable 三个接口</li>
+    <li>Servlet接口如下:<pre>
+public interface Servlet {
+    void init(ServletConfig var1) throws ServletException;
+
+    ServletConfig getServletConfig();
+
+    void service(ServletRequest var1, ServletResponse var2) throws ServletException, IOException;
+
+    String getServletInfo();
+
+    void destroy();
+}
+    </pre></li>
+    <li>ServletConfig接口如下:<pre>
+public interface ServletConfig {
+    String getServletName();
+
+    ServletContext getServletContext();
+
+    String getInitParameter(String var1);
+
+    Enumeration&lt;String> getInitParameterNames();
+}
+    </pre></li>
+</ol>
+<p>通过上边的体系可以看出, Servlet接口提供了关键的三个生命周期函数, 以及获取ServletConfig对象(每个Servlet都有一个对应的ServletConfig对象,记录了web.xml中针对该servlet的配置信息)的方法, 还有一个获取getServletInfo()方法, 反正一会都打算来尝试一遍.</p>
+<p>GenericServlet是Servlet接口的扩展, 是一个抽象类, 顾名思义: 通用Servlet, 是一个让Servlet之所以成为Servlet的抽象, 提供了很多方法, 其中的构造器可以看到是一个无参构造器. 然后有几个方法是在ServletConfig的方法基础上套壳, 用来获取配置信息和ServletContext(Web容器上下文). 不过关键的生命周期方法都是留空或者未实现的.</p>
+<p>HttpServlet是通用Servlet在HTTP处理方面的扩展, 也是一个抽象类, 针对HTTP特化. 其中定义了一批私有的静态变量, 用来标识各种HTTP方法, 也是空参构造器. 对于生命周期函数, 变成了<code>service(HttpServletRequest req, HttpServletResponse resp)</code>, 其中的参数是HttpServletRequest和HttpServletResponse类, 一会自然也要去看这两个类.</p>
+<p>除此之外还针对每种请求提供了 <code>protect doXXX(HttpServletRequest req, HttpServletResponse resp)</code>方法, 用于继承. 而service()方法其实变成了一个分发器, 通过获取请求的种类交给对应的函数进行处理. 这个类里基本都实现了doXXX默认的处理, 基本上就是判断协议版本然后返回支持或者不支持. 而我们具体的业务Servlet, 就继承HttpServlet, 然后覆盖所需要的doXXX方法即可, 至于service()方法一般不会覆盖.</p>
+<p>下边就把这些方法都来试验一下吧:</p>
+<pre>
+package com.example.web;
+
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.time.LocalDateTime;
+
+public class TestServlet extends HttpServlet {
+
+
+    //Servlet接口中的除了service()的生命周期方法
+    @Override
+    public void destroy() {
+        System.out.println("Servlet即将被销毁");
+        super.destroy();
+    }
+
+    @Override
+    public void init() throws ServletException {
+        System.out.println("Servlet正在init()中");
+        super.init();
+    }
+
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        PrintWriter out = resp.getWriter();
+
+        out.println(LocalDateTime.now().toString());
+
+        //Servlet接口中获取getServletConfig()方法
+        ServletConfig servletConfig = getServletConfig();
+        //获取了servletConfig对象, 这个对象稍后还会来看, 是配置对象
+        System.out.println(servletConfig.getServletName());
+
+        out.println(servletConfig.getServletName());
+
+        //Servlet接口中获取getServletInfo()方法, 其实这个方法由GenericServlet实现
+        System.out.println(getServletInfo());
+
+        //GenericServlet中的方法
+        //记录日志, 不配置日志插件的话默认会显示在控制台里
+        log("gugugu");
+        //记录日志并抛出异常, 这里注释掉了
+//        log("saner", new RuntimeException());
+
+        //可以看到方法不算多, Generic中的方法主要来自于接口, 新方法只有log, 也是调用ServletContext的log方法
+        //这也说明Web容器还需要日志功能.
+
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con3">HttpServletRequest</h2>
+<p>之前已经知道, 容器会创建HttpServletRequest和HttpServletResponse两个对象, 然后交给各个Servlet处理, 处理完之后将请求返回去.</p>
+<p>可见这两个对象贯穿Web应用的全部, 而且是Servlet的处理对象, 所以必须知道这两个对象才可以. 先来看HttpServletRequest对象.</p>
+<p>HttpServletRequest在容器内部, 是一个HTTP请求的封装, 里边携带了按照HTTP协议发过来的请求的全部信息.</p>
+<p>在实际中传递给service()方法的两个实现类, 是由容器将对应的请求和响应包装好之后实现的, 这点要理解.</p>
+<p>说是HttpServletRequest对象, 其实HttpServletRequest是一个接口, 这个接口继承自ServletRequest接口:</p>
+<p>ServletRequest接口中的方法有很多, 其中有几个比较重要, HttpServletRequest则是带有很多HTTP特化的内容, 非常重要.</p>
+<p>下边就来看一下其中的方法:</p>
+<ol>ServletRequest中的方法
+    <li><code>void setAttribute(String var1, Object var2);</code>, 非常重要的方法, 给对象设置一个属性(键)和对应的值, 一般可以用来传递简单的模型数据</li>
+    <li><code>Object getAttribute(String var1);</code>, 非常重要的方法, 和上一个方法搭配起来使用, 其中获取指定的数据</li>
+    <li><code>void removeAttribute(String var1);</code>, 删除指定的键和值, 与前两个方法属于同一个体系</li>
+    <li><code>Enumeration&lt;String> getAttributeNames();</code>, 获取被设置上的键名的集合, 与前三个方法属于同一个体系</li>
+    <li><code>int getContentLength();</code>, 获取内容的长度</li>
+    <li><code>String getContentType();</code>, 获取内容属于什么性质的内容</li>
+    <li><code>ServletInputStream getInputStream() throws IOException;</code>, 获取一个字节流, 用于从请求中读取二进制</li>
+    <li><code>String getParameter(String var1);</code>, 获取请求体中键对应的值, 注意和前四个方法不同, 是获取请求体中的值, 如果是GET请求, 也可以获取到参数对应的值</li>
+    <li><code>Enumeration&lt;String> getParameterNames();</code>, 获取请求体中所有键名,通常用于获取POST的内容, 如果POST也附带请求行参数, 也一并可以获取</li>
+    <li><code>String[] getParameterValues(String var1);</code>, 如果请求体中的键对应一系列值, 这个就是将其获取成一个字符串数组.</li>
+    <li><code>Map&lt;String, String[]> getParameterMap();</code>, 将请求体中的键值封装成一个Map对象返回</li>
+    <li><code>String getProtocol();</code>, 获取请求的协议, 一般是HTTP/1.1</li>
+    <li><code>String getScheme();</code>, 这个打印出http, 应该也是协议之类</li>
+    <li><code>String getServerName();</code>, 看名字是获取服务端名称 </li>
+    <li><code>int getServerPort();</code>, 获取服务器所使用的端口, 用tomcat默认就是8080</li>
+    <li><code>BufferedReader getReader() throws IOException;</code>, 获取Reader, 用于从请求中获取字符</li>
+    <li><code>String getRemoteAddr();</code>, 获取远程地址</li>
+    <li><code>String getRemoteHost();</code>, 获取远程访问主机</li>
+    <li><code>Locale getLocale();</code>, 获取了当前的地区代码, 我测试出是zh_CN</li>
+    <li><code>Enumeration&lt;Locale> getLocales();</code>, 应该也是和国际化有关</li>
+    <li><code>boolean isSecure();</code>, 是否安全, 到了HttpServlet中应该是指是否是HTTPS</li>
+    <li><code>RequestDispatcher getRequestDispatcher(String var1);</code>, 非常重要的方法, 通过传入字符串获取转发目标, 可以进行转发</li>
+    <li><code>int getRemotePort();</code>, 获取用户的端口</li>
+    <li><code>String getLocalName();</code>, 主机名称</li>
+    <li><code>String getLocalAddr();</code>, 本机地址</li>
+    <li><code>int getLocalPort();</code>, 本机端口</li>
+    <li><code>ServletContext getServletContext();</code>, 获取Web容器上下文, 通过请求也可以获取Web容器上下文</li>
+    <li><code>AsyncContext startAsync() throws IllegalStateException;</code>, 这个好像是异步? 现在不知道</li>
+    <li><code>AsyncContext startAsync(ServletRequest var1, ServletResponse var2) throws IllegalStateException;</code>, 也是异步相关吧, 好像是异步处理?</li>
+    <li><code>boolean isAsyncStarted();</code>, 也是异步相关吧, 表示异步是否已经开始?</li>
+    <li><code>boolean isAsyncSupported();</code>, 这个大概是指是否支持异步?</li>
+    <li><code>AsyncContext getAsyncContext();</code>, 异步上下文?</li>
+    <li><code>DispatcherType getDispatcherType();</code>, 获取转发器的类型? 这个测试出来是REQUEST, 应该表示转发的是请求?</li>
+    HttpServletRequest中的方法
+    <li><code>String getAuthType()</code>, 获取认证类型, 我测试都是Null</li>
+    <li><code>Cookie[] getCookies();</code>, 关键方法, 获取Cookie集合</li>
+    <li><code>long getDateHeader(String var1);</code>, 专门获取头部中的时间信息, 然后解析成长整型值, 例如 Date: Thu, 24 Oct 2019 05:14:34 GMT 这样的就可以被这个方法解析</li>
+    <li><code>String getHeader(String var1);</code>, 重要, 根据请求头中的键获取对应的值</li>
+    <li><code>Enumeration&lt;String> getHeaders(String var1);</code>, 重要, 根据请求头中的键获取对应的多个值</li>
+    <li><code>Enumeration&lt;String> getHeaderNames();</code>, 重要, 获取头部信息中的所有键名</li>
+    <li><code>int getIntHeader(String var1);</code>, 这个是可以直接将头部中某个可以解析成int的值获取出来</li>
+    <li><code>String getMethod();</code>, 获取请求方法,比如是GET还是POST</li>
+    <li><code>String getPathInfo();</code>, 实际测试下来, 显示是null</li>
+    <li><code>String getPathTranslated()</code>, 实际测试下来, 显示是null</li>
+    <li><code>String getContextPath();</code>, 实际测试下来, 显示是空字符串</li>
+    <li><code>String getQueryString();</code>, 这个是获取请求后边附带的参数字符串, 如果想自己解析的话也很重要</li>
+    <li><code>String getRemoteUser();</code>, 这个一会测试一下</li>
+    <li><code>boolean isUserInRole(String var1);</code>, 这里开始和用户相关了, 似乎是HTTPServlet附带的认证功能</li>
+    <li><code>Principal getUserPrincipal();</code>, Principal对象, 也和认证相关</li>
+    <li><code>String getRequestedSessionId();</code>, 获取SessionID,重要</li>
+    <li><code>String getRequestURI();</code>, 获取URI, 是相对地址</li>
+    <li><code>StringBuffer getRequestURL();</code>, 获取URL, 是绝对地址</li>
+    <li><code>String getServletPath();</code>, 测试下来应该是当前servlet解析的地址, 也就是访问地址</li>
+    <li><code>HttpSession getSession(boolean var1);</code>, 获取Session对象, 重要</li>
+    <li><code>HttpSession getSession(); </code>, 获取Session对象, 重要</li>
+    <li><code>String changeSessionId();</code>, 这个命令测试下来是更改当前的SessionID, 返回新的SessionID</li>
+    <li><code>boolean isRequestedSessionIdValid();</code>看名称大概是sessionid是否还有效, 实际测试显示的是true</li>
+    <li><code>boolean isRequestedSessionIdFromCookie();</code>看意思是判断session是不是来自cookie, 我用postman和Chrome测试是true, 看来默认策略就是通过Cookie传递SessionID</li>
+    <li><code>boolean isRequestedSessionIdFromURL();</code>, 这个测试之后是false, 这几个SessionId相关的估计以后还是要学的</li>
+    <li><code>boolean authenticate(HttpServletResponse var1) throws IOException, ServletException;</code>, 这个现在不知道</li>
+    <li><code>void login(String var1, String var2) throws ServletException;</code>, 这个现在不知道</li>
+    <li><code>void logout() throws ServletException;</code>, 这个现在不知道, 但肯定还是和认证相关</li>
+</ol>
+<p>下边就逐个试验一下吧, 除了异步的那几个以及用户验证的,基本都测试到了:</p>
+<pre>
+package com.example.web;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.Map;
+
+public class TestServlet extends HttpServlet {
+
+
+    //Servlet接口中的除了service()的生命周期方法
+    @Override
+    public void destroy() {
+        System.out.println("Servlet即将被销毁");
+        super.destroy();
+    }
+
+    @Override
+    public void init() throws ServletException {
+        System.out.println("Servlet正在init()中");
+        super.init();
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        doGet(req, resp);
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        resp.setCharacterEncoding("UTF-8");
+
+        resp.setHeader("content-type", "text/html;charset=UTF-8");
+
+        PrintWriter writer = resp.getWriter();
+
+        String target = "saner";
+
+        req.setAttribute("penguin", target);
+        req.setAttribute("penguin2", target + "2");
+
+        String result = (String) req.getAttribute("penguin");
+        String result2 = (String) req.getAttribute("penguin2");
+
+        writer.println("penguin键的值是: " + result + "&lt;br>");
+        writer.println("penguin2键的值是: " + result2 + "&lt;br>");
+
+        Enumeration&lt;String> names = req.getAttributeNames();
+        while (names.hasMoreElements()) {
+            writer.println(names.nextElement());
+        }
+
+        req.removeAttribute("penguin2");
+
+        writer.println("&lt;br>");
+
+        writer.println("删除一个键之后的键名" + "&lt;br>");
+
+        names = req.getAttributeNames();
+        while (names.hasMoreElements()) {
+            writer.println(names.nextElement());
+        }
+
+        writer.println("内容的长度是: " + req.getContentLength() + "&lt;br>");
+        writer.println("内容的长度是(long): " + req.getContentLengthLong() + "&lt;br>");
+
+        result = req.getParameter("name");
+
+        writer.write("GET请求传参的name=" + result + "&lt;br>");
+
+        names = req.getParameterNames();
+        while (names.hasMoreElements()) {
+            writer.println(names.nextElement());
+        }
+
+        Map&lt;String, String[]> map = req.getParameterMap();
+        writer.println(map.keySet() +"&lt;br>");
+
+        writer.println("请求的类型是:" + req.getProtocol()+"&lt;br>");
+        writer.println("请求的scheme是:" + req.getScheme()+"&lt;br>");
+        writer.println("请求的ServerName是:" + req.getServerName()+"&lt;br>");
+        writer.println("请求的Serverport是:" + req.getServerPort()+"&lt;br>");
+
+
+        BufferedReader in = req.getReader();
+
+        in.lines().forEach(System.out::println);
+
+        writer.println("读出的一行是: " + in.readLine() + "&lt;br>");
+
+        writer.println("请求的RemoteAddr(客户端地址)是:" + req.getRemoteAddr()+"&lt;br>");
+        writer.println("请求的RemoteHost(客户端地址)是:" + req.getRemoteHost()+"&lt;br>");
+        writer.println("请求的Locale(客户端地址)是:" + req.getLocale()+"&lt;br>");
+        writer.println("请求isSecure:" + req.isSecure()+"&lt;br>");
+        writer.println("请求的RemotePort:" + req.getRemotePort()+"&lt;br>");
+        writer.println("请求的LocalName:" + req.getLocalName()+"&lt;br>");
+        writer.println("请求的LocalAddr:" + req.getLocalAddr()+"&lt;br>");
+        writer.println("请求的转发器类型:" + req.getDispatcherType()+"&lt;br>");
+        writer.println("请求的AuthType:" + req.getAuthType()+"&lt;br>");
+        writer.println("请求的Cookie[]:" + Arrays.toString(req.getCookies()) +"&lt;br>");
+        writer.println("请求的getDateHeader:" + req.getDateHeader("Date")+"&lt;br>");
+        writer.println("请求的Header Date:" + req.getHeader("Date")+"&lt;br>");
+        writer.println("请求的Header Postman-Token:" + req.getHeader("Postman-Token")+"&lt;br>");
+
+        Enumeration&lt;String> headers = req.getHeaders("My");
+        writer.println("My 头信息对应的值是:");
+        while (headers.hasMoreElements()) {
+            writer.println(headers.nextElement() + " ");
+        }
+        writer.println("&lt;br>");
+
+        headers = req.getHeaderNames();
+        writer.println("所有头部键名是:");
+        while (headers.hasMoreElements()) {
+            writer.println(headers.nextElement() + " ");
+        }
+        writer.println("&lt;br>");
+        writer.println("请求的Header Time 解析成int:" + req.getIntHeader("Time")+"&lt;br>");
+        writer.println("请求方法是:" + req.getMethod()+"&lt;br>");
+        writer.println("请求 PathInfo:" + req.getPathInfo()+"&lt;br>");
+        writer.println("请求 PathTranslated:" + req.getPathTranslated()+"&lt;br>");
+        writer.println("请求 ContextPath:" + req.getContextPath()+"&lt;br>");
+        writer.println("请求 QueryString:" + req.getQueryString()+"&lt;br>");
+        writer.println("请求 RemoteUser:" + req.getRemoteUser()+"&lt;br>");
+        writer.println("请求 RequestedSessionId:" + req.getRequestedSessionId()+"&lt;br>");
+        writer.println("请求 RequestURI:" + req.getRequestURI()+"&lt;br>");
+        writer.println("请求 RequestURL:" + req.getRequestURL()+"&lt;br>");
+        writer.println("请求 ServletPath:" + req.getServletPath()+"&lt;br>");
+        writer.println("请求 Session:" + req.getSession()+"&lt;br>");
+        writer.println("请求 changeSessionId:" + req.changeSessionId()+"&lt;br>");
+        writer.println("请求 isRequestedSessionIdValid:" + req.isRequestedSessionIdValid()+"&lt;br>");
+        writer.println("请求 isRequestedSessionIdFromCookie:" + req.isRequestedSessionIdFromCookie()+"&lt;br>");
+        writer.println("请求 isRequestedSessionIdFromURL:" + req.isRequestedSessionIdFromURL()+"&lt;br>");
+
+    }
+}
+</pre>
+<p>测试下来核心的方法主要是四大内容: 获取请求的基础信息(端口, URL, 方法等), 获取请求头信息, 获取请求行和请求体附带的参数, 操作Attributes. 此外还有一个转发器肯定也会用到.</p>
+
+<h2 style="text-align: center;" id="con4">HttpServletResponse</h2>
+<p>与HttpServletRequest类似, HttpServletResponse也是一个接口, 然后继承自ServletResponse接口.</p>
+<p>这个对象相比响应对象还要重要, 因为承载着向用户返回信息的重任. 从请求中获取信息之后, 剩下的大部分任务都是如何组装这个对象的内容.</p>
+<p>由于请求对象的内容很重要, 一般请求对象会先对其进行设置一些响应的头部信息, 比如setContentType()以及其他一些内容, 然后就是获取PrintWriter对象对其中近些</p>
+<p>ServletResponse接口是基础的服务响应接口, 其中的方法有:</p>
+<ol>
+    <li><code>String getCharacterEncoding();</code>, 获取编码方式, 不设置的话, 获取出来是ISO-8859-1</li>
+    <li><code>String getContentType();</code>, 获取MIME内容, 没有设置的话是null</li>
+    <li><code>ServletOutputStream getOutputStream() throws IOException;</code>, 获取输出的字节流, 用于写入二进制内容</li>
+    <li><code>PrintWriter getWriter() throws IOException;</code>, 这个获取字符流, 用于写入页面内容</li>
+    <li><code>void setCharacterEncoding(String var1);</code>, 设置字符编码, 设置的是PrintWriter写字符时候使用的编码, 需要在获取PrintWriter之前调用</li>
+    <li><code>void setContentLength(int var1);</code>, 设置内容长度</li>
+    <li><code>void setContentLengthLong(long var1);</code>, long类型的设置内容长度</li>
+    <li><code>void setContentType(String var1);</code>, 设置ContentType, 和上边的get是一对</li>
+    <li><code>void setBufferSize(int var1);</code>, 应该是设置写入时候的缓冲区</li>
+    <li><code>int getBufferSize();</code>, 应该是获取写入时候的缓冲区长度, 我试验了一下默认是8192</li>
+    <li><code>void flushBuffer() throws IOException;</code>, 这个是刷新缓冲区, 有可能在Writer等方法中已经包含了这个.</li>
+    <li><code>void resetBuffer();</code>, 重置缓冲区</li>
+    <li><code>boolean isCommitted();</code>, 是否已经提交, 这个自己猜想估计是如果已经提交了, 就无法再更改了. 我测试下来是false</li>
+    <li><code>void reset();</code>, 这个是重置输出流, 即清空.</li>
+    <li><code>void setLocale(Locale var1);</code>, 设置区域.</li>
+    <li><code>Locale getLocale();</code>, 获取区域, 这个在没有先设置的情况下,我测试默认获取了zh_CN.</li>
+</ol>
+<p>这其中比较重要的方法就是CharacterEncoding和ContentType相关的方法, 对于HTTP来说, 要将CharacterEncoding设置为"UTF-8, ContentType设置成为正确的MIME类型.</p>
+<p>在完成这两个工作之后, 再调用输出流来写入.</p>
+<p>在我测试的时候, 如果仅仅只设置 <code>resp.setCharacterEncoding("UTF-8");</code>, 但不去设置resp.setContentType("****"), 则MIME里不会出现charset=utf-8, 如果之后进行了设置, 则ContentType中会追加charset=utf-8</p>
+<p>所以一般推荐的顺序, 如果是输出字符流, 就先设置CharacterEncoding, 再设置ContentType, 之后再获取输出流对象进行打印. 关于MIME的设置可以看<a href="https://www.runoob.com/http/http-content-type.html" target="_blank">这里</a>.</p>
+
+<p>然后来看HttpServletResponse中的方法:</p>
+<ol>
+    <li><code>void addCookie(Cookie var1);</code>, 添加一个Cookie对象</li>
+    <li><code>boolean containsHeader(String var1);</code>, 是否包含指定的头部信息</li>
+    <li><code>String encodeURL(String var1);</code>, 获取编码过的URL, 待测试</li>
+    <li><code>String encodeRedirectURL(String var1);</code>, 获取编码过重定向URL, 待测试</li>
+    <li><code>void sendError(int var1, String var2) throws IOException;</code>, 待测试</li>
+    <li><code>void sendError(int var1) throws IOException;</code>, 待测试</li>
+    <li><code>void sendRedirect(String var1) throws IOException;</code>, 重定向方法</li>
+    <li><code>void setDateHeader(String var1, long var2);</code>, 设置日期的头部, 属于快捷方法</li>
+    <li><code>void addDateHeader(String var1, long var2);</code>, 上一个方法的add版本, 注意和set系列方法的区别</li>
+    <li><code>void setHeader(String var1, String var2);</code>, 通用的设置头部键值的方法</li>
+    <li><code>void addHeader(String var1, String var2);</code>, 上一个方法的add版本</li>
+    <li><code>void setIntHeader(String var1, int var2);</code>, 设置int类型的header的快捷方法</li>
+    <li><code>void addIntHeader(String var1, int var2);</code>, 上一个方法的add版本</li>
+    <li><code>void setStatus(int var1);</code>, 设置状态码</li>
+    <li><code>int getStatus();</code>, 获取状态码</li>
+    <li><code>String getHeader(String var1);</code>, 获取某一个头部信息</li>
+    <li><code>Collection&lt;String> getHeaders(String var1);</code>, 获取一个包含多个值的头部信息</li>
+    <li><code>Collection&lt;String> getHeaderNames();</code>, 获取头部信息的键名集合</li>
+</ol>
+<p>HttpServletResponse接口中, 除了上边这些方法, 还通过实例域把所有的HTTP状态码都定义了. 这个HTTP特化的servlet主要添加的功能是操作cookie和头部信息以及状态码.</p>
+<p>这里想想还挺有意思, 很重要的contentType之类的设置, 竟然还不是在HTTPServlet中的, 我只能想到一个, 就是在HTTP大为流行之前, EJB的远程调用, 可能就已经使用到了ContentType之类功能, 而HTTP是在其后才大行其道的.</p>
+<p>写HTML文件其实我们一般不会直接用HttpServletResponse的PrintWriter, 都会交给JSP. 但是下载文件一般还是用Servlet直接输出的. 输出文件的套路如下:</p>
+<pre>
+@Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        File file = new File("D:\\test3.txt");
+        //重置响应内容
+        resp.reset();
+        //红色部分是文件名, 可以自己定义
+        resp.addHeader("Content-Disposition", "attachment;filename=" + <span style="color: red">"download"</span>);
+        //设置响应体的字节长度
+        resp.addHeader("Content-Length", String.valueOf(file.length()));
+        //这里下载了txt文件, 所以要设置如下的MIME, 根据具体文件要设置成不同的MIME类型
+        resp.setContentType(<span style="color: red">"text/plain"</span>);
+
+        //下边就是从一个输入流读取然后写入到一个输出流的套路
+        BufferedOutputStream out = new BufferedOutputStream(resp.getOutputStream());
+
+        InputStream fis = new BufferedInputStream(new FileInputStream(file));
+
+        int read = 0;
+        byte[] bytes = new byte[1024];
+
+        while ((read = fis.read(bytes)) != -1) {
+            out.write(bytes, 0, read);
+        }
+
+        //刷新缓冲区然后关闭流
+        out.flush();
+        out.close();
+    }
+</pre>
+<p>这里就不一一测试了, HttpServletResponse的关键方法就在于设置编码,设置MIME, 设置头部, 然后组装响应体. 注意响应里有一个方法叫做sendRedirect, 这个在下边要专门看一下.</p>
+
+<h2 style="text-align: center;" id="con5">请求分派与重定向</h2>
+<p>由于servlet已经沦为了控制器, 在之前的例子里, 控制器通过模型获取数据, 将数据设置到请求对象上, 然后采取了将请求对象进行转发给jsp处理的方式.</p>
+<p>对比HttpServletRequest和HttpServletResponse, 前者有 <code>getRequestDispatcher(String var1);</code> 方法(其实是ServletRequest接口里的), 而后者有 <code>void sendRedirect(String var1)</code> 方法(这个属于HTTP重定向, 因此ServletResponse没这个方法, 是HttpServletResponse的方法).</p>
+<p>这里我又想到, 看来请求转发的思想比HTTP出现的要早. 对比一下就发现, 请求可以转发, 而响应的时候可以重定向. 一对比就清晰很多了. 重定向其实就是自己什么也不做, 让浏览器去访问其他的内容. 而请求转发, 转发来转发去, 最后还是要向客户提供服务, 这是最根本的区别.</p>
+<p>sendRedirect()函数的参数有如下三种方式:</p>
+<ol>
+    <li>可以是绝对地址URL, 比如 <code>resp.sendRedirect("http://conyli.cc");</code>, 这样就跳转到绝对地址</li>
+    <li>可以是不带斜线的相对URL, 处理就和链接一样, 将当前URL上最后的部分去掉, 然后进行拼接, 比如 <code>resp.sendRedirect("time");</code></li>
+    <li>可以是带斜线的相对URL, 处理就和链接一样, 表示相对Web应用根目录的, 比如 <code>resp.sendRedirect("time");</code></li>
+</ol>
+<p>要注意的是, 不能够在已经打开响应的流对象, 写入之后再调用sendRedirect()方法, 会报错:</p>
+<pre>
+resp.getWriter().write("gugugugugu");
+//不刷新还没事, 刷新了缓冲区之后就会报错
+resp.getWriter().flush();
+resp.sendRedirect("/SelectBeer.do");
+</pre>
+<p>所以一般为了语义和代码清晰, 需要进行重定向了, 就直接重定向即可.</p>
+<p>而请求分派就不同了, 分派的依然是服务器上的其他处理请求的servlet. 请求分派的字符串是一个相对地址, 可以加斜杠也可以不加, 含义与sendRedirect()中的参数是一样的.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

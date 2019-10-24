@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java Web Reinforcement 01 基础例子</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>2019年初的时候很迅速的过了一遍Java Web, 到现在经过一轮学习和重新补Java基础之后, 发现要进一步学Spring, 没有Java EE的相关知识是不行的, 于是购入了一些书籍, 重新看看Java Web的相关知识.</p>
+
+<ol>
+    <li><a href="#con1">简单的例子</a></li>
+    <li><a href="#con2">jsp</a></li>
+    <li><a href="#con3">使用JSP的简单MVC</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">简单的例子</h2>
+<p>首先必须要脱离IDE来实践. Tomcat是一个容器, 其中装有Web应用, 需要把应用按照结构放到Tomcat的webapps目录下.</p>
+<p>容器和Web服务器还有区别, Tomcat具备简单的Web服务器功能, 但不能用在生产环境, 所以还必须结合HTTP服务器来使用, 比如Nginx和Apache.</p>
+<p>其中的目录结构如下:</p>
+<pre>
+webapps -
+        |
+        ---工程名称, 也是路径
+                |
+                |-----WEB-INF 存放WEB资源的地方,其中有web.xml文件存放配置, 以及classes目录用于存放编写的Servlet
+                |
+                - index.jsp文件, 打入前边的路径就会默认去找这个文件
+</pre>
+<p>在启动之后, 就可以按照路径来访问了. 现在编写一个简单的Java类:</p>
+<pre>
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.time.LocalTime;
+
+public class TimeServlet extends HttpServlet  {
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+
+        PrintWriter out = resp.getWriter();
+
+        LocalTime localTime = LocalTime.now();
+
+        out.write("&lt;HTML lang=en>&lt;body>");
+        out.write("&lt;p>");
+        out.write(localTime.toString());
+        out.write("&lt;/p>&lt;/body>&lt;/html>");
+    }
+}
+</pre>
+<p>然后是一个web.xml文件:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+             version="4.0">
+
+
+&lt;!--    内部名称 -> 具体类名 的映射-->
+    &lt;servlet>
+        &lt;servlet-name>ShowTime&lt;/servlet-name>
+        &lt;servlet-class>TimeServlet&lt;/servlet-class>
+    &lt;/servlet>
+        &lt;!--    URL -> 内部名称-->
+
+    &lt;servlet-mapping>
+        &lt;servlet-name>ShowTime&lt;/servlet-name>
+        &lt;url-pattern>/time&lt;/url-pattern>
+    &lt;/servlet-mapping>
+&lt;/web-app>
+</pre>
+<p>然后就进行编译, 之后按照上边的目录放到tomcat的webapps目录下, 目录叫test.</p>
+<p>之后进入到Tomcat的bin目录下启动startup.bat(windows)环境下, 就可以通过<a href="http://localhost:8080/test/time" target="_blank">http://localhost:8080/test/time</a>来发现获取了显示出了时间.</p>
+<p>这虽然是个很简单的例子, 但是充分说明了Java 的Web标准, 即需要一个容器, 容器负责的工作主要就是和操作系统通信获取HTTP请求, 然后会生成HTTP请求和响应对象, 调用你放入到tomcat中的各个servlet类的方法来处理, 之后将结果返回过去.</p>
+<p>这就是容器和其中生存的servlet之间的关系, 容器相当于一个基础结构, 而编写的servlet是负责具体业务, 也就是干活.</p>
+<p>如果没有容器, 像CSAPP那样, 就需要自己创建socket连接, 然后通过连接描述符来解析请求并且通过IO读入请求字符串来解析, 再返回响应. 容器把这一切都做了, 所以重点就在编写servlet上了.</p>
+<p>当然这只是一个大概, 不管是servlet本身, 还是提供给容器的web-xml其中的细节, 还是进一步的jsp, 都是要继续深挖的技术.</p>
+
+<h2 style="text-align: center;" id="con2">JSP</h2>
+<p>往响应对象中写入HTML代码就可以直接返回字符串, 毕竟HTTP协议就是一个字符流. 不过这么写入太费劲, 所以出现了jsp技术. 所有.jsp文件, 其实会被翻译成一个类, 在servlet处理完业务的时候, 可以把业务结果和HTTP响应对象交给jsp文件的实例, 由这个实例去负责具体往响应对象里写字符, 这就完成了解耦, 让组织响应内容变得更加方便.</p>
+<p>.jsp看上去像HTML文件, 但是通过特殊的标记, 就可以被解析成一个Java类来进行操作, 所以要使用jsp, 就要学会jsp的标记语言.</p>
+<p>逐步的分离就带出了MVC模式, 也就是业务逻辑和表示逻辑分开. jsp其实相当于表示层, 即展现给用户的结果, servlet中如果直接传递业务结果给jsp, 耦合太高, 所以引入了model, 将业务逻辑放在model中, 逐渐的servlet本身就演化成了控制器.</p>
+<p>这样jsp负责与用户交互(即展示结果和接收用户的数据), 控制层负责接收用户发来的数据或者请求, 然后交给model处理. model处理完成的时候通知展示层, 展示层就会从模型中更新数据然后进行展示, 当然也可以通过传递一个model对象.</p>
+<p>整个系统中只有model负责和客户通信.</p>
+
+<h2 style="text-align: center;" id="con3">使用jsp的简单例子</h2>
+<pre>
+package com.example.model;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class BeerExpert {
+
+    public static List&lt;String> getBrands(String color) {
+        List&lt;String> brands = new ArrayList&lt;>();
+        switch (color) {
+            case "light":
+                brands.add("jack");
+                brands.add("danny");
+                break;
+            case "amber":
+                brands.add("saner");
+                brands.add("owl");
+                break;
+            case "brown":
+                brands.add("voltan");
+                brands.add("basakits");
+                break;
+            case "dark":
+                brands.add("black label");
+                brands.add("jonnywalker");
+                break;
+            default:
+                break;
+        }
+        return brands;
+    }
+
+}
+</pre>
+<pre>
+package com.example.web;
+
+import com.example.model.BeerExpert;
+
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.List;
+
+public class BeerSelect extends HttpServlet {
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        resp.setContentType("text/html");
+        String c = req.getParameter("color");
+
+        //给请求对象设置上style=result这个键值
+        List&lt;String> result = BeerExpert.getBrands(c);
+        req.setAttribute("style", result);
+
+        //需要进一步将请求和响应对象转发到jsp, 使用jsp文件的名称
+        RequestDispatcher view = req.getRequestDispatcher("result.jsp");
+        //然后将控制权交给jsp文件, 等于当前servlet的工作完成了, 后边jsp写完响应对象后就交还给Web容器了.
+        view.forward(req, resp);
+
+    }
+}
+</pre>
+<pre>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ page import="java.util.List" %>
+
+
+&lt;html>
+&lt;head>
+    &lt;title>Beer Result&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;h1 style="text-align: center">Beer Selection Result from JSP&lt;/h1>
+&lt;p>
+    &lt;%--        从请求对象中获取一个属性, 需要在视图中查找到之后, 给请求对象附加上 --%>
+&lt;%--jsp默认有一个out对象, 可以用来写入字符串到响应中, 如果使用System.out则是打印到系统标准输出, 注意这一点--%>
+    &lt;%
+        List&lt;String> styles = (List&lt;String>) request.getAttribute("style");
+        for (String s : styles){
+            out.print(s + " ");
+        } ;
+    %>
+&lt;/p>
+&lt;/body>
+&lt;/html>
+</pre>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html lang="zh-Hans">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>Beer&lt;/title>
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+&lt;/head>
+&lt;body>
+&lt;h1 style="text-align: center">Beer Selection Page&lt;/h1>
+&lt;div style="margin: auto;max-width: 800px">
+&lt;form action="SelectBeer.do" method="post">Select beer characteristics &lt;br>
+    &lt;label for="selectColor">color: &lt;/label>&lt;select name="color" id="selectColor">
+        &lt;option value="light">light&lt;/option>
+        &lt;option value="amber">amber&lt;/option>
+        &lt;option value="brown">brown&lt;/option>
+        &lt;option value="dark">dark&lt;/option>
+    &lt;/select>
+    &lt;br>
+    &lt;div style="text-align: center">
+    &lt;input type="submit">
+    &lt;/div>
+&lt;/form>
+&lt;/div>
+
+&lt;/body>
+&lt;/html>
+</pre>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+             version="4.0">
+
+    &lt;servlet>
+        &lt;servlet-name>Ch3 beer&lt;/servlet-name>
+        &lt;servlet-class>com.example.web.BeerSelect&lt;/servlet-class>
+    &lt;/servlet>
+    &lt;servlet-mapping>
+        &lt;servlet-name>Ch3 beer&lt;/servlet-name>
+        &lt;!--        这里的路径前边要加上/, 表示web容器的根目录-->
+        &lt;url-pattern>/SelectBeer.do&lt;/url-pattern>
+    &lt;/servlet-mapping>
+&lt;/web-app>
+</pre>
+<p>这其实最简单的POST-GET的JSP操作, 一样手动放置到tomcat下就可运行. 控制器在通过模型获取数据的时候, 将数据放置在了请求对象的一个属性中, 然后jsp从那个位置取出数据并且用于页面中.</p>
+<p>对容器的方式理解的更深一些了.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
