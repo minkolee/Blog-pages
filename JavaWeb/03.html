@@ -15,18 +15,143 @@
     </style>
 </head>
 <body>
+<p>这一节来看一下容器中的Servlet相关的内容, 包括容器为Servlet提供的配置, 容器环境上下文对象, 以及一些辅助Servlet完成服务工作的内容.</p>
+
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con1">ServletConfig</a></li>
+    <li><a href="#con2">ServletContext</a></li>
+    <li><a href="#con3">监听器</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
-<h2 style="text-align: center;" id="con2"></h2>
-<h2 style="text-align: center;" id="con3"></h2>
+<h2 style="text-align: center;" id="con1">ServletConfig</h2>
+<p>在上一篇文章里, 提到GenericServlet 实现了 Servlet, ServletConfig, Serializable 三个接口, 其中就有一个ServletConfig, 这个接口主要用于获取Servlet相关的配置.</p>
+<p>这个配置写在哪里呢, 也就是写在web.xml文件中的一个&lt;servlet>标签中, 叫做init-param,可以有多个,每一个标签定义一个键值对:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+             version="4.0">
+
+
+    &lt;servlet>
+        &lt;servlet-name>Test&lt;/servlet-name>
+        &lt;servlet-class>conyli.cc.Test&lt;/servlet-class>
+        &lt;init-param>
+            &lt;param-name>name&lt;/param-name>
+            &lt;param-value>saner&lt;/param-value>
+        &lt;/init-param>
+        &lt;init-param>
+            &lt;param-name>kiki&lt;/param-name>
+            &lt;param-value>wiwi&lt;/param-value>
+        &lt;/init-param>
+    &lt;/servlet>
+    &lt;servlet-mapping>
+        &lt;servlet-name>Test&lt;/servlet-name>
+        &lt;url-pattern>/test&lt;/url-pattern>
+    &lt;/servlet-mapping>
+&lt;/web-app>
+</pre>
+<p>这里为Test这个servlet配置了两个参数, 分别是name=saner和kiki=wiwi. 然后可以在对应的servlet中获取该参数:</p>
+<pre>
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Enumeration;
+
+public class Test extends HttpServlet {
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        ServletConfig servletConfig = getServletConfig();
+
+        System.out.println(servletConfig.getInitParameter("name"));
+
+        System.out.println(servletConfig.getInitParameter("kiki"));
+
+        Enumeration&lt;String> paras = servletConfig.getInitParameterNames();
+        while (paras.hasMoreElements()) {
+            System.out.println(paras.nextElement());
+        }
+    }
+}
+</pre>
+<p>这样就有效的解耦了servlet和其相关的配置, 有一些需要更改的属性, 就完全不需要修改源代码, 仅仅通过修改XML文件的配置, 就可以更改程序的行为. 当然, 这个工作也是容器完成的.</p>
+<p>这里要注意的是, 如果覆盖了构造函数, 在构造函数中是无法访问这些属性的, 直到init()执行完成, 这些属性才能通过ServletConfig拿到. 此外如果在装载Servlet之后更改web.xml, 是没有用的, 配置信息在容器加载web.xml的时候就确定好了, 想要更改配置, 只能重新启动容器或者重新部署.</p>
+<p>再次记得, ServletConfig是每个servlet都有一个属于自己的, 而不像后边讲到的Web容器上下文, 容器中的所有对象获取的容器上下文对象都是同一个.</p>
+
+<h2 style="text-align: center;" id="con2">ServletContext</h2>
+<p>如果一个配置需要被多个Servlet甚至是JSP对象共享, 当然可以为某个servlet配置, 然后传递给JSP, 然而这样效率太低.</p>
+<p>除了针对单个servlet的ServletConfig之外, 还有一个 context-param ,针对整个web应用来配置初始化参数. 这个标签与servlet标签同级, 要如何访问这个属性呢.</p>
+<p>肯定已经想到了, 访问这些容器级别的属性肯定不能通过servlet级别, 而要通过容器上下文, 也就是ServletContext对象.</p>
+<p>在web.xml中加入全局参数:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+             version="4.0">
+
+
+    &lt;servlet>
+        &lt;servlet-name>Test&lt;/servlet-name>
+        &lt;servlet-class>conyli.cc.Test&lt;/servlet-class>
+        &lt;init-param>
+            &lt;param-name>name&lt;/param-name>
+            &lt;param-value>saner&lt;/param-value>
+        &lt;/init-param>
+        &lt;init-param>
+            &lt;param-name>kiki&lt;/param-name>
+            &lt;param-value>wiwi&lt;/param-value>
+        &lt;/init-param>
+    &lt;/servlet>
+    &lt;servlet-mapping>
+        &lt;servlet-name>Test&lt;/servlet-name>
+        &lt;url-pattern>/test&lt;/url-pattern>
+    &lt;/servlet-mapping>
+
+<span style="color: red">    &lt;context-param>
+        &lt;param-name>fullscope&lt;/param-name>
+        &lt;param-value>gugugu&lt;/param-value>
+    &lt;/context-param></span>
+
+&lt;/web-app>
+</pre>
+<p>然后在servlet中, 就要通过获取ServletContext对象来获取属性:</p>
+<pre>
+@Override
+protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+    ServletContext servletContext = getServletContext();
+
+    System.out.println(servletContext.getInitParameter("fullscope"));
+
+}
+</pre>
+<p>现在还没有学JSP语法, 但是JSP环境中也可以获取到ServletContext对象, 所以也能够访问此参数. 这样一些全局性的配置, 就可以写在context-param中了.</p>
+<p>这个参数和之前的ServletConfig一样, 参数的值会在容器启动的时候从web.xml加载, 加载之后再修改web.xml, 就要重新启动容器才可以生效.</p>
+<p>实际上这就是两个层次的初始化变量, 在Web容器的生存周期内, 可以认为这些都是常量.</p>
+<p>还需要注意的是, ServletContext有一系列方法, 用处远比取得初始变量要重要, 比如getAttribute和setAttribute系列, 想到了什么? 数据可以动态的在整个Web容器中共享.</p>
+<p></p>
+
+<h2 style="text-align: center;" id="con3">监听器</h2>
+<p>在目前为止, 可以为Web容器配置初始化的常量了, 然而如果要初始化进行一些工作需要怎么做呢? 将这些工作交给一个servlet吗? 显然不太可行, 因为有请求到来的时候才会触发servlet.</p>
+<p>于是就出现了监听器, 监听器实际上是实现了javax.servlet.ServletContextListener的类. 顾名思义, 这个类监听的是ServletContext的行为.</p>
+<p>具体的说, 监听器监听Web容器上下文的初始化和撤销两个事件. 在初始化的时候, 监听器就可以通过上下文对象获取初始化常量, 还可以进行一些工作, 比如创建数据库连接池, 将其存储为容器上下文环境的一个属性, 供所有的容器内部的类使用.</p>
+<p>在容器结束的时候, 可以关闭数据库连接. 由于数据库这些东西都是位于容器外部的, 所以在监听器里边进行一些全局性的, 为整个Web容器和其他程序打交道的工作比较合适.</p>
+
+
+
+
+
+
 <h2 style="text-align: center;" id="con4"></h2>
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
