@@ -387,8 +387,8 @@ public class TestServlet extends HttpServlet {
 <ol>
     <li><code>void addCookie(Cookie var1);</code>, 添加一个Cookie对象</li>
     <li><code>boolean containsHeader(String var1);</code>, 是否包含指定的头部信息</li>
-    <li><code>String encodeURL(String var1);</code>, 获取编码过的URL, 待测试</li>
-    <li><code>String encodeRedirectURL(String var1);</code>, 获取编码过重定向URL, 待测试</li>
+    <li><code>String encodeURL(String var1);</code>, 重写URL, 使用附带sessionid的参数</li>
+    <li><code>String encodeRedirectURL(String var1);</code>, 重写URL, 使用附带sessionid的参数, 然后重定向</li>
     <li><code>void sendError(int var1, String var2) throws IOException;</code>, 待测试</li>
     <li><code>void sendError(int var1) throws IOException;</code>, 待测试</li>
     <li><code>void sendRedirect(String var1) throws IOException;</code>, 重定向方法</li>

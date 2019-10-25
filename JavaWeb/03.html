@@ -17,14 +17,11 @@
 <body>
 <p>这一节来看一下容器中的Servlet相关的内容, 包括容器为Servlet提供的配置, 容器环境上下文对象, 以及一些辅助Servlet完成服务工作的内容.</p>
 
-
 <ol>
     <li><a href="#con1">ServletConfig</a></li>
     <li><a href="#con2">ServletContext</a></li>
     <li><a href="#con3">监听器</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">属性</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">ServletConfig</h2>
 <p>在上一篇文章里, 提到GenericServlet 实现了 Servlet, ServletConfig, Serializable 三个接口, 其中就有一个ServletConfig, 这个接口主要用于获取Servlet相关的配置.</p>
@@ -146,15 +143,154 @@ protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws Se
 <p>于是就出现了监听器, 监听器实际上是实现了javax.servlet.ServletContextListener的类. 顾名思义, 这个类监听的是ServletContext的行为.</p>
 <p>具体的说, 监听器监听Web容器上下文的初始化和撤销两个事件. 在初始化的时候, 监听器就可以通过上下文对象获取初始化常量, 还可以进行一些工作, 比如创建数据库连接池, 将其存储为容器上下文环境的一个属性, 供所有的容器内部的类使用.</p>
 <p>在容器结束的时候, 可以关闭数据库连接. 由于数据库这些东西都是位于容器外部的, 所以在监听器里边进行一些全局性的, 为整个Web容器和其他程序打交道的工作比较合适.</p>
+<p>与监听上下文创建与销毁的监听器类似, Java Web规范中还规定了很多监听器. 不过在此之前, 先来实际使用一下这个上下文监听器:</p>
+<pre>
+import javax.servlet.ServletContextEvent;
+import javax.servlet.ServletContextListener;
+
+public class MyServletContextListener implements ServletContextListener {
+
+    //监听上下文初始化
+    @Override
+    public void contextInitialized(ServletContextEvent sce) {
+        System.out.println("监听方法contextInitialized执行了");
+        //通过事件对象可以获取到上下文对象, 尝试给设置一个属性
+        sce.getServletContext().setAttribute("name", "saner");
+
+    }
+
+    //监听上下文销毁
+    @Override
+    public void contextDestroyed(ServletContextEvent sce) {
+        System.out.println("监听方法contextDestroyed执行了");
+
+    }
+}
+</pre>
+<p>实现接口, 然后覆盖两个方法即可. 在编写了类之后, 由于是针对容器的监听, 单独发挥不了作用, 必须在web.xml中配置, 让容器去适当的时候使用才能发挥作用:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+             version="4.0">
+
+    ......
+
+<span style="color: red">    &lt;listener>
+        &lt;listener-class>com.example.listener.MyServletContextListener&lt;/listener-class>
+    &lt;/listener></span>
+
+&lt;/web-app>
+</pre>
+<p>这么配置之后, 按照我们的意图, ServletContext中已经被设置了name=saner这样一个字段, 然后就可以随便在一个servlet中尝试获取一下.</p>
+<pre>
+@Override
+protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    resp.getWriter().println(getServletContext().getAttribute("name"));
+}
+</pre>
+<p>实验证明确实可以获取, 实际上在容器初始化的时候, 监听器既然可以获得上下文对象, 连上下文的初始参数也是可以获取的, 因此可以动态的使用初始参数来做一些工作. 然后来看看其他的监听器.</p>
+<p>监听器从监听的对象方面可以大致分为: 监听ServletContext, 监听Request, 监听Session, 监听自己; 而从监听的内容方面可以分为:监听属性变化和监听生命周期两类.</p>
+<p>下边的分类混合了上边两种分类方式, 以更好的区分.</p>
+<table>
+    <thead>
+    <tr>
+        <th>分类</th>
+        <th>场景</th>
+        <th>接口与方法</th>
+        <th>事件对象</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td rowspan="3">监听生命周期</td>
+        <td>ServletContext创建和销毁</td>
+        <td>ServletContextListener<br>
+            contextInitialized<br>
+            contextDestroyed</td>
+        <td>ServletContextEvent, 通过事件对象可以获取到ServletContext对象</td>
+    </tr>
+    <tr>
+        <td>有请求到来(新请求对象被创建)</td>
+        <td>ServletRequestListener
+            <br>requestInitialized
+            <br>requestDestroyed</td>
+        <td>ServletRequestEvent, 通过事件对象可以获取到Request对象</td>
+    </tr>
+    <tr>
+        <td>有新会话开始(新session对象被创建)</td>
+        <td>HttpSessionListener
+            <br>sessionCreated
+            <br>sessionDestroyed</td>
+        <td>HttpSessionEvent, 通过事件对象可以获取到Session对象</td>
+    </tr>
+
+    <tr>
+        <td rowspan="3">监听属性变化</td>
+        <td>ServletContext中附加的属性发生变动</td>
+        <td>ServletContextAttributeListener<br>
+            attributeAdded<br>
+            attributeRemoved
+            <br>attributeReplaced</td>
+        <td>ServletContextAttributeEvent, 通过事件对象可以获取到变动的键和值</td>
+    </tr>
+
+    <tr>
+        <td>Request中附加的属性发生变动</td>
+        <td>ServletRequestAttributeListener<br>
+            attributeAdded<br>
+            attributeRemoved
+            <br>attributeReplaced</td>
+        <td>ServletRequestAttributeEvent, 通过事件对象可以获取到变动的键和值</td>
+    </tr>
+
+    <tr>
+        <td>Session中附加的属性发生变动</td>
+        <td>HttpSessionAttributeListener<br>
+            attributeAdded<br>
+            attributeRemoved
+            <br>attributeReplaced</td>
+        <td>HttpSessionBindingEvent, 通过事件对象可以获取到变动的键和值以及session对象</td>
+    </tr>
+
+    <tr>
+        <td rowspan="2">监听自己 <br>
+        这一系列的监听器不是新建一个监听器类, 而是由属性类(被绑定的对象)实现, 所以看上去好像监听自己的变化一样</td>
+        <td>监听自己被绑定到会话上</td>
+        <td>HttpSessionBindingListener<br>
+            valueBound<br>
+            valueUnbound</td>
+        <td>HttpSessionBindingEvent, 通过事件对象可以获取到变动的键和值以及session对象, 注意这个事件和上一行是一样的. 这可以理解成凡是Session的属性发生变动, 事件对象都可以拿到变动的键值.</td>
+    </tr>
+
+    <tr>
+        <td>监听自己所绑定的会话发生迁移(序列化=钝化和激活)</td>
+        <td>HttpSessionActivationListener<br>
+            sessionWillPassivate<br>
+            sessionDidActivate</td>
+        <td>HttpSessionEvent, 这个事件对象和监听Session新建与销毁是一样的, 因为本质上钝化再活化就和销毁再创建一样.</td>
+    </tr>
+    </tbody>
+</table>
+<p>我这里还挨个试验了一下, 试验的代码就不放出来了.</p>
+<p>还有一点要注意的是, 在web.xml中的注册顺序, 决定了监听器起作用的顺序.</p>
+
+<h2 style="text-align: center;" id="con4">属性</h2>
+<p>属性这里就是指在容器内需要传递的数据. 在最开始的例子里, 将模型数据绑定到了请求对象上, 再传递给JSP进行处理.</p>
+<p>现在就来好好的看看属性. 在容器内部, 属性只能被绑定到三个地方:</p>
+<ol>
+    <li>ServletContext对象上, 全局都可以看到和获取, 但是不特别注意的话, 线程不安全, 所以一般考虑放入只读的内容</li>
+    <li>HttpSession对象上, 跟着会话走, 附着在会话上之后, 对于相同的会话对象可以取到相同的数据</li>
+    <li>HttpServletRequest对象上, 跟随每个请求, 粒度比前两个还要细, 即使是sessionID相同的两个会话, 每次的请求对象也不同</li>
+</ol>
+<p>当然这里还没有学session对象, 不过马上就要了解了.</p>
+<p>这三个对象, 都有统一的setAttr, getAttr, removeAttr系列方法. 注意如果需要同步, 加锁的对象不要加在Servlet上, 而是要加在需要同步的对象上, 比如ServletContext, 整个容器里都是同一个对象, 在Servlet的代码中对其加上锁, 就可以保证这个Servlet对其同步.</p>
+<p>Session也不是线程安全的, 加锁的方法也是同样的.</p>
+<p>一个Servlet的实例, 在一个JVM中只有一个, 多个线程使用这个实例的方法. 所以为了避免线程竞争, 尽量都使用局部变量, 如果涉及到跨线程的内容, 比如session对象和Servlet的实例变量, 都要用同步保护起来.</p>
+<p>最后补充一个小知识点, 通过HttpServletRequest获取的RequestDispatcher对象可以使用相对或者绝对地址, 而从ServletContext对象获取的RequestDispatcher只能使用斜线开头的绝对地址.</p>
 
 
-
-
-
-
-<h2 style="text-align: center;" id="con4"></h2>
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>

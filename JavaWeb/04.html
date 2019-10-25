@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java Web Reinforcement 04 Session</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>HTTP本身是无状态的, 如果想要保持用户的状态, 即让一批请求都知道其属于某一个对话, 很显然就需要附带额外的信息.</p>
+<p>Session是保持客户端信息的一种技术方式, 对于普通的浏览器, 容器会尝试将Session信息放入Cookie中, 对于不支持Cookie的浏览器, 则采用了URL重写的方式, 让客户每次访问的时候都附带上这段信息.</p>
+<p>Session的实现和解析方式是交给每个具体容器实现的, 对于我们来说, 就是要通过获取容器提供的Session对象, 来对请求属于某一个会话进行识别, 进而在服务端可以不断的更新用户的累计状态来处理业务. 通过Session对象上附带的属性, 就可以跨越多个请求来共同完成一个业务.</p>
+<p>从Session的发展历史也可以看到技术的变迁, 在前后端分离之后, 为了保持用户状态, 依然要用到本地存储这些额外信息. 如果客户端真的什么信息也不保存, 每次也不带任何额外信息访问服务器, 那就真的无法实现会话了.</p>
+
+
+<ol>
+    <li><a href="#con1">Session流程</a></li>
+    <li><a href="#con2">HttpSession</a></li>
+    <li><a href="#con3">Cookie</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">Session流程简述</h2>
+<p>对于如何标识一个会话, 肯定没有比为其设置一个唯一的ID更加方便了. 对于客户的第一个请求, 容器都会自动生成一个SessionID, 并且尝试通过响应发送给客户端, 客户端按照默认的策略, 每次会附带与这个网站相关的Cookie进行访问, cookie其中存放了sessionid, 这样服务器就认出了用户的session, 在多次请求中便可以访问同一个session对象了.</p>
+<p>先来看最常见的方式, 就是通过Cookie传递ID. Cookie本身就是一个键值对构成的字符串, 放在头部信息中. 会由浏览器自动接收和存储.</p>
+<p>服务端的响应头部是 Set-Cookie, 客户端的请求的头部是 Cookie. 容器会在把HTTP请求交给我们的servlet之前, 就把cookie中的session信息处理好, 从其中获取sessionid, 并寻找现有的sessionid进行匹配, 还会将session对象的引用包装在当前的请求对象中.</p>
+<p>需要在响应中发一个会话cookie的话, 只需要执行 <code>HttpSession session = request.getSession()</code>, (实际上现代的Web容器,不进行设置也会发sessionid), 之后的设置工作容器会完全自己完成. 获取session对象也是这句话, 容器后台会进行大量的工作, 包括判断是否含有sessionid, 没有就新建, 有就匹配已经存在的session对象等一系列工作, 最终返回一个标识当前请求所属的会话对象.</p>
+<p>session.isNew()可以用来判断此次请求的session是新创建的, 还是已经存在.</p>
+<p>这里还涉及到使用Cookie对象, 其实用法很简单, 只不过cookie和session一样都有特殊的控制方法.稍后再介绍.</p>
+<p>对于禁止了Cookie的浏览器来说, 就要想另外一种办法附加额外的信息, 这种办法就是将响应返回的时候, 在返回的所有链接中让URL请求参数最后附带上sessionid, 容器会对之后的请求进行解析, 同样可以使用会话.</p>
+<p>要使用这种功能, 就需要显式的使用response对象的encodeURL和encodeRedirectURL方法. 先看前者.</p>
+<pre>
+@Override
+protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    resp.setCharacterEncoding("UTF-8");
+
+    resp.setContentType("text/html");
+
+    PrintWriter printWriter = resp.getWriter();
+
+    //禁止Cookie的情况下必须写这一行, 否则无法重写URL
+    HttpSession session = req.getSession();
+
+    printWriter.println("&lt;a href=\"" + resp.encodeURL("/attr") + "\">带有sessionid的重写URL链接&lt;/a>");
+
+}
+</pre>
+<p>注意, 如果浏览器启用了cookie, 则看不到重写后的URL, 禁止cookie之后, 每次访问这个方法, 都会生成一个新的带有sessionid的链接, 这就说明服务器端每次接受到的请求都是不含cookie的, 只好新生成一个session然后重写URL, 如果你继续点击, 就可以延续会话. 如果不点击, 就完蛋了.</p>
+<p>可见这种方法很麻烦, 如果用户转而点击其他, 就必须再生成session对象, 所以还是默认使用cookie比较方便.</p>
+<p>如果想重定向怎么办, 这个时候因为301响应可以控制用户浏览器访问的URL, 所以使用encodeRedirectURL可以获取重写后的URL, 再发送重定向响应就可以了:</p>
+<pre>
+@Override
+protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    //禁止Cookie的情况下必须写这一行, 否则无法重写URL
+    HttpSession session = req.getSession();
+
+    String s = resp.encodeRedirectURL("/attr");
+    resp.sendRedirect(s);
+}
+</pre>
+
+<h2 style="text-align: center;" id="con2">HttpSession对象</h2>
+<p>知道了session的整体流程, 就可以来详细看看HttpSession对象, 也就是作为应用程序员的我们可以如何控制容器中的session.</p>
+<p>HttpSession也是一个接口, 具体实现类也就是获取的session是由容器生成的, 这是一个独立的接口, 并没有更上层的Session接口.来看一些关键方法:</p>
+<ol>
+    <li><code>long getCreationTime();</code>, 返回创建这个session对象的时间</li>
+    <li><code>String getId();</code>, 返回sessionid</li>
+    <li><code>long getLastAccessedTime();</code>, 返回上一次访问该session的时间</li>
+    <li><code>void setMaxInactiveInterval(int var1)</code>, 设置最长的有效时间, 超过就过期了. 如果设置为-1, 则永不失效, 最好不要设置成-1.</li>
+    <li><code>int getMaxInactiveInterval();</code>, 获取有效时间, 是int形式表示的秒数.</li>
+    <li><code>与设置属性相关的全套方法</code>, 需要在会话中共享的数据, 需要放到session对象上获取.</li>
+    <li><code>void invalidate();</code>, 强制让当前session失效, 下次请求进来的时候, 容器会创建新的session对象.</li>
+    <li><code>boolean isNew();</code>, 是否是新建的session.</li>
+</ol>
+<p>Session的方法比较少一些, 除了设置属性之外, 常用的就是与session过期管理相关的获取时间或者设置间隔的属性, 有了这些东西, 就可以任意的设置session是根据时间间隔还是具体时间到期.</p>
+<p>不过上边的获取session对象再设置, <span style="color: red">设置的仅仅是当前会话对象</span>. 如果想修改全局设置, 可以在web.xml中统一配置过期时间:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+             version="4.0">
+
+    ......
+
+    &lt;session-config>
+        &lt;session-timeout>15&lt;/session-timeout>
+    &lt;/session-config>
+
+&lt;/web-app>
+</pre>
+<p>总的来说, 只要客户端支持Cookie, 对session的管理就方便很多, 可以在获取session对象之后进行各种操作. 将用户的身份识别信息(比如登录与否)放在session中是常见做法.</p>
+
+<h2 style="text-align: center;" id="con3">Cookie</h2>
+<p>Cookie对象本质是一段字符串, 用于服务器需要让客户端保存的信息, 浏览器在每次访问某个网站的时候, 会自动附带该网站对应的Cookie.</p>
+<p>Cookie有一些设置是为了让浏览器知道如何使用, 比如Cookie的过期时间, 超过该时间后, 浏览器便不会再使用该cookie.</p>
+<p>默认情况下, 只要用户关闭浏览器, 会话和cookie都会失效. 但是可以设置时间, 让cookie更长久, 许多网站的自动登录技术都是通过cookie(或者更现代的本地存储)来完成的. 无论如何, 当你使用一台全新的计算机,全新的浏览器, 没有保存任何与该网站相关的历史数据的时候, 肯定就不能实现自动登录了.</p>
+<p>所以cookie不仅可以用于会话, 也可以用于其他你想让客户端暂时存储的信息.</p>
+<p>cookie是放在请求和响应的头部信息中的, 但不要直接操作, 操作cookie通过javax.servlet.http.cookie对象来操作. 从请求中可以获取cookie, 而响应对象可以新增cookie. 先来看一下简单使用:</p>
+<pre>
+@Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        resp.setCharacterEncoding("UTF-8");
+
+        resp.setContentType("text/html");
+
+        PrintWriter out = resp.getWriter();
+
+        //获取cookie并且打印内容
+        Arrays.stream(req.getCookies()).forEach(cookie -> {
+            out.println(cookie.getName() + "&lt;br>");
+            out.println(cookie.getValue() + "&lt;br>");
+            out.println(cookie.getComment() + "&lt;br>");
+            out.println(cookie.getDomain() + "&lt;br>");
+            out.println(cookie.getMaxAge() + "&lt;br>");
+            out.println(cookie.getPath() + "&lt;br>");
+            out.println(cookie.getSecure() + "&lt;br>");
+            out.println(cookie.getVersion() + "&lt;br>");
+            out.println("&lt;hr>");
+        });
+
+        Cookie saner = new Cookie("name", "saner");
+        Cookie choco = new Cookie("name", "choco");
+        Cookie owl = new Cookie("owl", "sixtuan");
+
+        //仅用于HTTP访问
+        saner.setHttpOnly(true);
+        //设置有效时间, 为秒数
+        saner.setMaxAge(1800);
+
+        resp.addCookie(saner);
+        resp.addCookie(choco);
+        resp.addCookie(owl);
+    }
+</pre>
+<p>用Chrome监控, 可以看到响应头中的信息如下:</p>
+<pre>
+Set-Cookie: name=saner; Max-Age=1800; Expires=Fri, 25-Oct-2019 06:32:08 GMT; HttpOnly
+Set-Cookie: name=choco
+Set-Cookie: owl=sixtuan
+</pre>
+<p>来看看Cookie的API. Cookie并不是一个接口, 而是一个实现了Clonable和序列化的具体类. 然后有一系列set和get方法, 看一些比较重要的.</p>
+<ol>
+    <li><code>public Cookie(String name, String value)</code>, 两参数构造器, 分别传入键和值, 都是字符串, 没有无参构造器</li>
+    <li><code>void setMaxAge(int expiry)</code>, 关键方法, 设置存活时间, 如果设置为0, 关闭浏览器就失效. 默认值就是-1, 表示永远不失效.</li>
+    <li><code>int getMaxAge()</code>, 和上边是一对方法.</li>
+    <li><code>name和value属性的get和set方法</code>, 用于设置键和值.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
