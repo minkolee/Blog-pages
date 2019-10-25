@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java Web Reinforcement 05 JSP</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>JSP就是一个Servlet, 只不过长的不像Servlet, 但是会被编译成一个Servlet在容器内运行. 知道了这一点, 就很方便了. 将JSP文件变成Servlet也是容器做的事情.</p>
+<p>既然是一个Servlet, 其实JSP生成的servlet类也会有符合Servlet标准的那些方法, 之前的那些规范对于JSP文件也是一样的, 但是不能够直接编写.</p>
+<p>这里还学到了一个新名词, 就是放在 <code>&lt;%...%></code> 之间的代码叫做scriptlet.</p>
+<p>学JSP就像之前Django的模板一样, 需要换一种思路, 一起来看看知识点很多的JSP技术吧.</p>
+
+
+<ol>
+    <li><a href="#con1">JSP三个指令</a></li>
+    <li><a href="#con2">深入JSP - JS为P如何被解析成Servlet</a></li>
+    <li><a href="#con3">深入JSP - 隐式对象</a></li>
+    <li><a href="#con4">深入JSP - 生命周期</a></li>
+    <li><a href="#con5">深入JSP - 给JSP配置初始参数</a></li>
+    <li><a href="#con6">深入JSP - JSP的属性存放位置</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">JSP的代码与指令</h2>
+<p>在JSP文件中, 被<code>&lt;%...%></code>包围的是Java代码, 还有一类特殊的Java 代码叫做指令, 指令有三种, page include 和 taglib, 这里先了解page 指令. 指令是放在<code>&lt;%@...%></code></p>
+<p>如果只是调用out隐式对象来输出内容, 可以将输出的内容简化为一个表达式, 表达式放在<code>&lt;%=...%></code>中, 注意到这些细微的差别了吗, 看一个简单的例子:</p>
+<pre>
+<%@ page contentType="text/html;charset=UTF-8" language="java" import="com.example.util.Counter, java.util.List" %>
+<%@ page import="java.util.ArrayList" %>
+&lt;html>
+&lt;head>
+    &lt;title>测试程序&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;p>这是你第&lt;%=Counter.getCount()%>次访问该页面.&lt;/p>
+&lt;a href="${pageContext.request.contextPath}/test">测试HttpServletResponse和Request对象&lt;/a>
+&lt;a href="${pageContext.request.contextPath}/form.html">啤酒表单&lt;/a>
+&lt;a href="${pageContext.request.contextPath}/attr">测试属性变化&lt;/a>
+
+&lt;p>以下是使用 out.println()输出的代码:&lt;/p>
+&lt;p>
+    &lt;% List&lt;Integer> lists = new ArrayList&lt;>();
+        for (int i = 0; i &lt; 10; i++) {
+            lists.add(i);
+        }
+        out.print(lists); %>
+
+&lt;/p>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>可以看到page指令的使用以及引入多个类. 还有表达式元素无需带分号, 相当于其中的内容是out.println()的参数. 而正常的scriptlet就是普通的java代码.</p>
+<p>JSP中可以使用两种注释, HTTP注释和JSP注释, HTTP的注释客户端也会收到, JSP则在编译阶段被去掉.</p>
+
+<h2 style="text-align: center;" id="con2">深入JSP - JS为P如何被解析成Servlet</h2>
+<p>JSP中的所有Java代码, 都会被放置在一个通用的方法里, 所以不能够像一个类一样定义实例变量. 其中定义的变量, 都可以将其看成一个方法的局部变量.</p>
+<p>然而如果用 <code>&lt;! int count=0; %></code> 声明的变量, 就会被当成实例变量, 声明静态变量和方法也都可以.</p>
+<p>某个容器具体处理JSP并编译, 取决于容器, 不过都会遵循规范. 整体的处理方式如下:</p>
+<ol>
+    <li>先会创建一个HttpServlet子类</li>
+    <li>然后解析JSP文件, 开始填充这个HttpServlet子类</li>
+    <li>查看指令, 如果有import, 将其写在类文件的最上边, 就和我们自己的源代码类似</li>
+    <li>查看声明, 将声明写到类文件内部, 方法前边.</li>
+    <li>创建服务方法, tomcat生成的服务方法是_jspService(), 这个方法会覆盖Servlet超类的service()方法, 此时容器会声明并初始化全部隐式对象, 然后把JSP中的普通代码部分都放到服务方法中.</li>
+    <li>将jsp文件中属于HTML的部分放到服务方法中, 与动态部分一起完成格式化工作, 输出到响应中.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con3">深入JSP - 隐式对象</h2>
+<p>既然是一个servlet, 就想想我们自己的servlet对象, 需要ServletContext, 需要请求对象和响应对象, 需要Session和ServletConfig等等, JSP生成的Servlet类会初始化这些对象并分配固定的名字作为实例变量.</p>
+<p>所以对象的名称可以直接在我们编写的jsp文件中使用(准确的说是在scriptlet和表达式中使用, 指令和声明中无法使用).对应关系如下:</p>
+<ol>
+    <li>JspWriter - out</li>
+    <li>HttpServletRequest - request</li>
+    <li>HttpServletResponse - response</li>
+    <li>HttpSession -  session</li>
+    <li>ServletContext - application</li>
+    <li>ServletConfig - config</li>
+    <li>JspException - exception, 只有指定的错误页面才能使用该对象</li>
+    <li>PageContext - pageContext, 其中封装了其他隐式对象, 一般用于将隐式对象传递给其他对象</li>
+    <li>Object - page</li>
+</ol>
+
+<h2 style="text-align: center;" id="con4">深入JSP - 生命周期</h2>
+<p>当一个请求用到JSP文件的时候, 下列事情发生:</p>
+<ol>
+    <li>容器将JSP文件转换成java源代码, 捕获JSP语法错误</li>
+    <li>容器把java源代码编译成class文件, 捕获Java语法错误</li>
+    <li>加载class文件作为Servlet</li>
+    <li>实例化这个Servlet, 调用生命周期方法</li>
+    <li>多线程调用Servlet的方法 _jspService()</li>
+</ol>
+<p>JSP有和普通Servlet类似的生命周期方法, 由于JSP是一个Servlet, 因此有Servlet标准的生命周期方法, 标准生命周期方法里调用的是自己的三个方法:</p>
+<ol>
+    <li>jspInit(), 在init()方法中调用</li>
+    <li>jspDestroy(), 在destroy()方法中调用</li>
+    <li>_jspService(), 在service()方法中调用</li>
+</ol>
+<p>相当于JSP生成的Servlet把生命周期方法委托给了自己的三个特殊方法.</p>
+
+<h2 style="text-align: center;" id="con5">深入JSP - 给JSP配置初始参数</h2>
+<p>既然是一个Servlet, 应该能够配置初始化参数才对.</p>
+<p>确实能够配置, 需要在Servlet标签内, 使用 jsp-file 标签, 通过路径指定jsp文件就可以了.</p>
+<p>在取出的时候, 就可以使用隐式对象来取得了. web.xml中配置如下:</p>
+<pre>
+&lt;servlet>
+    &lt;servlet-name>gugu&lt;/servlet-name>
+    <span style="color:red;">&lt;jsp-file>/index.jsp&lt;/jsp-file></span>
+
+    &lt;init-param>
+        &lt;param-name>email&lt;/param-name>
+        &lt;param-value>lee0709@vip.sina.com&lt;/param-value>
+    &lt;/init-param>
+&lt;/servlet>
+
+&lt;servlet-mapping>
+    &lt;servlet-name>gugu&lt;/servlet-name>
+    &lt;url-pattern>/index.jsp&lt;/url-pattern>
+&lt;/servlet-mapping>
+</pre>
+<p>在配置JSP的时候, 依然要一个servlet对应一个servlet-mapping, 但是servlet标签内不再用servlet-class标签来指定类, 而是换成了 jsp-file 标签来指定具体的jsp文件.</p>
+<p>按照上述配置好之后, 就可以在jsp文件中获取了:</p>
+<pre>
+&lt;p>&lt;%= config.getInitParameter("email")%>&lt;/p>
+</pre>
+<p>这里是使用了隐式对象config来获取. 想玩点花样的话, 也可以在jsp文件中声明 jspInit() 方法来覆盖默认的方法, 自己编写获取方法.在jspInit()执行的时候, 隐式对象都已经创建完毕了.</p>
+
+<h2 style="text-align: center;" id="con6">深入JSP - JSP的属性存放位置</h2>
+<p>在之前servlet中, 我们知道属性可以存在三个地方, 应用上下文, 请求对象, session对象中.</p>
+<p>JSP还有第四个存放属性的作用域, 叫做PageContext, 也是前边的隐式对象之一. 既然说到存放属性, 自然这个对象也有那一套方法.</p>
+<p>不过这个对象还有若干特殊之处:</p>
+<ol>
+    <li>封装了所有对其他作用域和隐式对象的引用, 可以获取出来</li>
+    <li>可以直接设置自己的, 以及其他作用域的属性</li>
+    <li>可以查找属性, 从自己开始查找, 如果找不到, 依次找 请求作用域 -> 会话作用域 ->应用作用域</li>
+</ol>
+<p>来具体看看PageContext对象的API和应用:</p>
+<pre>
+
+</pre>
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
