@@ -20,13 +20,14 @@
 <p>为何要使用EL和标签的一大原因是方便取出数据, 从前边我们知道, 其实页面的关键因素在于通过模型提供的数据, 页面大部分时候只是一个框架, 需要数据去填充. 而且对于Java来说, 属性更多的时候不是一个字符串, 而是一个数据对象, 需要获取然后拆解后展示.</p>
 <p>如果可以将取数据的Java脚本通过EL和标签来简化, 就可以方便快捷的编写代码了. </p>
 <p>EL表达式其实也是一种标签, 还可以开发自定义JSP标签来使用, 这一部分等到后边专门学习. JSP的动作也是一大要素, 要知道常用的几个</p>
+<p>最后一点要注意, 就是EL表达式究竟是什么, 其实EL表达式是一个对象. 将 <code>${var}</code> 看成是一个对象,而不是一个字符串, 这样对理解标签和JSP标准动作就很有帮助. 在页面中EL表达式的位置显示的结果, 是编译的时候将这个对象的toString()打印到响应中的结果, 在JSP内部, 则是将其当成一个对象来处理的.</p>
 
 <ol>
     <li><a href="#con1">在使用EL表达式之前...</a></li>
     <li><a href="#con2">EL表达式</a></li>
     <li><a href="#con3">EL隐式对象</a></li>
     <li><a href="#con4">EL操作符</a></li>
-    <li><a href="#con5">JSP动作</a></li>
+    <li><a href="#con5">JSP动作元素</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">在使用EL表达式之前...</h2>
 <p>在使用El表达式之前, 有人就想到了可以将数据对象先分离成一个Bean, 在JSP中所有需要用到的地方, 用动作标签来获取, 这样免得编写大量重复的代码.</p>
@@ -85,6 +86,17 @@
 <p>其中empty可以用来查看一个结果是否为空, 比如 ${empty requestScope.peng}, 但其实没有peng属性, 这个表达式就会显示成true.</p>
 
 <h2 style="text-align: center;" id="con5">JSP动作</h2>
+<p>JSP的标准动作就是之前说的:</p>
+<pre>
+&lt;jsp:useBean id="penguin" class="com.example.domain.Penguin" scope="request"/>
+</pre>
+<p>这一类以<code>&lt;jsp:</code>开头的标签都叫做JSP的动作, 是由JSP规范确定的. 其本质就是一种特殊的带有属性的XML标签, 其背后是一段Java代码, 通过传递的属性进行操作.</p>
+<p>也可以将其理解为JSP的内置标签, 和 <code><%</code> 系列标签都属于JSP自带的. 从一个原始JSP文件的角度来看, 其中支持EL表达式, <%@指令, <%scriplet, <%=表达式, JSP动作元素五大不属于HTML的要素.</p>
+
+
+
+
+
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>

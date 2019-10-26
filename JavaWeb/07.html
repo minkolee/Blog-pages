@@ -21,19 +21,109 @@
 
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
+    <li><a href="#con1">JSTL的安装</a></li>
+    <li><a href="#con2">JSTL core 库</a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
-<h2 style="text-align: center;" id="con2"></h2>
-<h2 style="text-align: center;" id="con3"></h2>
-<h2 style="text-align: center;" id="con4"></h2>
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+<h2 style="text-align: center;" id="con1">JSTL的安装</h2>
+<p>JSTL是一种自定义标签, 更精确的说是自定义动作元素, 在之前学习中知道了EL表达式, <%@指令, <%scriplet, <%=表达式, JSP动作元素这五大JSP的特点.</p>
+<p>所谓自定义标签, 自定义的就是JSP动作元素这一个部分; EL表达式, <%@指令, <%scriplet, <%=表达式就是JSP原始的功能, 也无法更改.</p>
+<p>Apache提供了JSTL的实现, 可以到<a href="http://archive.apache.org/dist/jakarta/taglibs/standard/binaries/">Apache官方</a>下载最新的JSTL包,
+    解压之后将其中的lib/下边的jar文件复制到WEB-INF/lib/下边, 这是Tomcat寻找库的第一个路径.</p>
+<p>之后要配置一下tld文件, 也就是自定义标签文件的路径:</p>
+<pre>
+&lt;jsp-config>
+    &lt;taglib>
+    &lt;taglib-uri>http://java.sun.com/jsp/jstl/fmt&lt;/taglib-uri>
+    &lt;taglib-location>/WEB-INF/fmt.tld&lt;/taglib-location>
+    &lt;/taglib>
+    &lt;taglib>
+    &lt;taglib-uri>http://java.sun.com/jsp/jstl/fmt-rt&lt;/taglib-uri>
+    &lt;taglib-location>/WEB-INF/fmt-rt.tld&lt;/taglib-location>
+    &lt;/taglib>
+    &lt;taglib>
+    &lt;taglib-uri>http://java.sun.com/jsp/jstl/core&lt;/taglib-uri>
+    &lt;taglib-location>/WEB-INF/c.tld&lt;/taglib-location>
+    &lt;/taglib>
+    &lt;taglib>
+    &lt;taglib-uri>http://java.sun.com/jsp/jstl/core-rt&lt;/taglib-uri>
+    &lt;taglib-location>/WEB-INF/c-rt.tld&lt;/taglib-location>
+    &lt;/taglib>
+    &lt;taglib>
+    &lt;taglib-uri>http://java.sun.com/jsp/jstl/sql&lt;/taglib-uri>
+    &lt;taglib-location>/WEB-INF/sql.tld&lt;/taglib-location>
+    &lt;/taglib>
+    &lt;taglib>
+    &lt;taglib-uri>http://java.sun.com/jsp/jstl/sql-rt&lt;/taglib-uri>
+    &lt;taglib-location>/WEB-INF/sql-rt.tld&lt;/taglib-location>
+    &lt;/taglib>
+    &lt;taglib>
+    &lt;taglib-uri>http://java.sun.com/jsp/jstl/x&lt;/taglib-uri>
+    &lt;taglib-location>/WEB-INF/x.tld&lt;/taglib-location>
+    &lt;/taglib>
+    &lt;taglib>
+    &lt;taglib-uri>http://java.sun.com/jsp/jstl/x-rt&lt;/taglib-uri>
+    &lt;taglib-location>/WEB-INF/x-rt.tld&lt;/taglib-location>
+    &lt;/taglib>
+&lt;/jsp-config>
+</pre>
+<p>这些文件虽然看上去根本不存在, 但其实存在于jar包中, 其实这些文件存放在standard.jar中, Tomcat在运行的时候可以寻找到它们.</p>
+<p>之后启用JSTL, 就需要使用JSP的三个指令之一: taglib来指定自定义的库:</p>
+<pre>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+</pre>
+<p>这么指定, 指定了使用JSTL的Core库, 前缀是c, 表示这个标签以<code>&lt;c:</code>开头, 可见这种标签就是动作元素标签的样式.</p>
+<p>JSTL有如下几个库:</p>
+<ol>
+    <li>Core, 前缀c, 主要用于一般用途, 展示, 条件和迭代标签</li>
+    <li>I18N, 前缀fmt 一看就知道是国际化的标签</li>
+    <li>Sql, 前缀sql, 用于访问关系型数据库</li>
+    <li>Xml, 前缀x, 用于对xml文档进行操作</li>
+    <li>Functions, 前缀fn, 包含了一组通用的EL函数, 就像自定义函数那样使用, 在EL表达式中可以使用这些函数.</li>
+</ol>
+<p>这里就先来看看常用的Core库.</p>
+
+<h2 style="text-align: center;" id="con2">JSTL core库</h2>
+<p>core库中的标签主要分为四类:</p>
+<ul>
+    <li>一般用途标签
+        <ol>
+            <li><code>&lt;c:out></code>, 用于输出, 等于<%=表达式</li>
+            <li><code>&lt;c:set></code>, 设置变量值</li>
+            <li><code>&lt;c:remove></code>, 删除指定变量</li>
+            <li><code>&lt;c:catch></code>, 捕获异常并且把异常对象放在指定的变量中</li>
+        </ol>
+    </li>
+    <li>条件标签
+        <ol>
+            <li><code>&lt;c:if></code>, 用于判断</li>
+            <li><code>&lt;c:choose>, &lt;c:when>, &lt;c:otherwise></code>, 一起使用, 相当于if-else</li>
+        </ol>
+    </li>
+    <li>迭代标签
+        <ol>
+            <li><code>&lt;c:forEach></code>, 遍历集合中的对象, 重复执行标签主体</li>
+            <li><code>&lt;c:forTokens></code>, 遍历字符串中用特定分隔符分割后的每个部分, 重复执行标签主体</li>
+        </ol>
+    </li>
+    <li>URL标签
+        <ol>
+            <li><code>&lt;c:import></code>, 包含其他WEB资源, 与 <code>&lt;jsp:include</code> 有些类似</li>
+            <li><code>&lt;c:url></code>, 按照特定规则重新构造URL</li>
+            <li><code>&lt;c:redirect></code>, 重定向</li>
+        </ol>
+    </li>
+</ul>
+<p>这些标签有很多, 在继续学习之前, 先要知道XML标签可以自闭合, 也可以包含其他内容, 如果一个XML标签包含其他内容, 则称其中的内容为这个标签的主体.</p>
+<p>还记得之前要让大家将EL表达式看成一个对象, 在jsp动作元素中(包括JSTL), 凡是需要一个对象的地方(包括if判断时候的true和false也是对象), 都不能传入字符串, 而是要传入一个EL表达式才行.</p>
+
+<h2 style="text-align: center;" id="con3">一般用途标签</h2>
+<h2 style="text-align: center;" id="con4">条件标签</h2>
+<h2 style="text-align: center;" id="con5">迭代标签</h2>
+<h2 style="text-align: center;" id="con6">URL标签</h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
