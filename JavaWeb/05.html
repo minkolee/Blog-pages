@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Java Web Reinforcement 05 JSP</title>
+    <title>Java Web Reinforcement 05 JSP技术</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -22,12 +22,13 @@
 
 
 <ol>
-    <li><a href="#con1">JSP三个指令</a></li>
-    <li><a href="#con2">深入JSP - JS为P如何被解析成Servlet</a></li>
-    <li><a href="#con3">深入JSP - 隐式对象</a></li>
-    <li><a href="#con4">深入JSP - 生命周期</a></li>
-    <li><a href="#con5">深入JSP - 给JSP配置初始参数</a></li>
-    <li><a href="#con6">深入JSP - JSP的属性存放位置</a></li>
+    <li><a href="#con1">JSP技术 - 指令</a></li>
+    <li><a href="#con2">JSP技术 - JS为P如何被解析成Servlet</a></li>
+    <li><a href="#con3">JSP技术 - 隐式对象</a></li>
+    <li><a href="#con4">JSP技术 - 生命周期</a></li>
+    <li><a href="#con5">JSP技术 - 给JSP配置初始参数</a></li>
+    <li><a href="#con6">JSP技术 - JSP的属性存放位置</a></li>
+    <li><a href="#con7">JSP技术 - include</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">JSP的代码与指令</h2>
 <p>在JSP文件中, 被<code>&lt;%...%></code>包围的是Java代码, 还有一类特殊的Java 代码叫做指令, 指令有三种, page include 和 taglib, 这里先了解page 指令. 指令是放在<code>&lt;%@...%></code></p>
@@ -59,6 +60,18 @@
 </pre>
 <p>可以看到page指令的使用以及引入多个类. 还有表达式元素无需带分号, 相当于其中的内容是out.println()的参数. 而正常的scriptlet就是普通的java代码.</p>
 <p>JSP中可以使用两种注释, HTTP注释和JSP注释, HTTP的注释客户端也会收到, JSP则在编译阶段被去掉.</p>
+<p>指令一共有三个, taglib与标签库有关, include是页面包含, 这里先看一下page 指令后边可以跟哪些属性:</p>
+<ol>
+    <li><code>import</code>, 相当于java的 import 语句, 会将其转换成import语句放在生成的servlet类源代码中</li>
+    <li><code>method</code>, 指定这个JSP文件中的所有scriptlet放到哪个方法中, 默认就是service()方法, 一般无需改动</li>
+    <li><code>language</code>, jsp最初设想可以用于其他语言, 不过很遗憾目前为止仅仅只有java语言</li>
+    <li><code>contentType</code>, MIME类型, 对于HTML, 要设置成text/html;charset=UTF-8, 不然中文会乱码</li>
+    <li><code>session</code>, 指定当前页面是否使用session, 默认是true</li>
+    <li><code>errorPage</code>, 指定当前页面出现未捕获的异常的时候, 转到哪个页面.</li>
+    <li><code>isErrorPage</code>, 设置当前页面是不是处理异常的页面.</li>
+    <li><code>isElIgnored</code>, 设置当前页面是不是忽略EL表达式, 默认是不忽略也就是解析EL表达式.</li>
+</ol>
+<p>这其中与El表达式和错误处理相关的后边才会看到, 不过其实已经略知一二了.</p>
 
 <h2 style="text-align: center;" id="con2">深入JSP - JS为P如何被解析成Servlet</h2>
 <p>JSP中的所有Java代码, 都会被放置在一个通用的方法里, 所以不能够像一个类一样定义实例变量. 其中定义的变量, 都可以将其看成一个方法的局部变量.</p>
@@ -126,6 +139,7 @@
 &lt;/servlet-mapping>
 </pre>
 <p>在配置JSP的时候, 依然要一个servlet对应一个servlet-mapping, 但是servlet标签内不再用servlet-class标签来指定类, 而是换成了 jsp-file 标签来指定具体的jsp文件.</p>
+<p>这里要注意, 也可以为jsp文件配置URL路径, 如果将上边的&lt;url-pattern>/index.jsp&lt;/url-pattern>中的/index.jsp改成/index, 通过/index就可以访问到这个JSP.</p>
 <p>按照上述配置好之后, 就可以在jsp文件中获取了:</p>
 <pre>
 &lt;p>&lt;%= config.getInitParameter("email")%>&lt;/p>
@@ -143,13 +157,35 @@
 </ol>
 <p>来具体看看PageContext对象的API和应用:</p>
 <pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;html>
+&lt;head>
+    &lt;title>测试PageContext对象&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;h1>测试pageContext对象&lt;/h1>
+&lt;p>通过request隐式对象获取: &lt;%= request.getAttribute("penguin") %>&lt;/p>
+&lt;p>通过PageContext findAttribute获取对象: &lt;%= pageContext.findAttribute("penguin") %>&lt;/p>
+&lt;p>直接指定作用域设置: &lt;% pageContext.setAttribute("foo", "bar", PageContext.SESSION_SCOPE);%>&lt;/p>
 
+&lt;/body>
+&lt;/html>
 </pre>
+<p>这里特殊的是PageContext对象的setAttribute方法,带有四个作用域可供选择, 可以直接将指定的属性设置到指定的作用域上, 所以比较方便.</p>
 
+<h2 style="text-align: center;" id="con7">JSP技术 - include</h2>
+<p>顾名思义, 就是在页面中包含另外一个jsp对象, 不过有两种写法:</p>
+<pre>
+//使用指令的是静态导入
+&lt;%@ include file="index.jsp"%>
 
-
-
-
+//使用动作的是动态导入
+&lt;jsp:include page="index.jsp">
+</pre>
+<p><code>&lt;jsp:</code>这种叫做动作标签, 在之后的标记中会来仔细的看, 静态导入的意思是先把源代码放入到这里, 再编译成一个Servlet, 所以会共享当前jsp的变量.</p>
+<p>动态导入就不是这样, 导入的动作相当于用当前的请求和响应对象到index.jsp里走了一圈, 然后把返回的结果放在这里. 通过为页面增加一个计数器, 可以很明显的看出两者的区别.</p>
+<p>JSP的技术看上去确实很有意思, 已经可以想象到能在HTML里编写Java语言, 能做的事情就非常多了.</p>
+<p>不过其实我们已经知道, 将代码写在HTML里可不是什么好主意, 一定会有标记语言来进行解耦.</p>
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>

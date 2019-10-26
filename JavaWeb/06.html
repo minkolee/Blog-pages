@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java Web Reinforcement 06 EL表达式语言</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>为什么不要在JSP中编写Java语言, 一切都是为了解耦. JSP技术中提供了EL表达式语言以及可以引入标签库来让JSP页面变得更加明晰, 也不会和Java代码捆绑在一起.</p>
+<p>不过相比于使用Java代码, EL表达式和标签库有很多细节需要了解. 总体而言, 还是比直接编写Java代码要好太多了.</p>
+<p>为何要使用EL和标签的一大原因是方便取出数据, 从前边我们知道, 其实页面的关键因素在于通过模型提供的数据, 页面大部分时候只是一个框架, 需要数据去填充. 而且对于Java来说, 属性更多的时候不是一个字符串, 而是一个数据对象, 需要获取然后拆解后展示.</p>
+<p>如果可以将取数据的Java脚本通过EL和标签来简化, 就可以方便快捷的编写代码了. </p>
+<p>EL表达式其实也是一种标签, 还可以开发自定义JSP标签来使用, 这一部分等到后边专门学习. JSP的动作也是一大要素, 要知道常用的几个</p>
+
+<ol>
+    <li><a href="#con1">在使用EL表达式之前...</a></li>
+    <li><a href="#con2">EL表达式</a></li>
+    <li><a href="#con3">EL隐式对象</a></li>
+    <li><a href="#con4">EL操作符</a></li>
+    <li><a href="#con5">JSP动作</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">在使用EL表达式之前...</h2>
+<p>在使用El表达式之前, 有人就想到了可以将数据对象先分离成一个Bean, 在JSP中所有需要用到的地方, 用动作标签来获取, 这样免得编写大量重复的代码.</p>
+<p>在之前我们的代码中, 给request对象放入了一个键名为penguin的Penguin对象, 如果按照原始的方法取出其名称, 应该编写如下的代码:</p>
+<pre>
+<% Penguin penguin = (Penguin) request.getAttribute("penguin"); %>
+<%= penguin.getName() >
+</pre>
+<p>使用EL表达式语言的前提就是, 我们传入的对象是一个JavaBean, 也就是带有getter方法的标准Bean, 获取的属性一定是getXxx方法, Xxx一定是内部同名属性的首字母大写.</p>
+<p>好在JavaBean的数据对象已经是大家日常开发的规范了. 现在可以将request.getAtttribute()抽出来, 用一个名称来代表数据对象:</p>
+<pre>
+&lt;jsp:useBean id="penguin" class="com.example.domain.Penguin" scope="request"/>
+</pre>
+<p>上边这句的意思就是在request中按照id的值获取对象, 这个对象的类型是Penguin, 这个标签就代表了<code>request.getAtttribute("penguin")</code>这行代码.</p>
+<p>关于JSP的动作抽出, 有兴趣的可以看看, 这里可以不学, 因为基本上很少有用到jsp的动作了.</p>
+<p>EL表达式的通用写法是 ${var} , 这个表达式的结果就是字符串写在当前位置.</p>
+<p>对于上边的 <code><%= penguin.getName() ></code>, 可以不需要之前获取对象, 直接写成 <code>${penguin.name}</code></p>
+<p>现在回头看看, 就知道为什么要在使用EL表达式之前, 要让数据对象符合JavaBean的标准, 而且域都返回字符串. <code>${penguin.name}</code>就是从域里以penguin键名查找数据对象, 然后对其调用getName()方法, 然后把结果替换掉当前的表达式.</p>
+
+<h2 style="text-align: center;" id="con2">EL表达式</h2>
+<p>EL表达式中的最左边一项, 是一个属性名或者是一个EL的隐式对象. 这个属性名, 可以是四个作用域里存在的任何一个. 而EL隐式对象和JSP的隐式对象是不同的, 仅仅只有PageContext是指向同一个引用.</p>
+<p>之后如果有点操作符, 则左边的必须是一个映射性质或者一个JavaBean, 可以通过点右边的名称, 从其中拿出对应的值, 或者getXxx方法获取值.</p>
+<p>操作符右侧的名称必须符合java的变量规范.</p>
+<p>在获取到最右边的符号指示的对象后, EL表达式就将这个对象的.toString()的结果显示在当前的地方.</p>
+<p>看到这里其实就可以明白了, EL表达式是可以自动拆解Map对象和JavaBean的, 而且可以嵌套拆解到底.</p>
+<p>除了点操作符, 还可以使用中括号操作符, 比如上边的代码可以改成: <code>${penguin["name"]}.</code>, 这个时候左边的变量除了映射和JavaBean之外, 可以支持Map, List 或者数组, 对于带有索引的List和数组, 可以不用字符串, 直接使用数字索引.</p>
+<p>这样就极大的扩展了EL表达式能够支持的集合, 我们很多时候也确实是传递一个集合对象给视图, 而不简简单单是单个对象.</p>
+<p>注意, <code>${penguin["name"]}.</code>中现在是一个字符串常量, 刚才说了还可以是数字常量, 如果传一个变量名称也是可以的, 这个变量名称也会自动像EL一样到域中去查询然后取出值. 嵌套使用也是可以的.</p>
+
+<h2 style="text-align: center;" id="con3">EL隐式对象</h2>
+<p>EL隐式对象都是映射, 也就是可以通过名称从其中取出内容. 其实除了PageContext之外, 其他的隐式对象都是Map类型.</p>
+<ol>
+    <li>pageScope, 四大作用域之一</li>
+    <li>requestScope, 四大作用域之一</li>
+    <li>sessionScope, 四大作用域之一</li>
+    <li>applicationScope, 四大作用域之一</li>
+    <li>param, 请求参数</li>
+    <li>paramValues, 请求参数, 与上一个不同的是这个对应一个参数有多个值, 实际类型是Map&lt;String, String[]>.</li>
+    <li>header, 头部信息</li>
+    <li>headerValues, 头部信息, 也是对应一个头部多个值</li>
+    <li>cookie, cookie的键和cookie对象组成的Map</li>
+    <li>initParam, 注意, 是ServletContext的初始化参数, 也就是应用的初始化参数, 不是当前servlet的.</li>
+</ol>
+<p>有了隐式就能获取更多的数据了, 上边的<code>${penguin.name}</code>可以写成<code>${requestScope.penguin.name}</code>, 相比之前的写法, 这个是明确指定了requestScope中来查找, 之前的写法是按顺序依次查找.</p>
+<p>隐式对象的还一大好处就是, 没有必要一定要控制器给三个作用域上附加属性才能传递给JSP了, 从前边可以知道, 表单提交的内容和URL参数通过param都可以访问到, 所以有了EL表达式之后, 可以直接将JSP作为处理数据的对象, 而不仅仅是视图层了.</p>
+<p>回头再想想那些Servlet对象的很多getXxx方法, 此时就都可以派上用场了, 对于简单的程序, 可以直接使用JSP来处理, 未必要通过控制器了.</p>
+
+<h2 style="text-align: center;" id="con4">EL操作符</h2>
+<p>既然是一个表达式, 除了对单个变量显示之外, EL还能执行一些简单的运算. EL支持的操作符如下:</p>
+<ol>
+    <li>+ - * / div % mod, 都是数学运算符, 如果/0会得到INFINITY</li>
+    <li>&& and || or ! not, 都是逻辑运算符, 可以用符号也可以用单词</li>
+    <li>== eq != ne &lt; lt > gt <= le >= ge, 关系操作符, 可以使用符合也可以使用单词</li>
+</ol>
+<p>既然操作符有一些是单词, 那么你肯定会想到这些也是保留字, 并不能随便使用. 确实是的, 除此之外, 还有true false null instanceof empty 等操作符.</p>
+<p>其中empty可以用来查看一个结果是否为空, 比如 ${empty requestScope.peng}, 但其实没有peng属性, 这个表达式就会显示成true.</p>
+
+<h2 style="text-align: center;" id="con5">JSP动作</h2>
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
