@@ -119,8 +119,47 @@
 </ul>
 <p>这些标签有很多, 在继续学习之前, 先要知道XML标签可以自闭合, 也可以包含其他内容, 如果一个XML标签包含其他内容, 则称其中的内容为这个标签的主体.</p>
 <p>还记得之前要让大家将EL表达式看成一个对象, 在jsp动作元素中(包括JSTL), 凡是需要一个对象的地方(包括if判断时候的true和false也是对象), 都不能传入字符串, 而是要传入一个EL表达式才行.</p>
+<p>为了使用JSTL表达式, 设置了一个控制器给请求附加了一些属性:</p>
 
 <h2 style="text-align: center;" id="con3">一般用途标签</h2>
+<p>在开始JSTL之前, 要知道JSTL里所有可以用表达式, 通常就是value属性对应的地方, 可以使用EL表达式, 也可以使用JSP原生的表达式, 也可以根据其他属性的值写字面常量, 会被解析成字符串.</p>
+<h3><code>&lt;c:out>标签</code></h3>
+<p>这个标签是自闭合标签. 用法是 <code>&lt;c:out value="表达式" default="表达式">标签</code>.</p>
+<p>其中默认值也可以写在主体内, <code>&lt;c:out value="表达式" default="表达式">&lt;c:out</code></p>
+<p>例如:</p>
+<pre>
+&lt;c:out value="${person.owl.color}" default="NOCOLOR"/>
+&lt;c:out value="${owls[3].color}">${pageContext.request.method}&lt;/c:out>
+</pre>
+<h3><code>&lt;c:set>标签</code></h3>
+<p>这个标签用来为指定的变量设置值, 设置的目标可以是字符串类型的变量, JavaBean 或者Map类型的变量. 如果字符串类型的变量不存在, 则相当于定义一个变量. 设置 JavaBean和Map类型变量的时候, 则必须要求存在该变量.</p>
+<p>在设置字符串变量的时候, 用法是: <code>&lt:c:set var="变量名称" value="表达式"/></code></p>
+<pre>
+//即使没有定义过叫做setBySet的变量, 也可以定义并获得
+&lt;c:set var="setBySet" value="gugugug"  scope="request"/>
+&lt;p>Set设置的字符串变量值是 ${setBySet}&lt;/p>
+</pre>
+<p>可以将value对应的属性写在主体内, 如 <code>&lt;c:set var="setBySet" scope="request">${person.owl}&lt;/c:set></code></p>
+<p>如果要给一个JavaBean设置某一个属性的值, 不能使用var属性, 而要使用target属性:</p>
+<pre>
+&lt;c:set target="${person}" property="name" value="saner"/>
+</pre>
+<p>target属性接受一个表达式, 既然是对象, 就可以通过EL表达式获取, property是JavaBean的域名称, 需要与JavaBean一致, value依然可以接受表达式, 这里是saner字符串, 也可以接受其他的内容.</p>
+<p>不光是字符串, 用对象赋值也可以, 只要符合JavaBean的定义:</p>
+<pre>
+//创建一个Owl类型的Bean
+&lt;jsp:useBean id="owl5" scope="request" class="com.example.domain.Owl"/>
+&lt;jsp:setProperty name="owl5" property="name" value="chocolate"/>
+//把person变量的owl属性设置成owl5这个对象
+&lt;c:set target="${person}" property="owl" value="${owl5}"/>
+//可以正常获取
+&lt;c:out value="${person.owl}"/>
+</pre>
+<p>对于给Map对象赋值, 也是类似的, target指向Map对象, property为键, value为值, 要符合Map对象中的类型.</p>
+
+
+
+
 <h2 style="text-align: center;" id="con4">条件标签</h2>
 <h2 style="text-align: center;" id="con5">迭代标签</h2>
 <h2 style="text-align: center;" id="con6">URL标签</h2>

@@ -36,13 +36,13 @@
 <% Penguin penguin = (Penguin) request.getAttribute("penguin"); %>
 <%= penguin.getName() >
 </pre>
-<p>使用EL表达式语言的前提就是, 我们传入的对象是一个JavaBean, 也就是带有getter方法的标准Bean, 获取的属性一定是getXxx方法, Xxx一定是内部同名属性的首字母大写.</p>
+<p>使用EL表达式语言的前提就是, 我们传入的对象是一个JavaBean, 必须带有一个空参构造器, 还带有getter和setter方法的标准Bean, 获取的属性一定是getXxx方法, Xxx一定是内部同名属性的首字母大写. 博主在这里就是吃了亏, 忘记设置无参构造器, 结果在JSP动作那里一直报错. 还是要按照标准来创建Bean才行.</p>
 <p>好在JavaBean的数据对象已经是大家日常开发的规范了. 现在可以将request.getAtttribute()抽出来, 用一个名称来代表数据对象:</p>
 <pre>
 &lt;jsp:useBean id="penguin" class="com.example.domain.Penguin" scope="request"/>
 </pre>
 <p>上边这句的意思就是在request中按照id的值获取对象, 这个对象的类型是Penguin, 这个标签就代表了<code>request.getAtttribute("penguin")</code>这行代码.</p>
-<p>关于JSP的动作抽出, 有兴趣的可以看看, 这里可以不学, 因为基本上很少有用到jsp的动作了.</p>
+<p>这个叫做JSP动作元素.</p>
 <p>EL表达式的通用写法是 ${var} , 这个表达式的结果就是字符串写在当前位置.</p>
 <p>对于上边的 <code><%= penguin.getName() ></code>, 可以不需要之前获取对象, 直接写成 <code>${penguin.name}</code></p>
 <p>现在回头看看, 就知道为什么要在使用EL表达式之前, 要让数据对象符合JavaBean的标准, 而且域都返回字符串. <code>${penguin.name}</code>就是从域里以penguin键名查找数据对象, 然后对其调用getName()方法, 然后把结果替换掉当前的表达式.</p>
@@ -92,10 +92,68 @@
 </pre>
 <p>这一类以<code>&lt;jsp:</code>开头的标签都叫做JSP的动作, 是由JSP规范确定的. 其本质就是一种特殊的带有属性的XML标签, 其背后是一段Java代码, 通过传递的属性进行操作.</p>
 <p>也可以将其理解为JSP的内置标签, 和 <code><%</code> 系列标签都属于JSP自带的. 从一个原始JSP文件的角度来看, 其中支持EL表达式, <%@指令, <%scriplet, <%=表达式, JSP动作元素五大不属于HTML的要素.</p>
+<p>JSP的动作标签因为有了JSTL库之后, 就不大被使用了, 这里了解一下部分JSP的动作标签.</p>
+<ol>
+    <li><code>&lt;jsp:useBean &lt;jsp:getPropertry</code>, 第一个用于创建一个Bean或者获取已经存在的数据对象, 用法为:
+    <pre>
+    &lt;jsp:useBean id="penguin" class="com.example.domain.Penguin" scope="request"/>
+    </pre>
+    这其中的id相当于变量名称同时也是键名, 类别指定了这个变量的类型, scope则表示四大作用域之一, 上边这句话的意思相当于从request作用域获取penguin键对应的对象, 如果没有, 就新建一个 <br>
+    这要求penguin必须是一个Bean, 即有无参构造器和getter setter方法. 在新建或者获取之后, 就可以来读取其中的内容: <br>
+    <pre>
+    &lt;jsp:getProperty name="penguin" property="name"/>
+    </pre>
+    这个动作元素中的name属性一定要是通过jspBean定义的或者已经存在的变量名称, property表示取出的属性名, 实际上相当于调用getName()方法. <br>
+    <code>&lt;jsp:useBean</code>除了自闭合之外, 还可以有主体, 其中包含<code>&lt;jsp:setProperty</code>的话, <code>&lt;jsp:setProperty</code>只会在新建Bean的时候才设置属性, 如果是已经存在的Bean, 就不会设置属性.
+    </li>
+    <li><code>&lt;jsp:setProperty</code>, 这个用来设置对应的属性, 需要这个Bean有此属性和对应的setter方法才可以设置, 用法如下:
+    <pre>
+    &lt;jsp:setProperty name="penguin" property="name" value="gugugug"/>
+    </pre>其中的name必须与之前的id或者变量名匹配, property是你想改变的域名, value是值, 直接输入的话就是按字符串解析. 注意值也可以是一个对象, 只要和对象的类型匹配即可, Penguin类中的name是一个字符串, 因此可以给其一个任意字符串的结果, 所以可以用一个EL表达式来传给value属性, 例如:
+    <pre>
+    &lt;c:set target="${penguin}" property="name" value="${pageContext.request.method}"/>
+    </pre>
+    除此之外, <code>&lt;jsp:setProperty</code>还有一个param属性, 用来将页面接收到的参数的同名属性设置到对应的Bean上.这个下边详细学习.
+    </li>
+    <li>多态的<code>&lt;jsp:useBean</code>, 需要添加一个type属性, 指向接口类或者超类, class必须指向能够实际实例化的类, 而且这个类必须有一个无参构造器. 如果仅仅只有type而没有class, 则当前pageContext必须能够查找到一个和id属性相同的变量, 其类型和type属性相同, 否则便会报错.</li>
+    <li><code>&lt;jsp:useBean</code>的scope属性默认是pageContext作用域, pageContext其实相当于this. 如果需要其他作用域, 可以显式指定, 就像刚才显式指定为request作用域一样.</li>
+</ol>
+<h3>setProperty的param属性</h3>
+<p>在之前的EL表达式中, 因为有了隐式对象, 可以直接获取到请求参数. setProperty的param属性更加牛逼, 可以通过对应关系直接就给Bean设置上.</p>
+<p>我们创建一个带有字符串类型的 userName 域的User类, 让其成为一个标准的Bean, 代码就不写了, 然后让一个表单直接发送POST请求到JSP来, 其中包含id和userName属性.</p>
+<p>如果想要直接获取到POST过来的User对象, 可以采取如下写法:</p>
+<pre>
+&lt;jsp:useBean id="user" class="com.example.domain.User">
 
+    &lt;jsp:setProperty name="user" property="userName" <span style="color:red;">param="userName"</span>/>
 
+&lt;/jsp:useBean>
+</pre>
+<p>只要表单POST进来有一个userName属性, 就会被设置到新建的user变量名称对应的Bean上, 如果已经存在user对象, 就不会设置了.</p>
+<p>更牛逼的是, 如果POST进来的表单的属性和user的属性名称一致(就像这个例子), 不写param参数也可以, 但这个仅限于一个属性, 上边的例子写成下边这样也可以工作:</p>
+<pre>
+&lt;jsp:useBean id="user" class="com.example.domain.User">
 
+    &lt;jsp:setProperty name="user" property="userName"/>
 
+&lt;/jsp:useBean>
+</pre>
+<p>如果POST进来的属性完全一致, 是指的POST进来的表单的所有属性都能够对应到Bean的属性上, 那么不仅不需要param, 连property的名称都可以只使用一个通配符*即可, 我们给User类再添加一个password字段和一个int类型的userId字段, 然后用表单POST进来, 修改JSP文件为如下:</p>
+<pre>
+&lt;jsp:useBean id="user" class="com.example.domain.User">
+
+    &lt;jsp:setProperty name="user" property="*"/>
+
+&lt;/jsp:useBean>
+
+&lt;p>Post进来的用户是:&lt;jsp:getProperty name="user" property="userName"/>&lt;/p>
+&lt;p>Post进来的密码是:&lt;jsp:getProperty name="user" property="password"/>&lt;/p>
+&lt;p>Post进来的ID是:&lt;jsp:getProperty name="user" property="userId"/>&lt;/p>
+</pre>
+<p>*的含义是自动匹配, 即使Person类的字段比POST进来的多也没有关系, 只要有对应关系都可以自动装配上去. 只要getProperty不要去获取没有的属性就可以了. 看来那个年代的JSP就有这种功能了, 确实有意思.</p>
+<p>如果测试上边代码, 会发现POST进来的字符串类型的userId也会正常显示, 这说明后台发生了类型转换. 实际上容器在这里可以自动转换String和基本类型, 扩展类型就不能直接这么操作了.</p>
+<p>EL表达式就是因为JSP标准动作元素无法方便的展开对象才出现的.</p>
+<p>之前学到的 &lt;jsp:include也是标准动作之一, 关于动作可以了解这么多. 因为JSP的标准动作现在使用的不多, 都是使用自定义的JSP动作, 也就是JSTL标签库了.</p>
 
 
 
