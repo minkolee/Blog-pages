@@ -23,10 +23,10 @@
 <ol>
     <li><a href="#con1">JSTL的安装</a></li>
     <li><a href="#con2">JSTL core 库</a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con3">一般用途标签</a></li>
+    <li><a href="#con4">条件标签</a></li>
+    <li><a href="#con5">迭代标签</a></li>
+    <li><a href="#con6">URL标签</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">JSTL的安装</h2>
 <p>JSTL是一种自定义标签, 更精确的说是自定义动作元素, 在之前学习中知道了EL表达式, <%@指令, <%scriplet, <%=表达式, JSP动作元素这五大JSP的特点.</p>
@@ -122,7 +122,7 @@
 <p>为了使用JSTL表达式, 设置了一个控制器给请求附加了一些属性:</p>
 
 <h2 style="text-align: center;" id="con3">一般用途标签</h2>
-<p>在开始JSTL之前, 要知道JSTL里所有可以用表达式, 通常就是value属性对应的地方, 可以使用EL表达式, 也可以使用JSP原生的表达式, 也可以根据其他属性的值写字面常量, 会被解析成字符串.</p>
+<p>在开始JSTL之前, 要知道JSTL里所有可以用表达式, 通常就是value属性对应的地方, 可以使用EL表达式, 也可以使用JSP原生的表达式, 也可以根据其他属性的值写字面常量, 会被解析成字符串. 而var属性对应的地方, 就直接写字符, 会被当成变量名来解析.</p>
 <h3><code>&lt;c:out>标签</code></h3>
 <p>这个标签是自闭合标签. 用法是 <code>&lt;c:out value="表达式" default="表达式">标签</code>.</p>
 <p>其中默认值也可以写在主体内, <code>&lt;c:out value="表达式" default="表达式">&lt;c:out</code></p>
@@ -157,12 +157,165 @@
 </pre>
 <p>对于给Map对象赋值, 也是类似的, target指向Map对象, property为键, value为值, 要符合Map对象中的类型.</p>
 
+<h3><code>&lt;c:remove>标签</code></h3>
+<p>这个标签的作用就是removeAttribute, 在一个指定的作用域上删除变量, 如果不指定scope, 会删除所有作用域的对应的该变量名称.</p>
+<pre>
+&lt;c:remove var="person" scope="request"/>
+&lt;p>${person}&lt;/p>
+</pre>
+<p>删除了person之后, 再尝试获取, 就获取不到了, 页面内用jsp:useBean设置的变量也可以删除. 这个标签没有带有主体的用法.</p>
 
-
+<h3><code>&lt;c:catch>标签</code></h3>
+<p>这个标签用于捕获这个标签的主体中的异常, 将异常对象保存为一个变量, 用法是 <code>&lt;c:catch var="变量名称"></code>, 所以这个标签必须要带有主体, 比如尝试一下:</p>
+<pre>
+&lt;c:catch var="expcetion">
+    &lt;% int c = 1 / 0; %>
+&lt;/c:catch>
+&lt;p>&lt;c:out value="${expcetion}"/> &lt;/p>
+</pre>
+<p>这个例子可以在页面中打印出: java.lang.ArithmeticException: / by zero.</p>
 
 <h2 style="text-align: center;" id="con4">条件标签</h2>
+<h3><code>&lt;c:if>标签</code></h3>
+<p>这个标签顾名思义, 就是一个判断标签, 可以带有主体也可以不带有主体. 不带有主体的情况下这么使用:</p>
+<pre>
+&lt;c:if test="表达式" var="测试的结果存放的变量名称" scope="作用域">&lt;/c:if>
+</pre>
+<p>看到var就可以知道其中是字面常量, 而test其中是一个true或者false对象, 可以用el表达式或者Java代码. 会将表达式测试的结果放在变量名称中. 也就是说这个标签同时可以新建一个变量.</p>
+<pre>
+//设置一个字符串变量, 然后与属性进行比较
+&lt;c:set var="testname" value="saner"/>
+&lt;c:if test="${person.name==testname}" var="result1" scope="request"/>
+&lt;c:if test="${person.name!=testname}" var="result2" scope="request"/>
+&lt;c:if test="${person.name==<span style="color: red">'saner'</span>}" var="result3" scope="request"/>
+&lt;p>${result1}&lt;/p>
+&lt;p>${result2}&lt;/p>
+&lt;p>${result3}&lt;/p>
+</pre>
+<p>这里要注意, 与字符串常量比较还可以使用单引号.</p>
+<p>还可以有主体, 仅当判断是true的时候,主体的部分才会执行, 此时不使用变量名称.</p>
+<pre>
+&lt;c:if test="${person.name==testname}">
+    &lt;%= "person.name与testname相等" %>
+&lt;/c:if>
+</pre>
+<p>能够使用判断, 页面就变得更加的动态起来, 不仅展示的数据变了, 甚至页面的结构也会发生变化. 主体中的内容还可以是其他JSTL标签或者Java代码.</p>
+
+<h3><code>&lt;c:choose>, &lt;c:when>, &lt;c:otherwise></code></h3>
+<p>这三个必须连在一起用, choose标签在最外层, when对应一种判断, 判断通过就执行其中的主体, 然后结束, otherwise是如果其他判断都失败, 就执行这个, 这三个标签起到的作用相当于 if - else if  - else的作用.</p>
+<pre>
+&lt;c:choose>
+    &lt;c:when test="${postin==1}">
+        &lt;c:out value="1"/>
+    &lt;/c:when>
+
+    &lt;c:when test="${postin==2}">
+        &lt;c:out value="2"/>
+    &lt;/c:when>
+
+    &lt;c:otherwise>
+        &lt;c:out value="不是1也不是2"/>
+    &lt;/c:otherwise>
+&lt;/c:choose>
+</pre>
+<p>otherwise标签也可以不存在, 如果上边条件都没通过, 什么也不会做. 但如果出现otherwise标签, 只能有一个而且要放在最后.</p>
+
 <h2 style="text-align: center;" id="con5">迭代标签</h2>
+<p>迭代标签是展示数据最常使用的标签之一了, 可以将一个集合用一个临时变量来表示, 然后拆出其中所有数据.</p>
+<h3><code>&lt;c:forEach></code></h3>
+<p>这个标签能够自动遍历集合内容, 然后执行主体的代码. 用法是:</p>
+<pre>
+&lt;c:forEach var="临时变量名称" items="集合对象" varStatus="LoopTagStatus" begin="1" end="10" step="2">
+    主体
+&lt;/c:forEach>
+</pre>
+<p>var就是临时字面变量名称, items指向的是集合对象, 所以可以用EL表达式或者Java的 <%= $> 表达式. begin, end, step表示起始和结束的索引以及步长, 如果有这三个属性的时候, 不指定items, 则临时变量就是数字, 用来生成顺序数字非常方便.</p>
+<p>临时变量名称仅在反复执行的主体部分才有效.</p>
+<p><code>varStatus="LoopTagStatus"</code>, 这中间的LoopTagStatus可以自己名称, 这个名称对应着一个javax.servlet.jsp.jstl.core.LoopTagStatus对象, 从名字也能看出来, 是一个跟踪迭代的对象, 其内部有四个属性:</p>
+<ol>
+    <li>count: 当前元素的序号, 从1开始</li>
+    <li>index: 当前元素的序号, 从0开始</li>
+    <li>first: 布尔值, 当前元素是否是第一个</li>
+    <li>last: 布尔值, 当前元素是否是最后一个</li>
+</ol>
+<p>例如, 取出owls中每一个对象, 然后如果是第一个就以红色显示颜色名称:</p>
+<pre>
+&lt;c:forEach var="eachOwl" items="${owls}" varStatus="control">
+
+    &lt;p>第${control.count}个Owl的名字是${eachOwl.name},颜色是
+
+        &lt;c:if test="${control.first}">
+
+            &lt;span style="color:red">
+
+        &lt;/c:if>
+
+        ${eachOwl.color}
+
+        &lt;c:if test="${control.first}">
+
+            &lt;/span>
+
+        &lt;/c:if>&lt;/p>
+
+&lt;/c:forEach>
+</pre>
+<p>此标签能迭代的对象包括Set, List, Map, Iterator, Enumeration的实现类, 数组和以逗号分割的字符串. 以逗号分割的字符串指的就是常量:</p>
+<pre>
+&lt;c:forEach var="temp" items="Cony, Jenny, Minko">
+    &lt;p>${temp}&lt;/p>
+&lt;/c:forEach>
+</pre>
+<p>被逗号分开的每一个字符串的两侧空白会被省略(相当于trim()操作).</p>
+
+<h3><code>&lt;c:forTokens></code></h3>
+<p>这个标签是字符串特化的标签, 专门用于迭代指定的符号分割的字符串, 用法如下:</p>
+<pre>
+&lt;c:forTokens items="fdk|dkaj|dfio|boiuv|fdsoui|fd" delims="|" var="temp" varStatus="control">
+    ${temp}&lt;c:if test="${control.last}">&nbsp;分割结束&lt;/c:if>
+&lt;/c:forTokens>
+</pre>
+<p>除了items是字符串之外, 其他和forEach都很相似.</p>
+
 <h2 style="text-align: center;" id="con6">URL标签</h2>
+<p>这些标签应该说不是和URL相关, 而是和处理外部资源相关.</p>
+<h3><code>&lt;c:import></code></h3>
+<p>这个用来包含资源, 现在已经有了三种包含资源的方法:</p>
+<ol>
+    <li><code><%@ include file="" %></code>, 用来静态包含, 将被包含的内容放到当前jsp中一起编译</li>
+    <li><code>&lt;jsp:include page="***.jsp" %></code>, 用来动态包含这个JSP执行的结果</li>
+    <li><code>&lt;c:import url="http://...." var="name"></code>, 与前两者不同, 可以包含当前Web容器之外的内容. 如果带有var, 会把包含的内容放到var的变量中, 而不是直接出现在当前位置.</li>
+</ol>
+<p><code>&lt;c:import url="http://...." ></code>包含当前容器的内容时, 用法和其他的类似,也分为相对路径和绝对路径. 包含柚子小站的内容:</p>
+<pre>
+&lt;p>包含柚子小站的内容&lt;/p>
+&lt;c:import url="https://conyli.cc" var="cony"/>
+${cony}
+</pre>
+
+<h3><code>&lt;c:url>与&lt;c:param></code></h3>
+<p>这个标签用于URL操作, 可以生成URL. 还记得在客户端不支持Cookie的时候, 需要调用 <code>resp.encodeURL()</code> 来重写URL吗, 现在使用这个标签也可以做到.</p>
+<p>这个标签的基础功能是生成URL, 使用方法如下</p>
+<pre>
+&lt;c:url value="/gugu/saner" var="myurl" />
+</pre>
+<p>value中是一段URL, 可以是相对路径也可以是绝对路径, 如果是相对路径, 则就是相对路径, 如果是绝对路径, 前边会拼接上根路径. 然后把路径保存在var指定的变量名称内供取用.</p>
+<p>还可以搭配&lt;c:param>一起使用, 这个标签用于设定请求参数, 当&lt;c:param>写在&lt;c:url>内部的时候, 会将其进行合理的编码然后拼接成一段URL, 例如:</p>
+<pre>
+&lt;c:url value="/jstl/normal" var="myurl">
+    &lt;c:param name="name" value="saner"/>
+    &lt;c:param name="que" value="&lt;>KF"/>
+&lt;/c:url>
+&lt;a href="${myurl}">链接&lt;/a>
+</pre>
+<p>生成的链接是: <code>/gugu/saner?name=saner&que=%3c%3eKF</code>, 发现没有, 只要使用c:param搭配使用, 就可以实现Session中的重写URL的功能.</p>
+
+<h3><code>&lt;c:redirect></code></h3>
+<p>这个标签用于把请求重定向到其他Web资源, 用法是 <code>&lt;c:redirect url="http://..."></code></p>
+<p>一旦出现这个标签, 也就意味着是一个301响应. 其他的操作都无法执行了.</p>
+<p>也可以重定向到当前容器的相对路径和绝对路径. 还有一个context属性, 以后来补齐.</p>
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
