@@ -27,6 +27,7 @@
     <li><a href="#con4">条件标签</a></li>
     <li><a href="#con5">迭代标签</a></li>
     <li><a href="#con6">URL标签</a></li>
+    <li><a href="#con7">错误页面</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">JSTL的安装</h2>
 <p>JSTL是一种自定义标签, 更精确的说是自定义动作元素, 在之前学习中知道了EL表达式, <%@指令, <%scriplet, <%=表达式, JSP动作元素这五大JSP的特点.</p>
@@ -314,6 +315,25 @@ ${cony}
 <p>这个标签用于把请求重定向到其他Web资源, 用法是 <code>&lt;c:redirect url="http://..."></code></p>
 <p>一旦出现这个标签, 也就意味着是一个301响应. 其他的操作都无法执行了.</p>
 <p>也可以重定向到当前容器的相对路径和绝对路径. 还有一个context属性, 以后来补齐.</p>
+
+<h2 style="text-align: center;" id="con7">错误页面</h2>
+<p>既然前边看到了&lt;c:catch, 就顺便学习一下错误页面. 如果不进行任何的错误处理, 服务器会直接把错误暴露出来. 可以设置一个错误页面, 有两种方式:</p>
+<ol>
+    <li><code><%@ page isErrorPage="true" %></code>, 将当前页面设置成一个错误页面, 和<code><%@ page errorPage="error.jsp" %></code>搭配使用, 出错的话就会去找那个页面.</li>
+    <li>在web.xml中配置, 这个优先级不如第一条. 但是很灵活, 可以为不同的响应码设置不同的错误页面. 例如:
+    <pre>
+    &lt;error-page>
+        &lt;location>/error.jsp&lt;/location>
+        &lt;error-code>404&lt;/error-code>
+    &lt;/error-page>
+    </pre>
+    这会在出现404错误的时候显示error.jsp页面. 错误页面的好处是不会重新显示URL, 用户看到的依然是那个错误的URL. 还可以针对具体的错误类型配置错误页面.
+    </li>
+</ol>
+<p>回头来看错误页面, 如果一个页面被指定为<code><%@ page isErrorPage="true" %></code>, 则在其中可以捕获一个 <code>${pageContext.exception}</code>, 是捕获的错误对象.</p>
+<p>错误页面与 &lt;c:catch 的区别是, 一个使用另外一个页面来处理错误, 一个让jsp自己可以从错误中恢复.</p>
+
+
 
 
 
