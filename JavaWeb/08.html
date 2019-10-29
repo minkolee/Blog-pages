@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Java Web Reinforcement 08 自定义标签</title>
+    <title>Java Web Reinforcement 08 自定义标签 - 标记文件</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -18,19 +18,60 @@
 <p>既然JSTL是自定义的标签库, 那么我们也可以来自定义, jsp技术中提供了对应的接口, 只要编写好累, 再编写好标签的.tld文件, 之后经过合理的配置, 就可以使用自定义的标签了.</p>
 <p>这不禁让我想起了Django的自定义过滤器等一系列东西, 当时还觉得很有意思, 只是耦合程度确实高, 现在看来, 像jsp这样解析一个HTML模板的做法早已有之, 不是什么新鲜事.</p>
 <p>自定义标记分为三种: 实现Tag接口的传统标签, 实现SimpleTag的简单标签, 以及标记文件.</p>
-
-
+<p>这一块对于我来说是没有怎么接触过的全新东西, 来看一下吧, 让Java Web的基础知识更全面一些.</p>
+<p>先来看看标记文件</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
+    <li><a href="#con1">标记文件初步使用</a></li>
     <li><a href="#con2"></a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con1">标记文件初步使用</h2>
+<p>最简单的标记文件使用, 有点像include, 例如创建一个不带有HTML等标签, 仅仅只有要素的文件:</p>
+<pre>
+&lt;img src="http://game.capcom.com/world/img/logo.png">&lt;br>
+</pre>
+<p>然后将其命名为test.tag, 放在WEB-INF/tags目录下, 注意目录一定要对.</p>
+<p>然后随便找个JSP, 在开头引入这个标签库, 然后使用:</p>
+<pre>
+<%@ taglib prefix="mh" tagdir="/WEB-INF/tags" %>
+&lt;p>&lt;mh:test/>&lt;/p>
+</pre>
+<p>taglib指令中的前缀指定了命名空间, 然后没有像JSTL那样指定uri, 而是指定了目录. 之后使用了&lt;p>&lt;mh:test/>&lt;/p>这个标签, mh就是之前自定义的名称, 而test就是我们起的文件名.</p>
+<p>这就是最简单的标记文件, 也就是一个标记就相当于引入的一个文件. 由此可知, 一个标记文件本质上也是一段JSP代码.</p>
+<p>实际上标记文件是给前端等不懂Java 的人使用的, 其中无法使用 page 指令, 但可以使用 tag attribute 和 variable 指令. 还有特殊的 &lt;jsp:invoke 和 &lt;jsp:doBody 命令.</p>
+<p>标签文件的本质是SimpleTag类, 会生成隐含的TLD文件, 既然是简单标签, 当然这些处理就在背后默默完成了.</p>
+
+<h2 style="text-align: center;" id="con2">传递参数给标记文件</h2>
+<p>jsp:include的主体中, 可以使用jsp:param来传递信息. 而被包含的文件就可以使用 ${param.xxx} 来获取值, 例如:</p>
+<pre>
+&lt;jsp:include page="included.jsp">
+    &lt;jsp:param name="givein" value="guguguugug"/>
+&lt;/jsp:include>
+
+</pre>
+<p>被包含的JSP文件 - included.jsp:</p>
+<pre>
+&lt;p>${param.givein}&lt;/p>
+</pre>
+<p>有没有发现这个和Vue的插槽非常相似, 所以Web技术的本质20年前就研究的差不多了, 现在算力上去了, 就可以不停的封装和套壳了.</p>
+<p>对于标记文件, 自然不能这么傻的传param, 而是要通过属性来传递了. 在标记文件中要加上特殊的文件头来指定属性, 然后就可以通过EL表达式取属性值:</p>
+<pre>
+//test.tag:
+<span style="color: red"><%@ attribute name="givein" rtexprvalue="true" %></span>
+&lt;img src="http://game.capcom.com/world/img/logo.png" alt="Monster Hunter World">&lt;br>
+&lt;p>${givein}&lt;/p>
+</pre>
+<p>在使用标记的时候, 通过属性传递值:</p>
+<pre>
+&lt;p>&lt;mh:test givein="owl from IKEA"/>&lt;/p>
+</pre>
+
+
+
 <h2 style="text-align: center;" id="con3"></h2>
 <h2 style="text-align: center;" id="con4"></h2>
 <h2 style="text-align: center;" id="con5"></h2>
