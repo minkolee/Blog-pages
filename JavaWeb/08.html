@@ -23,10 +23,10 @@
 
 <ol>
     <li><a href="#con1">标记文件初步使用</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
+    <li><a href="#con2">传递参数给标记文件</a></li>
+    <li><a href="#con3">查找标记文件的位置</a></li>
+    <li><a href="#con4">在标记文件中使用JSP脚本</a></li>
+    <li><a href="#con5">系统总结attribute指令</a></li>
     <li><a href="#con6"></a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">标记文件初步使用</h2>
@@ -65,17 +65,179 @@
 &lt;img src="http://game.capcom.com/world/img/logo.png" alt="Monster Hunter World">&lt;br>
 &lt;p>${givein}&lt;/p>
 </pre>
+<p><code>rtexprvalue="true"</code>指的是编译时候的静态结果还是运行时候的动态结果, 其实意思就是说属性传过来的东西能不能使用JSP表达式, 设置成true就表示可以使用, 设置成false则表示无法使用.</p>
+<p>举个例子, 标签还是上边的, 但是传入一个JavaBean对象:</p>
+<pre>
+&lt;jsp:useBean id="giveToTag" scope="request" class="com.example.domain.Owl"/>
+&lt;jsp:setProperty name="giveToTag" property="name" value="sanee"/>
+&lt;p>&lt;mh:test givein="${giveToTag}"/>&lt;/p>
+</pre>
+<p>此时标签可以正常显示传进来的Bean的字符串(不过这里我尝试在标签中获取 ${givein.name} 是不行的, 获取进来的值还是一个字符串), 但是设置 <code>rtexprvalue="false"</code>, 再运行页面, 会报如下错误:</p>
+<pre>
+According to TLD or attribute directive in tag file, attribute [givein] does not accept any expressions
+</pre>
+<p>也就是说根据TLD文件或者标记文件中的设置, givein变量是无法接受表达式的.</p>
 <p>在使用标记的时候, 通过属性传递值:</p>
 <pre>
 &lt;p>&lt;mh:test givein="owl from IKEA"/>&lt;/p>
 </pre>
+<p>其实看到这里, 不管是传统标签还是简单标签还是标签文件, 其逻辑就有数了. 容器解析到这里的时候, 就是把标签的属性传递给标签后边对应的程序, 程序进行计算后, 通过函数获取输出, 容器再把输出放到这个标签的位置, 这就是自定义标签工作的原理.</p>
+
+<p>现在的标签还没有主体, 如果标签有主体, 可以通过特殊的&lt;jsp:doBody>标签来获取标签的主体, 这样给标签传递属性, 就又多了一种办法, 例如这么给标签设置上主体:</p>
+<pre>
+&lt;p>&lt;mh:test givein="${giveToTag}">标签的主体部分 ${giveToTag.name}&lt;/mh:test>&lt;/p>
+</pre>
+<p>编写标签, 让主体部分可以显示成红色:</p>
+<pre>
+&lt;p>&lt;span style="color:red"><span style="color: red">&lt;jsp:doBody/></span>&lt;/span>&lt;/p>
+</pre>
+<p>其中红色的部分就代表了传给标签的主体, 这一部分都会被标签包在一个红色显示的SPAN元素中, 达到了将标签主体显示成红色的效果.</p>
+<p>当然, 有控制属性的地方, 标记文件中也有控制主体的地方, 标记文件中采用tag body-content 来控制主体:</p>
+<pre>
+<%@ tag body-content="tagdependent|empty|scriptless" %>
+</pre>
+<p>这三个属性的含义是:</p>
+<ol>
+    <li>tagdependent - 纯文本, 不进行任何计算</li>
+    <li>empty - 强制为空, 如果标签带有主体会报错</li>
+    <li>scriptless - 进行解析EL和JSP表达式以及其他标签, 是默认选项</li>
+</ol>
+<p>回头看看刚才的例子, 主体中包含的 ${giveToTag.name} 就被正常解析了, 如果设置成tagdependent, 会原封不动的显示文本形式的 "标签的主体部分 ${giveToTag.name}". </p>
+<p>所以结合上边例子, 就可以来编写一个显示 " XX说道: xxxxx --XX "的标签, 其中XX是名称由属性传入, xxxxx是内容, 由主体传入, 然后有一个fontColor设置xxxxx的颜色的标签:</p>
+<pre>
+<%@ attribute name="giveInName" rtexprvalue="true" required="true" %>
+<%@ attribute name="fontColor" rtexprvalue="false" required="false" %>
+<%@ tag body-content="scriptless" %>
+
+&lt;p>${giveInName}说道:&lt;/p>
+&lt;blockquote style="color: ${fontColor}">
+    &lt;jsp:doBody/>
+    &lt;br>--${giveInName}
+&lt;/blockquote>
+</pre>
+<p>在JSP文件中使用该标签的时候形式如下:</p>
+<pre>&lt;mh:test giveInName="${giveToTag.name}" fontColor="green">家里到底有几只猫头鹰呢?&lt;/mh:test></pre>
+<p>使用的时候可以发现其中的<code>说道</code>两个字会变成乱码, 这是因为JSP页面设置的编码格式只能影响到JSP页面里的东西, 包括传递给标签的主体, 但是标签内部的文字是不是按照UTF-8解析的, 这就需要用到tag指令中的pageEncoding设置.</p>
+<pre><%@ tag pageEncoding="UTF-8" %></pre>
+
+<h2 style="text-align: center;" id="con3">查找标记文件的位置</h2>
+<p>在使用标记文件的时候, taglib中指定了路径. 实际上, 容器还会按照这个顺序来查找:</p>
+<ol>
+    <li>WEB-INF/tags</li>
+    <li>WEB-INF/tags的子目录</li>
+    <li>lib/下边的JAR文件中的META-INF/tags目录</li>
+    <li>lib/下边的JAR文件中的META-INF/tags目录的子目录</li>
+</ol>
+<p>我们的标记文件没有位于JAR中, 所以容器自动生成了一个隐藏的TLD文件, 如果标记文件位于JAR中, 则必须提供一个TLD文件.</p>
+
+<h2 style="text-align: center;" id="con4">在标记文件中使用JSP脚本</h2>
+<p>注意刚才的实验, 标签中的EL表达式传入的只是字符串. 如果我们想通过字符串来获取对象, 要如何操作呢. 标记文件既然也被编译成JSP, 所以其中也可以写脚本, 也可以访问隐式对象, 有如下的隐式对象:</p>
+<ol>
+    <li>request, 不用再解释了</li>
+    <li>response, 也不用再解释了</li>
+    <li>jspContext, 这个其实是PageContext的父类, 可以强制将其转型成PageContext使用</li>
+    <li>application, 也不用解释了</li>
+    <li>out, 也不用解释了, 就是输出. 这里的out是输出到标签对应部分的结果.</li>
+    <li>config, 指的是全局的配置</li>
+    <li>session, 也不用解释了.</li>
+</ol>
+<p>还是上边的例子, 如果已经知道设置了name=sanee的对象, 可以直接通过标签文件里写脚本来获取:</p>
+<pre>
+&lt;%@ tag import="com.example.domain.Owl" %>
+&lt;%@ attribute name="giveInName" rtexprvalue="true" required="false" %>
+&lt;%@ attribute name="fontColor" rtexprvalue="false" required="false" %>
+&lt;%@ tag body-content="scriptless" %>
+
+&lt;p>&lt;%= <span style="color: red">((Owl) request.getAttribute("giveToTag")).getName() + ":"</span>%>&lt;/p>
+&lt;blockquote style="color: ${fontColor}">
+    &lt;jsp:doBody/>
+    &lt;br>--${giveInName}
+&lt;/blockquote>
+</pre>
+<p>实际上标记文件和JSP没有本质的不同, 只是数据交换从param变成了使用标签属性和主体, 而且标记文件和使用标记文件的JSP, 共享同样的request和response对象, 在标记文件中也可以引入JSTL等标记库, 利用标记库来处理你自己的标记.</p>
+
+<h2 style="text-align: center;" id="con5">系统总结attribute指令</h2>
+<p>前边用几个例子理解了标记文件大概是什么样子运行起来的, 其本质就是一段JSP代码, 通过属性和主体从使用标记文件的JSP文件中获取相关信息, 然后进行处理并生成最终结果替换掉标签所在位置的文本.</p>
+<p>可见标签的关键就是如何传递数据, 可以通过属性和主体, 这里先要看看控制属性的 attribute 指令:</p>
+<p>标记文件中的 attribute 指令类似于TLD文件中的&lt;attribute>元素, 虽然还没有正式的看过TLD, 但已经知道这个是标签描述文件, 此外标记文件其实是一个SimpleTag类的外在简化形式.</p>
+<p>attribute指令的属性有:</p>
+<ol>
+    <li><code>name</code>, 属性的名称, 必须要设置的属性</li>
+    <li><code>required</code>, 是否一定要传进来, 默认为false, 可选</li>
+    <li><code>rtexprvalue</code>, 是否在可以是一个运行时表达式, 默认为true, 可设置为false, 设置为false的时候只能传字符串常量</li>
+    <li><code>type</code>, 表示这个属性是一个什么类型的变量, 默认是java.lang.String, 搭配rtexprvalue使用可以直接把对象传进来.</li>
+    <li><code>fragment</code>, 表示属性是否是一个JspFragment(即被当成一段JSP来解析), 默认为false, 可选. 如果设置成true, 则强制rtexprvalue=true和type=javax.servlet.jsp.tagext.JspFragment</li>
+    <li><code>descripton</code>, 属性描述信息, 没有什么用</li>
+</ol>
+<p>看到这里就可以知道了, 像JSTL那些东西是如何获取对象然后操作的, 因为本身JSP就支持传递给标签.</p>
+<p>再来看刚才的例子:</p>
+<pre>
+&lt;jsp:useBean id="giveToTag" scope="request" class="com.example.domain.Owl"/>
+&lt;jsp:setProperty name="giveToTag" property="name" value="sanee"/>
+
+&lt;mh:test <span style="color: red">giveInName="${giveToTag}"</span> fontColor="green">家里到底有几只猫头鹰呢?&lt;/mh:test>
+</pre>
+<p>红色部分传递了Owl类型的JavaBean, 但是在标记文件中默认只能接受一个String, 所以这样的标记文件无法工作:</p>
+<pre>
+&lt;%@ attribute name="giveInName" rtexprvalue="true" required="false" %>
+&lt;p>${giveInName.name}&lt;/p>
+//类型[java.lang.String]上找不到属性[name]
+</pre>
+<p>这是因为传入的giveToTag看起来是对象, 但实际上是对象的toString()的结果, 需要让giveInName变成对象的话, 需要如此设置:</p>
+<pre>
+<%@ attribute name="giveInName" rtexprvalue="true" required="false" type="com.example.domain.Owl" %>
+&lt;p>${giveInName.name}&lt;/p>
+</pre>
+<p>此时就可以正常工作了, 所以可见只要设置得当, 一个标签就可以渲染出来一大片东西.</p>
+<p>还有一个问题是特殊的JspFragment如何使用呢, 这需要使用一个新的动作元素&lt;jsp:invoke>来执行JspFragment代码, 然后将执行结果显示在这个动作标签的位置. 这个动作元素有如下属性:</p>
+<ol>
+    <li><code>fragment</code>, 必须设置属性, 是名称</li>
+    <li><code>var</code>, 指定变量名, 将执行结果放到变量名中, 可以之后取出, 可选</li>
+    <li><code>varReader</code>, 可选, 是一个Reader类型的变量, 也用来保存结果, 可以读出</li>
+    <li><code>scope</code>, 指定上边两个属性的存放作用域, 默认是page, 可选</li>
+</ol>
+<p>而在使用标签的文件里, JspFragment必须通过&lt;jsp:attribute来设置, 一会在例子中详解</p>
+<p>一旦设置了var或者varReader, 就不会直接输出在当前位置了.</p>
+<p>这里顺便说一下&lt;jsp:doBody, 也有var, varReader和scope三个属性, 与&lt;jsp:invoke>一样.</p>
+
+
+<h2 style="text-align: center;" id="con6">综合例子</h2>
+<p>最后来写一个例子, 请求中已经设置了一个Person类型的属性, 名称是person, 现在我们就创建一个标签, 用来打印一个带有当前时间, 和格式的结果.</p>
+<p>首先需要设置相关的属性, 这里设置三个属性, 一个字符串形式的颜色, 一个对应Person类型的变量, 和一个JspFragment的变量, 这个Fragment中是打印当前时间的脚本:</p>
+<pre>
+<%@ tag body-content="scriptless" pageEncoding="UTF-8" import="com.example.domain.Person" %>
+<%@ attribute name="fontColor" rtexprvalue="false" required="false" %>
+<%@ attribute name="person" rtexprvalue="true" required="true" type="com.example.domain.Person" %>
+<%@ attribute name="showtime" fragment="true" required="true" %>
+</pre>
+<p>之后来编写输出的部分:</p>
+<pre>
+&lt;div>
+    &lt;jsp:invoke fragment="showtime" />
+    &lt;p>${person.name}正在上幼儿园&lt;/p>
+    &lt;div style="color: ${fontColor}">&lt;jsp:doBody/>&lt;/div>
+&lt;/div>
+</pre>
+<p>这个jsp:invoke就代表了执行一段jsp代码的结果. 之后用传入的颜色来框起来主体部分.</p>
+<p>在使用这个标签的时候有所讲究, 如果标记文件使用了fragment, 必须要在标签的内部使用 &lt;jsp:attribute来传递, &lt;jsp:attribute的内部不能出现脚本, 只能出现表达式和jsp动作标签.</p>
+<p>如果使用了&lt;jsp:attribute, 标签内部已经有内容了, 主体的部分就要用&lt;jsp:body>包裹起来. 所以这个标签的实际用法如下:</p>
+<pre>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib prefix="mh" tagdir="/WEB-INF/tags" %>
+
+&lt;mh:timequote fontColor="orange" person="${person}">
+    &lt;jsp:attribute name="showtime">
+        现在的时间是${requestScope.time}
+    &lt;/jsp:attribute>
+    &lt;jsp:body>有什么想对柚子说的可以写在这里&lt;/jsp:body>
+&lt;/mh:timequote>
+</pre>
+<p>由于在标签内部可以编写任意代码, 所以实际上可以处理比较复杂的内容.</p>
+
+<p>不过对于更复杂的标签, JSP还提供了传统标签和简单标签两个类型, 与标记文件比起来, 这两个标签要求直接编写标签处理类和TLD文件才能够使用.</p>
 
 
 
-<h2 style="text-align: center;" id="con3"></h2>
-<h2 style="text-align: center;" id="con4"></h2>
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
