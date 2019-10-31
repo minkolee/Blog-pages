@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Java Web Reinforcement 00</title>
+    <title>Java Web Reinforcement 09 Web安全</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,22 +15,362 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>看完了标记文件, 我决定把自定义标签的部分先放一下, 因为其背后的本质是相同的, 只不过显式的编写代码以及嵌套标签提高了复杂程度等. 还是先继续向后把整体都过一遍.</p>
+<p>今天是2019年10月的最后一天, 在去年的这个时候, 我还因为脚骨折在家里休息, 拼命的翻译 Django 2 by Example, 如今一年过去, 不仅Java来了两遍, 理解更加深刻, 还武装了计算机基础知识等很多东西.</p>
+<p>Web也是二进宫从底层学起, 感觉确实越来越好了.</p>
+<p>WEB安全是一个永恒的话题, 从我个人的体会来说就是保证什么人可以做什么样的事情.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">WEB安全的概念</a></li>
+    <li><a href="#con2">Tomcat的安全机制</a></li>
+    <li><a href="#con3">Tomcat的授权</a></li>
+    <li><a href="#con4">简单例子</a></li>
+    <li><a href="#con5">动态响应授权</a></li>
+    <li><a href="#con6">认证方式</a></li>
+    <li><a href="#con7">表单认证</a></li>
+    <li><a href="#con8">加密传输</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
-<h2 style="text-align: center;" id="con2"></h2>
-<h2 style="text-align: center;" id="con3"></h2>
-<h2 style="text-align: center;" id="con4"></h2>
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+<h2 style="text-align: center;" id="con1">WEB安全的概念</h2>
+<p>先来探讨纯概念的部分. 因为Web应用不像本地应用, 还加上了一层本地计算机操作系统提供的安全防护. Web应用是开放给几乎所有人使用的. 其安全概念主要有如下几个:</p>
+<ol>
+    <li>认证: 即判断访问的人是谁 一般通过各种形式的认证名称+认证密码来实现, 比如用户名+密码, 账号+KEY之类.</li>
+    <li>授权: 知道了是谁之后, 看这个人是否具备相应的权限. 用一个公司来说的话, 门口刷卡好比是认证, 所有有卡的员工都可以刷卡进入, 这是认证, 但是刷完卡进来之后, 不同的员工去不同的办公室做不同的事情, 这就是授权.</li>
+    <li>机密性: 这是说, 在通过认证和授权之后, 客户端就可以和服务器发生数据往来, 要保证这个数据是私密的, 只有双方知道, 避免其他人窃取和篡改.</li>
+    <li>数据完整性: 这个就是说要有机制保证双方的通信是完整的, 不会意外中断, 或者说中断的情况下有应对机制.</li>
+</ol>
+<p>Servlet规范并没有具体说安全, 有很多安全都是由不同容器实现的. 下边就要来看看Tomcat的安全相关的内容.</p>
+
+<h2 style="text-align: center;" id="con2">Tomcat的安全机制</h2>
+<p>Tomcat的安全机制是:</p>
+<ol>
+    <li>HTTP请求到达容器, 容器解析要访问的路径</li>
+    <li>容器会查找安全配置, 看这个路径是否有对应的安全配置</li>
+    <li>如果有安全配置, 第一步需要认证, 要检查请求中是否附带了认证信息, 并把认证信息与安全配置中的信息进行比较</li>
+    <li>认证通过之后,第二步需要授权, 将认证通过的用户与映射到用户身上的角色关联起来, 在访问具体资源之前, 检查角色是否符合安全配置中的要求</li>
+    <li>认证和角色都通过之后, 请求到达Servlet, 进行处理后返回</li>
+    <li>认证和角色任何一个不通过, 都会返回错误代码, 一般是401.</li>
+</ol>
+<p>认证的部分还涉及到过滤器等操作(如果愿意的话), 以及前后端交互. 核心是发送和接受认证信息, 确定用户身份.</p>
+<p>授权是经过认证之后, 在服务器本地做的工作, 即确定用户身份对应的角色.</p>
+
+
+<h2 style="text-align: center;" id="con3">Tomcat的授权</h2>
+<p>先来看授权. 在安全领域有一个词语叫做realm=领域, 指的是存放角色信息的地方. Tomcat使用目录conf/下的一个<code>tomcat-user.xml</code>文件来存放领域信息.</p>
+<p>这个文件在每次容器启动的时候读入内存然后生效, 运行时无法修改. 此时我打开看了一下, 还没有配置过安全信息的文件是这样的:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+&lt;tomcat-users xmlns="http://tomcat.apache.org/xml"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://tomcat.apache.org/xml tomcat-users.xsd"
+                  version="1.0">
+
+&lt;!--
+  &lt;role rolename="tomcat"/>
+  &lt;role rolename="role1"/>
+  &lt;user username="tomcat" password="&lt;must-be-changed>" roles="tomcat"/>
+  &lt;user username="both" password="&lt;must-be-changed>" roles="tomcat,role1"/>
+  &lt;user username="role1" password="&lt;must-be-changed>" roles="role1"/>
+-->
+&lt;/tomcat-users>
+</pre>
+<P>其中的注释就显示了如何配置角色的用户名称, 这里可以发现, 一个用户可以对应多个角色, 这就为多层授权体系提供了基础.</P>
+<p>这个文件还需要和web.xml搭配使用, 为了说明如何使用, 来弄一个例子试验一下是最简单的.</p>
+
+<h2 style="text-align: center;" id="con4">简单例子</h2>
+<p>先在<code>tomcat-user.xml</code>里写几个配置:</p>
+<pre>
+  &lt;role rolename="Admin"/>
+  &lt;role rolename="User"/>
+  &lt;role rolename="Guest"/>
+  &lt;user username="user1" password="1234" roles="Admin, User, Guest"/>
+  &lt;user username="user2" password="2234" roles="User, Guest"/>
+  &lt;user username="user3" password="3234" roles="Guest"/>
+</pre>
+<p>这些配置看名称都可以看出来, 指定了三个角色和三个用户, user1用户同时具有三个角色, user2具有2个角色, user3仅仅只有Guest角色.</p>
+<p>为何要如此设置, 是因为安全配置实际上是指定了什么样的资源可以由什么角色访问, 所以越是安全性低的资源, 就需要对应一个越广泛的角色, 这里所有用户都具备Guest角色, 就说明这个角色一般对应的权限是最低的, Guest一般都被配置成无需认证就可以访问的资源.</p>
+<p>然后需要在<code>web.xml</code>中进行配置:</p>
+<pre>
+&lt;web-app>
+
+    ......
+
+    &lt;login-config>
+        &lt;auth-method>BASIC&lt;/auth-method>
+    &lt;/login-config>
+
+    &lt;security-role>
+        &lt;role-name>Admin&lt;/role-name>
+    &lt;/security-role>
+
+    &lt;security-role>
+        &lt;role-name>User&lt;/role-name>
+    &lt;/security-role>
+
+    &lt;security-role>
+        &lt;role-name>Guest&lt;/role-name>
+    &lt;/security-role>
+
+    &lt;security-constraint>
+        &lt;web-resource-collection>
+            &lt;web-resource-name>UpdateRecipes&lt;/web-resource-name>
+            &lt;url-pattern>/admin/*&lt;/url-pattern>
+            &lt;http-method>GET&lt;/http-method>
+        &lt;/web-resource-collection>
+
+        &lt;auth-constraint>
+            &lt;role-name>Admin&lt;/role-name>
+        &lt;/auth-constraint>
+    &lt;/security-constraint>
+
+    &lt;security-constraint>
+        &lt;web-resource-collection>
+            &lt;web-resource-name>UpdateRecipes&lt;/web-resource-name>
+            &lt;url-pattern>/user/*&lt;/url-pattern>
+            &lt;http-method>GET&lt;/http-method>
+        &lt;/web-resource-collection>
+
+        &lt;auth-constraint>
+            &lt;role-name>User&lt;/role-name>
+        &lt;/auth-constraint>
+    &lt;/security-constraint>
+
+    &lt;security-constraint>
+        &lt;web-resource-collection>
+            &lt;web-resource-name>UpdateRecipes&lt;/web-resource-name>
+            &lt;url-pattern>/guest/*&lt;/url-pattern>
+            &lt;http-method>GET&lt;/http-method>
+        &lt;/web-resource-collection>
+
+        &lt;auth-constraint>
+            &lt;role-name>Guest&lt;/role-name>
+        &lt;/auth-constraint>
+    &lt;/security-constraint>
+&lt;/web-app>
+</pre>
+<p><code>login-config</code>指定了认证方式为Basic, 这会在访问受限资源的时候打开一个浏览器的提示框来输入信息. 这里虽然还没有讲认证, 但必须要认证, 否则Web容器无法将用户和角色对应起来. 这里如果去掉认证, 则所有访问都不会具备三个角色中的任何一个, 则只能访问无角色可以访问的路径, 比如首页.</p>
+<p>之后的<code>security-role</code>中的Admin等名称, 一定要对应到<code>tomcat-user.xml</code>中定义的用户名称. 这里对应了三个, 就表示使用了其中的三个. 如果只想使用其中的两个, 就只定义两个<code>security-role</code>标签即可.</p>
+<p>其后的<code>security-constraint</code>是一条约束, 可以同时配置多个约束, 也就是存在多个<code>security-constraint</code>标签. 一个约束的详细配置如下:</p>
+<ol>
+    <li><code>web-resource-collection</code>, 定义需要约束的URL和与其对应的方法, 约束Web资源</li>
+    <li><code>web-resource-name</code>, 其中固定是UpdateRecipes, 这个名称是给容器使用的, 不用更改</li>
+    <li><code>url-pattern</code>, 可以采用通配符的URL地址, 指定需要保护的URL. 该标签可以有多个, 全部生效.</li>
+    <li><code>http-method</code>, 指定需要保护的HTTP方法, 该标签可选, 如果不使用该标签则默认保护全部HTTP方法, 如果指定了具体的比如这里的GET, 则仅仅会保护GET方法, 不保护其他方法.</li>
+    <li><code>auth-constraint</code>, 如果说前边的<code>web-resource-collection</code>约束的是Web资源, 这个标签约束的就是用户资源. 一个安全约束也就是一个Web资源与用户资源的对应关系. 这个标签也是可选的, 如果不配置该标签, 容器允许不认证就访问对应的URL. 在这里我们没有对根目录进行认证, 所以不认证就可以访问.</li>
+    <li><code>role-name</code>, 其中的名称必须是<code>web.xml</code>里边的<code>security-role</code>中的角色名, 而不是<code>tomcat-user.xml</code>中的用户角色名, 因为这中间隔了一层映射关系, 有可能<code>web.xml</code>没有出现<code>tomcat-user.xml</code>中的角色名称, 要注意. 其中的名称就是允许访问前边Web资源的用户角色. 该标签可选, 如果不配置该标签, 则会禁止所有角色, 如果主体配置成<code>*</code>, 会对所有角色开放.</li>
+</ol>
+<p>这里我们定义了三个约束, admin路径可以被Admin角色访问, user路径可以被User访问, Guest路径只能被Guest访问. 在访问了首页点击链接后, 会弹出认证框, 根据认证结果, 会显示网页或者错误.</p>
+<p>还记得之前配置的user1具有全部权限吗, 所以认证后可以访问全部的网页, user2不具有Admin权限, 所以无法访问admin路径, 而Guest不具备Admin和User权限, user路径也不能访问.</p>
+<p>这就是最简单的一个认证加上授权的体系. 还有一点要说明的是, 如果多个<code>security-constraint</code>对同一个URL进行了配置, 遵循如下的原则确定最终效果:</p>
+<ol>
+    <li>如果任意一个配置了全部禁止(即有<code>auth-constraint</code>标签, 但是其内部没有<code>role-name</code>), 则全部禁止</li>
+    <li>否则按照两者的并集来计算(比如某个约束里压根没有<code>auth-constraint</code>, 合并的结果就是可以不经认证就访问, 也就是完全开放).</li>
+</ol>
+
+<h2 style="text-align: center;" id="con5">动态响应授权</h2>
+<p>现在我们通过容器和web.xml两个文件配置好了先认证, 再授权的体系. 我实际上编写了三个Servlet对应三个路径.</p>
+<p>观察上边的例子可以看到, 我们限定死了URL, 即从URL的角度就加以了区分, 如果希望用同一个Servlet来响应不同角色的功能, 要如何动态的确定呢.</p>
+<p>现在我们改成, 统一认证, 然后根据用户认证的结果, 在页面中作出不同的响应, 这样可以只编写一个Servlet就可以了.</p>
+<p>在web.xml中, 我们配置一个仅仅需要认证的路径:</p>
+<pre>
+
+&lt;servlet>
+    &lt;servlet-name>dynamic&lt;/servlet-name>
+    &lt;servlet-class>com.example.web.DynamicRoleServlet&lt;/servlet-class>
+&lt;/servlet>
+&lt;servlet-mapping>
+    &lt;servlet-name>dynamic&lt;/servlet-name>
+    &lt;url-pattern>/dynamic&lt;/url-pattern>
+&lt;/servlet-mapping>
+
+&lt;security-constraint>
+    &lt;web-resource-collection>
+        &lt;web-resource-name>UpdateRecipes&lt;/web-resource-name>
+        &lt;url-pattern>/dynamic/*&lt;/url-pattern>
+        &lt;http-method>GET&lt;/http-method>
+    &lt;/web-resource-collection>
+
+    &lt;auth-constraint>
+        &lt;role-name>Guest&lt;/role-name>
+    &lt;/auth-constraint>
+&lt;/security-constraint>
+</pre>
+<p>由于所有用户都具备Guest权限, 实际上这个路径只要认证了就能通过, 编写com.example.web.DynamicRoleServlet如下:</p>
+<pre>
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+
+public class DynamicRoleServlet extends HttpServlet {
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        resp.setCharacterEncoding("UTF-8");
+        resp.setContentType("text/html");
+
+        PrintWriter out = resp.getWriter();
+
+        if (req.isUserInRole("Admin")) {
+            out.println("欢迎Admin");
+        }
+
+        else if (req.isUserInRole("User")) {
+            out.println("欢迎User");
+        }
+
+        else if (req.isUserInRole("Guest")) {
+            out.println("欢迎Guest");
+        }
+
+        else {
+            out.println("意外出现了, 没有角色的用户未经认证也访问到本页面");
+        }
+    }
+}
+</pre>
+<p>这其中进行了判断, 根据用户的角色不同, 进行不同的处理, 由于我们配置了这个页面需要认证, 最基础的角色是Guest, 因此不会出现没有角色的用户也能访问到该页面.</p>
+<p>之后启动浏览器访问, 根据你的角色不同, 页面的处理也不同.</p>
+<p><code>isUserInRole()</code>方法的参数, 现在是直接使用了<code>web.xml</code>中的<code>security-role</code>标签中定义的名称, 但准确的来说, 参数应该是一个映射后的名称, 只不过我们没有做映射.</p>
+<p>通过刚才的设置会知道, <code>web.xml</code>的角色名称实际上和<code>tomcat-user.xml</code>是相同的, 可以在<code>web.xml</code>中, 在需要使用映射的角色名的servlet中, 创建角色名称和程序中使用的角色名的对应关系:</p>
+<pre>
+&lt;servlet>
+    &lt;servlet-name>dynamic&lt;/servlet-name>
+    &lt;servlet-class>com.example.web.DynamicRoleServlet&lt;/servlet-class>
+<span style="color: red">    &lt;security-role-ref>
+        &lt;role-name>SuperAdmin&lt;/role-name>
+        &lt;role-link>Admin&lt;/role-link>
+    &lt;/security-role-ref>
+    &lt;security-role-ref>
+        &lt;role-name>NormalUser&lt;/role-name>
+        &lt;role-link>User&lt;/role-link>
+    &lt;/security-role-ref>
+    &lt;security-role-ref>
+        &lt;role-name>Tourist&lt;/role-name>
+        &lt;role-link>Guest&lt;/role-link>
+    &lt;/security-role-ref></span>
+&lt;/servlet>
+</pre>
+<p>此时在DynamicRoleServlet类中, 修改代码如下:</p>
+<pre>
+package com.example.web;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+
+public class DynamicRoleServlet extends HttpServlet {
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        resp.setCharacterEncoding("UTF-8");
+        resp.setContentType("text/html");
+
+        PrintWriter out = resp.getWriter();
+
+        if (req.isUserInRole(<span style="color: red">"SuperAdmin"</span>)) {
+            out.println("欢迎Admin");
+        }
+
+        else if (req.isUserInRole(<span style="color: red">"NormalUser"</span>)) {
+            out.println("欢迎User");
+        }
+
+        else if (req.isUserInRole(<span style="color: red">"Tourist"</span>)) {
+            out.println("欢迎Guest");
+        }
+
+        else {
+            out.println("意外出现了, 没有角色的用户未经认证也访问到本页面");
+        }
+    }
+}
+</pre>
+<p>不过因为原来的名称也有效, 其实不更改代码, 也是可以工作的, 这只是映射和解耦的一个手段, 即编写Servlet的人员未必要知道具体底层服务器的角色配置.</p>
+
+<p>看完了授权, 然后再来看认证的处理, 所谓认证, 就是询问用户名和密码, 然后看验证结果是否允许通过.</p>
+
+<h2 style="text-align: center;" id="con6">认证方式</h2>
+<p>如果是在IDE中配置:</p>
+<pre>
+&lt;login-config>
+    &lt;auth-method>BASIC&lt;/auth-method>
+&lt;/login-config>
+</pre>
+<p>会自动跳出来四个备选, 分别是BASIC, DIGEST, CLIENT-CERT和FORM, 第一种已经用过了, 是浏览器弹出对话框直接输入, 然后把输入的信息以Base64方式发回去, 这种加密基本上就是明文.</p>
+<p>DIGEST是摘要方式, 没有得到广泛应用. CLIENT-CERT比较安全, 但需要客户事先获取证书. 前边三种都使用浏览器的标准对话框来进行.</p>
+<p>最后一种是表单认证, 可以创建自己的认证方式, 不过也最不安全, 用户名和密码都会在HTTP的请求中以明文发送. 当然, 如果本身建立在HTTPS上, 就好很多. 不过这里先不关心认证以外的事情, 重点来看表单认证.</p>
+
+<h2 style="text-align: center;" id="con7">表单认证</h2>
+<p>表单认证需在<code>&lt;login-config></code>添加更多的内容, 然后需要创建一个表单和创建一个错误表单. 而表单的用户字段, 密码字段和发送到的地址有着特定的名称.</p>
+<pre>
+&lt;login-config>
+    &lt;auth-method>FORM&lt;/auth-method>
+    &lt;form-login-config>
+        &lt;form-login-page>/login.html&lt;/form-login-page>
+        &lt;form-error-page>/loginerror.html&lt;/form-error-page>
+    &lt;/form-login-config>
+&lt;/login-config>
+</pre>
+<p>配置指定了认证形式是表单, 登录页面是login.html, 错误页面是loginerror.html. 下边来编写这两个页面:</p>
+<pre>
+&lt;!--login.html-->
+&lt;!DOCTYPE html>
+&lt;html lang="zh-Hans">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>登录&lt;/title>
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+&lt;/head>
+&lt;body>
+    &lt;h1 style="text-align: center">请登录&lt;/h1>
+    &lt;div style="max-width: 600px; margin: 0 auto">
+        &lt;form <span style="color: red">action="j_security_check"</span> method="post">
+            &lt;label for="username">请输入用户名&lt;input id="username" type="text" <span style="color: red">name="j_username"</span>>&lt;/label>
+            &lt;label for="password">请输入密码&lt;input id="password" type="password" <span style="color: red">name="j_password"</span>>&lt;/label>
+            &lt;input type="submit">
+        &lt;/form>
+    &lt;/div>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>注意其中红色的部分, 如果要使用Tomcat容器本身的验证, 这些名字必须要写成这样.</p>
+<p>错误页面可以是任意页面, 比如只显示一行, 登录错误, 返回首页即可. 就省略了.</p>
+<p>如此配置之后, 在原来弹出对话框认证的地方, 就会使用这个表单来认证, 如果认证错误就会显示错误页面, 认证通过则显示原来要去往的页面.</p>
+
+<h2 style="text-align: center;" id="con8">加密传输</h2>
+<p>采用表单登录是如今大多数Web应用的登录方式. 不过表单数据是明文, 如何保证在传输的过程中是安全的. 这需要使用到SSL之上的HTTPS协议. 关于SSL和TLS再有HTTPS, 可以查看具体的文章了, 通信加密又是另外一个大的内容了.</p>
+<p>好在如今的容器都支持SSL为基础的这些加密通信的办法. 以一个声明就可以启用支持:</p>
+<pre>
+&lt;security-constraint>
+    &lt;web-resource-collection>
+        &lt;web-resource-name>UpdateRecipes&lt;/web-resource-name>
+        &lt;url-pattern>/guest/*&lt;/url-pattern>
+        &lt;http-method>GET&lt;/http-method>
+    &lt;/web-resource-collection>
+
+    &lt;auth-constraint>
+        &lt;role-name>Guest&lt;/role-name>
+    &lt;/auth-constraint>
+
+<span style="color: red">    &lt;user-data-constraint>
+        &lt;transport-guarantee>CONFIDENTIAL&lt;/transport-guarantee>
+    &lt;/user-data-constraint></span>
+&lt;/security-constraint>
+</pre>
+<p>这其中的配置可以是NO, INTEGRAL或者CONFIDENTIAL, 由于所有容器几乎都支持SSL了, 所以配置CONFIDENTIAL就可以了</p>
+<p>不过如果这么做的话, 在验证成功之后, 访问对应的资源实际上协议发生了变化, <code>transport-guarantee</code>这实际上没有重定向资源, 而是重定向了协议, 不进行额外的配置和获取证书是启用不了的.</p>
+<p>至于如何配置Web服务器以及启用HTTPS, 估计要等到之后使用Nginx的时候再学习了</p>
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
