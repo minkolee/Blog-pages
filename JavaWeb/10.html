@@ -15,22 +15,200 @@
     </style>
 </head>
 <body>
-<p>到了秘密武器了, 也就是过滤器.</p>
+<p>到了秘密武器了, 也就是过滤器. 过滤器是在容器从Web服务器那里组装好请求对象然后交给Servlet之前经过的地方. 很显然, 有需要统一处理的东西, 交给过滤器而不是分散在各个Servlet中是最好的了.</p>
+<p>所以一般过滤器会用作全局的安全等防护手段, 也是一个非常强力的工具, Spring Security的框架就是一个过滤器包, 用15个过滤器类组成了一个安全框架.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">过滤器原理</a></li>
+    <li><a href="#con2">过滤器配置</a></li>
+    <li><a href="#con3">转发和请求分派的过滤器</a></li>
+    <li><a href="#con4">过滤器处理响应 - 包装器</a></li>
 </ol>
 
+<h2 style="text-align: center;" id="con1">过滤器原理</h2>
+<p>过滤器本质上也是容器里的Java 组件, 和Servlet没有什么本质的不同, 只是容器会先将请求交到过滤器手里进行处理. 所以和Servlet一样, 也需要先编写过滤器, 然后在web.xml中配置</p>
+<p>过滤器并不会单独只负责响应和请求, 只要创建一个过滤器并配置好, 所有的请求和响应都会通过过滤器, 而过滤器也是有顺序的, 是一个链条, 请求最先通过的过滤器, 响应最后穿出来.</p>
+<p>如果过滤器之间不协同工作, 则过滤器的顺序无所谓, 如果过滤器需要协同工作, 就需要考虑过滤器的顺序了.</p>
+<p>过滤器的接口叫做Filter, 也有生命周期方法, init()和destroy(), 以及过滤器特有的doFilter()方法. 容器和管理其他Servlet一样管理Filter, 也会根据配置来调用Filter的方法. Tomcat如今的Servlet包里, Filter的init()和destory()是默认方法了, 只需要实现doFilter()方法即可.</p>
+<p>来写一个简单的过滤器, 来看看其中的奥秘:</p>
+<pre>
+import javax.servlet.*;
+import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
+
+public class TestFilter implements Filter {
+
+    //由于配置的时候会有初始化参数, init()的关键就传入了FilterConfig对象, 一般使用一个变量来保存配置
+    private FilterConfig filterConfig;
+
+    @Override
+    public void init(FilterConfig filterConfig) throws ServletException {
+        this.filterConfig = filterConfig;
+        System.out.println("过滤器初始化");
+    }
+
+    @Override
+    public void destroy() {
+        System.out.println("过滤器销毁");
+    }
+
+    @Override
+    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
+        System.out.println("过滤器被触发了.");
+        System.out.println(filterConfig.getFilterName());
+        System.out.println(Common.changeEnumToString(filterConfig.getInitParameterNames()));
+        ((HttpServletRequest) (servletRequest)).setAttribute("filter", "set by filter");
+        filterChain.doFilter(servletRequest, servletResponse);
+
+    }
+}
+</pre>
+<p>除了上边注释的init()的套路之外, 关键就是doFilter()方法, 其中有两个参数是ServletRequest servletRequest, ServletResponse servletResponse, 这两个在WEB应用中, 就是Http版本, 所以可以强制转型.</p>
+<p>FilterChain对象也由容器传入, <code>filterChain.doFilter(servletRequest, servletResponse);</code>表示接下来继续调用其他的过滤器, 如果不加这一行, 执行到这个过滤器就会结束过滤阶段.</p>
+<p>过滤器的顺序是按照web.xml中声明的顺序来执行的.</p>
+<p>里边使用了一些filterConfig的方法来获取配置参数, 下边就来配置一下web.xml以让过滤器生效:</p>
+
+<h2 style="text-align: center;" id="con2">过滤器配置</h2>
+<p>过滤器的配置与Servlet很相似, 也由一个Filter和一个Mapping组成, 过滤器的特点是可以按照URL配置, 也可以按照Servlet配置.</p>
+<p>先来看按照URL配置, 这个很直观, 就是应用到对应的URL上:</p>
+<pre>
+&lt;filter>
+    &lt;filter-name>GeneralFilter&lt;/filter-name>
+    &lt;filter-class>com.example.filter.TestFilter&lt;/filter-class>
+    &lt;init-param>
+        &lt;param-name>filter初始化参数&lt;/param-name>
+        &lt;param-value>filter初始化参数的值&lt;/param-value>
+    &lt;/init-param>
+&lt;/filter>
+
+&lt;filter-mapping>
+    &lt;filter-name>GeneralFilter&lt;/filter-name>
+    &lt;url-pattern>/*&lt;/url-pattern>
+&lt;/filter-mapping>
+</pre>
+<p>可以看到<code>&lt;filter></code>与<code>&lt;filter-mapping></code>也是成对出现, 通过名称映射到URL. 这里传入了初始化参数.</p>
+<p>现在可以跑起来Web应用了, 访问一下, 就可以看到控制台:</p>
+<pre>
+过滤器初始化
+过滤器被触发了.
+GeneralFilter
+[filter初始化参数]
+</pre>
+<p>之后反复访问, 可以看到在每一次访问的时候, doFilter()内的操作都被触发了.</p>
+<p>声明对应Servlet的方法, 只需要替换掉匹配URL的标签:</p>
+<pre>
+&lt;filter-mapping>
+    &lt;filter-name>GeneralFilter&lt;/filter-name>
+    <code>&lt;servlet-name>admin&lt;/servlet-name></code>
+&lt;/filter-mapping>
+</pre>
+<p>这样配置之后, 所有由admin名称对应的Servlet处理的请求和响应都会通过指定的过滤器. 此时点击, 就会发现仅仅只有/admin的通过认证的访问才会触发过滤器.</p>
+
+<h2 style="text-align: center;" id="con3">转发和请求分派的过滤器</h2>
+<p>前边配置的实际上是来自于用户访问的过滤器, 转发和请求分派也是一种请求和响应对象在容器中的处理阶段转换.</p>
+<p>在<code>&lt;filter-mapping></code>中, 可以指定请求分派如何处理:</p>
+<pre>
+&lt;filter-mapping>
+    &lt;filter-name>GeneralFilter&lt;/filter-name>
+    &lt;servlet-name>admin&lt;/servlet-name>
+<span style="color: red">    &lt;dispatcher>REQUEST|INCLUDE|FORWARD|ERROR&lt;/dispatcher></span>
+&lt;/filter-mapping>
+</pre>
+<p>这个标签如果不配置, 默认是REQUEST, 即只对用户请求进行过滤. 如果设置为INCLUDE, 表示对include()调用进行过滤, 设置为FORWARD则表示对forward()分发来的请求进行处理. 设置成ERROR表示如果出现错误, 由错误处理器分派的响应要过滤(比如重定向到错误页面的时候).</p>
+<p>举个例子, 现在将设置改成ERRO, URL配置成全部URL, 然后启动WEB容器, 可以发现平时的操作不触发过滤器了.</p>
+
+<h2 style="text-align: center;" id="con4">过滤器处理响应 - 包装器</h2>
+<p>实际上, 稍加测试就能够发现, 上边的过滤器实际上压根无法影响响应. 比如我们想在响应被Servlet处理之后再对响应进行一些操作, 可以尝试一下, 在过滤器中写入一个时间, 然后在Servlet中也写入一个时间, 然后来看看比较一下.</p>
+<pre>
+@Override
+public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
+    filterChain.doFilter(servletRequest, servletResponse);
+    ((HttpServletResponse)servletResponse).setHeader("FilterTime", String.valueOf(System.currentTimeMillis()));
+}
+</pre>
+<p>我们可能会想, 再调用下一个之后, 会一直到响应进入Servlet再返回, 按照函数压栈的顺序, 是不是写在<code>filterChain.doFilter(servletRequest, servletResponse);</code>之后的语句就是处理响应的.</p>
+<p>实际上, 在Chrome里测试, 可以发现压根后边的语句就没有执行, 这是因为Servlet在执行完毕之后, 容器直接就把响应拿走返回给客户了, 过滤器中的doFilter()的方法并不会再执行.</p>
+<p>这里就需要了解一些更底层的东西了, 实际上每个HttpServletResponse中, 都通过ServletResponse获得了一个容器提供的ServletOutputStream对象, 在响应上调用getWriter().out()的时候, 实际上就写入了这个对象里, 写了这个对象, 就意味着已经把响应交给容器了.</p>
+<p>为了达到控制的目的, 就不能够直接使用HttpServletResponse对象, 而要使用另外一个对象, 既能让Servlet可以写入响应, 又可以在中间按照我们的要求修改响应.</p>
+<p>这样一个东西, 就是设计模式:装饰类的实现, 一个包装器. 在过滤器的doFilter()方法中, 我们不再传入原始的HttpServletResponse, 而是将原来的响应包装起来, 传入一个包装后的响应.</p>
+<p>然后针对这个包装后的响应对象, 在其中做一些手脚(写一些代码), 来更改返回之后的结果. 这样就可以达到使用过滤器处理响应的目标, 但实际上应该知道, 实际处理该响应的是包装对象.</p>
+<p>知道装饰器的人会想, HttpServletResponse是一个接口, 那要用包装器, 我还要从头去实现一个HttpServletResponse, 再配上额外方法才能够实现, 不过容器里已经给提供好了HttpServletResponseWrapper(当然也会有HttpServletRequestWrapper):</p>
+<p>剩下的工作, 就是要来继承这个类, 然后在其中编写自己的处理代码, 之后在过滤器代码中, 将原来的对象使用这个包装器包装好, 交给Servlet, 可怜的Servlet并不知道自己已经被过滤器欺骗了:</p>
+<pre>
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpServletResponseWrapper;
+import java.io.IOException;
+import java.time.LocalDateTime;
+
+public class MyWrapper extends HttpServletResponseWrapper {
+
+    private HttpServletResponse response;
+
+    public MyWrapper(HttpServletResponse response) {
+        super(response);
+        this.response = response;
+    }
+
+    @Override
+    public void setHeader(String name, String value) {
+        super.setHeader(name, value);
+        System.out.println("实际上调用了包装对象");
+        super.setHeader("Filter latter", LocalDateTime.now().toString());
+    }
+}
+</pre>
+<p>这个包装器调用了父类的构造器, 注入一个HttpServletRequest对象, 重写了setHeader()方法, 只要Servlet去调用这个方法设置头部, 就会设置一个额外的头部信息, 此时来修改Filter:</p>
+<pre>
+@Override
+public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
+    //用自己的包装类包装servletResponse对象
+    HttpServletResponseWrapper mywrapper = new MyWrapper((HttpServletResponse) servletResponse);
+    //将包装后的对象传递给下一个过滤器, 最终传递到Servlet中
+    filterChain.doFilter(servletRequest, mywrapper);
+}
+</pre>
+<p>我们在Servlet中, 也设置一个头部信息:</p>
+<pre>
+public class JSTLNormal extends HttpServlet {
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        resp.setHeader("TimeByServlet", LocalDateTime.now().toString());
+
+    ......
+</pre>
+<p>之后重新启动Web服务器, 在Chrome中查看响应:</p>
+<pre>
+HTTP/1.1 200
+TimeByServlet: 2019-11-01T15:50:03.536612800
+Filter latter: 2019-11-01T15:50:03.536612800
+Content-Type: text/html;charset=UTF-8
+Content-Length: 493
+Date: Fri, 01 Nov 2019 07:50:03 GMT
+</pre>
+<p>可以看到对响应作出了修改. 这是很有意思的. 还可以覆盖获取流的方法, 让Servlet把流写入到一个对象中, 然后再把流写入到真正的响应中, 也是可以做到的.</p>
+<p>除了包装请求与响应, 容器还提供了包装取得的输入输出对象等, 如果愿意, 也可以自行编写.</p>
+<p>包装器的具体写法, 等过完一遍基础之后, 到项目中来写写看.</p>
 
 
-<h2 style="text-align: center;" id="con1"></h2>
-<h2 style="text-align: center;" id="con2"></h2>
-<h2 style="text-align: center;" id="con3"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
