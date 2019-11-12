@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java Web Reinforcement 11 JDBC</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>回顾了一下, 在今年一月份开始看Java的时候, 快速总结了一遍JDBC的知识, 做了一个<a href="https://conyli.cc/archives/2076" target="_blank">脑图</a>, 至今回头看看效果还不错, 可以迅速上手.</p>
+<p>这次再查缺补漏一下吧.</p>
+
+<ol>
+    <li><a href="#con1">JDBC的结构</a></li>
+    <li><a href="#con2">示例</a></li>
+    <li><a href="#con3">事务处理</a></li>
+    <li><a href="#con4">JNDI数据库连接</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">JDBC的结构</h2>
+<p>Oracle在JDBC方面, 主要规定了两大标准, 一个是JDBC API, 一个是JDBC 驱动器 API,也就是Driver接口. </p>
+<p>Java应用程序打交道的是JDBC API ,JDBC API去寻找DriverManager类进行工作, DriverManager类根据在其中注册的Driver实现与数据库的具体沟通.</p>
+<p>所以要使用什么样的数据库, 就需要下载对应的Driver, 然后在DriverManager中注册, 之后操作JDBC API就可以了.</p>
+<p>JDBC和DriverManager类, Driver接口都在java.sql包中, 而具体的Driver类实现, 则由各个数据库厂商进行实现.</p>
+<p>还有一些关键的接口如下:</p>
+<ol>
+    <li><code>Connection</code>接口, 表示数据库连接</li>
+    <li><code>Statement</code>接口, SQL语句对象, 负责生成和执行SQL语句</li>
+    <li><code>PreparedStatement</code>接口, 预处理的SQL语句</li>
+    <li><code>CallableStatment</code>接口, 负责执行存储过程</li>
+    <li><code>ResultSet</code>接口, 表示返回的结果集, SQL语句对象执行完毕之后就会返回这种类型</li>
+</ol>
+<p>来详细的看使用方法.</p>
+
+<h2 style="text-align: center;" id="con2">示例</h2>
+<p>这两个类(接口)是紧密配合工作的, 在使用任何数据库之前, 都要获得驱动, 然后通过DriverManager.registerDriver(Driver)来注册驱动. </p>
+<p>使用<code>Class.forName()</code>来加载驱动, 实际上就不用新建对象, 是为了解耦, 实际加载驱动的模块在驱动的静态块中.</p>
+<p>要使用MySQL, 可以下载<a href="https://dev.mysql.com/downloads/connector/j/" target="_blank">官方的Connector驱动</a>, 然后就可以注册驱动了. 完整示例如下:</p>
+<pre>
+public static void main(String[] args) throws ClassNotFoundException, SQLException {
+    Class.forName("com.mysql.cj.jdbc.Driver");
+
+    Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/BookDB?useUnicode=true&characterEncoding=UTF-8", "root", "fflym0709");
+
+    Statement statement = connection.createStatement();
+
+    String sql = "SELECT * FROM BOOKS";
+
+    ResultSet rs = statement.executeQuery(sql);
+
+    while (rs.next()) {
+        System.out.print(rs.getString(1)+"|");
+        System.out.print(rs.getString(2)+"|");
+        System.out.print(rs.getString(3)+"|");
+        System.out.print(rs.getBigDecimal(4)+"|");
+        System.out.print(rs.getDate(5).toLocalDate().getYear()+"|");
+        System.out.print(rs.getString(6)+"|");
+        System.out.println(rs.getInt(7)+"|");
+    }
+
+    //关闭的时候逆向关闭
+    rs.close();
+    statement.close();
+    connection.close();
+
+}
+</pre>
+<p>ResultSet的每一个元素代表一个查询的结果, 可以按照表的栏数取出其中的对象, 这里还需要知道<a href="https://www.cnblogs.com/JemBai/archive/2009/08/20/1550683.html" target="_blank">MySQL与Java类中的对应关系</a>.</p>
+
+<h2 style="text-align: center;" id="con3">事务处理</h2>
+<p>默认将一条语句视为一个事务, 可以关闭, 然后手工使用.commit()和.rollback():</p>
+<pre>
+public class TestJDBC {
+    public static void main(String[] args) throws ClassNotFoundException, SQLException {
+        Class.forName("com.mysql.cj.jdbc.Driver");
+
+        Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/BookDB?useUnicode=true&characterEncoding=UTF-8", "root", "********");
+
+        Statement statement = connection.createStatement();
+
+        connection.setAutoCommit(false);
+
+        try {
+            statement.execute("UPDATE BOOKS SET SALE_AMOUNT=SALE_AMOUNT+10 WHERE ID='103'");
+            statement.execute("UPDATE BOOKS SET SALE_AMOUNT=SALE_AMOUNT+10 WHERE ID='102'");
+            statement.execute("UPDATE BOOKS SET PRICE=79.5 WHERE ID='102'");
+
+            connection.commit();
+        } catch (Exception e) {
+            e.printStackTrace();
+            connection.rollback();
+        }
+
+        statement.close();
+        connection.close();
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con4">JNDI数据库连接</h2>
+<p>每次都创建连接, 太重型, 在上次的学习里了解过了第三方库的连接池, 现在来看看如何在Web容器中配置DataSource.</p>
+<p>数据源由Web容器来提供可以非常方便的供Web应用来使用. Java程序可以通过JNDI技术, 通过javax.naming包来检索对象并且使用. Tomcat可以把DataSource配置成一种JNDI资源.</p>
+<p>先来看看如何配置, 需要两个配置, 一个是配置context.xml 这个属于tomcat的配置, 还一个是配置web.xml这个属于web应用的配置. 至于context.xml的位置也有讲究, 这里就只在/conf/下直接配置用于整个Web容器的context.xml:</p>
+<pre>
+&lt;Context>
+    ......
+    &lt;WatchedResource>WEB-INF/web.xml&lt;/WatchedResource>
+    &lt;WatchedResource>WEB-INF/tomcat-web.xml&lt;/WatchedResource>
+    &lt;WatchedResource>${catalina.base}/conf/web.xml&lt;/WatchedResource>
+    &lt;Resource name="jdbc/bookDB" type="javax.sql.DataSource" password="fflym0709" driverClassName="com.mysql.cj.jdbc.Driver"
+          maxIdle="5" maxWait="5000" username="root" url="jdbc:mysql://localhost:3306/BookDB?useUnicode=true&amp;characterEncoding=UTF-8"
+          maxActive="10"/>
+    ......
+&lt;/Context>
+</pre>
+<p>如此配置之后, 容器的环境中就有了一个叫做<code>jdbc/bookDB</code>的名称的对象, 不过还需要在web-xml中也配置一下:</p>
+<pre>
+&lt;resource-ref>
+    &lt;res-ref-name>jdbc/bookDB&lt;/res-ref-name>
+    &lt;res-type>javax.sql.DataSource&lt;/res-type>
+    &lt;res-auth>Container&lt;/res-auth>
+&lt;/resource-ref>
+</pre>
+<p>这样就能被当前应用识别了, 其中的名称和对应的类型都要和context.xml中保持一致.</p>
+<p>之后在程序中, 通过 javax.naming类来查找对象并使用:</p>
+<pre>
+Context context = new InitialContext();
+DataSource dataSource = (DataSource) context.lookup("<span style="color: orange">java:comp/env/</span><span style="color: red">jdbc/bookDB</span>");
+Connection connection = dataSource.getConnection();
+</pre>
+<p>橙色部分是必须加上去的, 红色部分就是刚才自己定义的名称, 通过这个名称查找可以得到一个对象, 由于已经知道是DataSource对象, 就可以实行强制转换, 然后直接获取连接就可以了.</p>
+<p>和其他的连接池库一样, 获取的connection实际上是一个Connection的代理类,对其调用.close()是归还进池子里.</p>
+<p>使用数据源的还一个好处就是会自动关闭由MySQL驱动程序运行的Abandoned Connection Cleanup Thread 线程. 否则在退出Web应用的时候可以看到这个线程没有被终止, 会报错.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
