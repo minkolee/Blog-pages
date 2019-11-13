@@ -15,25 +15,538 @@
     </style>
 </head>
 <body>
-<p>前边看过了标记文件以及标记文件背后隐藏的简单标记类, 现在来看一下传统标签, 也就是Tag类.</p>
+<p>前边看过了标记文件以及标记文件背后隐藏的简单标记类, 现在来看一下传统标签, 也就是Tag类. 之前已经了解到, 标签也没有什么奥秘, jsp中的标签需要声明使用的标签文件和前缀, 对应的标签文件保存在响应的地址, 标签文件中又写明了对应的实际处理类. 在jsp执行的时候就会去调用标签的结果.</p>
+<p>给标签传递参数则通过属性, 本质上就是将一个功能单独抽取出来制作成了标签的样子.</p>
+<p>按照老套路, 标签文件依然放在/WEB-INF/tags目录下边.</p>
+
+
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">JspTag接口及其衍生</a></li>
+    <li><a href="#con2">Tag接口的方法</a></li>
+    <li><a href="#con3">TLD文件</a></li>
+    <li><a href="#con4">IterationTag接口</a></li>
+    <li><a href="#con5">BodyTag接口</a></li>
+    <li><a href="#con6">总结</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
-<h2 style="text-align: center;" id="con2"></h2>
-<h2 style="text-align: center;" id="con3"></h2>
-<h2 style="text-align: center;" id="con4"></h2>
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+<h2 style="text-align: center;" id="con1">JspTag接口及其衍生</h2>
+<p>JspTag接口是所有接口的最基础的实现接口, 位于 javax.servlet.jsp.tagext.JspTag 中, 这个接口没有任何方法, 和序列化类似, 仅仅起到一种标记的作用, 所以实践中不直接继承这个接口.</p>
+<p>JspTag接口有两个衍生接口, 一个是Tag, 一个是SimpleTag, 后者就是简单标记, 先按下不表. 这里就要来看是Tag接口, 也就是传统标签.</p>
+<p>Tag接口下边还有一个衍生接口, 叫做IterationTag, 顾名思义, 就是增加了反复执行标签内容功能的标签, IterationTag再衍生出来一个BodyTag接口, 增加了操作标签主体的功能. 但是这几个接口当然咱们也不会去继承, 而是要去继承实现类.</p>
+<p>IterationTag的实现类叫做TagSupport, BodyTag的实现类叫做BodyTagSupport(同时继承了TagSupport). 这样选择就简单了, 如果想创建一个自闭合标签, 就继承TagSupport类, 如果想要创建一个可以带有主体的标签, 就继承BodyTagSupport类.</p>
+<p>用一个简单的清单列出来:</p>
+<ol>
+    <li><code>Tag</code> - 带有基础的标签处理功能</li>
+    <li><code>IterationTag</code> - Tag的功能加上反复执行标签主体的功能</li>
+    <li><code>BodyTagSupport</code> - IterationTag的功能加上操作标签主体的功能</li>
+</ol>
+<p>实践里一般都继承BodyTagSupport.</p>
 
-<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+<h2 style="text-align: center;" id="con2">Tag接口的方法</h2>
+<p>一个标签对于最后生成的HTML页面, 其实就代表了一串字符串, 根据传入的属性(主体也是一种属性)和标签处理类的具体代码, 执行计算然后将结果字符串替换到原来标签的位置.</p>
+<p>Tag标签是标签的基础接口, 定义了如下方法:</p>
+<ol>
+    <li><code>setPageContext(PageContext page)</code>, 容器调用这个方法, 给你传当前的页面对象</li>
+    <li><code>setParent(Tag tag)</code>, 容器调用这个方法, 给你传标签的父标签对象, 有意思, 这说明标签支持嵌套功能</li>
+    <li><code>getParent()</code>, 获取父标签, 显然标签之间可以交互</li>
+    <li><code>release()</code>, 生命周期函数, 释放标签资源的时候调用</li>
+    <li><code>doStartTag()</code>, 从这里开始就是关键的方法了, 在JSP运行的时候, 遇到标签的起始标志(<span style="color:red ">&lt;xx:</span>)时候,会执行这个方法. 这个方法会返回一个整数值, Tag.SKIP_BODY或者Tag.EVAL_BODY_INCLUDE, 前者表示忽略主体内容, 后者表示执行主体. 很显然我们需要覆盖这个方法才能完成自己的标签功能.</li>
+    <li><code>doEndTag()</code>, 关键方法之二, 在JSP运行的时候, 遇到标签的结束标志,会执行这个方法. 这个方法会返回一个整数值, Tag.SKIP_PAGE或者Tag.EVAL_PAGE, 前者表示不继续执行后续的JSP了, 直接将当前结果作为响应返回, 后者表示继续执行. 这个方法也需要覆盖.</li>
+</ol>
+<p>可见, Tag类的提供的功能说白了就是一句话, 即是否执行标签主体和标签后续. 你想重复执行, 做不到, 想自由的控制标签的主体, 也做不到, 就只能选择执行与否.</p>
+<p>看个简单的例子, 比如当前页面范围内如果有参数username, 就显示用户名称, 如果没有, 就不显示欢迎信息.</p>
+<p>首先继承BodyTagSupport类, 当然这里只用Tag接口提供的方法, 不使用其他类提供的方法:</p>
+<pre>
+import javax.servlet.jsp.JspException;
+import javax.servlet.jsp.tagext.BodyTagSupport;
+import javax.servlet.jsp.tagext.Tag;
+
+public class TestTag1 extends BodyTagSupport {
+
+    @Override
+    public int doStartTag() throws JspException {
+        String username = pageContext.getRequest().getParameter("username");
+
+        if (username != null) {
+            return Tag.EVAL_BODY_INCLUDE;
+        } else {
+            return Tag.SKIP_BODY;
+        }
+    }
+}
+</pre>
+<p>尝试寻找username属性, 如果找不到, 就跳过执行标签主体, 如果找到了, 就执行标签主体. 至于doEndTag()无需覆盖, 父类默认返回的就是Tag.EVAL_PAGE.</p>
+<p>有了处理类了, 需要制作标签文件, 创建WEB-INF/tags目录, 使用IDEA的话, 直接可以新建一个 XML Configuration File 下边的 JSP Tag Library Desciptor 文件, 也就是标签库描述文件TLD.</p>
+
+<h2 style="text-align: center;" id="con3">TLD文件的内容和配置</h2>
+<p>使用IDEA创建的TLD文件初始内容如下:</p>
+<pre>
+&lt;?xml version="1.0" encoding="ISO-8859-1"?>
+
+    &lt;taglib xmlns="http://java.sun.com/xml/ns/javaee"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-jsptaglibrary_2_1.xsd"
+            version="2.1">
+
+    &lt;tlib-version>1.0&lt;/tlib-version>
+    &lt;short-name>myshortname&lt;/short-name>
+    &lt;uri>http://mycompany.com&lt;/uri>
+
+&lt;/taglib>
+</pre>
+<p>&lt;tlib-version>是标签版本, &lt;short-name>表示的是前缀, &lt;uri>表示是标签库的访问标识符. 关键是最后一个标识符, 如果仅仅在当前web应用下使用, 可以自己指定一个路径, web.xml中需要配置该路径.</p>
+<p>在其中, 可以添加tag元素, 每一个tag元素就是一个自己的标签, 修改如下:</p>
+<pre>
+&lt;?xml version="1.0" encoding="ISO-8859-1"?>
+
+    &lt;taglib xmlns="http://java.sun.com/xml/ns/javaee"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-jsptaglibrary_2_1.xsd"
+            version="2.1">
+
+    &lt;tlib-version>1.0&lt;/tlib-version>
+    &lt;short-name>cl&lt;/short-name>
+    &lt;uri>/cltag&lt;/uri>
+
+    &lt;tag>
+        &lt;name>welcome&lt;/name>
+        &lt;tag-class>tags.TestTag1&lt;/tag-class>
+        &lt;body-content>scriptless&lt;/body-content>
+    &lt;/tag>
+&lt;/taglib>
+</pre>
+<p>tag中定义了一个标签, 名称叫做welcome, 这就是在jsp中这个标签的名字. tag-class是对应的标签处理类, 这其实有点像url和映射的servlet之间的关系.</p>
+<p>关键是最后一个body-content的设置, 有如下可选:</p>
+<ol>
+    <li><code>empty</code>, 标签无主体, 自闭合, 如果使用标签的时候传递了主体, 会报错</li>
+    <li><code>scriptless</code>, 标签内部不为空, 包含JSP的EL表达式和动作元素, 但不能包含JSP脚本元素(&lt;%开头的元素)</li>
+    <li><code>jsp</code>, 标签内部不为空, 包含JSP的EL表达式和动作元素和JSP脚本元素(&lt;%开头的元素)</li>
+    <li><code>tagdependant</code>, 标签不为空, 主体交给标签处理类来解析, 而不是由jsp解析. 上边两个都是jsp引擎直接就给执行了.</li>
+</ol>
+<p>现在暂时还没有用到标签属性, 但是可以先介绍一下, attribute属性用于指定标签的属性, 包含在一个tag标签内部, 其内部还有三个设置:</p>
+<ol>
+    <li><code>name</code>, 属性名称</li>
+    <li><code>required</code>, 是否强制需要该属性</li>
+    <li><code>rtexprvlue</code>, 如果设置为true,表示属性可以是一个对象, 如果设置为false, 属性只能是字符串形式. 这个和标记文件是一样的, 有了这个就可以给标签处理类传递各种对象了.</li>
+</ol>
+<p>我们的需求是想显示用户名, 所以标签的主体应该包含一个EL表达式, 但是无需属性, 所以最后的TLD文件中的body-content就设置成如上所示的scriptless即可.</p>
+<p>写好TLD文件之后, 要立刻想到在web.xml中也配置上TLD文件. web.xml中的taglib元素用来配置标签文件:</p>
+<pre>
+&lt;jsp-config>
+    &lt;taglib>
+        &lt;taglib-uri>/cltag&lt;/taglib-uri>
+        &lt;taglib-location>/WEB-INF/tags/WelcomeTag.tld&lt;/taglib-location>
+    &lt;/taglib>
+&lt;/jsp-config>
+</pre>
+<p>在tomcat6以上版本, web.xml中定义taglib时要嵌入到jsp-config标签中.</p>
+<p>这里的taglib-uri要对应TLD文件中的uri, taglib-location要对应TLD文件所在的位置.</p>
+<p>最后在index.jsp中使用该标签:</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib prefix="cony" uri="/cltag" %>
+&lt;html>
+&lt;head>
+    &lt;title>Title&lt;/title>
+&lt;/head>
+&lt;body>
+
+&lt;cony:welcome>
+
+    欢迎 ${param.username} !
+
+&lt;/cony:welcome>
+
+&lt;/body>
+&lt;/html>
+</pre>
+<p>之后以<code>http://localhost:8080/?username=saner</code>的形式访问, 就可以看到标签中的主体被执行, 如果直接访问<code>http://localhost:8080/</code>则可以看到没有显示任何内容, 由于标签中有欢迎2字不是EL表达式, 所以可以证明标签的整个主体都没有得到执行.</p>
+
+<h2 style="text-align: center;" id="con4">IterationTag接口</h2>
+<p>这个接口提供了一个新方法, 叫做doAfterBody(), 在执行完Tag标签的主体之后和执行doEndTag()之前, 会执行这个方法, 返回值依然有两个, 依照前边学习可以知道, 一个是继续重复执行(IterationTag.EVAL_BODY_AGAIN), 一个是不再执行(Tag.SKIP_BODY).</p>
+<p>这个接口很好理解, 相当于给你附加了一个功能, 就是执行完之后还要执行几次, 如果不执行了, 到达doEndTag(), 整个标签就结束了.</p>
+<p>我们可以来编写一个将指定的内容显示10次的标签, 处理类如下:</p>
+<pre>
+import javax.servlet.jsp.JspException;
+import javax.servlet.jsp.tagext.BodyTagSupport;
+import javax.servlet.jsp.tagext.IterationTag;
+import javax.servlet.jsp.tagext.Tag;
+
+public class TenTimes extends BodyTagSupport {
+
+    private int count = 10;
+
+    @Override
+    public int doAfterBody() throws JspException {
+        if (count == 0) {
+            return Tag.SKIP_BODY;
+        } else {
+            count--;
+            return IterationTag.EVAL_BODY_AGAIN;
+        }
+    }
+
+    @Override
+    public int doStartTag() throws JspException {
+        return Tag.EVAL_BODY_INCLUDE;
+    }
+}
+</pre>
+<p>注意这里必须覆盖doStartTag()方法, 因为我查看BodyTagSupport的该方法默认返回2, 而不是执行方法主体, 所以要覆盖, 改成执行主体. 如果返回的是SKIP_BODY, 是会直接跳到doEndTag()方法, 从而跳过doAfterBody()方法.</p>
+<p>在TLD中配置标签:</p>
+<pre>
+&lt;tag>
+    &lt;name>tenTimes&lt;/name>
+    &lt;tag-class>tags.TenTimes&lt;/tag-class>
+    &lt;body-content>scriptless&lt;/body-content>
+&lt;/tag>
+</pre>
+<p>之后在JSP中使用:</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib prefix="cony" uri="/cltag" %>
+&lt;html>
+&lt;head>
+    &lt;title>Title&lt;/title>
+&lt;/head>
+&lt;body>
+
+&lt;cony:welcome>
+    &lt;div>欢迎 ${param.username} !&lt;/div>
+&lt;/cony:welcome>
+
+&lt;cony:tenTimes>
+    &lt;div>这里显示10次 欢迎 ${param.username} !&lt;/div>
+&lt;/cony:tenTimes>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>访问之后可以看到确实显示了10次, 但是刷新一下页面可以发现, 又变成只显示一次了, 这是因为标签对象是会被容器缓存使用的, 而不是每次创建一个新的标签对象.</p>
+<p>因为最好将Tag当成一个方法, 不要在其中保持自己的类变量, 于是我们可以创建一个根据属性来显示指定次数的标签, 正好来看看属性如何使用. 先创建标签类:</p>
+<pre>
+package tags;
+
+import javax.servlet.jsp.JspException;
+import javax.servlet.jsp.tagext.BodyTagSupport;
+import javax.servlet.jsp.tagext.IterationTag;
+import javax.servlet.jsp.tagext.Tag;
+
+public class IterShow extends BodyTagSupport {
+
+    private int count;
+
+<span style="color: red">    public int getCount() {
+        return count;
+    }
+
+    public void setCount(int count) {
+        this.count = count - 1;
+    }</span>
+
+    @Override
+    public int doStartTag() throws JspException {
+        return Tag.EVAL_BODY_INCLUDE;
+    }
+
+    @Override
+    public int doAfterBody() throws JspException {
+        if (count <= 0) {
+            return Tag.SKIP_BODY;
+        } else {
+            count--;
+            return IterationTag.EVAL_BODY_AGAIN;
+        }
+    }
+}
+</pre>
+<p>这里使用了setter和getter函数, 容器会调用setter函数, 将jsp中传递给标签的参数设置上去. 但是如何知道是一个int类型的值呢, 需要在TLD中配置:</p>
+<p>这里还要注意, 是在执行了一次主体之后, 才会去调用doAfterBody, 所以setter方法中要对count-1, 此外调整了count <= 0的判断条件. 这样该标签至少会显示一次.</p>
+<pre>
+&lt;tag>
+    &lt;name>iterShow&lt;/name>
+    &lt;tag-class>tags.IterShow&lt;/tag-class>
+    &lt;body-content>scriptless&lt;/body-content>
+    &lt;attribute>
+        &lt;name>count&lt;/name>
+        &lt;required>false&lt;/required>
+        &lt;rtexprvalue>true&lt;/rtexprvalue>
+        <span style="color: red">&lt;type>java.lang.Integer&lt;/type></span>
+    &lt;/attribute>
+&lt;/tag>
+</pre>
+<p>这个红色的部分表示属性的类型, 非常关键, 要与传递给属性的表达式相匹配.</p>
+<p>之后在JSP中这么使用:</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib prefix="cony" uri="/cltag" %>
+&lt;html>
+&lt;head>
+    &lt;title>Title&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;cony:welcome>
+    &lt;div>欢迎 ${param.username} !&lt;/div>
+&lt;/cony:welcome>
+&lt;div>---------------------------------&lt;/div>
+&lt;cony:tenTimes>
+    &lt;div>这里显示10次 欢迎 ${param.username} !&lt;/div>
+&lt;/cony:tenTimes>
+&lt;div>---------------------------------&lt;/div>
+&lt;cony:iterShow <span style="color: red">count="${10}"</span>>
+    &lt;div>这里显示10次 欢迎 ${param.username} !&lt;/div>
+&lt;/cony:iterShow>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这里一定要注意红色部分的传递属性, 在EL表达式那一节已经明确了, EL表达式本身是一个对象, 在输出页面中变成了对象的.toString()结果, 但是在执行页面的过程中, 一定要记住将EL表达式看成Java语句对应的对象. 这里就是一个int类型的1, 传递给了标签处理文件.</p>
+<p>不得不说一下和Vue确实太像了.</p>
+<p>重新启动Web服务器然后访问, 可以发现第一次访问的时候都显示了10次, 但是多次刷新后, 只有新编写的标签正常显示了.</p>
+<p>这里还记得Django或者其他什么模板中使用临时变量来遍历一个集合吗, 乘胜追击编写一个这样的标签:</p>
+<pre>
+import javax.servlet.jsp.JspException;
+import javax.servlet.jsp.tagext.IterationTag;
+import javax.servlet.jsp.tagext.Tag;
+import javax.servlet.jsp.tagext.TagSupport;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+
+public class Rows extends TagSupport {
+
+    //临时变量的名称, 由标签属性传入
+    private String var;
+
+    //标签属性传入的集合对应的迭代器
+    private Iterator&lt;Game> games;
+
+    private Game game;
+
+    public String getvar() {
+        return var;
+    }
+
+    public void setvar(String var) {
+        this.var = var;
+    }
+
+    //setGames这个名称有即可, 参数List&lt;Game> games需要与标签中实际传入的参数对应, 但games属性未必需要对应
+    public void setGames(List&lt;Game> games) {
+        this.games = games.iterator();
+    }
+
+
+    //连起来看的话, 这其实就是一个do-while循环, 所以二者代码几乎一样.
+    @Override
+    public int doStartTag() throws JspException {
+        if (games.hasNext()) {
+            game = games.next();
+            pageContext.setAttribute(var, game);
+            return Tag.EVAL_BODY_INCLUDE;
+        } else {
+            pageContext.removeAttribute(var);
+            return Tag.SKIP_BODY;
+        }
+    }
+
+    @Override
+    public int doAfterBody() throws JspException {
+        if (games.hasNext()) {
+            game = games.next();
+            pageContext.setAttribute(var, game);
+            return IterationTag.EVAL_BODY_AGAIN;
+        } else {
+            pageContext.removeAttribute(var);
+            return Tag.SKIP_BODY;
+        }
+    }
+}
+</pre>
+<p>临时变量名称var, 给var传一个值的时候,每次迭代都会将var对应的临时变量名称设置上当前的game对象.</p>
+<p>还要注意的就是setGames函数, 容器会调这个函数, 其参数要与传递进来的对象类型一致, 而不是实例变量. 这也是一个小技巧.</p>
+<p>然后是TLD文件:</p>
+<pre>
+&lt;tag>
+    &lt;name>rows&lt;/name>
+    &lt;tag-class>tags.Rows&lt;/tag-class>
+    &lt;body-content>scriptless&lt;/body-content>
+    &lt;attribute>
+        &lt;name>var&lt;/name>
+        &lt;required>true&lt;/required>
+        &lt;rtexprvalue>false&lt;/rtexprvalue>
+    &lt;/attribute>
+    &lt;attribute>
+        &lt;name>games&lt;/name>
+        &lt;required>true&lt;/required>
+        &lt;rtexprvalue>true&lt;/rtexprvalue>
+        &lt;type>java.util.Collection&lt;/type>
+    &lt;/attribute>
+&lt;/tag>
+</pre>
+<p>这个设置了两个属性, 名称必须要与类中的变量一致, 类型能够确保一致的话, type标签可以省略.</p>
+<p>最后是在JSP中使用:</p>
+<pre>
+&lt;table border="1">
+    &lt;caption>Recent Games&lt;/caption>
+    &lt;thead>
+    &lt;tr>
+        &lt;th>简称&lt;/th>
+        &lt;th>全名&lt;/th>
+        &lt;th>价格&lt;/th>
+    &lt;/tr>
+    &lt;/thead>
+
+    &lt;tbody>
+    &lt;cony:rows games="${requestScope.games}" var="game">
+        &lt;tr>
+            &lt;td>${game.name}&lt;/td>
+            &lt;td>${game.description}&lt;/td>
+            &lt;td>${game.price}&lt;/td>
+        &lt;/tr>
+    &lt;/cony:rows>
+    &lt;/tbody>
+&lt;/table>
+</pre>
+<p>页面里已经用控制器放了一个List&lt;Game>对象, 控制器和Game类如下:</p>
+<pre>
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+@WebServlet("/iter")
+public class TestIter extends HttpServlet {
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        List&lt;Game> games = new ArrayList&lt;>();
+
+        games.add(new Game("MHW", "Monster hunter world", 379));
+        games.add(new Game("SRWV", "Super Robot Taisen", 501));
+        games.add(new Game("SDGGC", "SD Gundam G Generation CrossRays", 630));
+
+        req.setAttribute("games", games);
+
+        req.getRequestDispatcher("/index.jsp").forward(req, resp);
+
+    }
+}
+</pre>
+<pre>
+package tags;
+
+public class Game {
+
+    private String name;
+
+    private String description;
+
+    private double price;
+
+    public Game(String name, String description, double price) {
+        this.name = name;
+        this.description = description;
+        this.price = price;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public double getPrice() {
+        return price;
+    }
+
+    public void setPrice(double price) {
+        this.price = price;
+    }
+}
+</pre>
+<p>可以看到这就和很多模板中的迭代标签完全一样了, JSTL的本质也是类似的.</p>
+
+<h2 style="text-align: center;" id="con5">BodyTag接口</h2>
+<p>这个接口又增加了两个方法:</p>
+<ol>
+    <li><code>setBodyContent(BodyContent content)</code>, 容器执行这个方法, 传递一个BodyContent对象交给标签, 这个对象将来会保存标签主体的执行结果.</li>
+    <li><code>doInitBody()</code>, 这个方法在执行上一个方法之后, 开始准备执行主体之前来调用.</li>
+</ol>
+<p>如果不需要执行主体, 则这两个方法不会执行, 实际上, 主体为空或者doStartTag()的返回值不是BodyTagSupport.EVAL_BODY_BUFFERED的情况下, 这两个方法压根就不会执行.</p>
+<p>这两个方法听着有点抽象, 实际上是什么意思呢, 就是你决定要处理主体内容了, 就让doStartTag()返回Tag.EVAL_BODY_BUFFERED, 此时你在类里就可以获取BodyContent并且进行操作.</p>
+<p>如果不需要操作主体, 就交给容器解释, 那就可以让doStartTag()返回BodyTagSupport.EVAL_BODY_BUFFERED以外的值, 这个时候你也获取不了BodyContent对象, 因为主体已经被执行并且写入到响应中了.</p>
+<p>这个标签具体有什么用呢, 相比前两个标签, 其中的主体部分要么不执行, 要么就执行了, 一旦你决定执行, 到了标签doEndTag的时候主体已经被写入响应, 无法控制了, 使用这个标签, 就可以先把结果保存起来, 视情况使用.</p>
+<p>举个简单例子, 创建一个标签, 专门给主体的内容加上一段后缀, 比如是用特定颜色显示的当前时间:</p>
+<pre>
+import javax.servlet.jsp.JspException;
+import javax.servlet.jsp.JspWriter;
+import javax.servlet.jsp.tagext.BodyTagSupport;
+import javax.servlet.jsp.tagext.Tag;
+import java.io.IOException;
+import java.time.LocalDateTime;
+
+public class TimeSuffix extends BodyTagSupport {
+
+    //表示要使用主体对象了, 此时就可以使用BodyContent对象了
+    @Override
+    public int doStartTag() throws JspException {
+        return BodyTagSupport.EVAL_BODY_BUFFERED;
+    }
+
+    @Override
+    public int doEndTag() throws JspException {
+
+        String time = LocalDateTime.now().toString();
+
+        //out对象从bodyContent中获取, 然后向其写入bodyContent.getString(), 也就是执行结果
+        //注意不能直接获取pageContext.getResponse().getWriter(), 这会在解析Tag的时候就写入, 结果是写到了页面最开头的部分
+        JspWriter out = bodyContent.getEnclosingWriter();
+        try {
+            out.println(bodyContent.getString());
+            //写入之后再追加写入当前的时间, 样式为红色
+            out.println("&lt;span style=\"color:red\">" + time + "&lt;/span>");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return Tag.EVAL_PAGE;
+    }
+}
+</pre>
+<p>TLD配置就省略了, 在JSP使用的时候就类似这样:</p>
+<pre>
+&lt;h3>以下带红色时间后缀:&lt;/h3>
+&lt;div>
+    &lt;cony:timeSuffix>刚刚落地&lt;/cony:timeSuffix>
+&lt;/div>
+&lt;div>
+    &lt;cony:timeSuffix>开始回家&lt;/cony:timeSuffix>
+&lt;/div>
+</pre>
+<p>这两个标签实际上就会在主体的部分追加上红色的当前时间. 可见这个标签为修改主体内容带来了便利性.</p>
+
+
+<h2 style="text-align: center;" id="con6">总结</h2>
+<p>总的来说, 如果是针对JSP开发, 使用标签可以基本上将Java代码从JSP文件中去掉, 仅仅使用EL表达式和标签.</p>
+<p>不过如果使用太多的自定义标签, 就会造成高耦合, 所以会导致JSTL这种方便的标准标签库的出现.</p>
+<p>同时通过编写这些标签, 也能够理解一些现代前端工具比如Vue解析标签的思想, 通过简单的将代码抽象为标签, 逐渐形成了后来各种前后端不分离情况下的HTML模板渲染组件.</p>
+
+
+
+
 
 </body>
 </html>
