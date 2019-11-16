@@ -15,7 +15,7 @@
     </style>
 </head>
 <body>
-<p>IOC容器实际上就是一个强化版的工厂, 在启动容器的时候根据配置来创建好所有的Bean, 然后向工厂就可以获取这些Bean来进行使用.</p>
+<p>IOC容器实际上就是一个工厂设计模式里的工厂, 当然还强化了很多功能. 这个工厂在启动容器的时候根据配置来创建好所有的Bean, 然后向工厂就可以获取这些Bean来进行使用.</p>
 <p>在最早接触Spring的时候, 就听到说这个框架不仅仅可以用于Web应用, 但当时只是按部就班的学习如何编写Web程序, 对于Java的理解也不够深.</p>
 <p>现在终于明白了这个东西的本质就是容器, 容器可以单独被外部使用, 而套上了Servlet的外皮, 和ServletContext互相引用之后, 就成了Web应用的框架.</p>
 <p>关于依赖注入的几种方式比如构造器注入, setter方法注入, 这不是属于Spring 特有的内容, 这次RE就要来深入看看Spring的东西.</p>
@@ -23,9 +23,9 @@
 
 <ol>
     <li><a href="#con1">Resource接口</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con2">IOC容器</a></li>
+    <li><a href="#con3">BeanFactory</a></li>
+    <li><a href="#con4">ApplicationContext</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
@@ -117,8 +117,213 @@ public class ResourceLearn {
 <p>统一加载资源的接口叫做ResourceLoader, 在此基础上又扩展一个接口叫做ResourcePatternResolver, 听名字就知道可以根据字符形式的路径解析, 实现类是在此基础上的PathMatchingResourcePatternResolver</p>
 <p>前两个接口的区别是, ResourceLoader只能使用资源地址表达式, ResourcePatternResolver可以使用资源地址表达式加上Ant通配符. 针对上边的例子, 修改如下:</p>
 <pre>
+package cc.conyli;
+
+import org.springframework.core.io.*;
+import org.springframework.core.io.support.EncodedResource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.util.FileCopyUtils;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+
+public class ResourceLearn {
+
+    public static void main(String[] args) throws IOException {
+
+        Resource resource1 = new PathMatchingResourcePatternResolver().getResource("file:d:\\test.txt");
+        if (resource1.exists()) {
+            System.out.println(resource1.getFilename() + "的字节数是" + resource1.contentLength());
+
+        }
+
+        Resource resource2 = new PathMatchingResourcePatternResolver().getResource("test2.html");
+        if (resource2.exists()) {
+            System.out.println(resource2.getFilename() + "的字节数是" + resource2.contentLength());
+            InputStream in2 = resource2.getInputStream();
+            File test2HTML = resource2.getFile();
+            EncodedResource encodedResource = new EncodedResource(resource2, StandardCharsets.UTF_8);
+            String content = FileCopyUtils.copyToString(encodedResource.getReader());
+            System.out.println(content);
+        }
+
+        Resource resource3 = new PathMatchingResourcePatternResolver().getResource("https://conyli.cc");
+        if (resource3.exists()) {
+            EncodedResource encodedResource = new EncodedResource(resource3, StandardCharsets.UTF_8);
+            String content = FileCopyUtils.copyToString(encodedResource.getReader());
+            System.out.println(content);
+        }
+    }
+}
+</pre>
+<p>搞完了Resource, 就可以来看看如何启动IOC容器, 也就是Spring创建Bean的工厂了.</p>
+
+<h2 style="text-align: center;" id="con2">IOC容器</h2>
+<p>IOC容器最基础的接口有两个, 一个是org.springframework.beans.factory.BeanFactory, 一个是 org.springframework.context.ApplicationContext.</p>
+<p>学过了前边Java Web会知道, 后边那个很像ServletContext, 实际上二者的含义也很相似. ApplicationContext代表的是IOC容器, 创建与BeanFactory之上.</p>
+<p>可以说BeanFactory更像是一个为Spring其他组件提供基础服务的对象, 而ApplicationContext提供了更多面向应用的功能, 所以一般使用, 都会使用ApplicationContext.</p>
+<p>不过既然要研究一下容器, 这两个东西还是都要来看看. 在之前Java Web的时候已经知道, 需要进行一定的配置, 才能启动容器, 容器启动的时候就会将其中使用到的东西组装和设置好.</p>
+<p>Spring的IOC容器也是类似原理, 需要想办法让容器知道配置在哪里, 需要组装哪些类, 然后用一个命令启动容器并且获取容器的引用, 就可以通过容器获取Bean了.</p>
+<p>所以启动IOC容器的套路就是:</p>
+<ol>
+    <li>编写好配置文件</li>
+    <li>将配置文件弄成一个Resource东西以供Spring使用</li>
+    <li>通过IOC容器的具体实现类加载Resource对象, 启动容器</li>
+</ol>
+
+<h2 style="text-align: center;" id="con3">BeanFactory</h2>
+<p>BeanFactory下边有一堆继承体系, 就不放了. 最常用的启动IOC容器的类是XmlBeanDefinitionReader, 顾名思义, 这是一个读取XML配置然后启动IOC容器的类, 具体来说, 这个类构造的时候注入一个Factory系列的实现类(常用的是DefaultListableBeanFactory), 然后加载配置, 之后其中的Factory就是一个IOC容器了.. 下边就来实践一下.</p>
+<p>首先要编写一个让IOC容器进行组装的类, 简单一点好了, 就以博主打算要玩的下一个游戏SD GUNDAM G 世纪 Cross Rays为例编写一个Game类:</p>
+<pre>
+package cc.conyli;
+
+public class Game {
+
+    private int price;
+
+    private String name;
+
+    public int getPrice() {
+        return price;
+    }
+
+    public void setPrice(int price) {
+        this.price = price;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+}
 
 </pre>
+<p>这个类再简单不过了. 然后创建一个XML配置文件:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;beans xmlns="http://www.springframework.org/schema/beans"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd"
+           xmlns:p="http://www.springframework.org/schema/p">
+
+    &lt;bean id="sdgggcr" class="cc.conyli.Game" p:name="SDGGGCR" p:price="476"/>
+
+&lt;/beans>
+</pre>
+<p>之后要做的是把这个XML文件加载进一个Resource对象, 然后再用对应的类来启动IOC容器</p>
+<pre>
+package cc.conyli;
+
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+import org.springframework.core.io.*;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.support.ResourcePatternResolver;
+
+import java.io.*;
+
+public class ResourceLearn {
+
+    public static void main(String[] args) throws IOException {
+
+        //加载XML配置文件, 注意路径
+        ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        Resource xmlConfigFile = resolver.getResource("classpath:cc/conyli/beans.xml");
+        System.out.println(xmlConfigFile.getURL());
+        System.out.println(xmlConfigFile.getFilename());
+
+        //启动IOC容器的步骤
+        //第一步, 创建一个DefaultListableBeanFactory对象
+        DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+        //第二步, 创建XmlBeanDefinitionReader
+        XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
+        //第三步, 加载配置文件, 这一步实际上就启动了IOC容器, 通过factory就可以获取Bean并使用了.
+        reader.loadBeanDefinitions(xmlConfigFile);
+
+        //通过工厂获取Bean并且使用
+        Game sdgggcr = factory.getBean("sdgggcr", Game.class);
+
+        System.out.println(sdgggcr.getName());
+        System.out.println(sdgggcr.getPrice());
+    }
+}
+</pre>
+<p>吐槽一下SDGGGCR的豪华版还真的够贵, 其中的派遣任务似乎不是正版还没法玩....还是先看工厂吧, 通过XmlBeanDefinitionReader的工作, 加载完配置文件之后, 就可以从工厂中获取对应的Bean了.</p>
+<p>这里如果继续深究细节, 可以知道工厂的默认配置就是单例模式, 也可以更改成Prototype就是每次都创建新对象的模式.有了这个例子, 对于如何使用Spring框架的认识就更深了. 由于Web容器中的Servlet天生也是要求单例, 所以这个工厂稍加改动就可以和Web应用配合. 但是这里的最大意义是我们没有通过Web应用来启动IOC容器, 而是单独启动了.</p>
+<p>这就意味着如果想使用单例和(或)工厂模式来装配类, 除了自己编写代码之外, 也可以使用Spring框架.</p>
+
+<h2 style="text-align: center;" id="con4">ApplicationContext</h2>
+<p>从上边的知识中可以了解到这个本质上也是一个IOC容器, 所以启动的本质也是一样, 只不过还有更多的额外功能. 这个也有一堆继承体系, 不过最核心的是两个实现类:</p>
+<ol>
+    <li><code>ClassPathXmlApplicationContext</code>, 从类路径加载配置文件</li>
+    <li><code>FileSystemXmlApplicationContext</code>, 从文件路径加载配置文件</li>
+    <li><code>AnnotationConfigApplicationContext</code>, 从文件路径加载配置文件</li>
+</ol>
+<p>ApplicationContext的使用更加简单, 上边BeanFactory的例子可以改写如下:</p>
+<pre>
+package cc.conyli;
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+import java.io.*;
+
+public class ResourceLearn {
+
+    public static void main(String[] args) throws IOException {
+        //直接使用classpath加载文件
+        ApplicationContext context = new ClassPathXmlApplicationContext("classpath:cc/conyli/beans.xml");
+        //之后就是一个IOC容器了, 可以获取Bean并使用
+        Game sdgggcr = context.getBean("sdgggcr", Game.class);
+
+        System.out.println(sdgggcr.getName());
+        System.out.println(sdgggcr.getPrice());
+    }
+}
+</pre>
+<p>如果追究细节, 一样可以配置成单例或者是Prototype模式, 还有不同的就是BeanFactory系列是惰性加载Bean, 而ApplicationContext在初始化过程中就完全装配好Bean了.</p>
+<p>从文件路径加载并启动容器的方式和从类路径加载并启动一样, Spring 现在还支持通过配置类启动的方式, 我们直接将当前的类改造成一个配置类:</p>
+<pre>
+package cc.conyli;
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.io.*;
+
+<span style="color: red">@Configuration</span>
+public class ResourceLearn {
+
+<span style="color: red">    @Bean(name = "sdgggcr")
+    public Game createBean() {
+        Game game = new Game();
+        game.setName("SDGGGCR");
+        game.setPrice(328);
+        return game;
+    }</span>
+
+    public static void main(String[] args) throws IOException {
+
+        //使用AnnotationConfigApplicationContext加载配置类
+        ApplicationContext context = new AnnotationConfigApplicationContext(cc.conyli.ResourceLearn.class);
+
+        //之后一样获取并使用Bean
+        Game sdgggcr = context.getBean("sdgggcr", Game.class);
+
+        System.out.println(sdgggcr.getName());
+        System.out.println(sdgggcr.getPrice());
+    }
+}
+</pre>
+<p>上边红色的部分就是配置类的注解, 我也不是第一天学Spring, 应该基本上都了解. 这么改造之后, 就选用加载类配置的另外一个容器启动器来加载配置类, 完成之后, 依然可以获取Bean并使用.</p>
+<p>其他还有什么Groovy加载器, 可想而知也是先弄好配置文件, 再加载了.</p>
+<p>到这里为止, 已经可以知道如何启动IOC容器了, Spring提供的IOC容器就是一个功能强大的组装Bean的工具, 没有和什么东西捆绑死.</p>
+<p>既然已经研究了IOC容器, 就可以来看看IOC容器在Web应用里是怎么协同Web容器工作的了.</p>
 
 
 
@@ -128,9 +333,15 @@ public class ResourceLearn {
 
 
 
-<h2 style="text-align: center;" id="con2"></h2>
-<h2 style="text-align: center;" id="con3"></h2>
-<h2 style="text-align: center;" id="con4"></h2>
+
+
+
+
+
+
+
+
+
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
 
