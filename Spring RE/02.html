@@ -18,25 +18,421 @@
 <p>这AOP在第一遍看的时候, 概念弄明白了, 简单的AOP会用了. 不过对于深层次的, 尤其那几个名词没有搞得很清楚, 这次就再看看AOP.</p>
 <p>AOP的根源最早来自于Java 1.3 引入的动态代理技术, 之后在这基础上发展出了以AspectJ为代表的AOP规范. 这个动态代理, 也是一门子大学问.</p>
 <p>Spring的AOP仅仅是标准AOP规范的一部分, 但是提供了对于AspectJ的支持, 因此想使用更强力的AspectJ也是可以的.</p>
+<p>这里顺便再提一句, XML配置Bean的部分基本上了解, 但是我看原书的作者对于Spring之外的Bean, 比如DataSource等资源Bean进行XML配置, 对于使用Spring开发的Bean比如Web容器内的各种Bean, 就采用注解配置比较好一些.</p>
+<p>而AOP这种东西, 可以使用基于XML带上命名空间的配置, 会好用一些. 一般的项目都采取XML+基于注解的方式. </p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">AOP基础概念</a></li>
+    <li><a href="#con2">JDK的动态代理和CGLib</a></li>
+    <li><a href="#con3">Spring的AOP</a></li>
+    <li><a href="#con4">增强类 Advice</a></li>
+    <li><a href="#con5">切点类 PointCut</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">AOP基础概念</h2>
+<p>话说这几个概念没搞清楚, 当年就没算真正理解这玩意, 这次再来看看.</p>
+<ol>
+    <li>连接点 Joinpoint, 这个名词指的是程序执行的特定位置. Spring只支持方法的连接点, 也就是指某个方法调用前, 方法调用后, 方法抛出异常, 方法调用前+后这几个点.</li>
+    <li>切点, Pointcut, 这个东西我终于理解了, 实际上就是连接点的容器, 里边可以只放一个连接点, 也可以放多个连接点. 你说这个容器有什么用, 其实是给后边的增强一起来结合成实际的AOP内容. 如果不使用切点封装一下连接点, 如果在多个连接点需要插入, 就需要一个一个连接点的插入过去. 有了切点, 就可以选好一批连接点包装到一个切点里, 然后一次性结合进去, 其实就是操作单个数据和操作集合的区别.</li>
+    <li>增强, Advice, 话说这个词真的抽象, 学英语的时候这个词都是建议, 忠告的意思. 这里的意思就是额外干什么事情. 增强实际上要和方位搭配使用, 否则这段代码插入到哪里呢. 比如切点定位了一个方法. 然后使用在方法前的增强, 结果就是在执行这个方法前, 先执行增强中的代码.</li>
+    <li>目标对象, Target, 这个指的是目标类, 注意是目标类, 由于Spring只支持方法的连接点, 所以你可以认为连接点就是目标方法, 而target 是目标类.</li>
+    <li>织入, Weaving, 这个词语我当时就觉得实在是绝妙, 书作者也说用的棒. 这就是把你前边辛苦写的代码, 按照找准的切点给写到目标对象里去的过程. 一般有三种, 动态代理, 类装载的时候修改, 和编译时候修改. Spring采用动态代理, AspectJ支持后两者. 动态代理的特点是织入快, 运行慢, 后边两者是反过来的.</li>
+    <li>引介, Introduction, 这个看上去就是来来来给你介绍一个新的东西. 如果说连接点至少是本来类里有的地方, 你给织入新玩意了, 这个引介就是给你加上原来没有的东西, 比如属性, 甚至实现接口. 你写的类本来没实现某个接口, 可以动态的让这个类实现接口, 确实刺激.</li>
+    <li>代理, Proxy, 这个一想便知, 你实际用的类, 肯定就不是原来你自己写的类了, 至少也是原来的类的类型或者是一个子类, 保证可以正常运行.</li>
+    <li>切面, Aspect, 切点加上增强和(或)引介, 就是一个切面, 也可以理解为实际能够发挥作用的对象, 单有切点, 单有增强和引介, 都没法发挥作用, 必须结合起来. 硬要类比的话, 好比心脏搭支架, 切点等于说:在哪个地方搭? 增强等于说:用进口的还是国产的. 想要手术成功(成功实施切面), 这两个都得先定下来, 才能正常进行. AOP的核心就是一句话: 实施切面.</li>
+</ol>
+<p>目前AOP的实际行业规范是AspectJ, 最早有一个单独的编译器, 后来也支持注解, 功能很强, 你想在一个类运行时的哪里, 哪个层次搞切面都行. Spring的AOP是一个简化的AOP, 只支持对方法动手, 使用纯Java实现, 好处是方便快捷, 可以和自己的框架融合.</p>
+<p>同时Spring还支持AspectJ的完整功能, 所以就看你需要什么程度的了.</p>
+<p>从这两句话可以发现, 可以单独使用Spring自己的, 但是不支持注解方式. 想要注解方式, 就要导入AspectJ一起用. 怎么个用法, 就是同时标注上AspectJ特有的注解, 以及Spring的Bean注解, 这样Spring在装配的时候, 就能认出来AspectJ的这套玩意. 就是这么牛逼.</p>
+<p>所以要研究Spring AOP, 还是跟研究IOC一样, 先不用外部的库, 整明白单独用Spring是怎么回事, Spring又依赖了哪些技术, 好比IOC框架本质就是一个反射工厂. 来看看AOP依赖的技术</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">JDK的动态代理和CGLib</h2>
+<p>毕竟咱也是经过设计模式洗礼的人了, 对于<a href="https://conyli.cc/archives/3178#con3" target="_blank">代理模式</a>心里可是有数了. </p>
+<p>动态代理从字面上说, 就是你这个类本来好好的, 但是到了运行时, 给你整出来一个你这个类的代理类, 你用这个代理类就能加入自己额外的玩意. Java的动态代理只能代理接口, 也就是代理接口内的方法.</p>
+<p>现在有一个需求, 就是要监视一个业务类每次多少时间能干完活, 这个业务类有个统一接口叫做StandardService, 里边就一个方法service(int), 然后有一个实现类StandardServiceImpl, 代码我们随便编一下:</p>
+<pre>
+public interface StandardService {
+    public void service(int number);
+}
+</pre>
+<pre>
+import java.util.Random;
 
-<h2 style="text-align: center;" id="con3"></h2>
+public class StandardServiceImpl implements StandardService {
 
-<h2 style="text-align: center;" id="con4"></h2>
+    @Override
+    public void service(int number) {
+        System.out.println("给" + number + "号顾客服务");
+        try {
+            Thread.sleep(new Random().nextInt(1000));
+        } catch (InterruptedException e) {
+            System.out.println("服务被中断");
+        }
+    }
+}
+</pre>
+<p>然后很自然, 要监视执行时间, 大家都知道, 如果硬编码, 就在前边插入一段, 后边插入一段, 计算时间差就行了. </p>
+<pre>
+import java.util.Random;
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+public class StandardServiceImpl implements StandardService {
+
+    @Override
+    public void service(int number) {
+
+        <span style="color: red">long start =(System.currentTimeMillis());</span>
+
+        System.out.println("给" + number + "号顾客服务");
+        try {
+            Thread.sleep(new Random().nextInt(1000));
+        } catch (InterruptedException e) {
+            System.out.println("服务被中断");
+        }
+
+        <span style="color: red">long end = System.currentTimeMillis();
+        System.out.println("程序执行的时间是" + (end - start));</span>
+    }
+
+    public static void main(String[] args) {
+
+        StandardService service1 = new StandardServiceImpl();
+        service1.service(10);
+        service1.service(20);
+
+    }
+}
+</pre>
+<p>稍微有点编程经验的都知道, 你改一个地方可以, 你要给很多类都改, 硬编码不要死人. 如果到了生产环境再去掉监控编码, 还要一遍一遍改吗.</p>
+<p>所以可以创建一个代理类, 依然继承StandardService, 方法都一样, 但是怎么样呢, 去代理StandardServiceImpl, 如下:</p>
+<pre>
+public class StandardServiceImplMonitorProxy implements StandardService {
+
+    private StandardService RealService = new StandardServiceImpl();
+
+    @Override
+    public void service(int number) {
+
+        long start =(System.currentTimeMillis());
+
+        RealService.service(number);
+
+        long end = System.currentTimeMillis();
+        System.out.println("程序执行的时间是" + (end - start));
+    }
+
+    public static void main(String[] args) {
+
+        StandardService service1 = new StandardServiceImpl();
+        service1.service(10);
+        service1.service(20);
+
+        StandardService service2 = new StandardServiceImplMonitorProxy();
+        service2.service(10);
+        service2.service(20);
+    }
+}
+</pre>
+<p>这个时候你想用带有监控功能的代理类也行, 想直接用原来的类也行, 知道代理模式的肯定对此都心里有数. 这样原来正儿八经的业务类, 就不用去硬编码监控代码了, 可以是纯粹的业务类, 越纯粹解耦程度越高嘛.</p>
+<p>动态代理技术是什么意思, 就是你这个监控代理类, 别硬编码了, 又要整一个完整的类出来, 你就把里边额外的部分给抽出来就行了, 然后告诉编译器你要代理哪个类, 就给你造一个代理类出来. 编译器需要的信息无非也是: 代理哪个类哪个方法, 在方法前边还是后边执行. 对于这个例子来说, 就是StandardService接口, service()方法, 方法前执行什么, 方法后执行什么. 都确定了, 就可以了.</p>
+<p>JDK从1.3开始在java.lang.reflect里提供了两个新玩意:一个Proxy类和一个InvocationHandler接口, 你看这名字, 顾名思义, 一个类给你生成代理类, 一个类处理你要代理的方法的那些事. 这两个东西搭配起来, 就可以造一个代理类出来了.</p>
+<p>首先咱们的StandardServiceImpl无需改变, 不能影响业务代码嘛.</p>
+<p>那剩下就两点了, 一是给哪个类的哪个方法代理, 二是代理要干啥. 方法的具体操作, 都在这个InvocationHandler接口里, 看代码:</p>
+<pre>
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+
+public class PerformanceHandler implements InvocationHandler {
+
+    //把目标业务类弄进来
+    private Object target;
+
+    public PerformanceHandler(Object target) {
+        this.target = target;
+    }
+
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        //跟直接编写代理类很类似, 只不过方法和参数会由反射传进来
+        long start = System.currentTimeMillis();
+
+        Object result = method.invoke(target, args);
+
+        long end = System.currentTimeMillis();
+
+        System.out.println("程序执行的时间是" + (end - start));
+
+        return result;
+    }
+}
+</pre>
+<p>写完这个类你就应该明白了, 肯定有一个类去使用这个类, 把要代理类的方法啊, 参数什么都传进来, 然后调用你这个类执行, 再把结果返回出去, 你这就是一个处理器. 没错, 这个类里就是代理方法干什么, 也就是干的上边第二点的活, 剩下就是要确定代理哪个类了, 就该Proxy出场了:</p>
+<pre>
+import java.lang.reflect.Proxy;
+
+public class Main {
+
+    public static void main(String[] args) {
+
+        //创建业务类
+        StandardService service = new StandardServiceImpl();
+
+        //创建方法处理器, 把目标对象传递给了方法处理器, 说明就是要对你这个业务对象里的方法动手了
+        PerformanceHandler performanceHandler = new PerformanceHandler(service);
+
+        //创建代理类, Proxy类需要知道你这个类的加载器, 类的接口有什么, 然后就是自己编写的方法处理器
+        StandardService proxy = (StandardService) Proxy.newProxyInstance(service.getClass().getClassLoader(),
+                service.getClass().getInterfaces(), performanceHandler);
+
+        proxy.service(10);
+        proxy.service(20);
+
+    }
+}
+</pre>
+<p>需要的时候, 就可以创建一个代理类来使用, 可以强制转型毫无问题. JDK的动态代理就是这样的.</p>
+<p>这样你就更加解耦, 不用让库里多一个StandardService的实现类了, 就把代理都弄到由Proxy和InvocationHandler的这个体系里来就可以了. JDK的动态代理并不完美: 主要两大问题:</p>
+<ol>
+    <li>只能代理接口, 从Proxy静态方法的参数里就能看出来, 要用到类加载器, 还有实现的接口, 以及处理器, 这说明后台肯定是用这几个玩意加载出来了一个代理类. 你如果在StandardServiceImpl自己扩展了其他方法, 用Proxy死活也没法代理.</li>
+    <li>不能指定方法, 如果你给接口再添两个方法, 只想对其中一个方法进行测试, 你按照上边的代码使用代理类, 所以方法依然都会被事件处理器给代理了, 灵活程度不够.</li>
+</ol>
+<p>除了JDK 1.3 提供的这两个类之外, 还有CGLib库, 不是改用类加载器, 而是修改字节码的方式实现代理. 这里就不再详细学了. </p>
+
+<h2 style="text-align: center;" id="con3">Spring的AOP</h2>
+<p>JDK的动态代理和CGLib就是AOP的基础技术(基础技术还包括AspectJ的编译器, 不过不是很流行). Spring的AOP实现, 就是依赖JDK动态代理或者CGLib, 就好像IOC容器依赖一个Bean工厂一样.</p>
+<p>具体来说, AOP本身有一套规范的接口, 其中有一个核心的接口就是Advice, 即增强. Spring在此基础上扩展了一些增强类, 然后还有PointCut切点类, Advisor 切面类, 用切面类将切点类和增强类组装起来实现AOP功能.</p>
+<p>Spring 的AOP直接使用方法, 你会发现像极了前边的代码, 这是因为本质上还是使用了JDK的动态代理或者CGLib.</p>
+<p>下边就来看一下具体使用, 按照如下逻辑:</p>
+<ol>
+    <li>先看增强类, 增强类由于不附带切点信息, 只有方位, 因此和JDK代理很像, 只要你给上了增强, 所有方法全都给你代理了, 只不过更加精确的区分出了方法前后等方位.</li>
+    <li>再看切点类, 切点类实际上就是更精确了, 你想匹配哪个类, 哪个方法都可以</li>
+    <li>最后看切面类, 切面类就是切点(可以没有)和增强的组合了, 一个切面类设计好以后就可以发挥作用了.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con4">增强类 Advice</h2>
+<p>增强类的单独使用方法非常类似之前我们使用的JDK 的动态代理, 其使用方法也是:</p>
+<ol>
+    <li>创建被代理的对象</li>
+    <li>创建增强类(在之前是创建方法处理器)</li>
+    <li>使用一个Proxy类似的类来生成代理对象</li>
+    <li>使用代理对象</li>
+</ol>
+<p>一对比就可以发现, 其实增强类起到的就是方法处理器的作用. 咱们之前自行编写的时候, 就是写了前后都有的代码, Spring 这里给你特化了方法前, 方法后, 方法前后, 异常捕捉等等类出来, 控制的更加精细.</p>
+<p>这里我们继续沿用StandardService接口和StandardServiceImpl实现类, 现在要用Spring类来给其附加上额外的功能.</p>
+
+<h3>前置增强</h3>
+<p>既然是服务行业吗, 见面就要向客户问好, 现在就要让我们的类在提供服务之前, 先给客户打招呼. 由于这个事情是在实际的service()方法之前做的, 所以是前置增强, 前置增强专门有一个接口: org.springframework.aop.MethodBeforeAdvice. 看到了吧, 纯正Spring提供的类.</p>
+<pre>
+import org.springframework.aop.MethodBeforeAdvice;
+
+import java.lang.reflect.Method;
+
+public class GreetingBefore implements MethodBeforeAdvice {
+    @Override
+    public void before(Method method, Object[] args, Object target) throws Throwable {
+        int number = (int) args[0];
+        System.out.println("欢迎" + number + "号顾客体验服务");
+    }
+}
+</pre>
+<p>Spring的Advice里依然可以获得方法对象, 参数对象等需要截获的内容. 依然可以自由的进行操作.</p>
+<p>制作好了前置增强类之后, 就是创建代理对象了:</p>
+<pre>
+public static void main(String[] args) {
+
+    StandardService service1 = new StandardServiceImpl();
+
+    MethodBeforeAdvice advice = new GreetingBefore();
+
+    //创建一个ProxyFactory工厂
+    ProxyFactory proxyFactory = new ProxyFactory();
+
+    //很像建造者模式, 传入目标对象, 传入增强对象, 然后得到一个代理对象
+    proxyFactory.setTarget(service1);
+
+    proxyFactory.addAdvice(advice);
+
+    StandardService service1proxy = (StandardService) proxyFactory.getProxy();
+
+    //使用原版对象
+    service1.service(10);
+    //使用代理对象
+    service1proxy.service(10);
+
+}
+</pre>
+<p>ProxyFactory也是Spring提供的类, 看这段代码是不是觉得似曾相识, Advice类好比InvocationHandler, ProxyFactory好比Proxy类, 没错, ProxyFactory内部有两种实现, 使用JDK代理或者CGLib之一来创建代理对象, 所以代码非常相似.</p>
+<p>如果给其设置了接口参数, 也就是调用 <code>proxyFactory.setInterfaces(service1.getClass().getInterfaces());</code> 会使用JDK代理, 如果使用 <code>proxyFactory.setOptimize(true);</code> 就会使用CGLib代理.</p>
+<p>注意addAdvice方法, 可以添加多个增强, 会按照添加的顺序调用.</p>
+<p>这是代码创建了一个代理类, 很自然就能想到, 如果是一个Bean, 用XML配置来创建也毫无问题:</p>
+<pre>
+&lt;!--定义Advice的Bean-->
+&lt;bean class="test.aop.springadvice.GreetingBefore" id="greetingBefore"/>
+&lt;!--    定义目标类-->
+&lt;bean id="target" class="test.aop.jdkrawproxy.StandardServiceImpl"/>
+
+&lt;bean id="targetproxy" class="org.springframework.aop.framework.ProxyFactoryBean"
+      p:proxyInterfaces="test.aop.jdkrawproxy.StandardService"
+      p:interceptorNames="greetingBefore"
+      p:target-ref="target"/>
+</pre>
+<p>如果是单例, 推荐在设置里加上 <code>p:proxyTargetClass="true"</code>以使用CGLib来创建, 因为CGLib创建时间长但是运行快, 单例一般都要被反复操作, 所以运行比较快.</p>
+
+<h3>后置增强</h3>
+<p>后置增强使用 AfterReturningAdvice类, 也很简单:</p>
+<pre>
+public class GreetingAfter implements AfterReturningAdvice {
+
+    @Override
+    public void afterReturning(Object returnValue, Method method, Object[] args, Object target) throws Throwable {
+        int number = (int) args[0];
+        System.out.println("再见" + number + "号顾客, 欢迎您再来!");
+    }
+}
+</pre>
+<p>一样也通过添加advice的方法:</p>
+<pre>
+AfterReturningAdvice advice2 = new GreetingAfter();
+proxyFactory.addAdvice(advice2);
+</pre>
+<p>再执行, 就会发现后边也有了.</p>
+<p>XML配置就不放了, 唯一记得是<code>interceptorNames="greetingBefore"</code>这里需要修改成<code>interceptorNames="greetingBefore, greetingAfter"</code>, greetingAfter是Bean的id, 而不是类名, 要注意.</p>
+
+<h3>环绕增强</h3>
+<p>环绕增强和前两个不太一样, 由于环绕增强可能需要使用共享的变量, 不可能分拆到两个单独的函数里, 所以和原来的事件处理器很类似, 需要使用MethodInterceptor接口:</p>
+<pre>
+import org.aopalliance.intercept.MethodInterceptor;
+import org.aopalliance.intercept.MethodInvocation;
+
+public class SurrondAdvice implements MethodInterceptor {
+
+    @Override
+    public Object invoke(MethodInvocation invocation) throws Throwable {
+        //MethodInvocation相对于包裹着要执行的方法的对象
+        //可以从中获取参数
+        Object[] args = invocation.getArguments();
+
+        int number = (int) args[0];
+
+        System.out.println("环绕之前的欢迎" + number + "号顾客");
+
+        //执行实际的方法
+        Object result = invocation.proceed();
+
+        System.out.println("环绕之后的欢迎" + number + "号顾客");
+
+        return result;
+    }
+}
+</pre>
+<p>这里可以看到, Spring使用的是AOP联盟提供的实现, 而不是自己的实现. 这个方法非常类似于InvocationHandler, 就无需多说了, 使用也还是一样:</p>
+<pre>
+MethodInterceptor surround = new SurrondAdvice();
+proxyFactory.addAdvice(surround);
+</pre>
+
+<h3>异常抛出增强</h3>
+<p>异常抛出增强很适合事务管理. 因为是异常, 也有些特别, 要使用 ThrowsAdvice接口, 但是这个接口里没有定义方法, 但是不能随便写方法:</p>
+<pre>
+public class ExceptionAdvice implements ThrowsAdvice {
+
+     public void afterThrowing(Method method, Object[] args, Object target, Throwable throwable) throws Throwable {
+        System.out.println("抛出异常了.");
+    }
+}
+</pre>
+<p>不过这个类我没测试成功, 不知道为什么, 留到以后再看了.引介增强也是.</p>
+
+<h2 style="text-align: center;" id="con5">切点类 PointCut</h2>
+<p>单独使用增强类的最大问题在于, 不管三七二十一, 目标类的所有方法都被增强了. 如果想控制的粒度再精细一些, 那么很显然需要一个东西来控制增强什么类, 增强这个类里的什么方法, 这就是切点类.</p>
+<p>PointCut接口就是描述切点的类, 在其上有两个接口ClassFilter, MethodMatcher, 顾名思义, 一个筛选类, 一个筛选方法.搭配起来就能够将增强指定到具体的类和方法, 也就构成了一个切面.</p>
+<p>ClassFilter中有一个方法matches(Class class), 一看就知道用来过滤类. MethodMatcher中也有一个matches方法, 还有重载, 也是用来匹配的, 还有一个方法isRuntime(),用于控制你想运行时匹配还是静态匹配, 运行时匹配开销太大, 所以一般都采用静态匹配(返回false).</p>
+<p>一共有六种类型的切点:</p>
+<ol>
+    <li><code>org.springframework.aop.support.StaticMethodMatcherPointcut</code>是静态方法切点的基类, 默认匹配所有类</li>
+    <li><code>org.springframework.aop.support.DynamicMethodMatcherPointcut</code>是动态方法切点的基类, 默认匹配所有类</li>
+    <li><code>org.springframework.aop.support.annotation.AnnotationMatchingPointcut</code>是支持在Bean中使用注解切点的类</li>
+    <li><code>org.springframework.aop.support.ExpressionPointcut</code>, 这是个接口, 是为了支持AspectJ表达式语法定义的接口</li>
+    <li><code>org.springframework.aop.support.ControlFlowPointcut</code>, 这是一个控制切点, 是通过程序执行堆栈信息来查看是否执行了某个方法.</li>
+    <li><code>org.springframework.aop.support.ComposablePointcut</code>, 这是将两个切点对象复合起来的类, 用于实现复杂的切点条件.</li>
+</ol>
+<p>切点类是不单独使用的, ProxyFactory如果你使用IDE,可以看到有添加Advice的方法, 也有添加Advisor的方法,这是因为切点类无法单独生效, 要么是全部增强, 要么使用切面有选择的增强. 所以需要继续看切面类.</p>
+
+<h2 style="text-align: center;" id="con6">切面类 Advisor</h2>
+<p>切面现在理解的更深了, 就是精细化的局部增强, 增强就是最大的切面, 全给一刀切了塞入增强. Spring的Advisor接口代表切面, 继承的是Advice接口(可见切面是一种增强), 分化出了PointcutAdvisor(基于切点的切面)和IntroductionAdvisor(引介切面)</p>
+<p>引介切面先放一放, 关键是PointcutAdvisor, 这个就是我们AOP研究的主要东西, 即用切点和增强定义的切面类.</p>
+<p>PointcutAdvisor主要有6个具体的实现类, 但是先不用记, 而是要记住, 这些实现类, 全部扩展Pointcut类, 然后实现PointcutAdvisor接口(最终就是Advice接口), 所以可以说切面就是把切点和增强组合起来, 看看Spring的类设计, 确实就是把理念贯彻到代码上.</p>
+<h3>StaticMethodMathcerPointcutAdvisor</h3>
+<p>这是一个静态匹配切面, 内部通过StaticMethodMatcherPointcut定位切点, 现在StandardService类新增一个默认方法如下:</p>
+<pre>
+public default void service2(int number) {
+        System.out.println("向" + number + "号顾客提供默认服务");
+    }
+</pre>
+<p>我们来看看能不能仅针对原来的方法而不是这个默认方法执行增强, 为此, 需要匹配方法名称:</p>
+<pre>
+import org.springframework.aop.ClassFilter;
+import org.springframework.aop.MethodBeforeAdvice;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.aop.support.StaticMethodMatcherPointcutAdvisor;
+import test.aop.jdkrawproxy.StandardService;
+import test.aop.jdkrawproxy.StandardServiceImpl;
+import test.aop.springadvice.GreetingBefore;
+
+import java.lang.reflect.Method;
+
+public class ServiceOnlyAdvisor extends StaticMethodMatcherPointcutAdvisor {
+
+
+    //类过滤, 必须是StandardService的实现类才可以
+    @Override
+    public ClassFilter getClassFilter() {
+        return new ClassFilter() {
+            @Override
+            public boolean matches(Class&lt;?> clazz) {
+                return StandardService.class.isAssignableFrom(clazz);
+            }
+        };
+    }
+
+    //这个内部是利用了切点的方法, 判断方法名称是否等于service
+    @Override
+    public boolean matches(Method method, Class&lt;?> targetClass) {
+        return method.getName().equals("service");
+    }
+
+    public static void main(String[] args) {
+        //目标对象
+        StandardService service1 = new StandardServiceImpl();
+        //切面
+        StaticMethodMatcherPointcutAdvisor advisor = new ServiceOnlyAdvisor();
+        //原来的前置增强
+        MethodBeforeAdvice advice = new GreetingBefore();
+
+        ProxyFactory proxyFactory = new ProxyFactory();
+        proxyFactory.setTarget(service1);
+        proxyFactory.setInterfaces(service1.getClass().getInterfaces());
+
+        proxyFactory.addAdvice(advice);
+        //添加advisor而不是advice
+        proxyFactory.addAdvisor(advisor);
+
+        StandardService service1proxy = (StandardService) proxyFactory.getProxy();
+
+        service1proxy.service(10);
+
+    }
+
+}
+</pre>
+<p>不过我在使用这个方法的时候, 一直报错 proxyFactory.addAdvisor(advisor); 这句话中有问题, is neither a supported subinterface of [org.aopalliance.aop.Advice] nor an [org.springframework.aop.Advisor]</p>
+<p>我暂时还没搞清楚原因...准备重开一套代码再试试. 不管怎么说, 今天至少把增强类看完了, 也大概知道切点类是怎么回事了. 待我继续研究一番再来更新博客.</p>
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
