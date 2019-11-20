@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Spring RE 03 AOP续</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>晚上到了家里, 上一篇博客最后的问题找到了, 是因为Advisor类出错了. 既然Advisor是由Pointcut和Advice组成的, 所以还需要额外的覆盖一个方法, Spring4.x这本书里没讲明白.</p>
+<p>下边就先解决问题, 然后把Spring提供的这些切面类都看一下.</p>
+
+<ol>
+    <li><a href="#con1">StaticMethodMatcherPointcutAdvisor</a></li>
+    <li><a href="#con2">RegexpMethodPointcutAdvisor</a></li>
+    <li><a href="#con3">动态切面 - 其实是动态切点</a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">Advisor类的使用方法</h2>
+<p>先来解决上一篇文章里的遗留问题. 我仔细看了一下书上还有网上的XML配置, 发现配置切面类的方法是这样:</p>
+<pre>
+&lt;bean id="myadvisor" class="cc.conyli.MyStaticAspect" p:advice-ref="greetingAdvice"/>
+</pre>
+<p>我就想到, 是不是切面类里有一个东西需要包含一个Advice才行, 后来查看覆盖的方法, 再一搜, 发现果然是这样, 需要覆盖其中的getAdvice()就可以正常工作了.</p>
+<p>getAdvice(), 返回一个自己编写的匿名类或者已经编写好的其他Advice实例都可以.</p>
+<p>于是切面类的代码需要改成这样:</p>
+<pre>
+import org.aopalliance.aop.Advice;
+import org.springframework.aop.ClassFilter;
+import org.springframework.aop.MethodBeforeAdvice;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.aop.support.StaticMethodMatcherPointcutAdvisor;
+
+import java.lang.reflect.Method;
+
+public class ServiceOnlyAdvisor extends StaticMethodMatcherPointcutAdvisor {
+
+
+    //类过滤, 必须是StandardService的实现类才可以
+    @Override
+    public ClassFilter getClassFilter() {
+        return new ClassFilter() {
+            @Override
+            public boolean matches(Class<?> clazz) {
+                return StandardService.class.isAssignableFrom(clazz);
+            }
+        };
+    }
+
+    //这个内部是利用了切点的方法, 判断方法名称是否等于service
+    @Override
+    public boolean matches(Method method, Class<?> targetClass) {
+        return method.getName().equals("service");
+    }
+
+<span style="color: red">    @Override
+    public Advice getAdvice() {
+        return new GreetingBefore();
+    }</span>
+
+    public static void main(String[] args) {
+        //目标对象
+        StandardService service1 = new StandardServiceImpl();
+        //切面
+        StaticMethodMatcherPointcutAdvisor advisor = new ServiceOnlyAdvisor();
+        //原来的前置增强
+        MethodBeforeAdvice advice = new GreetingBefore();
+
+        ProxyFactory proxyFactory = new ProxyFactory();
+        proxyFactory.setTarget(service1);
+        proxyFactory.setInterfaces(service1.getClass().getInterfaces());
+
+<span style="color: red">        //不需直接添加Advice, 否则就是全局的
+        //proxyFactory.addAdvice(advice);
+        //添加Advisor就可以了
+        proxyFactory.addAdvisor(advisor);</span>
+
+        StandardService service1proxy = (StandardService) proxyFactory.getProxy();
+
+        service1proxy.service(10);
+    }
+
+}
+</pre>
+<p>经过测试一切正常了, 可见一个切面类里必须要把Pointcut的规则, 和其中附带的Advice都规定好, 才能够正常生效.</p>
+<p>现在可以来总结一下StaticMethodMatcherPointcutAdvisor这个切面类了, 覆盖三个方法, 分别是静态匹配方法, 类, 以及返回所需的Advice, 就可以正常工作了. 前边两个方法属于切点, 最后一个方法属于增强, 都配置好才能工作.</p>
+<p>猜想其他的类, 其实也只是匹配的手段和方式不同, 其本质是相同的.</p>
+
+<h2 style="text-align: center;" id="con2">RegexpMethodPointcutAdvisor</h2>
+<p>这个类功能齐备, 无需扩展了, 看了一下类的方法, 有四个构造器, 一个无参, 一个带一个advice, 一个接受一个字符串形式的pattern和一个advice, 还一个接受字符串数组和advice.</p>
+<p>还有setPattern()和setAdvice()方法, 这基本上一看也差不多明白了. 主要就是这个正则表达式如何匹配的问题了.</p>
+<p>正则的匹配我自己看一了一下, 核心是包和方法之间的分隔符要用转义<code>\.</code>, 然后最靠右边的就是方法名.</p>
+<p>编写一个针对cc.conyli.MyImplClass的m2方法的切面如下:</p>
+<pre>
+public static void main(String[] args) {
+    MyImplClass impl = new MyImplClass();
+
+    MyWelcomeAdvice advice = new MyWelcomeAdvice();
+
+    RegexpMethodPointcutAdvisor advisor = new RegexpMethodPointcutAdvisor("cc\\.conyli\\.MyImplClass\\.m2", advice);
+
+    ProxyFactory factory = new ProxyFactory();
+
+    factory.setTarget(impl);
+
+    factory.addAdvisor(advisor);
+
+    MyInterFace myInterFace = (MyInterFace) factory.getProxy();
+
+    myInterFace.m1();
+    myInterFace.m2();
+
+}
+</pre>
+<p>正则表达式的本质, 还是匹配名称, 灵活度比匹配类和方法要更高一些, 可以精准匹配, 也可以批量匹配.</p>
+
+
+<h2 style="text-align: center;" id="con3">动态切面 - 其实是动态切点</h2>
+<p>前边两个是静态切面, 仔细观察的话, 会发现只能匹配到类名和方法名, 无法匹配参数. 如果需要匹配参数, 就需要动态匹配上场了.</p>
+<p>使用动态切面需要使用DefaultPointcutAdvisor, 然后搭配一个DynamicMethodMatcherPointcut切点以及一个Advice来使用.</p>
+<p>先创建切点, 切点需要继承DynamicMethodMatcherPointcut. 现在的接口如下</p>
+<pre>
+public class MyImplClass implements MyInterFace {
+    public void m1() {
+        System.out.println("m1方法执行");
+    }
+
+    public void m2() {
+        System.out.println("m2方法执行");
+    }
+
+    public void m3(String name) {
+        System.out.println("m3方法执行, 参数是" + name);
+    }
+}
+</pre>
+<p>我们要来匹配一个当m3的方法接受的参数是saner的时候, 进行增强, 否则不进行增强, 先编写继承DynamicMethodMatcherPointcut的类:</p>
+<pre>
+import org.springframework.aop.ClassFilter;
+import org.springframework.aop.support.DynamicMethodMatcherPointcut;
+import java.lang.reflect.Method;
+
+public class MyDynamicPointcut extends DynamicMethodMatcherPointcut {
+
+    //带参数的方法是动态匹配
+    @Override
+    public boolean matches(Method method, Class&lt;?> aClass, Object... objects) {
+        return ((String) objects[0]).equals("saner");
+    }
+
+
+    //静态检查类
+    @Override
+    public ClassFilter getClassFilter() {
+        return new ClassFilter() {
+            @Override
+            public boolean matches(Class&lt;?> aClass) {
+                return MyInterFace.class.isAssignableFrom(aClass);
+            }
+        };
+    }
+
+    //静态匹配方法
+    @Override
+    public boolean matches(Method method, Class<?> targetClass) {
+        return method.getName().equals("m3");
+    }
+}
+</pre>
+<p>这个类里既有动态检查又有静态检查, Spring的机制是先静态再动态, 如果静态检查匹配, 才使用动态, 否则就直接不匹配.</p>
+<p>这个切点类里已经将isRuntime()设置成了true, 而且是final的, 也就是说一定是具备动态功能的.</p>
+<p>这毕竟是切点类, 使用的时候还需要加上一个Advice一起装配到DefaultPointcutAdvisor中:</p>
+<pre>
+public static void main(String[] args) {
+    MyImplClass impl = new MyImplClass();
+    MyWelcomeAdvice advice = new MyWelcomeAdvice();
+
+    //组装动态切面
+    Pointcut dynamic = new MyDynamicPointcut();
+    DefaultPointcutAdvisor advisor = new DefaultPointcutAdvisor();
+    advisor.setAdvice(advice);
+    advisor.setPointcut(dynamic);
+
+    ProxyFactory factory = new ProxyFactory();
+    factory.setTarget(impl);
+    factory.addAdvisor(advisor);
+    MyInterFace myInterFace = (MyInterFace) factory.getProxy();
+
+    myInterFace.m3("owl");
+    myInterFace.m3("saner");
+
+    }
+</pre>
+<p>XML配置其实就多出来一个Pointcut的Bean需要配置给Advisor, 如下:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;beans xmlns="http://www.springframework.org/schema/beans"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+           xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    &lt;!--实现类-->
+    &lt;bean id="id1" class="cc.conyli.MyImplClass"/>
+    &lt;!--    前置增强-->
+    &lt;bean id="id2" class="cc.conyli.MyWelcomeAdvice"/>
+    &lt;!--    后置增强-->
+    &lt;bean id="id3" class="cc.conyli.MyAfterAdvice"/>
+
+    &lt;!--动态切点-->
+    &lt;bean id="mydynamicpointcut" class="cc.conyli.MyDynamicPointcut"/>
+    &lt;!--用动态切点和Advice组装Advisor Bean-->
+    &lt;bean id="mydynamicadvisor" class="org.springframework.aop.support.DefaultPointcutAdvisor" p:pointcut-ref="mydynamicpointcut" p:advice-ref="id2"/>
+    &lt;!--代理工厂里使用动态切面类mydynamicadvisor-->
+    &lt;bean id="id4" class="org.springframework.aop.framework.ProxyFactoryBean" p:interceptorNames="mydynamicadvisor" p:proxyTargetClass="true" p:target-ref="id1"/>
+
+&lt;/beans>
+</pre>
+<p>可见知道了原理之后, XML配置都是大同小异. 切面等于切点+增强, 切面的动态指的是切面中的切点动态匹配.</p>
+
+<h2 style="text-align: center;" id="con4">流程切面</h2>
+<p>这个流程切点略微有点抽象. 之前的切面, 我们都是找到匹配的类和方法, 然后在那个类的方法处进行切入.</p>
+<p>流程切点就不是直接在那个类的方法处进行切入, 而是在调用这个目标类的方法的方法处切入.</p>
+<p>举个例子, A一个方法a中调用B类的方法b, 这里B类已经是一个经过AOP的类, 我们不针对B类的b方法进行切面, 因为这样会让所有的b方法都得到增强, 只想让A调用B的b方法时候增强, 这样切面其实切在A而不是B上.</p>
+<p>流程切面的实现需要ControlFlowPointcut切点和DefaultPointcutAdvisor切面类共同完成, 不用说, 肯定核心又在ControlFlowPointcut上.</p>
+<p>我们举个例子, 有另外一个类:</p>
+<pre>
+public class MyControl {
+
+    private MyInterFace myInterFace;
+
+    public MyControl(MyInterFace myInterFace) {
+        this.myInterFace = myInterFace;
+    }
+
+    public void service() {
+        myInterFace.m1();
+        myInterFace.m2();
+    }
+}
+</pre>
+<p>想在service()调用其中的两个方法的时候, 给m1和m2增强, 其他时候不增强, 这个时候很显然不能切在MyInterFace的实现类上, 怎么办呢, 就使用流程切面, 切在MyControl类上:</p>
+<pre>
+public static void main(String[] args) {
+    MyImplClass impl = new MyImplClass();
+    MyWelcomeAdvice advice = new MyWelcomeAdvice();
+
+    //流程切点, 第一个是MyControl, 第二个参数是字符串形式的方法名称
+    Pointcut controlFlow = new ControlFlowPointcut(MyControl.class, "service");
+    //依然是老样子组装advisor
+    DefaultPointcutAdvisor advisor = new DefaultPointcutAdvisor();
+    advisor.setAdvice(advice);
+    advisor.setPointcut(controlFlow);
+
+    ProxyFactory factory = new ProxyFactory();
+    factory.setTarget(impl);
+    factory.addAdvisor(advisor);
+    MyInterFace myInterFace = (MyInterFace) factory.getProxy();
+
+    //使用代理类调用方法, 不出现增强效果
+    myInterFace.m1();
+    myInterFace.m2();
+
+    //指定的类和方法中, 调用代理类, 出现增强效果
+    MyControl control = new MyControl(myInterFace);
+    control.service();
+}
+</pre>
+<p>注意, 代理类创建的时候, target依然是最开始的那个实现类, 而流程控制类使用的是代理类, 不是最开始的那个没有经过任何增强的实现类.</p>
+<p>这个也属于动态匹配, 因此运行较慢, 这个主要用在让使用代理类的其他类的某个环节, 可以应用增强效果, 所以叫做流程类. 实际上仔细分析可以想明白, 被增强的依然是代理类, 但是让增强的效果, 只出现在使用代理类的某个指定的环节, 所以叫做流程切面.</p>
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
