@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 03 AOP续</title>
+    <title>Spring RE 03 Spring AOP续</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -22,9 +22,9 @@
     <li><a href="#con1">StaticMethodMatcherPointcutAdvisor</a></li>
     <li><a href="#con2">RegexpMethodPointcutAdvisor</a></li>
     <li><a href="#con3">动态切面 - 其实是动态切点</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">流程切面 - 使用流程切点</a></li>
+    <li><a href="#con5">复合切面 - 使用复合切点</a></li>
+    <li><a href="#con6">其他一些内容</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">Advisor类的使用方法</h2>
 <p>先来解决上一篇文章里的遗留问题. 我仔细看了一下书上还有网上的XML配置, 发现配置切面类的方法是这样:</p>
@@ -198,7 +198,6 @@ public static void main(String[] args) {
 
     myInterFace.m3("owl");
     myInterFace.m3("saner");
-
     }
 </pre>
 <p>XML配置其实就多出来一个Pointcut的Bean需要配置给Advisor, 如下:</p>
@@ -276,16 +275,112 @@ public static void main(String[] args) {
 <p>注意, 代理类创建的时候, target依然是最开始的那个实现类, 而流程控制类使用的是代理类, 不是最开始的那个没有经过任何增强的实现类.</p>
 <p>这个也属于动态匹配, 因此运行较慢, 这个主要用在让使用代理类的其他类的某个环节, 可以应用增强效果, 所以叫做流程类. 实际上仔细分析可以想明白, 被增强的依然是代理类, 但是让增强的效果, 只出现在使用代理类的某个指定的环节, 所以叫做流程切面.</p>
 
+<h2 style="text-align: center;" id="con5">复合切面 - 使用复合切点</h2>
+<p>一个切点就是一个规则, 如果需要编写很复杂的规则, 可以重复利用切点规则就可以了. ComposablePointcut就是这样一个复合切点类, 而且其本身也是Pointcut接口类型, 所以复核切点也就可以当做一个切点来使用.</p>
+<p>搭配复合切点使用的切面类依然是DefaultPointcutAdvisor. </p>
+<p>复合切点类已经是一个成熟的类了, 可以直接使用构造器, 不过这个类的构造器嘛, Hmm.....:</p>
+<ol>
+    <li>空参构造器, 匹配所有类所有方法, 和直接上Advice也没什么区别</li>
+    <li>单参 ClassFilter , 匹配特定类的全部方法, 用这个我还不如用静态匹配了.</li>
+    <li>单参 MethodMatcher , 匹配全部类的特定方法, 和上边一样, 如果这么用, 还不如上静态匹配来得快.</li>
+    <li>两参数 MethodMatcher ClassFilter, 匹配特定类的特定方法, 这也是吃饱了撑的, 还不如用静态匹配.</li>
+</ol>
+<p>可见这些构造器单独使用没有什么用, 关键在于下边的这些方法:</p>
+<ol>
+    <li><code>intersection(ClassFilter)</code>, 与一个ClassFilter进行交集运算, 返回一个ComposablePointcut类型</li>
+    <li><code>intersection(MethodMatcher)</code>, 与一个MethodMatcher进行交集运算, 返回一个ComposablePointcut类型</li>
+    <li><code>intersection(Pointcut)</code>, 与一个Pointcut进行交集运算, 返回一个ComposablePointcut类型</li>
+    <li><code>union(ClassFilter)</code>, 与一个ClassFilter进行并集运算, 返回一个ComposablePointcut类型</li>
+    <li><code>union(MethodMatcher)</code>, 与一个MethodMatcher进行并集运算, 返回一个ComposablePointcut类型</li>
+</ol>
+<p>咦, 不能对另外一个切点使用并集运算啊, 可以使用 org.springframework.aop.support.Pointcuts 工具类, 其中两个静态方法如下:</p>
+<ol>
+    <li><code>Pointcus.intersection(Pointcut a, Pointcut b)</code>, 两个切点的交集, 返回一个ComposablePointcut类的实例</li>
+    <li><code>Pointcus.union(Pointcut a, Pointcut b)</code>, 两个切点的并集, 返回一个ComposablePointcut类的实例</li>
+</ol>
+<p>现在用代码来试验一下. 先来试验单独的效果:</p>
+<pre>
+public static void main(String[] args) {
+    MyImplClass impl = new MyImplClass();
+    MyWelcomeAdvice advice = new MyWelcomeAdvice();
+
+    //构造一个匹配MyInterFace接口及其实现类的复合切点
+    ComposablePointcut pointcut = new ComposablePointcut(new ClassFilter() {
+        @Override
+        public boolean matches(Class&lt;?> aClass) {
+            return MyInterFace.class.isAssignableFrom(aClass);
+        }
+    });
+
+    //用DefaultPointcutAdvisor组装切面
+    DefaultPointcutAdvisor advisor = new DefaultPointcutAdvisor();
+    advisor.setAdvice(advice);
+    advisor.setPointcut(pointcut);
+
+    ProxyFactory factory = new ProxyFactory();
+    factory.setTarget(impl);
+    factory.addAdvisor(advisor);
+    MyInterFace myInterFace = (MyInterFace) factory.getProxy();
+
+    myInterFace.m1();
+    myInterFace.m2();
+}
+</pre>
+<p>可见使用复合切点, 创建了一个匹配MyInterFace及其实现类的所有方法的切面, 现在给其复合一下, 仅针对m2方法增强:</p>
+<pre>
+public static void main(String[] args) {
+    MyImplClass impl = new MyImplClass();
+    MyWelcomeAdvice advice = new MyWelcomeAdvice();
+
+    //构造一个匹配MyInterFace接口及其实现类的复合切点
+    ComposablePointcut pointcut = new ComposablePointcut(new ClassFilter() {
+        @Override
+        public boolean matches(Class&lt;?> aClass) {
+            return MyInterFace.class.isAssignableFrom(aClass);
+        }
+    });
+
+<span style="color: red">    pointcut.intersection(new MethodMatcher() {
+        @Override
+        public boolean matches(Method method, Class&lt;?> aClass) {
+            return method.getName().equals("m2");
+        }
+
+        @Override
+        public boolean isRuntime() {
+            return false;
+        }
+
+        @Override
+        public boolean matches(Method method, Class&lt;?> aClass, Object[] objects) {
+            return false;
+        }
+    });</span>
+
+    //用DefaultPointcutAdvisor组装切面
+    DefaultPointcutAdvisor advisor = new DefaultPointcutAdvisor();
+    advisor.setAdvice(advice);
+    advisor.setPointcut(pointcut);
+
+    ProxyFactory factory = new ProxyFactory();
+    factory.setTarget(impl);
+    factory.addAdvisor(advisor);
+    MyInterFace myInterFace = (MyInterFace) factory.getProxy();
+
+    myInterFace.m1();
+    myInterFace.m2();
+}
+</pre>
+<p>此时取匹配m2方法的并集, 结果就是MyInterFace及其实现类中的m2方法才有增强效果了.</p>
+<p>配置XML的时候, 就不能像上边这样直接调用方法, 而是需要配置好不同的Bean, 在XML里组装成最终的ComposablePointcut对象, 再交给DefaultPointcutAdvisor的Bean就可以了.</p>
+
+<h2 style="text-align: center;" id="con6">其他一些内容</h2>
+<p>引介的切面和之前的切面不同, 是类级别的, 因为给类添加新的实现接口. 这里就暂时先忽略了. </p>
+<p>一般使用AOP, 不会像这样直接写代码, 肯定是通过手工配置XML, 生成所需的Bean然后自动生成代理类. 再用代理类替换成原来的类. Spring还提供了自动创建代理的类.
+    这个实际上就是根据一些规则, 进行自动扫描. 比如可以扫描Bean的id名称, 扫描Advisor类型的所有类, 扫描注解等. 其实本质也是一样, 就是不直接使用ProxyFactoryBean, 而改用另外一个Bean. 但是这些自动创建代理的类, 是后边扫描注解等的基础.</p>
+<p>回顾一下Spring的这些切面类, 都是需要先设置切点, 不管是直接覆盖方法, 使用setter方法, 都需要设置. 然后还需要设置增强, 最后组装好切面对象并且应用. 切面的本质是生成代理类, 在容器中使用的真正的东西就是那些代理类.</p>
 
 
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
