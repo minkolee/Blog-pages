@@ -15,26 +15,324 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>AspectJ还有一些功能, 对于使用AspectJ也是不可或缺的.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">对切点函数使用逻辑运算符</a></li>
+    <li><a href="#con2">切点命名(重用)</a></li>
+    <li><a href="#con3">增强的顺序</a></li>
+    <li><a href="#con4">访问连接点JoinPoint信息</a></li>
+    <li><a href="#con5">绑定连接点方法的参数</a></li>
+    <li><a href="#con6">绑定代理对象</a></li>
+    <li><a href="#con7">绑定类注解对象</a></li>
+    <li><a href="#con8">绑定返回值</a></li>
+    <li><a href="#con9">绑定异常</a></li>
+    <li><a href="#con10">总结</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">对切点函数使用逻辑运算符</h2>
+<p>其实很自然就会想到这一点, 到底如何通过注解使用复合切点. 答案就是直接可以使用逻辑运算符来连接不同的切点函数表达式. 所用到的逻辑运算符有:</p>
+<ol>
+    <li>&& 表示与, 在XML中写表达式的话, 需要使用转义后的& a m p ; & a m p ;或者 and</li>
+    <li>|| 表示或, 在XML中写表达式的话, 可以使用or</li>
+    <li>! 表示非, 这个写在表达式的前边, 在XML中可以使用not</li>
+</ol>
+<p>注意AspectJ是不支持and or not的, 只能在Spring使用的XML配置中使用and or not.</p>
+<p>来实操一下逻辑运算符:</p>
+<pre>
+@Before("within(cc.conyli.aspect.NaiveWaiter+) && execution(* *To(..))")
+public void enhance() {
+    System.out.println("我是增强");
+}
+</pre>
+<p>这个表示NaiveWaiter及其子类的所有方法 与 方法名结尾是To的条件, 所以结果就是同时要满足这两个条件, 即NaiveWaiter+的所有以To结尾的方法.</p>
+<pre>
+@Before("!within(cc.conyli.aspect.NaiveWaiter) && execution(* *To(..))")
+public void enhance() {
+    System.out.println("我是增强");
+}
+</pre>
+<p>这个表示NaiveWaiter除外的所有类的以To结尾的方法.</p>
+<pre>
+@Before("target(cc.conyli.aspect.Waiter) || target(cc.conyli.aspect.Seller)")
+public void enhance() {
+    System.out.println("我是增强");
+}
+</pre>
+<p>这个表示所有Waiter和所有Seller的实现类的所有方法.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">切点命名(重用)</h2>
+<p>在之前重用切点是通过具体的Pointcut类, 现在使用注解之后, 需要先在一个类中使用@Pointcut注解去注解一个方法, 进行一个切点的配置, 然后在定义切面的时候就可以引用切点, 达成了切点的复用.</p>
+<p>先看如何定义切点, 这需要创建任意一个类, 然后对类中的方法进行注解:</p>
+<pre>
+import org.aspectj.lang.annotation.Pointcut;
 
-<h2 style="text-align: center;" id="con3"></h2>
+public class Pointcuts {
 
-<h2 style="text-align: center;" id="con4"></h2>
+    <span style="color: red">@Pointcut</span><span style="color: green">("execution(* *To(..))")</span>
+    <span style="color: orangered">private</span> void <span style="color: cornflowerblue">pointcut1()</span> {}
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+    @Pointcut("within(cc.conyli.aspect.NaiveWaiter)")
+    private void pointcut2() {}
+
+    @Pointcut("pointcut1() && pointcut2()")
+    public void compositePointcut() {}
+}
+</pre>
+<p>红色的@Pointcut用于定义一个切点, 绿色字样就是一个普通的切点表达式. 橙色字体表示这个切点能够在哪里使用. private表示只能在本切面类中使用, protected表示可以在当前切面类, 子切面类中使用. public就是任意可使用切点.</p>
+<p>蓝色的部分是切点的名称, 使用的时候就像一个调用函数一样.</p>
+<p>@Pointcut注解还可以直接复合已经存在的Pointcut来定义切点. 然后来看看如何使用.</p>
+<p>假如这个Pointcuts类和AspectAdvisor类在同一个包下, 根据修饰符, pointcut1是无法被AspectAdvisor类调用的. 现在来使用这个复合切点:</p>
+<pre>
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class AspectAdvisor {
+
+    @Before("Pointcuts.compositePointcut()")
+    public void enhance() {
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>这个效果就是cc.conyli.aspect.NaiveWaiter的以To结尾的方法会被增强.</p>
+
+<h2 style="text-align: center;" id="con3">增强的顺序</h2>
+<p>如果仅有一个@Aspect类, 那么织入增强的顺序是按照增强在类中定义的顺序. 如果有多个@Aspect类, 想要具体的控制顺序, 需要让@Aspect类实现org.springframework.core.Ordered接口.</p>
+<p>这个接口有一个方法 public int getOrder(), 需要指定返回的int值, 越小的越先织入, 一般最小的从1开始设置.</p>
+
+<h2 style="text-align: center;" id="con4">访问连接点JoinPoint信息</h2>
+<p>之前说的获取参数, 就是在这里实现的. 是通过一个对象实现的.</p>
+<p>这个就和SpringMVC一样, 将增强方法的第一个参数设置为org.aspectj.lang.JoinPointJoinPoint类型, 就可以接收到目标类的连接点对象. 可见这个也是Aspect提供的类.(参数一定要在第一个, 当年在Spring MVC上吃了没有把异常对象放在最后一个参数的亏.)</p>
+<p>如果是环绕增强, 会接收到一个ProceedingJoinPoint对象, 这个也是继承JoinPoint类型的.</p>
+<p>这两个对象最大的用途就是获取参数, 目标对象, 代理对象等之前无法获取的对象.</p>
+<p>现在匹配NaiveWaiter的smile方法, 修改@Aspect类如下:</p>
+<pre>
+import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.Signature;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class AspectAdvisor {
+
+    @Before("Pointcuts.compositePointcut()")
+    public void enhance(JoinPoint joinPoint) {
+        System.out.println("------------------操作JoinPoint对象------------------");
+        //获取参数
+        Object[] args = joinPoint.getArgs();
+        for (Object obj : args) {
+            System.out.println("参数是:" + obj);
+        }
+
+        //获取方法签名对象
+        Signature signature = joinPoint.getSignature();
+        //获取所在的类型
+        System.out.println(signature.getDeclaringType());
+        //获取签名名称(方法名)
+        System.out.println(signature.getName());
+        //获取所在的类型的名称
+        System.out.println(signature.getDeclaringTypeName());
+        //获取标识符, public是1, 包级别是0, 暂时就试出来这些
+        System.out.println(signature.getModifiers());
+
+        //获取连接点(也就是被匹配的方法)所在的对象
+        System.out.println(joinPoint.getTarget());
+
+        //获取代理对象, 在这里实际上和连接点所在的对象是一样的.
+        System.out.println(joinPoint.getThis());
+
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>执行可以看到, 获取了两个参数, 以及其他各种信息.</p>
+<p>对于环绕增强来说, 由于必须需要一个代表被代理方法执行的对象, 所以ProceedingJoinPoint多了两个方法:</p>
+<pre>
+@Aspect
+public class AspectAdvisor {
+
+    @Around("execution(* cc.conyli.aspect.NaiveWaiter.*le(String, int))")
+    public void enhance(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
+        //执行原来的方法
+        proceedingJoinPoint.proceed();
+
+        //准备新参数
+        Object[] args = new Object[2];
+        args[0] = "cony";
+        args[1] = 9;
+        //以新参数执行方法
+        proceedingJoinPoint.proceed(args);
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>proceed()方法是直接执行原来的方法. 而proceed(args)是使用新参数执行原来的方法. 这个执行结果是:</p>
+<pre>
+NaiveWaiter的smile方法, 向owl笑了5次
+NaiveWaiter的smile方法, 向cony笑了9次
+我是增强
+</pre>
+<p>可以看到, 这个就和环绕增强本质上一样. 但是可以用自己的参数替换实际参数, 很有意思.</p>
+
+<h2 style="text-align: center;" id="con5">绑定连接点方法的参数</h2>
+<p>这个也是在增强方法中使用连接点方法的参数. 与上边不同的是, 这个是在注解的切点函数表达式中直接绑定参数名称, 然后可以在增强方法内使用.</p>
+<p>能够使用绑定参数的切点函数表达式是除了execution和within之外的7个切点函数表达式. 这个绑定非常像Spring MVC的时候绑定模型变量. 现在依然还是NaiveWaiter的smile方法:</p>
+<pre>
+@Aspect
+public class AspectAdvisor {
+
+    @Before("execution(* cc.conyli.aspect.NaiveWaiter.*le(String, int)) <span style="color: red">&& args(name, number)</span>")
+    public void enhance(<span style="color: red">int number, String name</span>) throws Throwable {
+
+        System.out.println(name);
+        System.out.println(number);
+
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>切点函数表达式的&&这里只起到使用参数绑定功能的作用, 并不具有与运算的意义, 因为此时args()不是被当做一个切点函数表达式来使用, 而是给参数绑定上一个名称. 这个运行结果是:</p>
+<pre>
+owl
+5
+我是增强
+NaiveWaiter的smile方法, 向owl笑了5次
+</pre>
+<p>可见这个方法绑定是先通过红色的部分, 按照顺序, 用name对应String类型的参数, 用number对应int类型的参数, 将两个参数绑定到这个名字, 然后在增强方法的参数上, 直接使用这两个名字和对应的类型作为参数.</p>
+<p>这里args(name1, name2)的顺序是按照目标方法的顺序, 之后在增强方法里的参数顺序可以任意, 只要名称对应即可. 下面这样也可以:</p>
+<pre>
+@Before("execution(* cc.conyli.aspect.NaiveWaiter.*le(String, int)) && <span style="color: red">args(arg1, arg2)</span>")
+//增强方法的参数改变顺序
+public void enhance(<span style="color: red">int arg2, String arg1</span>) throws Throwable {
+
+    System.out.println(arg1);
+    System.out.println(arg2);
+
+    System.out.println("我是增强");
+}
+</pre>
+<p>参数可以匹配多个, 只要指定匹配的能对应就可以, 像下边这样:</p>
+<pre>
+@Before("execution(* cc.conyli.aspect.NaiveWaiter.*le(String, int)) && <span style="color: red">args(arg1, arg2,..)</span>")
+//增强方法的参数改变顺序
+public void enhance(<span style="color: red">int arg2, String arg1</span>) throws Throwable {
+
+    System.out.println(arg1);
+    System.out.println(arg2);
+
+    System.out.println("我是增强");
+}
+</pre>
+<p>但是注意, 在args(arg1, arg2)中对应了几个参数, 就需要给增强方法传入几个对应的参数, 如果数量不对应, 直接编译的时候就会失败.</p>
+<p>实际上, 这是利用了args()切点函数的不同功能, 当像之前介绍的那样, 其参数是一个类名的时候, 就是参数去匹配这个类; 当像这里一样只是名称的时候, 就是绑定参数.</p>
+<p>由于这个绑定参数可以绑定类方法而不是接口方法, 如果使用XML配置需要使用CGLib, 如果使用自动配置, Spring回去选择CGLib.</p>
+
+<h2 style="text-align: center;" id="con6">绑定代理对象</h2>
+<p>绑定代理对象可以用于this()和target(), 使用绑定代理对象的时候, this(M)和target(M) 的这个M, 不再是类名, 而是一个变量, 这个变量的类型, 通过增强方法的参数类型来确定.</p>
+<p>但是绑定代理对象的功能可以同时确定切点, 这是这个绑定代理对象的特点:</p>
+<pre>
+@Aspect
+public class AspectAdvisor {
+
+    @Before("this(<span style="color: red">waiter</span>)")
+    public void enhance(<span style="color: red">Waiter waiter</span>) throws Throwable {
+
+        System.out.println(waiter.getClass().getName());
+
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>注解里的this(waiter)不知道waiter变量是什么, 要到被注解的方法的参数里找同名参数, 发现有一个参数也叫做waiter, 其类型是Waiter.</p>
+<p>this(waiter)就相当于this(Waiter), 从前边知识可以知道, 就相当于target(Waiter), 即匹配Waiter和所有实现类的所有方法. 这是this(waiter)的第一个功能, 确定了切点.</p>
+<p>this(waiter)的第二个功能, 就是将Waiter的代理类对象传递给waiter参数.</p>
+<p>通过运行这个切面, 可以发现, NaiveWaiter, NaughtyWaiter和CuteNaiveWaiter中的全部方法都被增强, 但是这三个类打印出的三个代理类, 是不同的三个代理类.</p>
+
+<h2 style="text-align: center;" id="con7">绑定类注解对象</h2>
+<p>这个功能可以用于@within(M)和@target(M), 和绑定代理对象有点类似, 通过增强方法的参数确定M的类型, 也是干两件事情, 一是根据M注解类确定切点, 二是把注解类对象传到增强方法里.</p>
+<p>看一个例子, 给NaiveWaiter加上@Mark注解, 然后编写切面:</p>
+<pre>
+@Aspect
+public class AspectAdvisor {
+
+    @Before("@within(<span style="color: red">anno</span>)")
+    public void enhance(<span style="color: red">Mark anno</span>) throws Throwable {
+
+        System.out.println(anno.getClass().getName());
+
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>@within()注解到增强方法的参数里找和自己的参数名称相同的参数, 找到了anno, 发现其类型是Mark. 于是切点确定了, 就是被Mark标注的类, 也就是NaiveWaiter类.</p>
+<p>然后给anno变量实际传入Mark注解类. 运行一下看看:</p>
+<pre>
+com.sun.proxy.$Proxy8
+我是增强
+NaiveWaiter的greetTo方法, 向owl问好
+com.sun.proxy.$Proxy8
+我是增强
+NaiveWaiter的smile方法, 向owl笑了5次
+</pre>
+<p>可以发现, 注解类Mark实际上也被AspectJ生成了一个代理对象, 而不是直接使用原来的Mark类.</p>
+<p>在之前的实际测试中已经知道@within和@target是一回事, 所以这两个切点函数使用绑定注解对象的方法完全一样</p>
+
+<h2 style="text-align: center;" id="con8">绑定返回值</h2>
+<p>绑定返回值仅能用于后置增强, 还记得吗, 后置增强的注解类中有一个属性returning 就是做这个用途:</p>
+<pre>
+@Aspect
+public class AspectAdvisor {
+
+    @AfterReturning(value = "execution(public int *(..))", returning = "result")
+    public void enhance(int result) throws Throwable {
+
+        System.out.println("结果是: " + result);
+
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>切点匹配public修饰, 返回值为int的方法, 也就是SmartSeller的sell()方法, 然后打印出了方法的返回值.</p>
+
+
+<h2 style="text-align: center;" id="con9">绑定异常</h2>
+<p>这个仅能用于@AfterThrowing注解, 细心的你肯定会想到, 就是使用唯一还没有学过的throwing属性了:</p>
+<pre>
+@Aspect
+public class AspectAdvisor {
+
+    @AfterThrowing(value = "execution(public int *(..))", throwing = "except")
+    public void enhance(Throwable except) throws Throwable {
+
+        System.out.println("异常是: " + except.toString());
+
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>我们给sell方法里写上一个 <span style="color: red">int i = 10/0;</span> 来引发一个异常. 之后运行可以看到:</p>
+<pre>
+异常是: java.lang.ArithmeticException: / by zero
+我是增强
+一堆错误信息
+</pre>
+<p>由于这是运行时错误, 所以程序终止了. 但可以看到确实捕捉了异常.</p>
+
+
+<h2 style="text-align: center;" id="con10">总结</h2>
+<p>AOP还有使用Schema来配置的方式, 是在无法使用注解的情况下, 就不学习了, 如今开发Spring一般都会使用注解和配置类来一起了.</p>
+<p>实际上使用的比较多的, 还是注解方式, 简单易行. 只要记得在Spring中开启一个配置类如下:</p>
+<pre>
+@Configuration
+@ComponentScan
+@EnableAspectJAutoProxy
+public class Config {
+}
+</pre>
+<p>然后就可以像上边介绍的那样来标记好@Component和@Aspect之后使用注解来进行AOP的配置了.</p>
+<p>AOP真不容易, Spring框架中需要和外界融合的部分, 知识点都是挺多的, 既要了解Spring自身, 又要了解外部工具的使用方法. 连续搞了四天, 终于看完了AOP的所有细节, 搞清楚了以前没有搞清楚的东西.</p>
+<p>现在左IOC右AOP, 两大武器都齐备了, 下一步就是深入研究Spring提供的数据库集成的内容了.</p>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
