@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 04 Spring对AspectJ的支持</title>
+    <title>Spring RE 04 AspectJ注解</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -20,27 +20,633 @@
 <p>Spring牛逼就牛逼在对很多业界好用的工具提供了支持, AspectJ就可以集成到Spring中, 这样就可以使用AspectJ的独门秘籍: 使用注解进行AOP配置了.</p>
 
 <ol>
-    <li><a href="#con1">Spring 利用 AspectJ</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">引入AspectJ</a></li>
+    <li><a href="#con2">简单使用Aspect注解</a></li>
+    <li><a href="#con3">AspectJ基础知识</a></li>
+    <li><a href="#con4">例子</a></li>
+    <li><a href="#con5">execution()</a></li>
+    <li><a href="#con6">@annotation()</a></li>
+    <li><a href="#con7">args()与@args()</a></li>
+    <li><a href="#con8">within()</a></li>
+    <li><a href="#con9">@within()</a></li>
+    <li><a href="#con10">target()</a></li>
+    <li><a href="#con11">引介增强用法</a></li>
+    <li><a href="#con12">this()</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1">Spring 利用 AspectJ</h2>
+<h2 style="text-align: center;" id="con1">引入AspectJ</h2>
 <p>想要使用AspectJ来进行注解配置AOP, 需要引入AspectJ的包, 以及Spring的asm模块(已经包含在org.springframework.core中), 所以先去下载AspectJ包.</p>
+<p>AspectJ的地址在<a href="https://www.eclipse.org/aspectj/" target="_blank">https://www.eclipse.org/aspectj/</a>, 然后点击左侧的Download, 可以下载最新稳定版, 写这篇文章的时候是aspectj-1.9.4.jar.</p>
+<p>这个jar其中的真正的包有三个, 分别是 aspectjrt.jar, aspectjtools.jar, aspectjweaver.jar. 如果用Maven配置的话, 这三个玩意是单独的, 如下:</p>
+<pre>
+&lt;!-- https://mvnrepository.com/artifact/org.aspectj/aspectjweaver -->
+&lt;dependency>
+    &lt;groupId>org.aspectj&lt;/groupId>
+    &lt;artifactId>aspectjweaver&lt;/artifactId>
+    &lt;version>1.9.4&lt;/version>
+&lt;/dependency>
+&lt;!-- https://mvnrepository.com/artifact/org.aspectj/aspectjrt -->
+&lt;dependency>
+    &lt;groupId>org.aspectj&lt;/groupId>
+    &lt;artifactId>aspectjrt&lt;/artifactId>
+    &lt;version>1.9.4&lt;/version>
+&lt;/dependency>
+&lt;!-- https://mvnrepository.com/artifact/org.aspectj/aspectjtools -->
+&lt;dependency>
+    &lt;groupId>org.aspectj&lt;/groupId>
+    &lt;artifactId>aspectjtools&lt;/artifactId>
+    &lt;version>1.9.4&lt;/version>
+&lt;/dependency>
+</pre>
+<p>导入之后, 就可以通过注解来使用了.</p>
+
+<h2 style="text-align: center;" id="con2">简单使用Aspect注解</h2>
+<p>有了Aspect包之后, 就可以使用注解了.</p>
+<p>先来看一下接口:</p>
+<pre>
+public interface MyInterFace {
+    void m1();
+
+    void m2();
+
+    void m3(String name);
+}
+</pre>
+<p>然后是实现类:</p>
+<pre>
+public class MyImplClass implements MyInterFace {
+    public void m1() {
+        System.out.println("m1方法执行");
+    }
+
+    public void m2() {
+        System.out.println("m2方法执行");
+    }
+
+    public void m3(String name) {
+        System.out.println("m3方法执行, 参数是" + name);
+    }
+}
+</pre>
+<p>下边来编写一个切面类. 使用注解, 就可以直接在一个类里完成切面配置, 切点配置, 增强逻辑的编写. 比如现在我们需要对m1方法进行增强:</p>
+<pre>
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class AspectAdvisor {
+
+    @Before("execution(* m1(..))")
+    public void enhance() {
+        System.out.println("m1方法前的增强");
+    }
+
+    public static void main(String[] args) {
+        MyImplClass myImplClass = new MyImplClass();
+        myImplClass.m1();
+        myImplClass.m2();
+    }
+}
+</pre>
+<p>注意看的话, 就会发现, @Aspect和@Before来自于org.aspectj的包, 而不是Spring的包. 不过Spring能够认出来吗? Spring有一个ProxyFactory的实现类, 专门用来认出来Aspect注解的切面类.</p>
+<pre>
+public static void main(String[] args) {
+    MyImplClass target = new MyImplClass();
+
+    AspectJProxyFactory factory = new AspectJProxyFactory();
+
+    factory.setTarget(target);
+    factory.addAspect(AspectAdvisor.class);
+
+    MyImplClass proxy = (MyImplClass) factory.getProxy();
+
+    proxy.m1();
+    proxy.m2();
+}
+</pre>
+<p>可以看到这个AspectJProxyFactory的特别之处在于不添加Advisor和Advice了, 而是使用了addAspect这个方法, 直接添加Aspect类. 你看, 一开始我们用Advice, 然后用Pointcut和Advice拼一个Advisor. 到了使用注解, 直接就用上了Aspect的抽象概念.</p>
+<p>这个类里边是如何工作的, 其实原理和Spring解析其他注解配置也没有什么区别, 一个切面需要的切面类(被@Aspect注解的类), 切点规则和方位(@Before("execution(* m1(..))")), 增强代码(被@Before注解的方法), 在这个注解类中都有, 既然信息不缺失, 那么就取出元数据然后进行组装就可以了.</p>
+<p>有了这个东西, 大家可以想象, 和MVC里那些注解配置一样, 只要配上自动扫描和自动组装Bean的功能, 出来的Bean就是直接经过切面增强的Bean了, 像上边这样直接写代码创建一个实现类的过程都不需要了.</p>
+<p>细心的人可能会发现, 这个注解看上去有一个问题, 就是方法的参数怎么获取, 怎么实现动态匹配, 没有看到可以写方法的地方. 下边慢慢来拆解一下.</p>
+
+
+<h2 style="text-align: center;" id="con3">AspectJ基础知识</h2>
+<p>到现在为止最大的疑惑就是<code>"execution(* m1(..))"</code>这个是什么东西, 这个东西是Aspect的切点表达式, 注意是Aspect的, 不是Spring的. 由于上边看到了, Spring有一个类可以装在Aspect注解的类, 但是Spring只支持方法级别的, 所以对于这个切点表达式Spring仅仅支持一部分.</p>
+<p>也就是说如果你是一个Aspect的高手, 要在Spring里使用的话, 只能写Spring认识的那部分针对方法的表达式.</p>
+<p>这个表达式看上去是一个字符串, 但是形式看起来像一个函数, 所以一般就称为切点表达式函数, Spring支持如下9种:</p>
+<ol>
+    <li><code>execution()</code>, 参数是一个方法模式匹配串, 最后会按照匹配方法来确定具体的方法.</li>
+    <li><code>@annotation</code>, 参数是一个注解类的名称, 匹配所有使用了这个注解类的方法</li>
+    <li><code>args()</code>, 参数是一个类, 如果这个类和目标类的方法的参数相同, 就匹配上了.</li>
+    <li><code>@args()</code>, 参数是一个类, 这个玩意是匹配目标类的方法的参数是不是经过指定的类的注解, 如果是就匹配上了.</li>
+    <li><code>within()</code>, 参数是一个类名的模式匹配串, 会匹配到类之后, 对个类下边所有的连接点生效. 注意仅匹配类, 匹配到类之后, 类下边所有方法自动生效.</li>
+    <li><code>target()</code>, 参数是一个类名, 这个是匹配一批类, 比如参数是一个接口的话, 这个接口及其所有实现类的所有连接点都匹配成功.</li>
+    <li><code>@within()</code>, 参数是一个注解类名, 被注解类注解的类会得到增强.</li>
+    <li><code>@target()</code>, 参数是一个注解类名, 被注解类注解的类会得到增强, 经过我试验, 这个和@within()的作用一样, 需要哪个类就给哪个类加注解.</li>
+    <li><code>this()</code>, 参数是一个类名, 生成的代理类匹配于参数类的话, 被代理的目标类的所有连接点都匹配改切点, 有点抽象. 这个实际上可以逆向的去给一些类加上增强.</li>
+</ol>
+<p>然后还有三个通配符:</p>
+<ol>
+    <li><code>*</code>, 匹配任意字符, 但只能匹配一个元素</li>
+    <li><code>..</code>, 分两种情况: 匹配多个元素的时候需要和*搭配使用, 表示匹配任意类; 使用在参数的场合可以表示任意多个参数.</li>
+    <li><code>+</code>, 表示按照类型匹配+之前的类型, 比如com.car.benz+, 表示匹配benz及其所有继承或者扩展的类.</li>
+</ol>
+<p>上边9个函数里, execution()和within()支持通配符, 剩下的简单可以理解为都不支持通配符就可以了.</p>
+<p>然后还有表示方位的注解, 都在org.aspectj.lang.annotation包里:</p>
+<ol>
+    <li><code>@Before</code>, 前置增强, value成员用于定义切点, argNames用于在运行时指定标注了增强方法的参数名称, 多个参数名用逗号分割, 有了argNames, 增强方法就可以获取参数了.</li>
+    <li><code>@AfterReturning</code>, 后置增强, value成员用于定义切点, argNames和上边一样. pointcut表示切点, 如果设置pointcut会覆盖value. returning成员可以把目标对象方法的返回值绑定给增强的方法.</li>
+    <li><code>@Around</code>, 环绕增强, value成员用于定义切点, argNames和上边一样. </li>
+    <li><code>@AfterThrowing</code>, 异常增强, value成员用于定义切点, argNames和上边一样. pointcut和上边一样. throwing用于让增强方法可以获取异常对象</li>
+    <li><code>@After</code>, 究极增强, 就是不管被增强的方法出了异常还是执行完成, 都会执行这个增强. value成员用于定义切点, argNames和上边一样. </li>
+    <li><code>@DeclareParents</code>, 引介增强, value成员用于定义切点, defaultImpl成员是一个想要添加进来的接口的实现类, 后边专门看.</li>
+</ol>
+<p>可见AspectJ注解的核心就是切点这个层次的表达式, 通过一个例子来研究一下这些切点表达式.</p>
+
+<h2 style="text-align: center;" id="con4">例子</h2>
+<p>这里就根据书上创建了一批类, 一个接口Waiter, 有两个实现类NaiveWaiter和NaughtyWaiter, 然后有一个CuteNaiveWaiter继承自NaiveWaiter, 但是没有覆盖任何方法.</p>
+<p>一个接口Seller, 一个实现类SmartSeller, SmartSeller中扩展了一个protected方法.</p>
+<p>此外还有一个WaiterManager类, 其中使用到Waiter接口类型和NaiveWaiter类. 最后还有一个简单的注解类, 所有类代码如下:</p>
+<pre>
+public interface Waiter {
+
+    void greetTo(String clientName);
+
+    void serveTo(String clientName);
+}
+</pre>
+<pre>
+public class NaiveWaiter implements Waiter{
+
+    @Override
+    public void greetTo(String clientName) {
+        System.out.println("NaiveWaiter的greetTo方法, 向" + clientName + "问好");
+    }
+
+    @Override
+    public void serveTo(String clientName) {
+        System.out.println("NaiveWaiter的serveTo方法, 向" + clientName + "提供服务");
+    }
+
+    public void smile(String clientName, int times) {
+        System.out.println("NaiveWaiter的smile方法, 向" + clientName + "笑了" + times + "次");
+    }
+}
+</pre>
+<pre>
+public class NaughtyWaiter implements Waiter {
+
+    @Override
+    public void greetTo(String clientName) {
+        System.out.println("NaughtyWaiter的greetTo方法, 向" + clientName + "问好");
+    }
+
+    @Override
+    public void serveTo(String clientName) {
+        System.out.println("NaughtyWaiter的serveTo方法, 向" + clientName + "提供服务");
+    }
+
+    public void joke(String clientName, int times) {
+        System.out.println("NaughtyWaiter的joke方法, 向" + clientName + "开玩笑" + times + "次");
+    }
+}
+</pre>
+<pre>
+public class CuteNaiveWaiter extends NaiveWaiter {
+}
+</pre>
+<pre>
+public interface Seller {
+    int sell(String goods, String clientName);
+}
+</pre>
+<pre>
+public class SmartSeller implements Seller {
+
+    @Override
+    public int sell(String goods, String clientName) {
+        System.out.println("SmartSeller的sell方法在向" + clientName + "销售" + goods + "");
+        return 10;
+    }
+
+    protected int showGoods(String goods) {
+        System.out.println("SmartSeller的showGoods方法展示" + goods);
+        return 10;
+    }
+}
+</pre>
+<pre>
+public class WaiterManager {
+
+    public void addWaiter(Waiter waiter) {
+        System.out.println("添加了一个Waiter");
+    }
+
+    public void addNaiveWaiter(NaiveWaiter naiveWaiter) {
+        System.out.println("添加了一个naiveWaiter");
+    }
+}
+</pre>
+<pre>
+//@target()表达式需要注解是运行时才可以
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Mark {
+    String value() default "saner";
+}
+</pre>
+<p>然后准备一批代码, 给这五个实体类都附加上一个切面类:</p>
+<pre>
+public static void main(String[] args) {
+    NaiveWaiter naiveWaiter = new NaiveWaiter();
+    NaughtyWaiter naughtyWaiter = new NaughtyWaiter();
+    SmartSeller smartSeller = new SmartSeller();
+    CuteNaiveWaiter cuteNaiveWaiter = new CuteNaiveWaiter();
+    WaiterManager waiterManager = new WaiterManager();
+
+
+    AspectJProxyFactory factory1 = new AspectJProxyFactory();
+    factory1.setTarget(naiveWaiter);
+    factory1.addAspect(AspectAdvisor.class);
+    NaiveWaiter naiveWaiterProxy = factory1.getProxy();
+
+    AspectJProxyFactory factory2 = new AspectJProxyFactory();
+    factory2.setTarget(naughtyWaiter);
+    factory2.addAspect(AspectAdvisor.class);
+    NaughtyWaiter naughtyWaiterProxy = factory2.getProxy();
+
+    AspectJProxyFactory factory3 = new AspectJProxyFactory();
+    factory3.setTarget(smartSeller);
+    factory3.addAspect(AspectAdvisor.class);
+    SmartSeller smartSellerProxy = factory3.getProxy();
+
+    AspectJProxyFactory factory4 = new AspectJProxyFactory();
+    factory4.setTarget(cuteNaiveWaiter);
+    factory4.addAspect(AspectAdvisor.class);
+    CuteNaiveWaiter cuteNaiveWaiterProxy = factory4.getProxy();
+
+    AspectJProxyFactory factory5 = new AspectJProxyFactory();
+    factory5.setTarget(waiterManager);
+    factory5.addAspect(AspectAdvisor.class);
+    WaiterManager waiterManagerProxy = factory5.getProxy();
+
+    System.out.println("------------------------------------------");
+    naiveWaiterProxy.greetTo("owl");
+    naiveWaiterProxy.smile("owl", 5);
+    System.out.println("------------------------------------------");
+    naughtyWaiterProxy.greetTo("owl");
+    naughtyWaiterProxy.joke("owl", 6);
+    System.out.println("------------------------------------------");
+    smartSellerProxy.sell("lego", "owl");
+    smartSellerProxy.showGoods("lego");
+    System.out.println("------------------------------------------");
+    cuteNaiveWaiterProxy.serveTo("owl");
+    System.out.println("------------------------------------------");
+    waiterManagerProxy.addNaiveWaiter(naiveWaiter);
+    waiterManagerProxy.addWaiter(naiveWaiter);
+}
+</pre>
+<p>剩下的工作, 就是创建AspectAdvisor类, 然后在里边使用各种切点表达式来试验了.</p>
+
+<h2 style="text-align: center;" id="con5">execution()</h2>
+<p>创建AspectAdvisor类如下:</p>
+<pre>
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class AspectAdvisor {
+
+    <span style="color: red">@Before(*************)</span>
+    public void enhance() {
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>其中红色部分, 就是一会要来反复尝试的切点函数表达式, 当然这里你也可以把Before换成其他的方位注解.</p>
+<p>execution()是这9个切点函数表达式里唯一直接匹配方法的, 同时还能匹配类, 所以实践中用的非常广泛. 其参数是一个模式串, 构成如下:</p>
+<pre>
+<span style="color: orangered">&lt;修饰符></span> &lt;返回类型> &lt;方法名>(&lt;参数模式>) <span style="color: orangered">&lt;异常模式></span>
+</pre>
+<p>上边橙色的部分可选, 黑色的部分一定要有, 这个模式串的核心, 就是要理解其一定要去对应方法, 也就是如果没有异常模式的话, 最右边的部分一定会被当做方法名称去匹配.</p>
+<p>同时可以用通配符. 看几个例子最好:</p>
+<ol>
+    <li><code>public * *(..)</code>, 匹配所有类的所有public方法. 此时有了public, 则还需要一个 * 表示所有的返回类型. 之后的 *(..) 被解释为所有类的所有方法.</li>
+    <li><code>* *To(..)</code>, 匹配所有类的所有以To结尾的方法.</li>
+    <li><code>* cc.conyli.aspect.NaiveWaiter.*To(..)</code>, 匹配NaiveWaiter的所有以To结尾的方法. 这里有个有趣的现象是cuteNaiveWaiterProxy也会触发这个切面, 这是因为CuteNaiveWaiter里没有实现这个方法,所以调用的是父类的方法.</li>
+    <li><code>* cc.conyli.aspect.CuteNaiveWaiter.*To(..)</code>, 匹配CuteNaiveWaiter的所有以To结尾的方法. 但实际上执行的时候, 不会有任何增强效果, 这是因为CuteNaiveWaiter里没有实现这个方法, 实际调用的是父类的方法, 等于这个切点表达式没有匹配成功任何一个方法.</li>
+    <li><code>* cc.conyli.aspect.Waiter.*(..)</code>, 匹配所有Waiter接口里的所有方法, 不是这个接口里的方法不会匹配成功. 可以看到, NaughtyWaiter自己扩展的方法不符合这个条件.</li>
+    <li><code>* cc.conyli.aspect.Waiter+.*(..)</code>, 匹配所有Waiter衍生类的所有方法. 可以看到, 即使NaughtyWaiter自己扩展的方法, 也符合这个条件.</li>
+    <li><code>* cc.Waiter+.*(..)</code>, 匹配所有Waiter衍生类的所有方法. 可以看到, 即使NaughtyWaiter自己扩展的方法, 也符合这个条件.</li>
+    <li><code>* cc.conyli..*(..)</code>, 出现..*,表示cc.conyli之下的所有包的所有方法, 会递归下去, 不仅仅是第一层. </li>
+    <li><code>* cc.conyli..*To(..)</code>, cc.conyli之下的所有包的以To结尾的方法, 也会递归匹配到底. </li>
+    <li><code>* cc..*.g*(..))</code>, cc之下的所有包的以g开头的方法, 也会递归匹配到底. 看过上边三个例子, 需要注意的是, 要把..*和前边的包一起来理解, 即表达式是
+    <pre>
+    <span style="color: orangered">cc..*</span>.<span style="color: #0FA0CE">g*(..)</span>
+    </pre>
+    橙色部分指的是cc及其内部所有递归到底的类, 然后一个点表示分隔符, 之后是蓝色的方法表达式, 表示g开头的方法. 这样就不容易出错.
+    </li>
+    <li><code>* cc.conyli..*.*(String, int)</code>, cc.conyli之下的所有包内只有两个参数, 并且第一个参数是String, 第二个参数是int的方法, 对应smile和joke两个方法. 参数的类如果是java.lang下边, 不用加全类名, 否则要加全类名.</li>
+    <li><code>* cc.conyli..*.*(String, *)</code>, cc.conyli之下的所有包内只有两个参数, 并且第一个参数是String, 第二个参数是任意类型的方法, 这里就对应smile和joke和sell三个方法了, 因为这三个方法第二个参数有不同, 但第一个参数全都是String.</li>
+    <li><code>* cc.conyli..*.*(String, ..)</code>, cc.conyli之下的所有包内至少第一个参数是String的方法, 后边的参数可以没有, 也可以是任意类型和数量, 这就对应了更多的方法了, 除了WaiterManager的方法, 剩下的方法全都可以匹配.</li>
+    <li><code>* cc.conyli..*.*(cc.conyli.aspect.Waiter+, ..)</code>, cc.conyli之下的所有包内至少第一个参数是Waiter及其后继类的方法, 这个就能匹配上WaiterManager的两个方法.</li>
+</ol>
+<p>基本上能会用execution(), AspectJ注解类基本上也会用了. </p>
+
+<h2 style="text-align: center;" id="con6">@annotation()</h2>
+<p>这个切点函数表达式的意思就是仅仅只对拥有特定注解的方法才有效. 现在我们给NaiveWaiter中的greetTo()方法加上注解Mark. 然后修改一下AspectAdvisor类:</p>
+<pre>
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class AspectAdvisor {
+
+    @Before("@annotation(cc.conyli.aspect.Mark)")
+    public void enhance() {
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>这个时候, 这个增强就仅仅作用于加上了注解的方法, 没有加上注解的方法, 就不会生效.</p>
+
+<h2 style="text-align: center;" id="con7">args()与@args()</h2>
+<p>每次开始尝试新的切点表达式的时候, 都把代码还原, 比如把刚才加到NaiveWaiter中的greetTo()方法的@Mark去掉.</p>
+<p>这两个东西, 都和控制参数有关.</p>
+<p>args()的意思是, 运行时传进来的类是否匹配. 和execution()不同的是execution()是匹配签名, 而args()动态匹配, 也就是说args()天生就等于带上+号去匹配参数的execution().</p>
+<p>@args()是什么意思的呢. 简单的说有一个@args(M), 参数M是一个注解类. 然后你有一个类A,标注了M注解. @args(M)会去检测方法运行时的实际参数a, 检查a是不是属于A的同类或者父类型. 如果是, 就匹配上了, 如果不是, 就匹配不成功.</p>
+<p>修改AspectAdvisor类如下:</p>
+<pre>
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class AspectAdvisor {
+
+    @Before("@args(cc.conyli.aspect.Mark)")
+    public void enhance() {
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>然后我们把@Mark标注在Waiter接口上, 这个时候你应该看出来了, 其实这个注解就是去判断实际参数的类型. 运行代码你会发现:</p>
+<pre>
+//没有被增强
+waiterManagerProxy.addNaiveWaiter(naiveWaiter);
+
+//增强了
+waiterManagerProxy.addWaiter(naiveWaiter);
+</pre>
+<p>这是为什么, 因为在类里, addWaiter方法签名的参数是一个Waiter类, 传入的参数会被转换成Waiter类, 注意此时@Mark注解的是Waiter类, 要求参数必须是Waiter或者其父类. 这个方法符合条件, 但addNaiveWaiter就不符合了.</p>
+<p>现在给Waiter接口去掉@Mark标记, 然后给NaiveWaiter加上@Mark标记, 再运行, 你会发现两个方法都得到了增强, 这是因为两个方法的参数一个是NaiveWaiter类, 一个是Waiter类, 他们都是被标注的NaiveWaiter类的同类或者父类.</p>
+<p>这个玩意确实有点绕, 实际上用一句话说, 就是检测一个方法的参数的下限是否符合被标注的类型.</p>
+
+<h2 style="text-align: center;" id="con8">within()</h2>
+<p>这个within()就是一个特化版的execution(), 其表达式只能匹配类, 如果写成匹配方法的表达式就会报错, 可以使用通配符. 一旦匹配成功类, 就自动设置切点为类内部的所有方法. 看几个例子:</p>
+<ol>
+    <li><code>within(cc.conyli..*)</code>, 再次强调, ..*要用在匹配类的字符串上. 这表示cc.conyli下边的递归的包中的所有类的所有方法.</li>
+    <li><code>within(cc.conyli.aspect.Waiter)</code>, 这是精确匹配, 仅仅匹配Waiter类, 但是由于接口本身没法直接实例化, 所以不会有任何方法得到增强.</li>
+    <li><code>within(cc.conyli.aspect.Waiter+)</code>, Waiter类及其实现类的全部方法, 也包括实现类自己扩展出来的方法. </li>
+</ol>
+
+<h2 style="text-align: center;" id="con9">target()</h2>
+<p>target可以看做是一个特化版的within(M), 不能使用通配符(+可以, 但没有用), 直接匹配M及其所有子类和实现类的所有方法.</p>
+<ol>
+    <li><code>target(cc.conyli.aspect.NaiveWaiter)</code>, 匹配NaiveWaiter及其子类, 也就说NaiveWaiter和CuteNaiveWaiter中的所有方法都匹配</li>
+    <li><code>target(cc.conyli.aspect.NaiveWaiter+)</code>, 因为本身就是匹配所有子类和实现类了, 所以加上了+, 效果和没有加是一样的.</li>
+    <li><code>target(cc.conyli.aspect..*)</code>, 不能使用通配符*, 用了会报错.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con10">@within()和@target()</h2>
+<p>有了前边的@args(), 你会想到这两个估计也是类似的效果, 去匹配被标注的类的一定范围的界限.</p>
+<p>注意, @within(M)表示匹配被M标注的类及其子类. 而@target(M)是精准匹配, 仅仅只匹配被M标注的类. 上边这句话经过我测试, @within()没有自动匹配类及其子类的效果. 和@target()一样, 都需要标注在指定的类上.</p>
+<p>@within()和@target()标注在接口上, 没有任何效果, 因为接口类不能直接实例化.</p>
+<p>来看例子, 把@Mark加到NaiveWaiter上, 然后修改AspectAdvisor类:</p>
+<pre>
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class AspectAdvisor {
+
+    @Before("@target(cc.conyli.aspect.Mark)")
+    public void enhance() {
+        System.out.println("我是增强");
+    }
+}
+</pre>
+<p>这个时候运行代码, 仅仅只有NaiveWaiter的所有方法有增强, 将@Mark加到哪个类上, 那个类就会得到增强. <span style="color: red">@within()经过我测试, 和@target()的效果完全一样.</span></p>
+
+<h2 style="text-align: center;" id="con11">引介增强用法</h2>
+<p>慢着, 还有一个this()切点函数表达式呢. 在this()之前, 先来看一看方位注解里唯一比较独特的@DeclareParents.</p>
+<p>我们想要为NaiveWaiter引入Seller接口. 先想想假如是修改源代码的方式, 就需要实现Seller接口, 然后编写两个方法.</p>
+<p>如果采用引介的方式, 很显然, 除了给NaiveWaiter打上Seller接口之外, 你还必须实现两个具体方法, 否则依然没用. @DeclareParents实际上就是需要一个默认的实现类, 这样就会把默认的实现类中的方法嫁接到目标对象上.</p>
+<p>来编写一个为NaiveWaiter引入Seller接口的切面:</p>
+<pre>
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.DeclareParents;
+
+@Aspect
+public class IntroSellerAspect {
+
+    @DeclareParents(value = "cc.conyli.aspect.NaiveWaiter", defaultImpl = cc.conyli.aspect.SmartSeller.class)
+    public Seller seller;
+}
+</pre>
+<p>value的内容是以字符串形式表示的目标类, 而defaultImpl是Seller接口的默认实现类, 这个注解标注的是一个切面类的类域, 域的属性必须是接口.</p>
+<p>这样就提供了目标类, 要实现的接口类型, 接口的默认实现类三个信息, 可以进行引介了. 通过实际代码操作一下:</p>
+<pre>
+public static void main(String[] args) {
+    NaiveWaiter naiveWaiter = new NaiveWaiter();
+
+    AspectJProxyFactory factory1 = new AspectJProxyFactory();
+    factory1.setTarget(naiveWaiter);
+    factory1.addAspect(IntroSellerAspect.class);
+    Seller naiveWaiterProxy = (Seller) factory1.getProxy();
+
+    //转型成Seller, 实现的方法是SmartSeller中的实现
+    naiveWaiterProxy.sell("owl", "owl");
+    System.out.println("------------------------------------");
+
+    Class[] in = naiveWaiterProxy.getClass().getInterfaces();
+    Class[] in2 = naiveWaiterProxy.getClass().getClasses();
+     for (Class c : in) {
+        System.out.println(c.getName());
+    }
+     System.out.println("------------------------------------");
+    for (Class c : in2) {
+        System.out.println(c.getName());
+    }
+    System.out.println("------------------------------------");
+    System.out.println(naiveWaiterProxy.getClass().getSuperclass().getName());
+}
+</pre>
+<p>这里很奇怪的是, 可以转型成Seller, 但是不能转型成NaiveWaiter了, 后来打印了这个代理类的接口一看, 压根就不存在Waiter系列了. 为了试验, 我启动了一个SpringBoot项目, 将这几个接口和类都移动到SpringBoot里, 将SmartSeller, NaiveWaiter和IntroSellerAspect都标记上@Component, IntroSellerAspect也同时带有@Aspect注解, 然后写一个空的配置类, 启用自动AOP装配:</p>
+<pre>
+@Configuration
+@ComponentScan
+@EnableAspectJAutoProxy
+public class Config {
+}
+</pre>
+<p>然后写一个控制器:</p>
+<pre>
+package com.example.demo;
+
+import com.example.demo.aop.Seller;
+import com.example.demo.aop.Waiter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class Controller {
+
+    private Waiter waiter;
+
+    @Autowired
+    public Controller(Waiter waiter) {
+        this.waiter = waiter;
+    }
+
+    @GetMapping("/test")
+    public String test() {
+        waiter.greetTo("fdkjlkjl");
+
+        Seller seller = (Seller) waiter;
+        seller.sell("fsjlk", "dfslkj");
+
+        Class[] in = waiter.getClass().getInterfaces();
+        Class[] in2 = waiter.getClass().getClasses();
+        for (Class c : in) {
+            System.out.println(c.getName());
+        }
+        System.out.println("------------------------------------");
+        for (Class c : in2) {
+            System.out.println(c.getName());
+        }
+        System.out.println("------------------------------------");
+        System.out.println(waiter.getClass().getSuperclass().getName());
+        return "OK";
+    }
+}
+</pre>
+<p>控制器里注入了private Waiter waiter, 按照配置, 这个waiter应该是被AOP引介增强过的Bean. 果然, 访问控制器后打印出的是:</p>
+<pre>
+NaiveWaiter的greetTo方法, 向fdkjlkjl问好
+SmartSeller的sell方法在向dfslkj销售fsjlk
+com.example.demo.aop.Seller
+org.springframework.aop.SpringProxy
+org.springframework.aop.framework.Advised
+org.springframework.cglib.proxy.Factory
+------------------------------------
+------------------------------------
+com.example.demo.aop.NaiveWaiter
+</pre>
+<p>可见这个Bean实现了Seller接口, 同时父类是NaiveWaiter, 可见代理是创建了一个子类去新实现Seller接口. 知道了引介, 就可以来看看this()切点函数表达式了.</p>
+
+<h2 style="text-align: center;" id="con12">this()</h2>
+<p>接着上边的引介来说, 现在实际生成的Waiter Bean, 是一个被引介了Seller接口的Waiter接口实现对象. 这里我自己把Waiter接口叫做原生接口, Seller叫做移植接口, 这样更清楚一些.</p>
+<p>this(M)的这个M, 一个类不管是原生接口是M, 还是移植接口是M, 都会被匹配成功. 如果你是用target(M), 对于一个类来说, 只有原生接口是M的时候(或者实现类), 才会匹配成功.</p>
+<p>先把控制器修改一下, 变得更明显:</p>
+<pre>
+import com.example.demo.aop.Seller;
+import com.example.demo.aop.Waiter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class Controller {
+
+    private Waiter waiter;
+
+    @Autowired
+    public Controller(Waiter waiter) {
+        this.waiter = waiter;
+    }
+
+    @GetMapping("/test")
+    public String test() {
+        System.out.println("-----------以Waiter类型调用方法-----------");
+        waiter.greetTo("fdkjlkjl");
+        System.out.println();
+        System.out.println("-----------以Seller类型调用方法-----------");
+        Seller seller = (Seller) waiter;
+        seller.sell("fsjlk", "dfslkj");
+
+        return "OK";
+    }
+}
+</pre>
+<p>然后修改一下切面类. 先看target()的效果:</p>
+<pre>
+@Aspect
+@Component
+public class IntroSellerAspect {
+
+    @DeclareParents(value = "com.example.demo.aop.NaiveWaiter", defaultImpl =com.example.demo.aop.SmartSeller.class)
+    public Seller seller;
+
+    @Before("target(com.example.demo.aop.Waiter)")
+    public void enhance1() {
+        System.out.println("target(Waiter)的增强");
+    }
+
+    @Before("target(com.example.demo.aop.Seller)")
+    public void enhance2() {
+        System.out.println("target(Seller)的增强");
+    }
+}
+</pre>
+<p>这里针对Waiter和Seller都使用了target(), 如果按照target()那一节的描述, 你会想, waiter Bean同时有Waiter接口和Seller接口, 是不是都会增强呢.</p>
+<p>运行一下就会发现结果如下:</p>
+<pre>
+-----------以Waiter类型调用方法-----------
+target(Waiter)的增强
+NaiveWaiter的greetTo方法, 向fdkjlkjl问好
+
+-----------以Seller类型调用方法-----------
+SmartSeller的sell方法在向dfslkj销售fsjlk
+</pre>
+<p>这说明target(M)只能作用于以M为原生接口的目标类上. waiter虽然也实现了Seller, 但对于waiter来讲, Seller是移植的, 不是原生的, 所以target不认为带有移植接口的waiter可以匹配成功.</p>
+<p>对比一下看this(), 再添加两个增强方法:</p>
+<pre>
+@Before("this(com.example.demo.aop.Waiter)")
+public void enhance3() {
+    System.out.println("this(Waiter)的增强");
+}
+
+@Before("this(com.example.demo.aop.Seller)")
+public void enhance4() {
+    System.out.println("this(Seller)的增强");
+}
+</pre>
+<p>运行的结果是:</p>
+<pre>
+-----------以Waiter类型调用方法-----------
+target(Waiter)的增强
+this(Waiter)的增强
+this(Seller)的增强
+NaiveWaiter的greetTo方法, 向fdkjlkjl问好
+
+-----------以Seller类型调用方法-----------
+SmartSeller的sell方法在向dfslkj销售fsjlk
+</pre>
+<p>可以看到, 当this(M)对于一个原生接口来说,和target()一样, 直接匹配就行了. this(M)的唯一特别的地方, 是当M为一个引介接口的时候, 能够匹配使用引介接口的类.</p>
+<p>至于强制转型后按照Seller的方法去调用, 很有意思, 一个增强都没有匹配到, 我感觉就是内部压根就没有将其当做一个真正的Seller实现类来看待, 所以没有匹配上.</p>
+<p>所以用一句话来解释this(M), 就是当你去增强被移植了M接口的类, 就用this. 其他情况就老实用target就可以了.</p>
+
+<p>真不容易, 终于将AOP注解配置的核心部分看完了. 但是还有一个大问题, 就是如何获取方法的参数, 这个和AspectJ的其他一些补充内容继续再学.</p>
 
 
 
 
-<h2 style="text-align: center;" id="con2"></h2>
 
-<h2 style="text-align: center;" id="con3"></h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
