@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 06</title>
+    <title>Spring RE 06 SpringEL表达式</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,22 +15,151 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>IOC和AOP两大内容看完了, 东西是真不少, 后边还有一个重型的东西, 关系着Web应用的好坏, 就是数据库.</p>
+<p>在IOC+AOP和Spring对数据库的支持中间, 插入一个SpringEL来休闲一下吧.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
+    <li><a href="#con1">SpringEL表达式</a></li>
+    <li><a href="#con2">SpringEL核心接口</a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">SpringEL表达式</h2>
+<p>学Spring之前, Java Web重新过了一遍, 很多东西了解的更深刻了. JSP里的EL表达式, 本质上说, 就是在JSP引擎解析JSP文件, 将JSP文件变成一个Servlet的时候, EL表达式会由特定的解析引擎去解析, 像极了各种特殊的标签.</p>
+<p>所以可以知道, 不管是EL还是SpringEL, 背后都是对应的类来操作, 解析表达式, 然后输出结果. 既然是EL, 就要注意, 其背后的本质, 也就是输出的时候是字符串, 但是内部其实是一个对象.</p>
+<p>Spring 的EL表达式用在支持EL表达式的注解中, XML文件和Properties文件中, 可以发现, 这些文件或者注解, 都需要Spring解析, Spring解析的时候就会调用相关的类, 然后生成解析后的结果, 也就是一个对象. 很类似AspectJ注解中的切点函数表达式, 都是以字符串的形式写下语句然后解析.</p>
+<p>既然是一个表达式, 肯定想到了, 要有一个语句对象, 然后有一个解析对象, 或者调用语句的解析方法, 得到一个解析后的语句, 然后就可以获得执行结果.</p>
+<p>SpringEL表达式的支持都在org.springframework.expression 和 spel.supprot中.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">SpringEL核心接口</h2>
+<p>SpringEL表达式的字符串形式是<code>#{xxxx.xxxx}</code>, 熟悉JSP 的EL表达式的话可以非常快的上手.</p>
+<p>SpringEL的核心接口(类)如下:</p>
+<ol>
+    <li><code>ExpressionParse</code>, 这是一个解析器, 调用其parseExpression方法, 参数传入一个表达式, 就可以得到一个Expression对象</li>
+    <li><code>Expression</code>, 这是一个解析后的表达式对象, 通过getValue(T.class)得到结果T类型.</li>
+    <li><code>EvaluationContext</code>, 由于SpringEL表达式最常见的就是通过特定对象的属性名称获取值, 所以提供了这样一个类, 这个类需要指定一个对象, 然后就可以通过属性直接获取值. 可以将这个类的实例看做一个对象包装器, 具有传入的对象的全部属性. 一会来看一下例子.</li>
+</ol>
+<p>这些类和方法, Spring在解析上边所说的各种文件的时候会自动调用. 现在就来实际使用一下这些类, 先看一个最标准的, 解析一个表达式, 获取结果:</p>
+<pre>
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+
+public class Test1 {
+    public static void main(String[] args) {
+        //创建parser
+        ExpressionParser parser = new SpelExpressionParser();
+        //用parser解析一个表达式, 得到一个Expression对象
+        Expression expression = parser.parseExpression("<span style="color: orangered;">'SD GUNDAM G GENERATION'</span>");
+        //从Expression对象中获取值
+        String value = expression.getValue(String.class);
+
+        System.out.println(value);
+    }
+}
+</pre>
+<p>从程序里可以看出, 解析得到的是一个字符串对象, 这是因为EL表达式中表示字符串使用单引号, 这里的表达式被解析为一个纯字符串.</p>
+<p>编写一个简单的User类:</p>
+<pre>
+public class User {
+
+    private String name;
+    private int age;
+
+    public User(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                '}';
+    }
+}
+</pre>
+<p>然后看如何在上下文里绑定一个对象, 然后通过上下文获取属性:</p>
+<pre>
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
+
+public class Test1 {
+    public static void main(String[] args) {
+
+        User user = new User("cony", 5);
+
+        ExpressionParser parser = new SpelExpressionParser();
+
+        //使用EvaluationContext, 传入一个对象, 将其作为一个上下文环境的根对象
+        EvaluationContext context = new StandardEvaluationContext(user);
+        //可以认为传入user之后, context对象就可以认为是user对象
+
+        //使用Expression接口重载的方法getValue(EvaluationContext), 从上下文中寻找"name"名称的属性
+        String username = (String) parser.parseExpression("name").getValue(context);
+
+        System.out.println(username);
+    }
+}
+</pre>
+<p>SpringEL后台解析表达式的时候, 核心程序结构不外乎上边两种套路, 即直接解释和以对象为基础进行解释.</p>
+<p>这里唯一要多说说的就是EvaluationContext, 这个接口经常搭配Expression的setValue()来使用, 这其中还会自动进行基本类型的转换:</p>
+<pre>
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
+
+public class Test1 {
+    public static void main(String[] args) {
+
+        User user1 = new User("cony", 5);
+        User user2 = new User("saner", 6);
+        ExpressionParser parser = new SpelExpressionParser();
+
+        //创建两个基于不同对象的上下文
+        EvaluationContext context1 = new StandardEvaluationContext(user1);
+        EvaluationContext context2 = new StandardEvaluationContext(user2);
+
+        //这里的核心就是理解Expression对象其实相当于你获取的属性的包装器. 可以进一步getValue(context)表示从context环境中获取, 也可以向context环境中设置.
+        parser.parseExpression("name").setValue(context1, "owl");
+        parser.parseExpression("name").setValue(context2, 666);
+
+        System.out.println(user1);
+        System.out.println(user2);
+    }
+}
+</pre>
+<p>这段代码运行的结果是:</p>
+<pre>
+User{name='owl', age=5}
+User{name='666', age=6}
+</pre>
+<p>可以看到, 通过绑定不同的上下文, 解析器可以通过名称从不同的上下文中取值和设置值, 这中间还会自动进行类型转换, 如果转换失败, 会抛出异常.`</p>
+<p>基本的接口就是这些, 剩下就是看看Spel表达式的语法了.</p>
 
 <h2 style="text-align: center;" id="con3"></h2>
-
 <h2 style="text-align: center;" id="con4"></h2>
 
 <h2 style="text-align: center;" id="con5"></h2>
