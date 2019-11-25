@@ -21,10 +21,15 @@
 <ol>
     <li><a href="#con1">SpringEL表达式</a></li>
     <li><a href="#con2">SpringEL核心接口</a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con3">表达式语法 - 文本字符和基本类型</a></li>
+    <li><a href="#con4">表达式语法 - 取对象属性</a></li>
+    <li><a href="#con5">表达式语法 - 取集合类型的内容</a></li>
+    <li><a href="#con6">表达式语法 - 方法解析</a></li>
+    <li><a href="#con7">表达式语法 - 操作符解析</a></li>
+    <li><a href="#con8">表达式语法 - ?系操作符</a></li>
+    <li><a href="#con9">表达式语法 - 赋值, 类型, 构造器, 变量</a></li>
+    <li><a href="#con10">表达式语法 - 集合过滤和转换</a></li>
+    <li><a href="#con11">实际的Spring EL 表达式使用</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">SpringEL表达式</h2>
 <p>学Spring之前, Java Web重新过了一遍, 很多东西了解的更深刻了. JSP里的EL表达式, 本质上说, 就是在JSP引擎解析JSP文件, 将JSP文件变成一个Servlet的时候, EL表达式会由特定的解析引擎去解析, 像极了各种特殊的标签.</p>
@@ -159,11 +164,470 @@ User{name='666', age=6}
 <p>可以看到, 通过绑定不同的上下文, 解析器可以通过名称从不同的上下文中取值和设置值, 这中间还会自动进行类型转换, 如果转换失败, 会抛出异常.`</p>
 <p>基本的接口就是这些, 剩下就是看看Spel表达式的语法了.</p>
 
-<h2 style="text-align: center;" id="con3"></h2>
-<h2 style="text-align: center;" id="con4"></h2>
+<h2 style="text-align: center;" id="con3">表达式语法 - 文本字符和基本类型</h2>
+<p>表达式只要记得将两边引号内的部分当做类似动态语言来看待就可以, 不要当成字符串来看待.</p>
+<p>文本在之前使用了单引号, 也可以使用反斜杠加双引号(注意不要看成字符串的转义).</p>
+<p>除了字符串之外的基本类型, 默认会采用Double.parseDouble()方法进行转换, 如果想按照特定方法转换, 就使用getValue(Class T)的方法, 看几个例子:</p>
+<pre>
+public class Test1 {
+    public static void main(String[] args) {
+        ExpressionParser parser = new SpelExpressionParser();
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+        //字符串和基本类型
+        String ex1 = "\"hello world\"";
+        String ex2 = "'3 + 2 = 5'";
+        String ex3 = "6.325";
+        String ex4 = "0x73329";
+        String ex5 = "true";
+
+        System.out.println(parser.parseExpression(ex1).getValue(String.class));
+        System.out.println(parser.parseExpression(ex2).getValue(String.class));
+        System.out.println(parser.parseExpression(ex3).getValue(Double.class));
+        //强制转换类型
+        System.out.println(parser.parseExpression(ex3).getValue(Integer.class));
+        System.out.println(parser.parseExpression(ex4).getValue(Integer.class));
+        //强制转换类型
+        System.out.println(parser.parseExpression(ex4).getValue(Double.class));
+
+        System.out.println(parser.parseExpression(ex5).getValue(Boolean.class));
+    }
+}
+</pre>
+
+
+<h2 style="text-align: center;" id="con4">表达式语法 - 取对象属性</h2>
+<p>这个大概是最常用的了, 写出来就是xxx.yyy.zzz的样子. 其背后的原理就是之前介绍过的对象上下文参数EvalulationContext的使用, 从对象上下文中取可以了. 还可以嵌套.</p>
+<p>修改一下User, 给User添加一个Animal类:</p>
+<pre>
+public class Animal {
+
+    private String name;
+
+    public Animal(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return "Animal{" +
+                "name='" + name + '\'' +
+                '}';
+    }
+}
+</pre>
+<pre>
+public class User {
+
+    private String name;
+    private int age;
+    private Animal animal;
+
+    public User(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", animal=" + animal +
+                '}';
+    }
+
+    public Animal getAnimal() {
+        return animal;
+    }
+
+    public void setAnimal(Animal animal) {
+        this.animal = animal;
+    }
+}
+</pre>
+<p>然后试着来创建一个嵌套版本的取属性:</p>
+<pre>
+public class Test1 {
+    public static void main(String[] args) {
+        ExpressionParser parser = new SpelExpressionParser();
+        //以User为根对象创建上下文
+        EvaluationContext context = new StandardEvaluationContext(user);
+        //表达式以写根对象的属性开始
+        String getProperty = "animal.name";
+        //使用重载的getValue()方法从上下文中按照表达式, 取出指定类型的结果
+        String animalName = parser.parseExpression(getProperty).getValue(context, String.class);
+        System.out.println(animalName);
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con5">表达式语法 - 取集合类型的内容</h2>
+<p>在Java里集合也是对象, 所以本质上和取属性一样, 也需要将集合对象设置在EvaluationContext中. 解析表达式分为解析创建数组的表达式, 和解析取内容的表达式.</p>
+<p>先看解析创建集合类型:</p>
+<pre>
+public class Test1 {
+    public static void main(String[] args) {
+        ExpressionParser parser = new SpelExpressionParser();
+
+        //创建数组的语句和java很类似, 不能使用多维数组
+        String arrayExp = "new int[]{1,2,3,4,5,6}";
+
+        //创建List类型需要使用的大括号
+        String listExp = "{\"owl\",\"saner\",\"sitong\"}";
+
+        int[] array1 = parser.parseExpression(arrayExp).getValue(int[].class);
+
+        List&lt;String> list1 = (List&lt;String>) parser.parseExpression(listExp).getValue();
+
+        //创建MAP对象使用大括号中的键值对
+        String mapExp = "{user:'cony', age:5}";
+
+        Map&lt;String, Integer> map = (Map&lt;String, Integer>) parser.parseExpression(mapExp).getValue();
+
+        System.out.println(Arrays.toString(array1));
+
+        System.out.println(list1);
+
+        System.out.println(map);
+    }
+}
+</pre>
+<p>然后可以从中取出内容, 取法全部都很类似Python或者JavaScript的方法.取得时候要将对象放入上下文对象中:</p>
+<pre>
+public static void main(String[] args) {
+    ExpressionParser parser = new SpelExpressionParser();
+
+    String arrayExp = "new int[]{1,2,3,4,5,6}";
+    String listExp = "{\"owl\",\"saner\",\"sitong\"}";
+    String mapExp = "{user:'cony', age:5}";
+
+    int[] array1 = parser.parseExpression(arrayExp).getValue(int[].class);
+    List&lt;String> list1 = (List&lt;String>) parser.parseExpression(listExp).getValue();
+    Map&lt;String, Integer> map = (Map&lt;String, Integer>) parser.parseExpression(mapExp).getValue();
+
+    EvaluationContext arrayContext = new StandardEvaluationContext(array1);
+    //取数组用索引
+    int thirdElement = parser.parseExpression("[2]").getValue(arrayContext,Integer.class);
+
+    EvaluationContext listContext = new StandardEvaluationContext(list1);
+    //取list也是用索引
+    String secondListElement = parser.parseExpression("[1]").getValue(listContext, String.class);
+
+    EvaluationContext mapContext = new StandardEvaluationContext(map);
+    //取Map中的内容用键名
+    String name = parser.parseExpression("[\"user\"]").getValue(mapContext, String.class);
+    int age = parser.parseExpression("['age']").getValue(mapContext, Integer.class);
+
+    System.out.println(thirdElement);
+    System.out.println(secondListElement);
+    System.out.println(name);
+    System.out.println(age);
+}
+</pre>
+
+<h2 style="text-align: center;" id="con6">表达式语法 - 方法解析</h2>
+<p>由于表达式被当成程序代码解析, 而不是字符串, 所以在其中还可以像程序里边一样调用方法. 可以调用实例方法, 但是不能调用私有方法. 不过在EL表达式里调用方法会比较难看, 知道就好.</p>
+<pre>
+public static void main(String[] args) {
+    ExpressionParser parser = new SpelExpressionParser();
+
+    User user = new User("cony", 5);
+    //调用字符串类的方法
+    String[] result = parser.parseExpression("'hello world'.split(\" \")").getValue(String[].class);
+
+    //调用对象方法, 通过上下文
+    EvaluationContext userContext = new StandardEvaluationContext(user);
+    int age = parser.parseExpression("getAge()").getValue(userContext, Integer.class);
+
+    System.out.println(Arrays.toString(result));
+    System.out.println(age);
+
+}
+</pre>
+
+<h2 style="text-align: center;" id="con7">表达式语法 - 操作符解析</h2>
+<p>操作符分大类为关系操作符, 逻辑操作符, 算术运算操作符. 写法和Java一样, 来看每个种类中比较特殊的操作符.</p>
+<ol>
+    <li>关系操作符
+    <ol>
+        <li><code>intanceof T(Class)</code>, 这个是固定用法, 要用一个字符 T, 然后括号内部是Java的类型名称.</li>
+        <li><code>matches</code>, 直接跟在字符串后边, 然后是Java的正则表达式.</li>
+        <li>可以直接用大于号和小于号来比较字符串</li>
+    </ol>
+    </li>
+    <li>逻辑操作符
+    <ol>
+        <li>可以采用and 和 or 两个关键字来进行逻辑运算, 其他标准的运算符也可以</li>
+        <li>毕竟是按照Java来解释, 不能使用0和整数作为布尔值, 必须使用Java标准的布尔值</li>
+    </ol>
+    </li>
+    <li>算术操作符
+    <ol>
+        <li>加号可以用于字符串和日期</li>
+        <li>减号可以用于日期</li>
+        <li>乘除法只可以用于数字, 还可以使用取模%和幂^, 运算顺序和标准的Java一样.</li>
+    </ol></li>
+</ol>
+<p>来看一个综合的例子:</p>
+<pre>
+public class Test1 {
+    public static void main(String[] args) {
+        ExpressionParser parser = new SpelExpressionParser();
+
+        //关系运算符 - 比较字符串
+        System.out.println(parser.parseExpression("'cony' > 'owl'").getValue(Boolean.class));
+        //关系运算符 - 判断类型
+        System.out.println(parser.parseExpression(" 30.0 instanceof T(String)").getValue(Boolean.class));
+        System.out.println(parser.parseExpression(" 30.0 instanceof T(Double)").getValue(Boolean.class));
+        //关系运算符 - 使用正则表达式
+        System.out.println(parser.parseExpression("'saner' matches '^s[a-z]+r$'").getValue(Boolean.class));
+        System.out.println(parser.parseExpression("'saner' matches '^\\w+'").getValue(Boolean.class));
+
+        //逻辑运算符
+        System.out.println(parser.parseExpression("true && false").getValue(Boolean.class));
+        System.out.println(parser.parseExpression("true and true").getValue(Boolean.class));
+        System.out.println(parser.parseExpression("true or false").getValue(Boolean.class));
+
+        //算术运算符
+        System.out.println(parser.parseExpression("4 * 5 -32 ").getValue());
+        System.out.println(parser.parseExpression("0x8832 % 7 ").getValue());
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con8">表达式语法 - ?系操作符</h2>
+<p>这一系列操作符就有动态语言的特色了, 都是内部进行一个小判断, 然后再输出结果, 有如下三种:</p>
+<ol>
+    <li>安全导航操作符, 来自基于JDK的动态语言Groovy, 用法是 <code>name?</code>, 如果name是null, 就返回null, 否则返回结果, 有点像Optional. 看一个例子:
+    <pre>
+    public static void main(String[] args) {
+        ExpressionParser parser = new SpelExpressionParser();
+        //没有给user对象设置animal属性
+        User user = new User("cony", 5);
+
+        EvaluationContext userContext = new StandardEvaluationContext(user);
+
+        System.out.println(parser.parseExpression("animal?.name").getValue(userContext, String.class));
+
+        //设置之后就可以显示查询的结果
+        user.setAnimal(new Animal("owl"));
+        System.out.println(parser.parseExpression("animal?.name").getValue(userContext, String.class));
+    }
+    </pre>
+    </li>
+    <li>三元操作符, 和很多动态语言里类似, 表达式1? 表达式2:表达式3, 这个例子就省略了.</li>
+    <li>Elvis操作符, 其实就是一个简化版的三元表达式, 用法是 表达式1?:表达式2. 可以看到相比三元操作省略了一个表达式, 意思是如果表达式1是null, 就取表达式2, 否则取表达式1.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con9">表达式语法 - 赋值, 类型, 构造器, 变量</h2>
+<p>一个短短的表达式, 也做了足够多的内容. 还可以给上下文对象赋值, 使用setValue方法或者直接在表达式里设置都可以, 解析表达式的时候就完成了设置:</p>
+<pre>
+public static void main(String[] args) {
+    ExpressionParser parser = new SpelExpressionParser();
+    //没有给user对象设置animal属性
+    User user = new User("cony", 5);
+
+    EvaluationContext userContext = new StandardEvaluationContext(user);
+    //先解析表达式找到animal属性, 然后通过setValue方法设置指定的属性
+    //这里顺便就使用了构造器
+    parser.parseExpression("animal").setValue(userContext, <span style="color: red">new cc.conyli.el.Animal("owl")</span>);
+    System.out.println(user);
+
+    //还可以直接使用表达式设置:
+    parser.parseExpression("animal = new cc.conyli.el.Animal(\"kiki\")").getValue(userContext);
+    System.out.println(user);
+}
+</pre>
+<p>构造器的写法和Java完全一致, 只不过除了lang包中的类, 其他类要使用全称.</p>
+<p>刚才在instanceof 中已经使用了T()操作, 这个操作实际上相当于加载类, 返回这个类的Class对象, 比如:</p>
+<pre>
+public static void main(String[] args) {
+    ExpressionParser parser = new SpelExpressionParser();
+    //没有给user对象设置animal属性
+    User user = new User("cony", 5);
+
+    Class aClass = parser.parseExpression("T(cc.conyli.el.User)").getValue(Class.class);
+
+    System.out.println(aClass);
+    System.out.println(aClass == user.getClass());
+}
+</pre>
+<p>T操作还有一个特殊之处是可以调用静态方法:</p>
+<pre>
+public static void main(String[] args) {
+    ExpressionParser parser = new SpelExpressionParser();
+
+    //调用静态方法
+    double number = parser.parseExpression("T(java.lang.Math).random()").getValue(Double.class);
+    System.out.println(number);
+}
+</pre>
+<p>接着是使用变量的奇技淫巧, 变量需要设置在上下文对象中, 使用变量的时候前边要加#:</p>
+<pre>
+public static void main(String[] args) {
+    ExpressionParser parser = new SpelExpressionParser();
+
+    User cony = new User("cony", 5);
+
+    EvaluationContext conyContext = new StandardEvaluationContext(cony);
+    conyContext.setVariable("varName", "conyli");
+
+
+    //将name属性的值编程varName对应的值
+    parser.parseExpression("name=#varName").getValue(conyContext);
+
+    System.out.println(cony);
+}
+</pre>
+<p>有了在上下文中设置变量的方法, 就可以自由的设置变量, 然后通过表达式来获取或者修改值.</p>
+
+<h2 style="text-align: center;" id="con10">表达式语法 - 集合过滤和转换</h2>
+<p>这个有点意思, 对于一个集合对象, 可以使用特殊的 <span style="color: red">集合对象</span>.<span style="color: darkgreen">?</span><span style="color: blueviolet">[布尔表达式]</span> 来过滤对象. 只会保留集合中布尔表达式为真的内容.</p>
+<p>绿色的?表示保留全部符合条件的对象, 还可以使用 ^ 保留第一个, $ 来保留最后一个, 看例子:</p>
+<pre>
+    public static void main(String[] args) {
+        ExpressionParser parser = new SpelExpressionParser();
+
+        //准备两个对象
+        List&lt;Integer> list = new ArrayList&lt;>();
+        for (int i = 0; i &lt; 10; i++) {
+            list.add(i);
+        }
+
+        Map&lt;String, Integer> maps = new HashMap&lt;>();
+        maps.put("cony", 5);
+        maps.put("owl", 2);
+        maps.put("dazhuan", 14);
+        maps.put("xczhuan", 10);
+
+        //创建一个空的上下文然后将两个集合设置到上下文中
+        EvaluationContext context = new StandardEvaluationContext();
+
+        context.setVariable("list", list);
+        context.setVariable("map", maps);
+
+        //过滤list中大于5的元素, 对于List的过滤, 注意要使用#this变量来代替其中的每一个元素(因为无法使用索引), 这是特殊之处
+        List&lt;Integer> listAfterFilter = (List&lt;Integer>) parser.parseExpression("#list.?[#this>5]").getValue(context);
+        System.out.println(listAfterFilter);
+
+        //过滤map则需要使用key关键字表示每个键, value关键字表示每个键对应的值
+        Map&lt;String, Integer> mapAfterFilter1 = (Map&lt;String, Integer>) parser.parseExpression("#map.$[key.equals('cony')]").getValue(context);
+        Map&lt;String, Integer> mapAfterFilter2 = (Map&lt;String, Integer>) parser.parseExpression("#map.?[value>=10]").getValue(context);
+        System.out.println(mapAfterFilter1);
+        System.out.println(mapAfterFilter2);
+    }
+</pre>
+<p>过滤集合的写法比较特殊, 一定要注意. 都是固定写法, 没有键的集合使用#this, 有键值的集合使用key和value, 都是固定用法.</p>
+<p>集合转换类似于函数式编程的map(), 只需要把上边的表达式中的?$^所在的位置换成!, 然后表达式写一个得到一个值的表达式, 就可以转换, 结果得到一个新的集合:</p>
+<pre>
+public static void main(String[] args) {
+    ExpressionParser parser = new SpelExpressionParser();
+
+    //创建一个集合
+    List&lt;Integer> list = new ArrayList&lt;>();
+    for (int i = 0; i &lt; 10; i++) {
+        list.add(i);
+    }
+
+    //创建一个空的上下文然后设置集合到上下文中
+    EvaluationContext context = new StandardEvaluationContext();
+    context.setVariable("list", list);
+
+    //转换List&lt;Integer>每个元素加上10, 然后转换到List&lt;String>
+    List&lt;String> result = (List&lt;String>) parser.parseExpression("#list.![new String(#this+10)]").getValue(context);
+    System.out.println(result);
+}
+</pre>
+
+<h2 style="text-align: center;" id="con11">实际的Spring EL 表达式使用</h2>
+<p>实际的Spring EL表达式当然不是怎么写代码了, 主要就用在两个地方:</p>
+<p>一是Spring在解析所有的XML文件的时候, 遇到SpringEL表达式就会调用上边我们学过的类来进行处理, 并将结果替换到表达式的部分.</p>
+<p>二是与注解@Value搭配使用, 从配置文件中加载参数的值.</p>
+<p>在实际使用的时候, 采取#{}的形式, #{}就相当于直接使用上边那些类时候的双引号.</p>
+<p>例子如下:</p>
+<pre>
+&lt;bean id="id1" class="cc.conyli.raw.MyImplClass"
+    p:randomNumber = #{T(java.lang.Math).random() * 100}
+/>
+</pre>
+<p>搭配@Value使用的时候, 需要在Spring 的容器XML配置文件中写如下内容:</p>
+<pre>
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:context="http://www.springframework.org/schema/context"
+       <span style="color: red">xmlns:util="http://www.springframework.org/schema/util"</span>
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+    <span style="color: red">&lt;util:properties id="properties" location="config.properties"/></span>
+    ......
+&lt;/beans>
+</pre>
+<p>如果config.properties中的内容如下:</p>
+<pre>
+name=cony
+age=5
+</pre>
+<p>在容器中配置Bean的时候就可以写:</p>
+<pre>
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
+public class Bean {
+    @Value("#{<span style="color: orange">properties</span>['age']")
+    private int age;
+}
+</pre>
+<p>可以看到@Value注解是和BeanFactory相关的, 橙色部分就是配置的utilBean的id名称, 配置文件中的每一个键值对, 就用键名就可以获取到值, 如果是基本类型还可以自动转换.</p>
+<p>"#{<span style="color: orange">properties</span>['age']"这种方式写起来比较麻烦, 只要给utilBean的配置中添加:</p>
+<pre>
+&lt;util:properties id="properties" location="config.properties"/>
+<span style="color: red">&lt;context:property-placeholder properties-ref="properties"/>&lt;/pre></span>
+</pre>
+<p>这一行表示将默认的上边橙色部分的utilBean的名称, 对应给properties-ref属性中指向的Bean. 这样配置之后, 不显式写出橙色部分的utilBean名称, 就会自动去寻找这个默认的utilBean:</p>
+<pre>
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
+public class Bean {
+    @Value("#{age}")
+    private int age;
+}
+</pre>
+<p> 如果定义了多个utilBean以对应多个配置文件的话, 还是需要区分具体的名称.</p>
+<p>Spring EL表达式背后的东西终于弄明白了, 技术总是进步的, 也是有相似之处的, 从JSP的标签处理和EL表达式, 看到Spring的EL表达式, 再联想起Vue的解析模板, 果然技术是要越涉猎的多, 越有意思啊.</p>
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
