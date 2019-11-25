@@ -404,7 +404,7 @@ public class Test1 {
         System.out.println(parser.parseExpression(" 30.0 instanceof T(String)").getValue(Boolean.class));
         System.out.println(parser.parseExpression(" 30.0 instanceof T(Double)").getValue(Boolean.class));
         //关系运算符 - 使用正则表达式
-        System.out.println(parser.parseExpression("'saner' matches '^s[a-z]+r$'").getValue(Boolean.class));
+        System.out.println(parser.parseExpression("'saner' matches '^s[a-z]+'").getValue(Boolean.class));
         System.out.println(parser.parseExpression("'saner' matches '^\\w+'").getValue(Boolean.class));
 
         //逻辑运算符
