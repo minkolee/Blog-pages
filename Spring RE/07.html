@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 07</title>
+    <title>Spring RE 07 Spring的DAO</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,26 +15,76 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>我看了这本书的结构, 先用了全书八分之三的篇幅来讲解IOC+AOP这两个框架的核心内容, 中间穿插了比如Spring EL之类的小知识点, 然后又花了四分之一的篇幅来讲解DAO, 之后又会穿插一个Spring的异步任务处理.</p>
+<p>上边的准备工作都结束了之后, 才进入SpringMVC, 回想一下自己原来看Spring入门视频, 上来就用MVC写一个增删改查, 略过了多少重要的内容.</p>
+<p>现在就来仔细的看一下DAO吧, 数据库这块以及Java 的ORM一直是一个弱项, 因为平时用的不多, 这次就来好好看一下.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">Spring的DAO</a></li>
+    <li><a href="#con2">DAO异常体系</a></li>
+    <li><a href="#con3">统一的数据访问模板</a></li>
+    <li><a href="#con4">数据源对象</a></li>
+    <li><a href="#con5">通用流程</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">Spring的DAO</h2>
+<p>DAO 就是 数据存取对象 Data Access Object的简称, 是面向对象语言用于屏蔽底层具体数据库操作的抽象概念.</p>
+<p>Java的DAO经典的实现有JDBC, 此外还有完全ORM的Hibernate, MyBatis等框架, DAO的核心是定义好数据对象和存取对象的接口, 然后就可以平滑的在各个技术之间切换.</p>
+<p>Spring 对于 DAO技术的支持在于想统一的方式整合底层的不同技术, 所以首先就要提供统一的异常体系, 然后还需要提供统一的事务管理体系. 在这两个体系的管理之下, 将具体数据库的操作交给具体框架.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">DAO异常体系</h2>
+<p>Spring 将原本的检查型异常基本上都改成了运行时异常, 这就让检查异常泛滥的情况得到了改变.</p>
+<P>Spring的DAO支持都在 org.springframework.dao包中. 所有异常都继承于DataAccessException, DataAccessException继承NestedRuntimeException.</P>
+<p>NestedRuntimeException中封装了原来的异常, 可以通过其方法查看源异常, 这样所有的异常就都被纳入到Spring DAO的体系中.</p>
+<p>异常类有很多, 用到的时候可以查看异常类对应的内容, 以try catch 这些具体的运行时异常.</p>
+<p>Spring 还很牛逼的针对不同的持久化技术编写了异常转换器. 支持Hibernate 3+, JPA和JDO等, 未来主要就是用Hibernate了.</p>
 
-<h2 style="text-align: center;" id="con3"></h2>
+<h2 style="text-align: center;" id="con3">统一的数据访问模板</h2>
+<p>为了简化开发, Spring提供了不同持久化技术的模板:</p>
+<ol>
+    <li><code>org.springframework.jdbc.core.JdbcTemplate</code>, 对应JDBC</li>
+    <li><code>org.springframework.orm.hibernateX.HibernateTemplate</code>, 对应Hibernate</li>
+    <li><code>org.springframework.orm.jap.JpaTemplate</code>, 对应JPA</li>
+    <li><code>org.springframework.orm.jdo.JdoTemplate</code>, 对应JDO</li>
+</ol>
+<p>从模板名字可以发现, 除了JDBC之外的剩下三个, 都是ORM模型.</p>
+<p>这些模板类如果要使用的话, 需要在Spring中定义一个数据源对象, 然后创建一个模板对象, 不过Spring已经在org.springframework.dao.support中编写好了这些模板的支持类.</p>
+<p>在创建这些模板类对象的时候, 模板类会在其中的afterPropertiesSet()方法中检查是否已经有数据源对象. 所以就来看一下数据源对象.</p>
 
-<h2 style="text-align: center;" id="con4"></h2>
+<h2 style="text-align: center;" id="con4">数据源对象</h2>
+<p>数据源的规定不是Spring规定的, 而是JDBC的标准, 也就是DataSource对象. 在模板类初始化的时候, 会到容器里寻找是不是有DataSource的实现类, 如果没有就会报错.</p>
+<p>所以需要配置一个数据源, Spring使用的数据源一般是Apache的DBCP, 或者是C3PO数据源, 需要在XML文件中使用SQL连接来配置成一个Bean:</p>
+<pre>
+&lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true"
+      p:driverClassName="com.mysql.cj.jdbc.Driver"
+      p:url="jdbc:mysql://localhost:3306/sia5"
+      p:username="root"
+      p:password="****"
+/>
+</pre>
+<p>这样就配置好一个DataSource, 之后才能实例化模板对象. C3PO也是类似, 有很多配置, 需要的时候可以具体查看书里.</p>
+<p>Spring自己也提供了一个DriveManagerDataSource类, 也实现了DataSource接口. 不过没有采用连接池机制, 每次创建新连接, 可以简单测试的时候使用.</p>
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+<h2 style="text-align: center;" id="con5">通用流程</h2>
+<p>上边已经提了, 不过这里还是再总结一下, 在Spring中使用数据库的方法</p>
+<ol>
+    <li>需要有数据源对象, 实现DataSource接口, 然后将其设置为容器中的一个Bean</li>
+    <li>在有了数据源对象的基础上, 去创建对应的模板支持类的对象, 也需要设置为容器中的一个Bean, 这个DaoSupport类型会在创建的时候自动去容器中寻找DataSource, 如果配置不正确, 就会报错</li>
+    <li>使用创建的DaoSupport对象操作数据库</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
