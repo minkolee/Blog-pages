@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 07 Spring的DAO</title>
+    <title>Spring RE 07 Spring的DAO 与数据库知识</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -25,6 +25,7 @@
     <li><a href="#con3">统一的数据访问模板</a></li>
     <li><a href="#con4">数据源对象</a></li>
     <li><a href="#con5">通用流程</a></li>
+    <li><a href="#con6">数据库事务理论</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">Spring的DAO</h2>
 <p>DAO 就是 数据存取对象 Data Access Object的简称, 是面向对象语言用于屏蔽底层具体数据库操作的抽象概念.</p>
@@ -71,6 +72,92 @@
     <li>在有了数据源对象的基础上, 去创建对应的模板支持类的对象, 也需要设置为容器中的一个Bean, 这个DaoSupport类型会在创建的时候自动去容器中寻找DataSource, 如果配置不正确, 就会报错</li>
     <li>使用创建的DaoSupport对象操作数据库</li>
 </ol>
+<p>一个简单的例子如下(还没用上模板, 用的原生JDBC), 配置好XML文件:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;beans xmlns="http://www.springframework.org/schema/beans"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+           xmlns:context="http://www.springframework.org/schema/context"
+           xmlns:util="http://www.springframework.org/schema/util"
+           xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+    &lt;util:properties id="properties" location="config.properties"/>
+    &lt;context:property-placeholder properties-ref="properties"/>
+    &lt;context:component-scan base-package="cc.conyli" />
+
+    &lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true" id="source"
+          p:driverClassName="com.mysql.cj.jdbc.Driver"
+          p:url="jdbc:mysql://localhost:3306/sia5"
+          p:username="root"
+          p:password="*******"
+    />
+&lt;/beans>
+</pre>
+<p>然后就可以操作数据库了:</p>
+<pre>
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+public class Main {
+
+    public static void main(String[] args) throws SQLException {
+        //创建容器
+        Resource res = new FileSystemResource("D:\\Coding\\Java\\practice\\src\\main\\java\\spconfig.xml");
+        DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+        XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
+        reader.loadBeanDefinitions(res);
+
+        //从容器中获取组装好的DataSource对象
+        DataSource source = (DataSource) factory.getBean("source");
+        System.out.println(source);
+        Connection connection = source.getConnection();
+        Statement statement = connection.createStatement();
+        String sql = "SELECT * FROM sia5.course";
+        ResultSet rs = statement.executeQuery(sql);
+        while (rs.next()) {
+            System.out.println(rs.getString(2));
+        }
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con6">数据库事务理论</h2>
+<p>对于普通开发来说, 数据库理论确实是一个弱项, 这次在开始事务学习之前, 先要了解一下基本的数据库理论.</p>
+<p>一个数据库的事务, 有如下ACID要求:</p>
+<ol>
+    <li>Atomic 原子性, 多条数据操作是不可分割的整体, 要么全部成功, 要么全部失败</li>
+    <li>Consistency 一致性, 数据库最终的状态和其要达到的业务规则是一样的</li>
+    <li>Isolation 隔离性, 并发的时候不同的事务有不同的数据空间, 隔离性做的越好, 越不能并发(等于线性操作了). 实际中有不同的隔离级别</li>
+    <li>Durability 持久性, 事务提交成功后, 就要实际的写入数据库, 不能发生事务提交成功结果还没有写入.</li>
+</ol>
+<p>这中间一致性是最终目标, 其他目的都是为了完成一致性采取的手段.</p>
+<p>数据并发有五种问题:</p>
+<ol>
+    <li>脏读 dirty read, 指在事务B提交事务的过程中, 事务A读了数据, 然后事务B回滚了, 结果事务A读到的数据就是脏数据, 没有任何用处</li>
+    <li>不可重复读 unrepeatable read, 指事务A两次读取之间, 事务B提交修改的数据, 结果造成事务A两次读取不一致, 由于这个是修改问题, 所以可以对行级数据加锁, 不管哪个事务用到这个数据, 都加锁直到结束修改或者读取, 这中间不能被其他程序读取和修改.</li>
+    <li>幻象读, 也叫幻读 phantom read, 指事务A两次读取之间, 事务B新建了数据, 在事务A的查询范围之内, 结果造成事务A两次读取不一致. 这就要锁住表, 不允许新增和删除内容.</li>
+    <li>第一类丢失更新, 即A事务在撤销的时候, 把B事务正常提交的数据给覆盖了, 造成B事务的更新丢失</li>
+    <li>第二类丢失更新, A事务覆盖B事务已经提交的数据, 导致B事务的更新丢失, 这两类丢失更新主要在于一个是撤销导致另外一个事务丢失, 一个是正常操作导致丢失.</li>
+</ol>
+<p>解决并发的问题, 肯定要提到锁. 数据库的锁针对锁住的对象不同, 有锁住表和锁住行之分. 根据是否允许并发, 分为共享锁定和独占锁定. 共享锁定会防止独占锁定, 但会开放给其他的共享锁定. 而独占锁定会防止共享和其他的独占锁定.</p>
+<p>一般为了更改数据, 数据库都会在要更改的行上加上行独占锁定, INSERT, UPDATE, DELETE 和SELECT FOR UPDATE在内部都会使用行独占锁定.</p>
+<p>书上下边的几种共享锁定看的有点懵, 这个需要专门找东西补一下, 初看的感觉就是这并不是四种, 而是还有交叉.</p>
+<p>直接使用锁很麻烦, ANSI/ISO SQL 92 规定了4个等级的事务隔离, 只要确认了事务隔离级别, 数据库就会分析SQL语句并且自动加锁.</p>
+<p>只要记住, 第一类丢失更新都是不允许的. 最低的隔离层次 READ UNCOMMITED 允许剩下四个问题. 第二层READ COMMITED在第一层的基础上不允许脏读.</p>
+<P>第三层REPEATABLE READ 从名字就可以看出来, 在第二层基础上不允许不可重复读, 也不允许第二类丢失更新.</P>
+<p>最高级别 SERIALIZABLE 从名字就可以看出来, 完全隔离成了序列操作, 所以不允许全部的并发问题出现.</p>
+<p>并非所有的数据库都支持全部的隔离级别以及事务, 可以通过连接对象查看, 试着操作一下:</p>
+<pre>
+
+</pre>
 
 
 
@@ -80,6 +167,9 @@
 
 
 
+
+
+u 高达
 
 
 

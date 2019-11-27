@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Spring RE 00</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>数值和加点分析</p>
+
+<ol>
+    <li><a href="#con1">伤害数值</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">伤害数值</h2>
+<p>伤害数值的计算如下:</p>
+<p>实际伤害 = 武器威力 × (1＋攻撃補正－防御補正) × 覚醒補正(覚醒･特殊覚醒のみ) × テンション補正(格闘系全般･特殊攻撃･必殺技のみ)</p>
+<p>可见觉醒也影响伤害值, 最后再乘以气力补正. 各种补正的计算方法是:</p>
+<ol>
+    <li>攻撃補正＝攻撃機体の攻撃力÷45</li>
+    <li>防御補正＝防御機体の防御力÷45×(1＋防御方的守备值 ÷ 200)</li>
+    <li>覚醒補正＝1＋(攻撃方覚醒値－防御方覚醒値)÷200</li>
+</ol>
+<p>气力补正比较特殊, 分为格斗和特殊攻击补正, 以及必杀技补正.</p>
+<ul>
+    <li>格斗和特殊攻击
+    <ul>
+        <li>普通＝1.00</li>
+        <li>強気＝1.05</li>
+        <li>超強気＝1.10(由于会自动暴击, 实际倍率是1.375)</li>
+        <li>超一撃＝1.20(由于自带超会心暴击, 所以实际倍率是1.50)</li>
+    </ul>
+    </li>
+    <li>必杀技
+        <ul>
+            <li>普通＝1.00</li>
+            <li>強気＝1.00</li>
+            <li>超強気＝1.20(包含暴击实际倍率是1.50)</li>
+            <li>超一撃＝1.40(包含超会心实际倍率是1.75)</li>
+        </ul>
+    </li>
+</ul>
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
