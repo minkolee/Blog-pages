@@ -156,23 +156,29 @@ public class Main {
 <p>最高级别 SERIALIZABLE 从名字就可以看出来, 完全隔离成了序列操作, 所以不允许全部的并发问题出现.</p>
 <p>并非所有的数据库都支持全部的隔离级别以及事务, 可以通过连接对象查看, 试着操作一下:</p>
 <pre>
+public static void main(String[] args) throws SQLException {
+    Resource res = new FileSystemResource("D:\\Coding\\Java\\practice\\src\\main\\java\\spconfig.xml");
+    DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+    XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
+    reader.loadBeanDefinitions(res);
+    DataSource source = (DataSource) factory.getBean("source");
+    System.out.println(source);
+    Connection connection = source.getConnection();
 
+    //是否支持事务
+    DatabaseMetaData metaData = connection.getMetaData();
+    System.out.println(metaData.supportsTransactions());
+    //四种隔离级别是否支持
+    System.out.println(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
+    System.out.println(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED));
+    System.out.println(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ));
+    System.out.println(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE));
+
+    //设置事务级别
+    connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+}
 </pre>
-
-
-
-
-
-
-
-
-
-
-
-u 高达
-
-
-
+<p>剩下就来看看具体的事务操作了. 其实什么是事务, 目前只看理论真的还不知道说的是什么.</p>
 
 
 
