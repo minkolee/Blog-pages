@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 00</title>
+    <title>Spring RE 08 Spring的事务管理类</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,26 +15,222 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>在初学Spring的时候, 会被告知, 在想要成为事务的方法之前加上一个@Transaction注解, 就可以将方法中的所有数据库操作都变成事务了.</p>
+<p>现在从IOC和AOP一路学过来, 知道了注解背后肯定都隐藏着一批对应的类, 现在就和原来一样, 先直接看具体操作类, 再回头去看注解, 就会更加清晰了.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">Spring的事务类</a></li>
+    <li><a href="#con2">三个接口</a></li>
+    <li><a href="#con3">PlatformTrasactionManager实现类</a></li>
+    <li><a href="#con4">事务同步管理器</a></li>
+    <li><a href="#con5">事务传播行为</a></li>
+    <li><a href="#con6">编程式的事务管理</a></li>
+    <li><a href="#con7">XML声明式事务与注解配置事务</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con1">Spring的事务类</h2>
+<p>Spring事务的亮点在于声明式事务管理. 在单数据源的情况下直接使用DataSource, 多数据源才会使用Java EE服务器的支持.</p>
+<p>Spring 的 SPI (Service Provider Interface)提供了如下三个接口, 用于管理事务, 都在org.springframework.transaction包里:</p>
+<ol>
+    <li><Code>TransactionDefiniation</Code>, 这个接口负责从外部文件中载入XML配置或者注解, 或者手工编程的方式实现, 其实是一个属性类, 创建之后包含了描述一个事务的全部属性.</li>
+    <li><Code>TrasactionStatus</Code>, 这个接口可以认为就代表了事务, 其中描述了这个事务的状态, 通过这个接口操作事务</li>
+    <li><Code>PlatformTrasactionManager</Code>, 这个就是事务管理器, 其实就是使用第一个接口加载事务的属性, 然后根据事务的属性来操作第二个接口的对象.</li>
+</ol>
+<p>来简单看一下这三个接口, 我把其称为事务属性, 事务状态, 事务管理器三个接口</p>
 
-<h2 style="text-align: center;" id="con3"></h2>
+<h2 style="text-align: center;" id="con2">三个接口</h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
+<p>TransactionDefiniation这个接口是属性类, 说白了就是描述一个事务是什么样子的, 其中规定了如下属性:</p>
+<ol>
+    <li>事务隔离, 这个采用和Connection中的常量一致的方式定义事务隔离级别.</li>
+    <li>事务传播, 这个暂时还不太懂, 看上去应该是操作事务的方式.</li>
+    <li>事务超时, 即事务在超时之前能运行多久, 如果超过时间后, 事务就被回滚.</li>
+    <li>只读状态, 只读事务不会修改任何数据, 具体的事务管理器可以针对只读事务进行优化. 只读数据中如果试图修改数据, 则会触发异常.</li>
+</ol>
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+<p>TrasactionStatus这个接口实际上就是一个事务的抽象, 事务管理器可以通过这个接口获取事务运行时候的状态, 然后可以通过这个接口回滚事务. 这个接口实际上继承自SavepointManager接口(JDBC 3.0提供嵌套事务的接口).</p>
+<p>SavepointManager的方法如下:</p>
+<ol>
+    <li><code>Object createSavepoint()</code>, 创建保存点对象</li>
+    <li><code>void rollbackToSavepoint(Object savepoint)</code>, 回滚到一个指定的保存点对象, 也就是上一个方法中创建的对象</li>
+    <li><code>void releaseSavepoint(Object savepoint)</code>, 释放一个保存点, 也就是让一个保存点不再生效. 如果事务已经提交, 所有的保存点都会被释放</li>
+</ol>
+<p>上边的三个方法如果失败, 都会抛出NestedTrasactionNotSupported异常.</p>
+<p>TrasactionStatus又扩展了一些方法:</p>
+<ol>
+    <li><code>boolean hasSavepoint()</code>, 这个用来判断当前事务是否有一个保存点, 这是为了支持嵌套事务采用的方法.</li>
+    <li><code>boolean isNewTrasaction()</code>, 判断当前事务是不是一个新的事务, 如果返回false表示是已经存在的事务, 或者当前操作没有运行在事务环境中.</li>
+    <li><code>boolean isCompleted()</code>, 判断当前事务是否已经结束, 结束就是提交或者回滚两种情况之一.</li>
+    <li><code>boolean isRollbackOnly()</code>, 判断当前事务使用已经被表示为仅能回滚</li>
+    <li><code>boolean setRollbackOnly()</code>, 将当前事务设置为仅能回滚, 只要进行了此标识, 事务管理器就只能回滚该事务, 会调用显式回滚命令或者干脆抛异常回滚事务.</li>
+</ol>
+<p>PlatformTrasactionManager是事务管理器, 也是Spring提供的高层事务抽象接口, 只有三个方法:</p>
+<ol>
+    <li><code>TrasactionStatus getTrasaction(TransactionDefiniation transactionDefiniation)</code>, 获取一个已经存在的事务或者创建一个新的事务, 要根据传入其中的事务属性来决定</li>
+    <li><code>void commit(TrasactionStatus trasactionStatus)</code>, 根据事务的状态提交事务, 如果事务已经被标记为只能回滚, 提交也相当于回滚事务.</li>
+    <li><code>void rollback(TrasactionStatus trasactionStatus)</code>, 将事务回滚, 如果commit方法执行中有任何异常, 这个方法会被隐式的调用.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con3">PlatformTrasactionManager实现类</h2>
+<p>前边通过三个接口, 实际上搭建出了上层操作事务的抽象框架. 由于Spring将事务管理委托给具体的底层持久化框架来完成, 所以为不同的持久化框架提供了不同的实现类, 来看一下:</p>
+<ol>
+    <li><code>org.org.springframework.orm.jpa.JpaTransactionManager</code>, 对应JPA</li>
+    <li><code>org.springframework.orm.hibernateX.HibernateTransactionManager</code>, 对应Hibernate</li>
+    <li><code>org.springframework.jdbc.datasource.DataSourceTransactionManager</code>, 对应直接使用DataSource</li>
+    <li><code>org.springframework.orm.jdo.JdoTransactionManager</code>, 对应JDO</li>
+    <li><code>org.springframework.transaction.jta.JtaTransactionManager</code>, 这个是对应多个数据源的全局事务, 不分具体的持久化技术, 都使用这个事务管理器.</li>
+</ol>
+<p>来看一下具体用法, 首先是需要使用DataSource的JDBCTemplate和Mybatis, 都需要一个DataSource的Bean, 然后配置DataSourceTransactionManager的Bean:</p>
+<pre>
+&lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true" id="source"
+      p:driverClassName="com.mysql.cj.jdbc.Driver"
+      p:url="jdbc:mysql://localhost:3306/sia5"
+      p:username="root"
+      p:password="fflym0709"
+/>
+
+&lt;bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager" p:dataSource-ref="source" id="transactionManager"/>
+</pre>
+<p>这样就定义了一个叫做source的DataSource Bean, 一个叫做transactionManager的事务管理器类, 跑起来看看:</p>
+<pre>
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+
+public class DataSourceTest {
+
+    public static void main(String[] args) {
+
+        Resource res = new FileSystemResource("D:\\Coding\\Java\\practice\\src\\main\\java\\spconfig.xml");
+        DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+        XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
+        reader.loadBeanDefinitions(res);
+
+        DataSourceTransactionManager transactionManager = (DataSourceTransactionManager) factory.getBean("transactionManager");
+        System.out.println(transactionManager);
+    }
+}
+</pre>
+<p>如果查看DataSourceTransactionManager可以知道, 这个有一个DataSource的依赖注入, 已经在XML中配置了, 可以想到的是直接用代码操作也是可以的.</p>
+<p>再来看JPA, JPA是Sun官方的持久化规范, 其中管理事务的具体类有点绕, 想使用JPA, 先要去安装JPA的具体实现, 比较流行的Hibernate开发的JPA实现:</p>
+<p>在<a href="https://hibernate.org/orm/" target="_blank">Hibernate ORM</a>的页面可以看到, 其中一条是作为一个JPA Provider的实现. 写本文的时候稳定版是5.4, 6.0.0 alpha3正在发布中.</p>
+<p>5.4 的兼容性是Java	8 or 11 和 JPA 2.2, 对于正好是使用Java 11的我来说很合适. Hibernate全套加上文档有65M大小, 所以还是通过Maven配置比较好:</p>
+<pre>
+&lt;!-- https://mvnrepository.com/artifact/org.hibernate/hibernate-core -->
+&lt;dependency>
+    &lt;groupId>org.hibernate&lt;/groupId>
+    &lt;artifactId>hibernate-core&lt;/artifactId>
+    &lt;version>5.4.9.Final&lt;/version>
+&lt;/dependency>
+</pre>
+<p>JPA的方式是:</p>
+<ol>
+    <li>EntityManagerFactory依赖一个DataSource</li>
+    <li>EntityManagerFactory.createEntityManager()创建一个EntityManager对象</li>
+    <li>EntityManager对象调用getTrasaction()方法获取一个EntityTrasaction对象</li>
+    <li>EntityTrasaction就是JPA的事务管理器, 也是Spring的接口依赖的JPA事务管理器</li>
+</ol>
+<p>在实际中, Spring的JPATrasactionManager需要注入EntityManagerFactory类型即可, 所以需要配数据源, 然后配EntityManagerFactory, 最后配JPATrasactionManager.</p>
+<p>这其中要注意的是EntityManagerFactory只是一个接口, 具体的实现类, Spring提供了一个, 看下边XML配置的红色部分:</p>
+<pre>
+&lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true" id="source"
+      p:driverClassName="com.mysql.cj.jdbc.Driver"
+      p:url="jdbc:mysql://localhost:3306/sia5"
+      p:username="root"
+      p:password="********"
+/>
+
+&lt;bean class="org.springframework.orm.jpa.<span style="color:red">LocalContainerEntityManagerFactoryBean</span>" p:dataSource-ref="source" id="factory"/>
+
+&lt;bean class="org.springframework.orm.jpa.JpaTransactionManager" p:entityManagerFactory-ref="factory" id="jpaTransactionManager"/>
+</pre>
+<p>通过XML配置其实也可以看出来各个类的内部属性. 用代码启动就不放了, 因为使用到JPA的话, 还需要配置persistence.xml文件, 这个暂时还不会.</p>
+
+
+<p>Hibernate相比前边两个, 是一个完整的ORM框架, 使用自己的Session对象封装了Connection和DataSource对象, 所以需要创建一个Session的Bean, 然后再创建Spring 的 HibernateTrasactionManager:</p>
+<pre>
+&lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true" id="source"
+   p:driverClassName="com.mysql.cj.jdbc.Driver"
+   p:url="jdbc:mysql://localhost:3306/sia5"
+   p:username="root"
+   p:password="******"
+/>
+
+&lt;bean class="org.springframework.orm.hibernate4.LocalSessionFactoryBean" p:dataSource-ref="source" id="sessionFactory"/>
+
+&lt;bean class="org.springframework.orm.hibernate4.HibernateTransactionManager" p:sessionFactory-ref="sessionFactory" id="hibernateTransactionManager"/>
+</pre>
+<p>也可以用代码来验证:</p>
+<pre>
+public static void main(String[] args) {
+    Resource res = new FileSystemResource("D:\\Coding\\Java\\practice\\src\\main\\java\\spconfig.xml");
+    DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+    XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
+    reader.loadBeanDefinitions(res);
+
+    HibernateTransactionManager hibernateTransactionManager = (HibernateTransactionManager) factory.getBean("hibernateTransactionManager");
+
+    System.out.println(hibernateTransactionManager);
+}
+</pre>
+<p>可以看到, Spring针对不同的技术, 首先使用自己提供的那个技术的一个实现对象, 以符合那个框架要求并且封装DataSource, 然后再用那个技术对应的事务管理器对象, 将刚才的技术实现对象封装在其中. 这样就实现了对不同技术的适配.</p>
+
+<h2 style="text-align: center;" id="con4">事务同步管理器</h2>
+<p>这是个小知识点, 由于这些技术的底层都是用到DataSource对象或者是包装而来的Session对象, 而这些资源是不能够多线程共享的.</p>
+<p>Spring提供了一个org.springframework.transaction.support.TransactionSynchronizationManager作为基础, 内部使用ThreadLocal来存放不同的资源副本.</p>
+<p>Spring默认要装配成单例, 一定要多线程共享, 所以就通过辅助工具类, 为每个线程提供了不同的资源副本, 以此来达到可以多线程使用的效果.</p>
+<p>这些类如果你使用模板, 后台会自动操作, 但如果手工操作, 还是需要知道一下:</p>
+<ol>
+    <li><code>org.springframework.jdbc.datasource.DataSourceUtils</code></li>
+    <li><code>org.springframework.orm.hibernateX.SessionFactoryUtils</code></li>
+    <li><code>org.springframework.orm.jpa.EntityManagerFactoryUtils</code></li>
+    <li><code>org.springframework.orm.jdo.PersistenceManagerFactoryUtils</code></li>
+</ol>
+<p>这些Utils的作用都是从TransactionSynchronizationManager类中获取和当前线程绑定的资源, 比如JDBC系的就是获取Connection, 而Hibernate系的就是获取Session.</p>
+<p>如果直接将模板制作成Bean, 则无需考虑这些, 如果手工的话, 就要在线程中使用这些Utils获取.</p>
+
+
+<h2 style="text-align: center;" id="con5">事务传播行为</h2>
+<p>所谓事务传播行为, 就是在调用一个服务的时候, 内部还会调用其他服务, 这个时候事务必须以合理的方式继续控制嵌套的其他服务, 否则就会出问题.</p>
+<p>事务传播行为的具体定义, 在TrasactionDefinition接口中规定, 一共有7种:</p>
+<pre>
+int PROPAGATION_REQUIRED = 0; //如果当前没有事务, 则新建事务, 如果有事务, 则加入到这个事务中, 这是默认配置, 也是最常见的用法, 即嵌套的事务会累加成一个事务
+int PROPAGATION_SUPPORTS = 1; //使用当前事务, 如果当前没有事务, 就以非事务方式执行
+int PROPAGATION_MANDATORY = 2; //使用当前的事务, 如果没有, 就抛异常
+int PROPAGATION_REQUIRES_NEW = 3; //新建事务, 如果当前存在事务, 把当前事务挂起
+int PROPAGATION_NOT_SUPPORTED = 4; //以非事务方式执行, 如果存在事务, 就把事务挂起
+int PROPAGATION_NEVER = 5; //以非事务方式执行, 如果存在事务, 就抛异常
+int PROPAGATION_NESTED = 6; //如果当前存在事务, 则在嵌套事务内执行; 如果当前没有事务, 则执行与PROPAGATION_REQUIRED一样的操作. 这个需要JDBC 3.0的支持, 并且需要支持保存点事务.
+</pre>
+<p>如果不是特殊的情况, 一般都采用第一种, 这样嵌套的所有服务都会追加到同一个事务中, 要么一起失败, 要么全部完成.</p>
+
+<h2 style="text-align: center;" id="con6">编程式的事务管理</h2>
+<p>前边的三个类和对应的技术, 实际上通过学习可以知道, 在使用Spring提供的模板时候可以自动被应用.</p>
+<p>当然Spring也提供了手动管理事务的类org.springframework.transaction.support.TransactionTemplate, 看来模板还真多, 连事务也有管理模板.</p>
+<p>这个模板的核心就是先要设置一个TrasactionManager对象, 然后还可以设置一个回调接口.</p>
+<p>模板中如果需要访问底层连接, 必须使用Utils工具, 不能直接访问. 如果模板中的访问数据对象是Spring提供的模板类, 就不需要.</p>
+<p>这个简单了解一下即可.</p>
+
+<h2 style="text-align: center;" id="con7">XML声明式事务与注解配置事务</h2>
+<p>走到这一步, 基本上就是使用声明或者注解, 让Spring使用AOP技术, 将应用程序员编写的与数据持久化相关的类, 进行改造, 让其可以进行事务的过程.</p>
+<p>前边的所有类, 最终目的都是为了将服务接口(即经常编写的XXXXService接口及其实现类)来进行事务增强. 有两种办法, 一种是XML配置, 一种是在接口的实现类上添加注解.</p>
+<p>这里之前配好了DataSource, 而且可以正常工作, 现在可以编写一个简单的查找和添加的接口和实现类, 然后对齐进行增强, 看一下两种配置方式.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
