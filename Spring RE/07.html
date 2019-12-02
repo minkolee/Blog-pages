@@ -26,6 +26,7 @@
     <li><a href="#con4">数据源对象</a></li>
     <li><a href="#con5">通用流程</a></li>
     <li><a href="#con6">数据库事务理论</a></li>
+    <li><a href="#con7">ThraedLocal类</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">Spring的DAO</h2>
 <p>DAO 就是 数据存取对象 Data Access Object的简称, 是面向对象语言用于屏蔽底层具体数据库操作的抽象概念.</p>
@@ -178,7 +179,67 @@ public static void main(String[] args) throws SQLException {
     connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
 }
 </pre>
-<p>剩下就来看看具体的事务操作了. 其实什么是事务, 目前只看理论真的还不知道说的是什么.</p>
+<p>JDBC对事务的支持在以前只能有两个操作, 提交和回滚, 在JDBC 3.0=Java 1.4之后, 还添加了一个保存点SavePoint, 可以回滚到特定保存点, 然后再提交.</p>
+
+<h2 style="text-align: center;" id="con7">ThraedLocal类</h2>
+<p>ThreadLocal可以将一个本来多线程不安全的方法改成安全的, 只要将方法所需要的变量包裹在一个ThreadLocal类中即可. 这样不同的线程执行同一个方法, 每个变量都是自己对应的.</p>
+<p>当然, 如果保存进去的是同一个引用, 那还是会有问题. 所以一般都保存新创建的变量或者是具体的值.</p>
+<p>ThreadLocal支持泛型, 方法如下:</p>
+<ol>
+    <li><code>void set(T value)</code>, 设置当前线程的局部变量值</li>
+    <li><code>public T get()</code>, 获取当前线程对应的局部变量值</li>
+    <li><code>public void remove()</code>, 删除当前线程对应的局部变量值. 注意即使不删除, 在线程执行完毕之后, 操作系统也会释放掉线程的资源</li>
+    <li><code>protected T initialValue()</code>, 返回默认值, 这个方法是为了覆盖而存在的. 一般在第一次调用get()和set()的时候才执行, 而且仅执行一次, 如果想生成一个特定的初始值, 就用这个方法.</li>
+</ol>
+<p>有一个简单的例子, 我看了一下, 其核心思想就是, 如果一个类中有一个需要进行多线程操作的方法, 那么就在类中设置一个静态变量为ThreadLocal对象, 每次要操作数据的时候, 都使用对象的set和get方法即可.</p>
+<pre>
+package cc.conyli.threads;
+
+public class SequeceNumber {
+
+    private static ThreadLocal&lt;Integer> seqNum = ThreadLocal.withInitial(() -> 0);
+
+    public int getNextNum() {
+        seqNum.set(seqNum.get() + 1);
+        return seqNum.get();
+    }
+
+
+    public static void main(String[] args) {
+
+        SequeceNumber seqNum = new SequeceNumber();
+
+        TestClient testClient1  = new TestClient(seqNum);
+        TestClient testClient2  = new TestClient(seqNum);
+        TestClient testClient3  = new TestClient(seqNum);
+        TestClient testClient4  = new TestClient(seqNum);
+
+        testClient1.start();
+        testClient2.start();
+        testClient3.start();
+        testClient4.start();
+    }
+
+    private static class TestClient extends Thread {
+
+        private SequeceNumber sequeceNumber;
+
+        public TestClient(SequeceNumber sequeceNumber) {
+
+            this.sequeceNumber = sequeceNumber;
+        }
+
+        public void run() {
+            for (int i = 0; i < 3; i++) {
+                System.out.println("thread[" + Thread.currentThread().getName() + "] sn[" + sequeceNumber.getNextNum() + "]");
+            }
+        }
+    }
+}
+</pre>
+<p>使用这个方法来改造一个线程不安全的方法的时候, 只要将使用到的变量放入到ThreadLocal对象中, 然后在传参数和返回结果的时候, 都使用ThreadLocal变量, 这样就可以了, 如果方法内部也使用了共享变量, 也如此改造即可.</p>
+
+
 
 
 
