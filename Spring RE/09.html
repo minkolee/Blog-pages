@@ -23,8 +23,8 @@
 
 <ol>
     <li><a href="#con1">事务注意事项</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con2">创建JDBCTemplate对象</a></li>
+    <li><a href="#con3">基本操作 - 增删改查</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
@@ -44,7 +44,7 @@
 <p>后边就来具体操作吧.</p>
 
 
-<h2 style="text-align: center;" id="con2">JDBCTemplate</h2>
+<h2 style="text-align: center;" id="con2">创建JDBCTemplate对象</h2>
 <p>从之前的学习中可以知道, 使用Spring 的JDBC支持, 其实就是学习如何使用Spring提供的JDBCTemplate了.</p>
 <p>想使用JDBCTemplate依然可以通过XML配置一个DataSource, 然后创建一个JDBCTemplate的Bean. 既然能够通过XML配置, 当然也可以通过代码直接使用了, 一个最简单的例子如下:</p>
 <pre>
@@ -77,8 +77,36 @@ public class Demo1 {
 <p>其实这段小代码就非常直观的说明了JDBCTemplate的本质, 也是依赖一个DataSource, 然后对JDBC进行了封装的一个操作类.</p>
 <p>XML配置如下, 使用的时候通过容器拿出来创建的JDBCTemplate对应的Bean来使用:</p>
 <pre>
+&lt;!--DataSource依然需要-->
+&lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true" id="source"
+      p:driverClassName="com.mysql.cj.jdbc.Driver"
+      p:url="jdbc:mysql://localhost:3306/sia5"
+      p:username="root"
+      p:password="fflym0709"
+/>
 
+&lt;!--配置一个JDBCTemplate的Bean-->
+&lt;bean class="org.springframework.jdbc.core.JdbcTemplate" p:dataSource-ref="source" id="jdbcTemplate"/>
 </pre>
+<p>然后就可以老样子, 创建容器, 获取Bean来使用:</p>
+<pre>
+public static void main(String[] args) {
+    Resource res = new FileSystemResource("D:\\Coding\\Java\\practice\\src\\main\\java\\spconfig.xml");
+    DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+    XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
+    reader.loadBeanDefinitions(res);
+
+    JdbcTemplate template = (JdbcTemplate) factory.getBean("jdbcTemplate");
+
+    String now = LocalDateTime.now().toString();
+    String sql = "UPDATE sia5.course SET course_name = '"+now+"' WHERE id=5";
+
+    template.execute(sql);
+}
+</pre>
+<p>有了XML配置, 使用注解进行构造注入创建一个DAO也很简单了, 就不再赘述了.</p>
+
+<h2 style="text-align: center;" id="con3">基本操作 - 增删改查</h2>
 
 
 
@@ -91,14 +119,6 @@ public class Demo1 {
 
 
 
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con3"></h2>
 
 <h2 style="text-align: center;" id="con4"></h2>
 
