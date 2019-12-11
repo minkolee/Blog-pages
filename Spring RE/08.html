@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -21,7 +22,7 @@
 <ol>
     <li><a href="#con1">Spring的事务类</a></li>
     <li><a href="#con2">三个接口</a></li>
-    <li><a href="#con3">PlatformTrasactionManager实现类</a></li>
+    <li><a href="#con3">PlatformTransactionManager实现类</a></li>
     <li><a href="#con4">事务同步管理器</a></li>
     <li><a href="#con5">事务传播行为</a></li>
     <li><a href="#con6">编程式的事务管理</a></li>
@@ -33,8 +34,8 @@
 <p>Spring 的 SPI (Service Provider Interface)提供了如下三个接口, 用于管理事务, 都在org.springframework.transaction包里:</p>
 <ol>
     <li><Code>TransactionDefiniation</Code>, 这个接口负责从外部文件中载入XML配置或者注解, 或者手工编程的方式实现, 其实是一个属性类, 创建之后包含了描述一个事务的全部属性.</li>
-    <li><Code>TrasactionStatus</Code>, 这个接口可以认为就代表了事务, 其中描述了这个事务的状态, 通过这个接口操作事务</li>
-    <li><Code>PlatformTrasactionManager</Code>, 这个就是事务管理器, 其实就是使用第一个接口加载事务的属性, 然后根据事务的属性来操作第二个接口的对象.</li>
+    <li><Code>TransactionStatus</Code>, 这个接口可以认为就代表了事务, 其中描述了这个事务的状态, 通过这个接口操作事务</li>
+    <li><Code>PlatformTransactionManager</Code>, 这个就是事务管理器, 其实就是使用第一个接口加载事务的属性, 然后根据事务的属性来操作第二个接口的对象.</li>
 </ol>
 <p>来简单看一下这三个接口, 我把其称为事务属性, 事务状态, 事务管理器三个接口</p>
 
@@ -48,30 +49,30 @@
     <li>只读状态, 只读事务不会修改任何数据, 具体的事务管理器可以针对只读事务进行优化. 只读数据中如果试图修改数据, 则会触发异常.</li>
 </ol>
 
-<p>TrasactionStatus这个接口实际上就是一个事务的抽象, 事务管理器可以通过这个接口获取事务运行时候的状态, 然后可以通过这个接口回滚事务. 这个接口实际上继承自SavepointManager接口(JDBC 3.0提供嵌套事务的接口).</p>
+<p>TransactionStatus这个接口实际上就是一个事务的抽象, 事务管理器可以通过这个接口获取事务运行时候的状态, 然后可以通过这个接口回滚事务. 这个接口实际上继承自SavepointManager接口(JDBC 3.0提供嵌套事务的接口).</p>
 <p>SavepointManager的方法如下:</p>
 <ol>
     <li><code>Object createSavepoint()</code>, 创建保存点对象</li>
     <li><code>void rollbackToSavepoint(Object savepoint)</code>, 回滚到一个指定的保存点对象, 也就是上一个方法中创建的对象</li>
     <li><code>void releaseSavepoint(Object savepoint)</code>, 释放一个保存点, 也就是让一个保存点不再生效. 如果事务已经提交, 所有的保存点都会被释放</li>
 </ol>
-<p>上边的三个方法如果失败, 都会抛出NestedTrasactionNotSupported异常.</p>
-<p>TrasactionStatus又扩展了一些方法:</p>
+<p>上边的三个方法如果失败, 都会抛出NestedTransactionNotSupported异常.</p>
+<p>TransactionStatus又扩展了一些方法:</p>
 <ol>
     <li><code>boolean hasSavepoint()</code>, 这个用来判断当前事务是否有一个保存点, 这是为了支持嵌套事务采用的方法.</li>
-    <li><code>boolean isNewTrasaction()</code>, 判断当前事务是不是一个新的事务, 如果返回false表示是已经存在的事务, 或者当前操作没有运行在事务环境中.</li>
+    <li><code>boolean isNewTransaction()</code>, 判断当前事务是不是一个新的事务, 如果返回false表示是已经存在的事务, 或者当前操作没有运行在事务环境中.</li>
     <li><code>boolean isCompleted()</code>, 判断当前事务是否已经结束, 结束就是提交或者回滚两种情况之一.</li>
     <li><code>boolean isRollbackOnly()</code>, 判断当前事务使用已经被表示为仅能回滚</li>
     <li><code>boolean setRollbackOnly()</code>, 将当前事务设置为仅能回滚, 只要进行了此标识, 事务管理器就只能回滚该事务, 会调用显式回滚命令或者干脆抛异常回滚事务.</li>
 </ol>
-<p>PlatformTrasactionManager是事务管理器, 也是Spring提供的高层事务抽象接口, 只有三个方法:</p>
+<p>PlatformTransactionManager是事务管理器, 也是Spring提供的高层事务抽象接口, 只有三个方法:</p>
 <ol>
-    <li><code>TrasactionStatus getTrasaction(TransactionDefiniation transactionDefiniation)</code>, 获取一个已经存在的事务或者创建一个新的事务, 要根据传入其中的事务属性来决定</li>
-    <li><code>void commit(TrasactionStatus trasactionStatus)</code>, 根据事务的状态提交事务, 如果事务已经被标记为只能回滚, 提交也相当于回滚事务.</li>
-    <li><code>void rollback(TrasactionStatus trasactionStatus)</code>, 将事务回滚, 如果commit方法执行中有任何异常, 这个方法会被隐式的调用.</li>
+    <li><code>TransactionStatus getTransaction(TransactionDefiniation transactionDefiniation)</code>, 获取一个已经存在的事务或者创建一个新的事务, 要根据传入其中的事务属性来决定</li>
+    <li><code>void commit(TransactionStatus TransactionStatus)</code>, 根据事务的状态提交事务, 如果事务已经被标记为只能回滚, 提交也相当于回滚事务.</li>
+    <li><code>void rollback(TransactionStatus TransactionStatus)</code>, 将事务回滚, 如果commit方法执行中有任何异常, 这个方法会被隐式的调用.</li>
 </ol>
 
-<h2 style="text-align: center;" id="con3">PlatformTrasactionManager实现类</h2>
+<h2 style="text-align: center;" id="con3">PlatformTransactionManager实现类</h2>
 <p>前边通过三个接口, 实际上搭建出了上层操作事务的抽象框架. 由于Spring将事务管理委托给具体的底层持久化框架来完成, 所以为不同的持久化框架提供了不同的实现类, 来看一下:</p>
 <ol>
     <li><code>org.org.springframework.orm.jpa.JpaTransactionManager</code>, 对应JPA</li>
@@ -129,10 +130,10 @@ public class DataSourceTest {
 <ol>
     <li>EntityManagerFactory依赖一个DataSource</li>
     <li>EntityManagerFactory.createEntityManager()创建一个EntityManager对象</li>
-    <li>EntityManager对象调用getTrasaction()方法获取一个EntityTrasaction对象</li>
-    <li>EntityTrasaction就是JPA的事务管理器, 也是Spring的接口依赖的JPA事务管理器</li>
+    <li>EntityManager对象调用getTransaction()方法获取一个EntityTransaction对象</li>
+    <li>EntityTransaction就是JPA的事务管理器, 也是Spring的接口依赖的JPA事务管理器</li>
 </ol>
-<p>在实际中, Spring的JPATrasactionManager需要注入EntityManagerFactory类型即可, 所以需要配数据源, 然后配EntityManagerFactory, 最后配JPATrasactionManager.</p>
+<p>在实际中, Spring的JPATransactionManager需要注入EntityManagerFactory类型即可, 所以需要配数据源, 然后配EntityManagerFactory, 最后配JPATransactionManager.</p>
 <p>这其中要注意的是EntityManagerFactory只是一个接口, 具体的实现类, Spring提供了一个, 看下边XML配置的红色部分:</p>
 <pre>
 &lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true" id="source"
@@ -149,7 +150,7 @@ public class DataSourceTest {
 <p>通过XML配置其实也可以看出来各个类的内部属性. 用代码启动就不放了, 因为使用到JPA的话, 还需要配置persistence.xml文件, 这个暂时还不会.</p>
 
 
-<p>Hibernate相比前边两个, 是一个完整的ORM框架, 使用自己的Session对象封装了Connection和DataSource对象, 所以需要创建一个Session的Bean, 然后再创建Spring 的 HibernateTrasactionManager:</p>
+<p>Hibernate相比前边两个, 是一个完整的ORM框架, 使用自己的Session对象封装了Connection和DataSource对象, 所以需要创建一个Session的Bean, 然后再创建Spring 的 HibernateTransactionManager:</p>
 <pre>
 &lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true" id="source"
    p:driverClassName="com.mysql.cj.jdbc.Driver"
@@ -194,7 +195,7 @@ public static void main(String[] args) {
 
 <h2 style="text-align: center;" id="con5">事务传播行为</h2>
 <p>所谓事务传播行为, 就是在调用一个服务的时候, 内部还会调用其他服务, 这个时候事务必须以合理的方式继续控制嵌套的其他服务, 否则就会出问题.</p>
-<p>事务传播行为的具体定义, 在TrasactionDefinition接口中规定, 一共有7种:</p>
+<p>事务传播行为的具体定义, 在TransactionDefinition接口中规定, 一共有7种:</p>
 <pre>
 int PROPAGATION_REQUIRED = 0; //如果当前没有事务, 则新建事务, 如果有事务, 则加入到这个事务中, 这是默认配置, 也是最常见的用法, 即嵌套的事务会累加成一个事务
 int PROPAGATION_SUPPORTS = 1; //使用当前事务, 如果当前没有事务, 就以非事务方式执行
@@ -209,22 +210,263 @@ int PROPAGATION_NESTED = 6; //如果当前存在事务, 则在嵌套事务内执
 <h2 style="text-align: center;" id="con6">编程式的事务管理</h2>
 <p>前边的三个类和对应的技术, 实际上通过学习可以知道, 在使用Spring提供的模板时候可以自动被应用.</p>
 <p>当然Spring也提供了手动管理事务的类org.springframework.transaction.support.TransactionTemplate, 看来模板还真多, 连事务也有管理模板.</p>
-<p>这个模板的核心就是先要设置一个TrasactionManager对象, 然后还可以设置一个回调接口.</p>
+<p>这个模板的核心就是先要设置一个TransactionManager对象, 然后还可以设置一个回调接口.</p>
 <p>模板中如果需要访问底层连接, 必须使用Utils工具, 不能直接访问. 如果模板中的访问数据对象是Spring提供的模板类, 就不需要.</p>
 <p>这个简单了解一下即可.</p>
 
-<h2 style="text-align: center;" id="con7">XML声明式事务与注解配置事务</h2>
+<h2 style="text-align: center;" id="con7">XML声明式事务</h2>
 <p>走到这一步, 基本上就是使用声明或者注解, 让Spring使用AOP技术, 将应用程序员编写的与数据持久化相关的类, 进行改造, 让其可以进行事务的过程.</p>
 <p>前边的所有类, 最终目的都是为了将服务接口(即经常编写的XXXXService接口及其实现类)来进行事务增强. 有两种办法, 一种是XML配置, 一种是在接口的实现类上添加注解.</p>
 <p>这里之前配好了DataSource, 而且可以正常工作, 现在可以编写一个简单的查找和添加的接口和实现类, 然后对齐进行增强, 看一下两种配置方式.</p>
+<p>一个比较典型的DAO接口及其实现类, Service接口及实现类如下:</p>
+<pre>
+public interface SomeDao {
 
+    User getUser();
 
+    void updateUser(User user);
 
+}
+</pre>
+<pre>
+public class SomeDaoImpl implements SomeDao {
 
+    @Override
+    public User getUser() {
+        return new User("cony", 5);
+    }
 
+    @Override
+    public void updateUser(User user) {
+        System.out.println("成功添加 " + user);
+    }
+}
+</pre>
+<pre>
+public interface SomeService {
 
+    User getUser();
 
+    void update(User user);
+}
+</pre>
+<pre>
+public class SomeServiceImpl implements SomeService {
 
+    private SomeDao someDao;
+
+    public SomeServiceImpl(SomeDao someDao) {
+        this.someDao = someDao;
+    }
+
+    @Override
+    public User getUser() {
+        return someDao.getUser();
+    }
+
+    @Override
+    public void update(User user) {
+        someDao.updateUser(user);
+    }
+}
+</pre>
+<p>很显然, 如果配置在Spring中的话, SomeServiceImpl及依赖注入的SomeDao的实现类都会被配置为一个单例的Bean, 这里假设SomeDao的实现类使用了Spring提供的那些模板读取数据, 那么很显然, 需要将SomeServiceImpl改造成支持事务的类, 以让其中的业务方法都带上事务.</p>
+<p>通过前边学习可以知道, XML配置事务管理, 一定要先把事务管理器给配出来, 在Spring2.0之前的版本, Spring是通过一个特殊的代理类TransactionProxyFactoryBean来提供事务增强的, 配置如下:</p>
+<pre>
+&lt;!--DataSource-->
+&lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true" id="source"
+      p:driverClassName="com.mysql.cj.jdbc.Driver"
+      p:url="jdbc:mysql://localhost:3306/sia5"
+      p:username="root"
+      p:password="********"/>
+
+&lt;!--TrasactionManager-->
+&lt;bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager" p:dataSource-ref="source"
+      id="transactionManager"/>
+
+&lt;!--把两个接口实现类的Bean配进来-->
+&lt;!--SomeDao的实现类-->
+&lt;bean id="somedaoimpl" class="cc.conyli.trasaction.SomeDaoImpl"/>
+&lt;!--SomeServiceImpl的实现类, 这个也是要进行业务增强的Bean-->
+&lt;bean id="serviceimpl" class="cc.conyli.trasaction.SomeServiceImpl">
+    &lt;constructor-arg ref="somedaoimpl"/>
+&lt;/bean>
+
+&lt;!--配置代理类-->
+&lt;!--&lt;bean id="transaction"-->
+&lt;bean id="enhanced" class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean"
+      p:transactionManager-ref="transactionManager"
+      p:target-ref="serviceimpl">
+    &lt;property name="transactionAttributes">
+        &lt;props>
+            &lt;prop key="get*">PROPAGATION_REQUIRED, readOnly&lt;/prop>
+            &lt;prop key="*">PROPAGATION_REQUIRED&lt;/prop>
+        &lt;/props>
+    &lt;/property>
+&lt;/bean>
+</pre>
+<p>这里使用的是JDBC的DataSource-事务管理器类. 关键的代理类是TransactionProxyFactoryBean, 这个类使用要增强的类外加事务管理器类来生成一个代理类, 使用了AOP技术.</p>
+<p>其中的transactionAttributes是配置事务的属性, prop中的key指的是用字符串的形式匹配方法名, 标签主体是事务属性信息.</p>
+<p>事务属性信息由五部分组成, 分别是 传播行为, 隔离级别, 是否为只读事务, 发生哪些异常要回滚, 发生哪些异常要继续提交事务.</p>
+<p>传播行为必须要设置, 如果不设置, 就说明不使用事务. 后四个都是可选的, 这些也都是字符串匹配规则.</p>
+<p>TransactionProxyFactoryBean是比较老的配置方法, 而且要定义多个Bean. 实际上在Spring2.0就开始引入了AOP, 然后在XML配置的Schema中引入了一个新的tx命名空间, 专门用来配置事务.</p>
+<p>使用如今的Spring配置的话, 需要结合aop命名空间和tx命名空间来进行配置:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;beans xmlns="http://www.springframework.org/schema/beans"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:p="http://www.springframework.org/schema/p"
+           xmlns:context="http://www.springframework.org/schema/context"
+           xmlns:util="http://www.springframework.org/schema/util"
+           xmlns:tx="http://www.springframework.org/schema/tx"
+           xmlns:aop="http://www.springframework.org/schema/aop"
+
+           xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/util
+        http://www.springframework.org/schema/util/spring-util.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop-4.0.xsd">
+
+    &lt;util:properties id="properties" location="config.properties"/>
+    &lt;context:property-placeholder properties-ref="properties"/>
+    &lt;context:component-scan base-package="cc.conyli"/>
+
+        &lt;!--DataSource依然需要-->
+    &lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true" id="source"
+          p:driverClassName="com.mysql.cj.jdbc.Driver"
+          p:url="jdbc:mysql://localhost:3306/sia5"
+          p:username="root"
+          p:password="fflym0709"
+    />
+
+        &lt;!--TrasactionManager事务管理器也需要-->
+    &lt;bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager" p:dataSource-ref="source"
+          id="transactionManager"/>
+
+        &lt;!--创建一个增强准备织入给要进行事务增强的类-->
+    &lt;tx:advice id="txadvice" transaction-manager="transactionManager">
+        &lt;tx:attributes>
+            &lt;tx:method name="get*" read-only="false"/>
+            &lt;tx:method name="add*" rollback-for="Exception"/>
+            &lt;tx:method name="update*"/>
+        &lt;/tx:attributes>
+    &lt;/tx:advice>
+
+        &lt;!--    把增强织入到实现类中, 直接创建一个代理类, 这个是之前看过的内容了, 创建一个切点, 然后使用增强Bean来创建一个切面进行织入-->
+    &lt;aop:config>
+        &lt;aop:pointcut id="serviceMethod" expression="execution(* cc.conyli.trasaction.SomeServiceImpl.*(..))"/>
+        &lt;aop:advisor advice-ref="txadvice" pointcut-ref="serviceMethod"/>
+    &lt;/aop:config>
+
+&lt;/beans>
+</pre>
+<p>XML要注意, 命名空间上边有xmlns:tx="http://www.springframework.org/schema/tx", 在xsi:schemaLocation中就必须要有一对地址, 包括上边的命名空间和以xsd结尾的地址.</p>
+<p>这个配置依然是先装配DataSource和事务管理器, 不同点在于不需再去创建两个业务Bean了, 直接使用事务管理器创建增强, 再织入到指定的方法里.</p>
+<p>这里如果初看, 会想transactionManager并不是一个advice, 怎么就直接织入了. 这实际上是使用了特别的tx命名空间, 这个标签在内部会使用我们创建的事务管理器来生成一个增强类, 并不需要手工编写增强类.</p>
+<p>tx:advice生成的增强类, 就可以被aop标签给织入指定的类的方法中了. 只要理解了tx命名空间的自动生成advice的功能就可以了.</p>
+<p>tx:method中的配置和之前差不多, 都是一条字符串的匹配对应一条属性定义的规则, 主要规则如下:</p>
+<ol>
+    <li>name, 表示方法名匹配字符串, 必需配置, 其他都是不必需的</li>
+    <li>propagation, 事务传播行为</li>
+    <li>isolation, 隔离级别</li>
+    <li>timeout, 默认是-1, 表示交给具体的事务系统决定</li>
+    <li>read-only, 默认是false, 表示事务是否只读</li>
+    <li>rollback-for, 默认所有异常都回滚, 也是字符串匹配, 可以设置多个</li>
+    <li>no-rollback-for-for, 默认所有检查型异常都不回滚, 用于配置不触发回滚的异常, 也是字符串匹配.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con8">注解配置事务</h2>
+<p>前边的所有铺垫, 其实都是为了引入注解配置事务.</p>
+<p>如果都使用默认的话, 只需要在要进行注解增强的类之前加上@Transactional注解即可.</p>
+<p>刚才的类如果开启扫描自动装配的话, 就是这样:</p>
+<pre>
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Transactional
+@Service
+public class SomeServiceImpl implements SomeService {
+
+    private SomeDao someDao;
+
+    public SomeServiceImpl(SomeDao someDao) {
+        this.someDao = someDao;
+    }
+
+    @Override
+    public User getUser() {
+        return someDao.getUser();
+    }
+
+    @Override
+    public void update(User user) {
+        someDao.updateUser(user);
+    }
+}
+</pre>
+<p>注意这里的@Transactional是Spring提供的注解类, 不是javax.transaction.Transactional, 当然, 和其他注解一样, 要生效的话, 还必须在XML中加上一条配置:</p>
+<pre>
+&lt;tx:annotation-driven transaction-manager="transactionManager"/>
+</pre>
+<p>可见XML中DataSource和事务管理器还是要配的, 但是使用了这条tx:annotation-driven, 学过前边AOP就可以知道, 其他的不用配了, 然后Spring在扫描到@Transactional注解的时候, 就会使用transactionManager按照注解的元数据生成对应的切面并织入了.</p>
+<p>现在就来看看@Transactional注解类的源代码:</p>
+<pre>
+@Target({ElementType.METHOD, ElementType.TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+@Documented
+public @interface Transactional {
+    //事务管理器的名称, 如果不指定, 而且容器里只有一个, 就会用这个, 否则需要指定.
+    String value() default "";
+
+    //传播方式
+    Propagation propagation() default Propagation.REQUIRED;
+
+    //隔离级别
+    Isolation isolation() default Isolation.DEFAULT;
+
+    //过期时间
+    int timeout() default -1;
+
+    //只读事务
+    boolean readOnly() default false;
+
+    //一组异常类名, 遇到就回滚
+    String[] rollbackForClassName() default {};
+
+    //一组异常类, 遇到不回滚
+    Class&lt;? extends Throwable>[] noRollbackFor() default {};
+
+    //一组异常类名, 遇到不回滚
+    String[] noRollbackForClassName() default {};
+}
+</pre>
+<p>可见这个注解可以定义在方法或者类上, 定义在方法上注解会覆盖使用类的注解. 在实际业务中, 要将这个注解使用在实现类上, 而不是接口上, 因为注解是无法继承的.</p>
+<p>这里唯一要解释的就是String value() default ""; 这其中的字符串, 是可以设置为一个名称, 在XML中的事务管理器中配置, 比如:</p>
+<pre>
+&lt;!--TrasactionManager事务管理器也需要-->
+&lt;bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager" p:dataSource-ref="source"
+      id="transactionManager">
+    <span style="color:red">&lt;qualifier value="saner"/></span>
+&lt;/bean>
+</pre>
+<p>红字部分定义了一个名称, 如果有多个事务管理器的话, 就可以通过这个名称来引用, 比如:</p>
+<pre>
+@Transactional("saner")
+@Service
+public class SomeServiceImpl implements SomeService {
+......
+}
+</pre>
+<p>如果事务管理器比较多, 可以定义一个带有@Trasaction("XXX")的注解, 来使用自定义的注解.</p>
+<p>总结一下来说, 如果底层使用了Spring的模板, 就解决了多线程的问题, 然后只需要辅之以XML配置和注解在Service类上即可.</p>
+<p>如果手工编程, 首先需要改造DataSource, 让Dao类可以多线程操作, 根据不同的技术来创建具体的事务管理器, 最后再操作.</p>
+<p>现在理论看完了, 一般Web程序都分为Controller-Web展现层, Service, Dao三层, 实践中到底怎么用, 继续研究吧.</p>
 
 
 

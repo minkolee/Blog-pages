@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 09 事务实践</title>
+    <title>Spring RE 09 事务小结与JDBC操作数据库</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,19 +15,88 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>上个星期博主到杭州务工了五天, 杭州不愧996圣地, 我去了之后天天三四点钟结束, 恍惚之间有种与世隔离的感觉. 每天生物钟混乱导致食欲不振, 嗓子痛, 口腔溃疡.</p>
+<p>看来这辈子领导是当不上了, 领导一个个都是精力充沛, 可以从中午谈判到晚上7点不吃饭, 出去喝完酒回来再谈到三点钟, 第二天早上9点精神抖擞的出现在公司. 我这体质确实比不上啊. 周日回来之后瘫了两天, 晚上10点睡觉, 早上还是爬不起来...</p>
+<p>财务这行呢, 其实不需要任何技术, 就是反复的算啊算啊, 毫无意义. 所以代码还得继续好好学, 中断了一个星期, 现在还得继续研究Spring.</p>
+<p>之前了解了事务XML配置及注解背后的类, 现在来总结一下使用事务的一些要点, 然后开始看具体的数据库操作了. 说到这里, 还必须去好好学学Hibernate才行.</p>
+
 
 <ol>
-    <li><a href="#con1"></a></li>
+    <li><a href="#con1">事务注意事项</a></li>
     <li><a href="#con2"></a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">事务注意事项</h2>
+<p>这些注意事项如果都用代码, 就会比较繁杂, 我就直接把结论列出来:</p>
+<ol>
+    <li>使用Hibernate访问数据库一定要配置HibernateTransactionManager事务管理器, 否则默认的事务管理策略即合并事务和readOnly会造成无法修改数据. </li>
+    <li>事务传播机制, 设置为PROPAGATION_REQUIRED的时候, 嵌套调用被@Transactional注解标注的方法, 只要是在一个线程中, 都会加入到同一个事务中.</li>
+    <li>接着上一条, 如果是两个线程, 则会创建两个分离的事务.</li>
+    <li>如果同时使用高层的纯ORM比如Hibernate外加底层的JDBC或者MyBatis, 会绑定到同一个更高层的ORM的数据库连接包装对象中, 然而由于高层ORM带有缓存机制, 控制数据的写入就变得的比较麻烦. 所以要么不用, 如果用了, 就使用ORM修改数据, 使用底层技术来查找数据比较好.</li>
+    <li>使用注解即意味着使用AOP技术进行事务增强, 要注意实现类的事务方法必须是public的. 对于final, static, private的方法, 由于不能被子类继承, 也就无法被代理. 要注意不要把事务写到这其中. 由public 调用的 private则没有问题, 因此实际上出问题的是public static和public final这两种方法.</li>
+    <li>如果不直接操作底层, 建议使用模板来获取连接, 模板内部通过DataSourceUtils获取数据连接. 如果直接操作底层, 在事务方法内部也需要使用DataSourceUtils获取事务管理上下文的数据库连接, 以避免泄露问题. </li>
+</ol>
+<p>学完了这里, 就知道了一个小小的@Transactional注解背后, 隐藏了这么多默默提供服务的类以及AOP这一强大工具, 还实现了事务传播. Spring 确实做得棒啊.</p>
+<p>这里再简单回想一下, 需要先定义DataSource, 以及对应DataSource的事务管理器, 然后使用注解的时候, Spring就会通过TransactionDefiniation装载注解中的元信息, 使用TransactionStatus和PlatformTransactionManager类来管理事务.</p>
+<p>后边就来具体操作吧.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con2">JDBCTemplate</h2>
+<p>从之前的学习中可以知道, 使用Spring 的JDBC支持, 其实就是学习如何使用Spring提供的JDBCTemplate了.</p>
+<p>想使用JDBCTemplate依然可以通过XML配置一个DataSource, 然后创建一个JDBCTemplate的Bean. 既然能够通过XML配置, 当然也可以通过代码直接使用了, 一个最简单的例子如下:</p>
+<pre>
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
+import java.time.LocalDateTime;
+
+public class Demo1 {
+
+    public static void main(String[] args) {
+        //这个DriverManagerDataSource类是Spring提供的实现类, 换成其他实现, 比如DBCP或者C3PO的DataSource一样可以.
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        //这些都是老套路了
+        dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        dataSource.setUrl("jdbc:mysql://localhost:3306/sia5");
+        dataSource.setUsername("root");
+        dataSource.setPassword("fflym0709");
+
+        //构造器注入
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        //SQL语句, 将第五个课程名称改为当前的时间
+        String now = LocalDateTime.now().toString();
+        String sql = "UPDATE sia5.course SET course_name = '"+now+"' WHERE id=5";
+        //执行
+        jdbcTemplate.execute(sql);
+    }
+}
+</pre>
+<p>其实这段小代码就非常直观的说明了JDBCTemplate的本质, 也是依赖一个DataSource, 然后对JDBC进行了封装的一个操作类.</p>
+<p>XML配置如下, 使用的时候通过容器拿出来创建的JDBCTemplate对应的Bean来使用:</p>
+<pre>
+
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con3"></h2>
 
