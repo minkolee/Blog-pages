@@ -24,10 +24,10 @@
 <ol>
     <li><a href="#con1">事务注意事项</a></li>
     <li><a href="#con2">创建JDBCTemplate对象</a></li>
-    <li><a href="#con3">基本操作 - 增删改查</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con3">基本操作 - 改</a></li>
+    <li><a href="#con4">基本操作 - 增</a></li>
+    <li><a href="#con5">基本操作 - 查</a></li>
+    <li><a href="#con6">其他知识点</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">事务注意事项</h2>
 <p>这些注意事项如果都用代码, 就会比较繁杂, 我就直接把结论列出来:</p>
@@ -106,24 +106,290 @@ public static void main(String[] args) {
 </pre>
 <p>有了XML配置, 使用注解进行构造注入创建一个DAO也很简单了, 就不再赘述了.</p>
 
-<h2 style="text-align: center;" id="con3">基本操作 - 增删改查</h2>
+<h2 style="text-align: center;" id="con3">基本操作 - 改</h2>
+<p>上一节其实就是Spring如何整合JDBC. 现在就看一下基础操作. </p>
+<p>原来JDBC的操作是获取连接, 然后获取Statement系列对象, 准备SQL语句, 执行后得到结果集, 然后从结果集中取出数据的过程.</p>
+<p>在有了JDBCTemplate之后, 整体的操作简化为了三个步骤:</p>
+<ol>
+    <li>定义SQL语句</li>
+    <li>准备参数</li>
+    <li>执行并得到结果</li>
+</ol>
+<p>数据操作不外乎增删改查, 增和删还是比较容易的, 重点看一下改和查.</p>
+
+<h3>update系列语句</h3>
+<p>这一节说是改, 实际上增删改, 全部都使用update()方法. 查使用query系列方法. 只有DDL语句才使用JDBCTemplate的execute()方法.</p>
+<p>JDBCTemplate提供了很多重载的update()方法, 一个一个看过来.</p>
+<p>首先最基本的update(sql)方法, 用于不附带参数的SQL语句, 例如:</p>
+<pre>
+public static void main(String[] args) {
+    //此处创建容器和获取Bean的代码省略
+    JdbcTemplate template = (JdbcTemplate) factory.getBean("jdbcTemplate");
+
+    String sql = "UPDATE sia5.course SET course_name = 'Piano' WHERE id=5";
+    //返回成功影响的行数
+    template.update(sql);
+}
+</pre>
+<p>如果要执行带参数的SQL语句, 就需要使用update(sql, params)的重载, params是一个Object[]类型:</p>
+<pre>
+String sql = "UPDATE sia5.course SET course_name = 'Piano' WHERE id=?";
+
+Object[] params = new Object[]{3};
+
+template.update(sql, params);
+</pre>
+<p>不过这样的话, 其实还有一个类型自动转换的问题, 这里因为是基本类型还问题不大, 所以一般使用下边一个重载, 最后一个参数明确的指出来SQL语句各个参数的类型:</p>
+<pre>
+String sql = "UPDATE sia5.course SET course_name = ? WHERE id=?";
+
+Object[] params = new Object[]{"Computer History", 3};
+
+template.update(sql, params, new int[]{Types.VARCHAR, Types.INTEGER});
+</pre>
+<p>这里可以看到, 占位符是两个, 第一个是一个字符串, 第二个是一个整数. 在params数组中, 也确实按照参数顺序写了一个字符串和一个int. 在update()方法中, 使用重载, 第三个参数传入一个int类型的数组, 其中按照参数的顺序, 采用java.sql.Types类中规定好的类型, 这样就可以告诉JDBCTemplate每个参数对应的数据库中的类型到底是什么, 以便进进行正确的转换.</p>
+<p>所以带参的update方法, 都推荐使用一种三参数的重载.</p>
+<p>此外还有类似的update(sql, Object... args), 用于不定参数.</p>
+<p>然后还一个比较重要的, 就是可以自己来控制参数的回调接口: update(String sql, PreparedStatementSetter pss), 用于手工指定绑定的参数. 这个接口有一个方法 void setValues(PreparedStatement ps).</p>
+<p>在内部, update()方法也是基于这个回调接口来绑定参数的, 如果自己使用这个重载, 可以更详细的控制参数绑定:</p>
+<pre>
+//创建一个演示用的List
+List&lt;String> courses = new ArrayList&lt;>();
+courses.add("Algorithm");
+courses.add("Music Theory");
+courses.add("Piano Practice");
+courses.add("Computer History");
+courses.add("Java Programming");
+
+//SQL语句依然有两个参数
+String sql = "UPDATE sia5.course SET course_name = ? WHERE id=?";
+
+//使用带回调函数的方法
+template.update(sql, new PreparedStatementSetter() {
+    @Override
+    public void setValues(PreparedStatement preparedStatement) throws SQLException {
+        //setValues方法的参数PreparedStatement, 里边其实已经包裹了前边的sql语句, 所以就和JDBC设置参数是一样的
+        System.out.println("绑定的参数1 course_name=" + courses.get(3));
+        //只需要注意SQL参数位置起始是1
+        preparedStatement.setString(1, courses.get(3));
+        System.out.println("绑定的参数2 id=" + (courses.get(3).length() % 5 + 1));
+        preparedStatement.setInt(2, courses.get(3).length() % 5 + 1);
+    }
+});
+</pre>
+<p>这个方法就是将参数绑定的具体控制, 通过PreparedStatementSetter接口中的方法来控制, 使用这个重载, 可以更详细的控制绑定参数的逻辑.</p>
+<p>与这个类似的重载是使用 PreparedStatementCreator 接口, 这个接口从名称可以看出来, 可以自己根据需要创建PreparedStatement对象, 因此update()方法使用这个接口的话, 连sql都不需要传入, 可以彻底自己自定义:</p>
+<pre>
+//创建一个演示用的List
+List&lt;String> courses = new ArrayList&lt;>();
+courses.add("Algorithm");
+courses.add("Music Theory");
+courses.add("Piano Practice");
+courses.add("Computer History");
+courses.add("Java Programming");
+
+//SQL语句依然有两个参数
+String sql = "UPDATE sia5.course SET course_name = ? WHERE id=?";
+
+template.update(new PreparedStatementCreator() {
+    @Override
+    public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+        PreparedStatement preparedStatement = connection.prepareStatement(sql);
+        System.out.println("绑定的参数1 course_name=" + courses.get(2));
+        preparedStatement.setString(1, courses.get(2));
+        System.out.println("绑定的参数2 id=" + (courses.get(2).length() % 5 + 1));
+        preparedStatement.setInt(2, courses.get(2).length() % 5 + 1);
+        return preparedStatement;
+    }
+});
+</pre>
+<p>可以看到, PreparedStatementCreator接口的作用是从connection中创建一个PreparedStatement, 所以这里可以自己定义使用什么样的SQL语句和具体的参数绑定方法.</p>
+<p>从这几种方法重载, 尤其是回调接口的重载可以看出来, JDBCTemplate确实是对JDBC的封装, 其内部的原理依然是通过连接创建Statement对象, 进而进行数据更新.</p>
+<p>当然, 如果确定的知道参数绑定, 则没有必要使用这些回调接口. 查看源码可以知道, 在使用那些简单的重载方法时候, JDBCTemplate内部会自动创建这些回调接口(毕竟是框架, 已经搭好了). 只有确实需要详细控制的时候再使用.</p>
+<p>总结一下常用的修改数据相关的update():</p>
+<ol>
+    <li><code>update(String sql)</code>, 执行不带参数的SQL语句</li>
+    <li><code>update(String sql, Object[] params)</code>, 执行带参数的SQL语句</li>
+    <li><code>update(String sql, Object[] params, new int[]{Types.XXX})</code>, 执行带参数, 且详细描述参数类型的SQL语句</li>
+    <li><code>update(String sql, Object... params)</code>, 执行不定长参数的SQL语句, 不太常用</li>
+    <li><code>update(String sql, PreparedStatementSetter pss)</code>, sql语句确定, 参数如何绑定由回调接口中的方法确定</li>
+    <li><code>update(PreparedStatementCreator psc)</code>, 由于JDBC的数据库操作本质上都是从一个连接开始获取Statement然后执行, 所以这里将PreparedStatement的创建和参数绑定全部交给PreparedStatementCreator的createPreparedStatement()方法来完成, 可以在其中自由的编写从connection开始的全部逻辑.</li>
+</ol>
+<p>如果需要批量更改, 可以使用 int[] batchUpdate(String[] sql), 可以组成一个数组, 或者使用一个带回调的 int[] batchUpdate(String sql, BatchPreparedStatementSetter pss), 这个回调接口会按次序一个一个处理过来.</p>
+<p>一批都是一起提交的, 而不是再分成更小的批次. 如果有非常大的数据, 需要先将SQL语句分批, 对于每一批使用这个批量更改.</p>
+
+<h2 style="text-align: center;" id="con4">基本操作 - 增</h2>
+<p>添加数据的SQL操作, 也是使用update()语句. (注意, 只有DDL语句才使用JDBCTemplate的execute()语句, DDL语句就是数据定义语言, 即创建表, 删除表和改变表设计等语句.</p>
+<p>单独的插入很容易, 这里要注意的是如何在插入后获取主键. JDBC 3.0规范中允许在插入后将数据库自动生成的主键绑定到一个值中:</p>
+<pre>
+public static void main(String[] args) throws SQLException {
+    DataSource source = (DataSource) Util.getIOCContainer().getBean("source");
+
+    Connection connection = source.getConnection();
+
+    String sql = "INSERT into sia5.course (course_name) VALUES ('new course');";
+
+    PreparedStatement preparedStatement = connection.prepareStatement(sql);
+
+    preparedStatement.executeUpdate(sql, <span style="color: red">Statement.RETURN_GENERATED_KEYS</span>);
+
+    ResultSet resultSet = preparedStatement.getGeneratedKeys();
+
+    if (resultSet.next()) {
+        System.out.println(resultSet.getInt(1));
+    }
+}
+</pre>
+<p>新规范里executeUpdate多了一个重载, 即传入一个Statement.XXX的静态值, 如果设置为Statement.RETURN_GENERATED_KEYS, 则就会将新插入的数据的主键绑定到当前的Statement对象上.</p>
+<p>在执行完这个语句的时候, 就可以通过Statement对象的getGeneratedKeys()获取一个ResultSet, 其中就存放着新插入的数据对应的主键.</p>
+<p>Spring里是怎么做的呢, 其实也是提供了一个回调接口较早KeyHolder, 利用了一个update方法的重载:</p>
+<pre>
+String sql = "INSERT into sia5.course (course_name) VALUES ('new course');";
+
+JdbcTemplate template = (JdbcTemplate) Util.getIOCContainer().getBean("jdbcTemplate");
+
+//创建一个keyHolder对象
+KeyHolder keyHolder = new GeneratedKeyHolder();
+
+//update方法会自动将绑定的主键装入KeyHolder对象中
+template.update(new PreparedStatementCreator() {
+    @Override
+    public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+        return <span style="color: red">connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)</span>;
+    }
+}, keyHolder);
+
+int key = keyHolder.getKey().intValue();
+
+System.out.println("刚插入的主键=" + key);
+</pre>
+<p>注意红色部分的代码, 必须在prepareStatement方法中, 指定开启绑定主键的功能, 否则会报错.</p>
+<p>在JDBC 3.0之前, 如果想要获取主键, 是需要在插入之后再执行一条查询主键的命令, 然后由于并发, 会返回当前的最后一条主键, 未必是插入时候的主键.</p>
+<p>现在的JDBC 3.0绑定主键解决了这个问题, 然而今后开发中, 不应该使用表自增主键, 最好将生成主键的任务交给业务层, 比如使用UUID或者其他类似的功能.</p>
+
+<h2 style="text-align: center;" id="con5">基本操作 - 查</h2>
+<p>在原生JDBC操作数据库的时候, 得到的都是一个ResultSet结果集, 再从结果集中取出数据.</p>
+<p>由于结果集就是对一行一行数据的封装, 所以JDBCTemplate这里提供了回调接口, 可以直接从结果集中将结果处理完放到指定的对象中. 这就大大节省了处理ResultSet的样板代码.</p>
+<h3>RowCallbackHandler</h3>
+<p>这个接口内部一行一行的处理ResultSet中的数据, 只有一个方法, 方法的参数ResultSet就是结果集, 将其想象成这个方法在处理每一行数据就可以了:</p>
+<pre>
+String sql = "Select * FROM sia5.course";
+
+JdbcTemplate template = (JdbcTemplate) Util.getIOCContainer().getBean("jdbcTemplate");
+
+//这个query方法的返回值是void
+template.query(sql, new RowCallbackHandler() {
+    @Override
+    public void processRow(ResultSet resultSet) throws SQLException {
+        System.out.println(resultSet.getInt(1) + "|" + resultSet.getString("course_name"));
+    }
+});
+</pre>
+<p>可见有了这个方法, 想怎么处理数据都可以了.</p>
+<p>这是最基础的方法, 如果查询语句也带有参数, 可以想到和上边的update()是类似的, 回调对象总归是放在最后一个参数的位置. 所有重载等到最后再总结.</p>
+
+<h3>RowMapper&lt;T></h3>
+<p>使用RowMapper&lt;T>的时候, query重载方法的返回值都变了, 是一个List&lt;T>对象. RowMapper中每个方法需要返回一个泛型对象, 最后就会得到一个组装起来的List&lt;T>对象:</p>
+<p>看一个例子, 我们定义一个Course类:</p>
+<pre>
+public class Course {
+
+    private int id;
+    private String courseName;
+
+    public Course() {
+
+    }
+
+    public Course(int id, String courseName) {
+        this.id = id;
+        this.courseName = courseName;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getCourseName() {
+        return courseName;
+    }
+
+    public void setCourseName(String courseName) {
+        this.courseName = courseName;
+    }
+}
+</pre>
+<p>然后使用RowMapper&lt;Course>来得到一个List&lt;Course>结果:</p>
+<pre>
+String sql = "Select * FROM sia5.course";
+
+JdbcTemplate template = (JdbcTemplate) Util.getIOCContainer().getBean("jdbcTemplate");
+
+List&lt;Course> courseList = template.query(sql, new RowMapper&lt;<span style="color: red">Course</span>>() {
+    @Override
+    public <span style="color: red">Course</span> mapRow(ResultSet resultSet, int i) throws SQLException {
+        Course course = new Course();
+        course.setId(resultSet.getInt(1));
+        course.setCourseName(resultSet.getString(2));
+        return course;
+    }
+});
+
+System.out.println(courseList);
+</pre>
+<p>这里要注意红色的泛型, 可以将RowMapper的mapRow方法看做把一行数据映射到一个对象的方法, 最后返回的结果就是装着这些对象的一个列表.</p>
+<p>这个方法在抽象层次上比RowCallbackHandler又提升了一个层级, 可以直接根据自己想要的逻辑, 返回数据对象. 当然其本质还是对行数据的操作.</p>
+<p>知道了原理, 剩下的重载也都是换参数而已, 这里把常用的查询重载一起列出:</p>
+<ul>
+    RowCallbackHandler系列:
+    <li><code>void query(String sql, RowCallbackHandler rch)</code>, 不带参的查询语句, 查出来后处理每行数据, 返回为空</li>
+    <li><code>void query(String sql, Object[] params, RowCallbackHandler rch)</code>, 带参查询语句和处理.</li>
+    <li><code>void query(String sql, Object[] params, new int[]{Types}, RowCallbackHandler rch)</code>, 带参查询语句和处理, 类型安全版本.</li>
+    <li><code>void query(String sql, PreparedStatamentSetter pss, RowCallbackHandler rch)</code>, 知道了PreparedStatamentSetter对象, 就可以知道这个重载用于手工控制SQL语句中的参数绑定</li>
+    <li><code>void query(PreparedStatamentCreate psc, RowCallbackHandler rch)</code>, 使用PreparedStatamentCreate进行全部控制.</li>
+    RowMapper系列:
+    <li><code>List&ltT> query(String sql, RowMapper&lt;T> rm)</code>, 不带参的查询.</li>
+    <li><code>List&ltT> query(String sql, Object[] params, RowMapper&lt;T> rm)</code>, 带参的查询.</li>
+    <li><code>List&ltT> query(String sql, PreparedStatamentSetter pss, RowMapper&lt;T> rm)</code>, 套路和上边的一样.</li>
+    <li><code>List&ltT> query(PreparedStatamentCreate psc, RowMapper&lt;T> rm)</code>, 依然是熟悉的套路.</li>
+</ul>
+<p>RowCallbackHandler和RowMapper的区别在于数量比较大的时候, RowCallbackHandler边处理边读入新数据, 类似于流式处理, 而RowMapper因为要返回一个List, 所以会读入全部数据, 这要小心会造成一些问题.</p>
+<p>RowCallbackHandler内部记录了一个处理到多少行的变量, 因此不能多线程复用.</p>
+<p>除了使用匿名类直接编写逻辑之外, Spring提供了RowCallbackHandler和RowMapper的几个实现类:</p>
+<ul>
+    RowCallbackHandler实现类:
+    <li><code>RowCountCallbackHandler</code>, 计算结果集的行数. 生成一个RowCountCallbackHandler对象然后传入update, 之后可以通过.getRowCount()获取行数.</li>
+    <li><code>SimpleRowCountCallbackHandler</code>, 只遍历结果集, 不做任何处理的回调对象, 可以在测试的时候使用.</li>
+    RowMapper实现类:
+    <li><code>ColumnMapRowMapper</code>, 每一行映射为一个Map对象, 键是列名, 值就是值, query方法最后返回的结果是List&lt;Map&lt;String, Object>>.</li>
+    <li><code>SingleColumnMapRowMapper</code>, 将结果集中的某一列映射为一个对象.</li>
+</ul>
+<h3>查询单值</h3>
+<p>还有一个常用的操作是查询单值, 对应的方法是queryForObject, 直接查出来一个结果, 简单快速.</p>
+<p>查询单值原来还有queryForInt, queryForLong,都已经被删除了, 现在查询单值就一个方法及重载: <code>&lt;T> T queryForObject(....)</code>.</p>
+<p>要使用查询单值的方法, 返回的结果集中必须仅仅只有一行一列. 如果有多行, 压根不能使用这个方法. 如果是一行多列, 则必须手工使用RowMapper来构造一个对象.</p>
+<p>看一个简单的例子, 查一下一共有几门课程:</p>
+<pre>
+String sql = "Select count(*) FROM sia5.course";
+
+JdbcTemplate template = (JdbcTemplate) Util.getIOCContainer().getBean("jdbcTemplate");
+
+int rows = template.queryForObject(sql, Integer.class);
+
+System.out.println("一共有"+rows+"行");
+</pre>
+<p>知道了这个简单的例子, 后边那些泛型也就不用在一个一个罗列出来了, 本质上还是带参不带参, 以及使用RowMapper对象.</p>
+
+<h2 style="text-align: center;" id="con6">其他知识点</h2>
+<p>操作BLOB, CLOB数据, RowSet等方式, 用到的时候再看也可以.</p>
+<p>主键在今后的项目中也要注意, 从业务层面产生主键是一个很好的想法.</p>
+<p>Spring提供的两个JDBC模板类 NamedParameterJdbcTemplate和SimpleJdbcTemplate, 先了解, 需要的时候再使用.</p>
 
 
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>

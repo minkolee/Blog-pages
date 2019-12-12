@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Spring RE 10 Spring中使用Hibernate</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>学到这里, 我发现自己又要开启两个大的分支, 一个是PostgreSQL的学习和使用, 一个是Hibernate的学习和使用. 这两块又是两个重要的支线. 果然是学无止境啊.</p>
+<p>这篇东西重在Spring中使用Hibernate, 而不是单独研究Hibernate的ORM机制. 说道Hibernate又不能不提JPA, 总之想想要学的东西实在是刺激.</p>
+<p>最近买了两本幼儿编程书, 给女儿讲的时候发现对于循环, 判断和分支小家伙比以前能够更了解了, 看来我也必须抓紧学习, 后边要装备的知识除了PostgreSQL, Hibernate, 还有Linux使用和Nginx配置, 感觉这些都搞定, 就可以顺利的教女儿了.</p>
+<p>好了, 研究过这一部分之后, 接下来是缓存和异步任务, 都完成之后, 总算就具备了开发Web应用的技术准备, 才能够重新学习Spring MVC.</p>
+
+<ol>
+    <li><a href="#con1">Spring整合Hibernate的方式</a></li>
+    <li><a href="#con2">使用HibernateTemplate</a></li>
+    <li><a href="#con3">回调接口</a></li>
+    <li><a href="#con4">其他知识</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">Spring整合Hibernate的方式</h2>
+<p>通过前边的学习, 已经知道了Spring对第三方ORM框架整合的原理不外乎这几板斧:</p>
+<ol>
+    <li>为ORM创建基础设施, 也就是XXXTemplate.</li>
+    <li>为基础设施统一异常封装</li>
+    <li>为不同的基础设施提供对应的事务管理器, 统一进行事务管理</li>
+</ol>
+<p>相比之前的JDBC这种需要直接使用DataSource对象的更底层的数据库操作技术, Hibernate是一个完整的ORM框架.</p>
+<p>Hibernate的基础设施不再是DataSource, SessionFactory和Session对象, 从名字能看出来, 前者生产出后者. 二者的关系和从DataSource中获取Connection很类似.</p>
+<p>先来看Hibernate如何创建SessionFactory.</p>
+<p>首先需要创建Hibernate的配置文件， 一般叫做hibernate.cfg.xml, 如果是maven项目, 要将其放入main/resources目录下:</p>
+<pre>
+&lt;?xml version='1.0' encoding='UTF-8'?>
+    &lt;!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+
+&lt;hibernate-configuration>
+
+    &lt;session-factory>
+        &lt;property name="connection.driver_class">com.mysql.cj.jdbc.Driver&lt;/property>
+        &lt;property name="connection.url">jdbc:mysql://localhost:3306/sia5&lt;/property>
+        &lt;property name="connection.username">root&lt;/property>
+        &lt;property name="connection.password">fflym0709&lt;/property>
+        &lt;property name="dialect">org.hibernate.dialect.MySQL8Dialect&lt;/property>
+        &lt;property name="show_sql">true&lt;/property>
+        <span style="color: red">&lt;mapping class="cc.conyli.jdbc.Course"/></span>
+    &lt;/session-factory>
+
+&lt;/hibernate-configuration>
+</pre>
+<p>可见其中封装了需要连接数据库的信息. 和DataSource需要的信息很类似. 注意红色部分, 指定了一个ORM类, 这里没有使用xxx.hbm.xml的方式, 所以来使用注解改造一下Course类:</p>
+<pre>
+import javax.persistence.*;
+
+@Entity
+@Table(name = "course")
+public class Course {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    @Column(name = "course_name")
+    private String courseName;
+
+    public Course() {
+
+    }
+
+    public Course(int id, String courseName) {
+        this.id = id;
+        this.courseName = courseName;
+    }
+
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getCourseName() {
+        return courseName;
+    }
+
+    public void setCourseName(String courseName) {
+        this.courseName = courseName;
+    }
+
+    @Override
+    public String toString() {
+        return "Course{" +
+                "id=" + id +
+                ", courseName='" + courseName + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>这几个注解就不再多解释了, 毕竟之前也学过一些Hibernate的使用, 意思还是知道的.</p>
+<p>然后启动Hibernate即可:</p>
+<pre>
+import cc.conyli.jdbc.Course;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+
+import java.time.LocalDateTime;
+
+public class Test1 {
+
+    public static void main(String[] args) {
+        Configuration configuration = new Configuration().configure();
+        SessionFactory sessionFactory = configuration.buildSessionFactory();
+
+        //获取一个会话
+        Session session = sessionFactory.openSession();
+        //启动事务
+        Transaction transaction = session.beginTransaction();
+
+        //创建一个新对象
+        Course newCourse = new Course();
+        newCourse.setCourseName(LocalDateTime.now().toString());
+
+        //更新或者保存
+        session.saveOrUpdate(newCourse);
+
+        //提交事务
+        transaction.commit();
+
+        //关闭会话
+        session.close();
+    }
+}
+</pre>
+<p>SessionFactory就是Hibernate的最基础的设施. 之后的获取会话像极了JDBC获取连接. 当然, 为什么叫ORM框架, 就是可以直接存取Course对象.</p>
+<p>好了, 如何使用Hibernate本身要另外去研究, 这里要看Spring如何创建基础设施.</p>
+<p>其实看到这里也就明白了, 既然Hibernate可以使用XML文件去创建一个SessionFactory, 那么Spring用IOC容器, 也可以根据配置文件创建一个基于SessionFactory的Bean, 在容器里使用这个Bean, 就相当于整合了Hibernate.</p>
+<p>Spring确实这么做了, 干这个活的就是org.springframework.orm.hibernate5.LocalSessionFactoryBean.</p>
+<p>这个Bean可以使用Hibernate的配置文件, 也可以完全不使用. 最后会创建一个Hibernate的SessionFactory的代理对象, 能够符合Spring事务管理机制. 所以本质就是这么简单.</p>
+<p>在Spring的XML配置中添加一个Bean:</p>
+<pre>
+&lt;bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean"
+      p:configLocation="hibernate.cfg.xml"/>
+</pre>
+<p>然后启动:</p>
+<pre>
+public static void main(String[] args) {
+
+    SessionFactory sessionFactory = (SessionFactory) Util.getIOCContainer().getBean("sessionFactory");
+    System.out.println(sessionFactory);
+
+    Session session = sessionFactory.openSession();
+
+    Course newCourse = new Course();
+    newCourse.setCourseName("New" + LocalDateTime.now().toString());
+
+    session.saveOrUpdate(newCourse);
+    session.close();
+}
+</pre>
+<p>可以看到神奇的先出现了Hibernate5的启动日志, 后边的使用, 就和使用一个Hibernate原生的SessionFactory没有任何区别.</p>
+<p>当然, Bean里写了要去读取Hibernate的配置文件, 那也没有什么意思了, LocalSessionFactoryBean最强的地方就是完全不需要额外读取Hibernate的配置文件, 只要在Spring的配置文件中写上相应的信息就可以了. 配置如下:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+&lt;beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/util
+        http://www.springframework.org/schema/util/spring-util.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop-4.0.xsd">
+
+    &lt;util:properties id="properties" location="config.properties"/>
+    &lt;context:property-placeholder properties-ref="properties"/>
+    &lt;context:component-scan base-package="cc.conyli"/>
+
+    &lt;!--DataSource还是需要的-->
+    &lt;bean class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close" p:defaultAutoCommit="true" id="source"
+          p:driverClassName="com.mysql.cj.jdbc.Driver"
+          p:url="jdbc:mysql://localhost:3306/sia5"
+          p:username="root"
+          p:password="fflym0709"
+    />
+
+    &lt;!--实体类映射文件-->
+    &lt;bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean"
+          p:dataSource-ref="source">
+        &lt;property name="annotatedClasses">
+            &lt;list>
+                &lt;value>cc.conyli.jdbc.Course&lt;/value>
+            &lt;/list>
+        &lt;/property>
+
+        &lt;!--Hibernate一些配置属性-->
+        &lt;property name="hibernateProperties">
+            &lt;props>
+                &lt;prop key="dialect">org.hibernate.dialect.MySQL8Dialect&lt;/prop>
+                &lt;prop key="show_sql">true&lt;/prop>
+            &lt;/props>
+        &lt;/property>
+    &lt;/bean>
+&lt;/beans>
+</pre>
+<p>对于已经熟悉了XML的我们, 其实就和用代码去配置差不多, LocalSessionFactoryBean的属性也确实有这些内容. 现在完全不需要hibernate.cfg.xml文件了. 直接再启动程序, 就会发现成功执行了.</p>
+<p>这就是Spring整合Hibernate的方式. 在容器中, 实际使用的就是这个LocalSessionFactoryBean代理类, 这个代理类符合Spring事务管理要求, 也能够从其中取得线程绑定的Session.</p>
+<p>当然这只是最简单的XML文件配置, LocalSessionFactoryBean也可以配置成载入其他hbm.xml文件, 或者加载通配符标注的多个类, 只要参数是数组类型, 都可以使用通配符. 还记得之前说过的, 如果要使用Hibernate, 必须要配置Hibernate的事务管理器.</p>
+<p>要使用HibernateTemplate, 就需要配置HibernateTemplate和事务管理器, 这样就不用通过具体代码来管理事务了.</p>
+<p>所以把上边的XML文件补全:</p>
+<pre>
+&lt;!--配置HibernateTemplate, 要使用到SessionFactory对象-->
+&lt;bean id="hibernateTemplate" class="org.springframework.orm.hibernate5.HibernateTemplate"
+      p:sessionFactory-ref="sessionFactory"/>
+&lt;!--配置事务管理器-->
+&lt;bean id="transactionManager" class="org.springframework.orm.hibernate5.HibernateTransactionManager"
+      p:sessionFactory-ref="sessionFactory"/>
+&lt;tx:annotation-driven transaction-manager="transactionManager"/>
+</pre>
+<p>经过这么配置之后, 事务管理器和HibernateTemplate都OK了, 就可以通过容器直接获取HibernateTemplate对象来进行操作了. 通过配置也可以看出, SessionFactory封装DataSource, HibernateTemplate 和事务管理器又依赖SessionFactory这样一个体系.</p>
+<p>其和JDBC的配置数据源, 事务管理器依赖数据源, 也是非常类似的.</p>
+
+<h2 style="text-align: center;" id="con2">使用HibernateTemplate</h2>
+<p>这里目前只能简单写过, 就是因为Hibernate的详细增删改查以及缓存的秘密还没有系统的学习.</p>
+<ol>
+    <li><code>Serializable save(Object entity)</code>, 保存实体对象并返回主键值</li>
+    <li><code>void update(Object entity)</code>, 更新对象</li>
+    <li><code>void saveOrUpdate(Object entity)</code>, 保存或更新一个实体, 还有一个类似的 T merge(T entity), 是JPA规定的方法.</li>
+    <li><code>void delete(Object entity)</code>, 删除一个实体.</li>
+    <li><code>&lt;T> List&lt;T> findByExample(T exampleEntity)</code>, 传入要查找的一个对象, 会查找这个对象所在表的所有对象, 有很多详细控制的方法.</li>
+    <li><code>List&lt;?> findByCriteria(DetachedCriteria var1)</code>, 按条件查询, 由于现在没有学Hibernate, 所以不知道如何使用.</li>
+</ol>
+<p>读到这里我也会想, 如何判断一个实体是不是已经存在数据库中, 如何做到save Or Update呢, 剩下的这些内容估计要好好的去学习Hibernate5的具体使用了.</p>
+
+<h2 style="text-align: center;" id="con3">回调接口</h2>
+<p>Spring提供了一个回调接口HibernateCallback, 其中的唯一一个方法doInHibernate(Session session), 其中可以操作Session对象来进行更底层的操作.</p>
+<p>HibernateTemplate中有三个方法可以传入回调对象:</p>
+<ol>
+    <li><code>public &lt;T> T execute(HibernateCallback&lt;T> action)</code></li>
+    <li><code>public &lt;T> T executeWithNativeSession(HibernateCallback&lt;T> action)</code></li>
+    <li><code>protected &lt;T> T doExecute(HibernateCallback&lt;T> action, boolean enforceNativeSession)</code></li>
+</ol>
+<p>第三个方法很显然不是为了外部使用, 所以只有前两个方法可以使用这个回调接口. 使用这个接口的目的就是可以更底层的操作数据, 看一个例子:</p>
+<pre>
+public static void main(String[] args) {
+    HibernateTemplate template = (HibernateTemplate) Util.getIOCContainer().getBean("hibernateTemplate");
+
+    Course result = template.execute(new HibernateCallback&lt;Course>() {
+        @Override
+        public Course doInHibernate(Session session) throws HibernateException {
+            Transaction transaction = session.beginTransaction();
+            String hql = "from Course course where course.id = 4";
+            Course course = session.createQuery(hql, Course.class).getSingleResult();
+            transaction.commit();
+            session.close();
+            return course;
+        }
+    });
+    System.out.println(result);
+}
+</pre>
+<p>这实际上就是详细的去控制了如何查询一个对象.</p>
+
+<h2 style="text-align: center;" id="con4">其他知识</h2>
+<p>其他一些细节比如Hibernate的事件监听器, 以及Hibernate 3.0开始的新特性, 可以使用SessionFactory.getCurrentSession()来获取线程绑定的Session, 让直接使用原生的Hibernate API变得可能.</p>
+<p>Hibernate支持JPA的注解, 所以看到的注解都是Hibernate实现的javax.persistance其中的类.</p>
+<p>事务只要配置了事务管理器, 加载了@Transactional注解就可以了, 简单易用. 这里看了一点关于Spring boot的自动配置, 发现只要配置了start-jdbc, 就会自动创建jdbc的事务管理器, 如果配置了JPA, 则会自动创建Hibernate的事务管理器.</p>
+<p>至于延迟加载的技术, 就等学习了Hibernate 5再说吧.</p>
+<p>HibernateTemplate的内容比较少, 是因为目前Hibernate这条大支线任务还没有开始做.</p>
+<p>看来必须要马上提上日程了, 看一看这个JPA标准的推动和实现者, 外加完整ORM支持的Hibernate到底有什么样的魅力.</p>
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
