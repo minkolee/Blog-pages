@@ -15,19 +15,173 @@
     </style>
 </head>
 <body>
-<p>自从在CSAPP中看完了高速缓存的原理, 对于缓存这个东西的原理搞清楚了, 不过实际的缓存开发中也是一个世界, 有很多术语.</p>
+<p>自从在CSAPP中看完了高速缓存的原理, 对于缓存这个东西的原理搞清楚了, 不过实际的缓存开发中也是另外一个世界, 有很多术语.</p>
+<p>由于缓存的本质也是找点地方在哪里存着, 是一种存储机制, 所以Spring的缓存机制很类似使用数据库, 用一套统一的东西封装底层的东西, 不管后台使用哪种缓存框架, 都可以一致的解决问题.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
+    <li><a href="#con1">缓存常见术语</a></li>
     <li><a href="#con2"></a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">缓存常见术语</h2>
+<p>缓存核心的一个概念就是命中率, 即从缓存中读取的次数/总读取次数. 如果这个非常低, 那其他的概念就无需关心了, 必须先把这个提升上来, 命中率低下意味着缓存根本就没有发挥作用.</p>
+<p>次要的一个概念是过期策略, 有很多种, 常见的是:</p>
+<ol>
+    <li>FIFO, 先存入缓存的内容先过期</li>
+    <li>LRU, 最久未使用的内容被移除</li>
+    <li>LFU, 最近最少使用的内容被移除</li>
+    <li>TTL, 一旦进入缓存, 就设置一个有效期, 有效期超过就移除缓存内容</li>
+    <li>TTI, 一个内容超过一定时间没有被访问, 就被移除.</li>
+</ol>
+<p>缓存工作的逻辑是, 当需要读取数据的时候, 先从缓存内读取, 如果缓存内没有, 再从数据源(或者设置的其他路径)中读取.</p>
+<p>缓存的原理其实就是在查询之前, 先去缓存中查找对应的数据, 如果找到就直接返回, 如果没找到, 就继续到其他数据源中寻找. 当然这其中还有一些相关的问题, 比如一个数据对象更新了, 缓存中依然存有原来的数据对象, 要如何处理.</p>
+<p>先用一个简单的例子来看.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">简单的缓存例子</h2>
+<p>编写一个简单的泛型缓存, 如下:</p>
+<pre>
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class Cache&lt;T> {
+    private Map&lt;String, T> cache = new ConcurrentHashMap&lt;>();
+
+    public T getValue(String key) {
+        return cache.get(key);
+    }
+
+    public void addOrUpdateCache(String key, T value) {
+        cache.put(key, value);
+    }
+
+    public void evictCache(String key) {
+        cache.remove(key);
+    }
+
+    public void evictCache() {
+        cache.clear();
+    }
+}
+</pre>
+<p>这里使用了并发版本的HashMap来进行操作, 这个缓存的本质采用了Map, 按照一个字符串类型的键来查找对象.</p>
+<p>然后我们写一个简单的User类, 注意要实现Serializable接口:</p>
+<pre>
+import java.io.Serializable;
+
+public class User implements Serializable {
+
+    private String userId;
+    private String userName;
+    private int age;
+
+    public User() {
+    }
+
+    public User(String userId, String userName, int age) {
+        this.userId = userId;
+        this.userName = userName;
+        this.age = age;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "userId='" + userId + '\'' +
+                ", userName='" + userName + '\'' +
+                ", age=" + age +
+                '}';
+    }
+}
+</pre>
+<p>然后来写一个类, 模拟一个Service类, 手工创建另外一个类来当成数据库:</p>
+<pre>
+//当成数据库的类:
+import java.util.ArrayList;
+import java.util.List;
+
+public class MockDB {
+
+    private List&lt;User> users = new ArrayList&lt;>();
+
+    {
+        User user1 = new User("N1", "owl", 2);
+        User user2 = new User("N2", "kiki", 1);
+        User user3 = new User("N3", "niuniu", 1);
+        User user4 = new User("N4", "Saner", 5);
+        User user5 = new User("N5", "Sitong", 5);
+        users.add(user1);
+        users.add(user2);
+        users.add(user3);
+        users.add(user4);
+        users.add(user5);
+    }
+
+    public User getUserById(String id) {
+        try {
+            System.out.println("正在从数据库中查找...");
+            Thread.sleep(1000);
+            return users.get(Integer.parseInt(String.valueOf(id.charAt(1))) - 1);
+
+        } catch (Exception e) {
+            System.out.println("未找到该记录");
+            return null;
+        }
+    }
+
+    public static void main(String[] args) {
+        MockDB mockDB = new MockDB();
+
+        System.out.println(mockDB.getUserById("N0"));
+    }
+}
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con3"></h2>
 
