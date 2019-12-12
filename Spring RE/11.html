@@ -41,7 +41,7 @@
 <p>先用一个简单的例子来看.</p>
 
 <h2 style="text-align: center;" id="con2">简单的缓存例子</h2>
-<p>编写一个简单的泛型缓存, 如下:</p>
+<p>编写一个简单的缓存管理器, 如下:</p>
 <pre>
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -66,7 +66,7 @@ public class Cache&lt;T> {
     }
 }
 </pre>
-<p>这里使用了并发版本的HashMap来进行操作, 这个缓存的本质采用了Map, 按照一个字符串类型的键来查找对象.</p>
+<p>这里使用了并发版本的HashMap来当做缓存, 通过缓存管理器对象按照一个字符串类型的键来查找对象.</p>
 <p>然后我们写一个简单的User类, 注意要实现Serializable接口:</p>
 <pre>
 import java.io.Serializable;
@@ -161,11 +161,53 @@ public class MockDB {
         System.out.println(mockDB.getUserById("N0"));
     }
 }
+
+//UserService类
+public class UserService {
+
+    private Cache&lt;User> cacheManager;
+
+    private MockDB mockDB = new MockDB();
+
+    public UserService() {
+        this.cacheManager = new Cache&lt;>();
+    }
+
+    public User getUserById(String id) {
+        User result = cacheManager.getValue(id);
+        if (result == null) {
+            result = mockDB.getUserById(id);
+            cacheManager.addOrUpdateCache(id, result);
+        }
+        return result;
+    }
+
+    public void refresh() {
+        cacheManager.evictCache();
+    }
+}
+
 </pre>
+<p>整个程序的逻辑就是UserService会根据id查找User对象, 查找的时候先去缓存中查询, 查询不到的话, 就到数据库中查询, Cache类是缓存管理器, MockDB是伪装的数据库类.</p>
+<p>之后编写测试代码:</p>
+<pre>
+public static void main(String[] args) {
+    UserService service = new UserService();
 
+    service.getUserById("N2");
 
-
-
+    service.getUserById("N2");
+    service.getUserById("N2");
+    service.getUserById("N2");
+    service.refresh();
+    System.out.println("-----------------");
+    service.getUserById("N2");
+    service.getUserById("N2");
+    service.getUserById("N2");
+}
+</pre>
+<p>可以发现, 第一次查询都要到数据库中查询, 之后会将查询到的结果写入到缓存中, 再进行查询, 就都是从缓存中拿数据了.</p>
+<p>不过按照书上的做法, 缓存没有生效, 暂时不知道为什么, 待明天再来调试一番看看.</p>
 
 
 
