@@ -21,7 +21,7 @@
 
 <ol>
     <li><a href="#con1">Quartz</a></li>
-    <li><a href="#con2"></a></li>
+    <li><a href="#con2">使用SimpleTrigger的简单例子</a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
@@ -48,22 +48,86 @@
 <p>Trigger和JobDetail都需要注册到容器中, 可以放到不同的组里, 如果不指定, 都会放入默认组Scheduler.DEFAULT_GROUP中. 组名和类名组成了对象的全名, 同一类型对象的全名不相同.</p>
 
 
+<h2 style="text-align: center;" id="con2">SimpleTrigger</h2>
+<p>说了这么多, 来一个简单的例子, 就知道这些类的关系了. 书里的版本是1.8.6版本, 我用的是2.3.2版本, 已经有了变化, 下边的例子是根据官网的<a href="http://www.quartz-scheduler.org/documentation/quartz-2.3.0/quick-start.html" target="_blank">Quick-start-guide</a>来学习的.</p>
+<p>Quartz需要一个quartz.properties文件放到Web应用的WEB-INF/classes目录下, 以便从classpath中加载. 不过这个文件不是必需的.</p>
+<p>先来创建一个Job的实现类, 实现Job接口和其中唯一的方法:</p>
+<pre>
+import org.quartz.Job;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+
+public class MyJob implements Job {
+
+    @Override
+    public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
+        System.out.println("这是定时任务" + this.toString());
+        System.out.println("这是任务内容");
+    }
+}
+</pre>
+<p>然后在一个类里启动Scheduler容器, 并且注册Trigger和JobDetail, 并且将二者关联起来:</p>
+<pre>
+import org.quartz.*;
+import org.quartz.impl.StdSchedulerFactory;
+
+import static org.quartz.SimpleScheduleBuilder.*;
+
+public class SimpleDemo {
+
+    public static void main(String[] args) throws SchedulerException, InterruptedException {
+        //JobDetail的使用方式相比1.X版本有了很大的改变, 现在使用JobBuilder的静态方法, 建造者模式来创建JobDetail对象.
+        //参数是之前我们创建的Job的实现类, 之后的withIdentity参数第一个是任务名, 第二个是组名
+        JobDetail jobDetail = JobBuilder.newJob(MyJob.class).withIdentity("job1", "group1").build();
+
+        //Trigger类的写法也是使用了建造者模式, 在其中就可以设置立刻启动, 间隔时间, 重复次数等, 原来的构造器全部都删除了
+        Trigger trigger = TriggerBuilder.newTrigger().withIdentity("job1", "group1").startNow()
+                .withSchedule(<span style="color:red">simpleSchedule()</span>.withIntervalInSeconds(5).repeatForever())
+                .build();
+
+        //创建容器的方式也改成了调用静态方法
+        Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
+
+        //在容器中注册并关联jobDetail和trigger对象
+        scheduler.scheduleJob(jobDetail, trigger);
+
+        //启动容器, 如果不调用.shutdown(), 就不会关闭, 即使没有任务也一直占用线程, 这个相比1.X版本运行结束直接关闭容器有了进步
+        scheduler.start();
+
+        Thread.sleep(30000);
+        //关闭容器会直接把所有任务一起关闭
+        scheduler.shutdown();
+    }
+}
+</pre>
+<p>这个程序运行的效果是每隔5秒钟, 就会运行一次MyJob方法中的任务, 通过打印对象可以看出来, 每次对象的地址都不同, 说明是一个新的对象. 这也说明了每次任务都是创建新实例, 并不复用任务对象.</p>
+<p>所谓的SimpleTrigger, 其实现在没有这个类了, 变成了上边红字部分的simpleSchedule(). 还有一种CronTrigger, 对应的是cronSchedule</p>
+
+<h2 style="text-align: center;" id="con3">CronTrigger</h2>
+<p>把上边的例子改成cronSchedule的例子如下:</p>
+<pre>
+Trigger trigger = TriggerBuilder.newTrigger().withIdentity("job1", "group1")
+                .withSchedule(<span style="color: red">cronSchedule("0/5 * * * * ?")</span>)
+                .forJob(jobDetail)
+                .build();
+</pre>
+<p>cronSchedule方法的参数是cron形式的字符串, 代表一个特定的时间规则. 这个时间字符串是由6个或者7个空格区分的子串组成, 详细如下:</p>
+<ol>
+    <li>秒, 取值0-59</li>
+    <li>分, 取值0-59</li>
+    <li>小时, 取值0-23</li>
+    <li>日, 取值1-31, 但要注意不要和月份冲突</li>
+    <li>月, 取值0-11, 也可以使用三个字符的月份简称</li>
+    <li>星期几, 取值1-7, 注意1是星期天, 7是星期六, 也可以使用字符串SUN, MON, TUE, WED, THU, FRI, SAT</li>
+    <li>年, 可以忽略</li>
+</ol>
+<p>除了写具体的时点之外, 还可以使用通配符</p>
 
 
 
 
 
 
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con2"></h2>
-
-<h2 style="text-align: center;" id="con3"></h2>
 
 <h2 style="text-align: center;" id="con4"></h2>
 
