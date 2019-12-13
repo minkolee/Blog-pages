@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Spring RE 12 异步任务</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>掐指算来, IOC+AOP两大神器看完之后, 补充了SPEL, DAO的事务和具体类使用, Spring Cache的知识, 现在还差一个, 就是Web应用很多时候需要定时的, 异步的任务, 比如发送电子邮件等任务, 进行统计, 与用户的请求和响应没有直接关系. 这也是一个Web应用不可或缺的部分.</p>
+<p>在开始使用Spring Web MVC之前, 异步任务是最后一个知识点了. 简单看了一下这章内容, 将接触之前从来没有用过的Java的一些异步任务调度框架, 比如Quartz, JDK Timer等, 每个工具背后也都是一个崭新的世界, 一起来探索吧.</p>
+
+
+<ol>
+    <li><a href="#con1">Quartz</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">Quartz</h2>
+<p>在本章之前, 别说用了, 我基本都没有听说过Quartz, 毕竟经验太少, 还没有玩过什么真正的多线程异步程序.</p>
+<p>实际应用中可能都会碰到任务调度的需求, 比如定期统计一些东西, 这些任务的核心都是以时间为条件. Java本身从1.3开始, 提供了java.util.Timer和TimerTask, 可以用来进行简单的调度任务.</p>
+<p>在调度任务方面Quartz是非常强大又不失简单性的一个任务调度框架. 官网是<a href="http://www.quartz-scheduler.org/" target="_blank">http://www.quartz-scheduler.org/</a>.</p>
+<p>写文章的时候看到最新稳定版本是2.3版, 2.4版正在测试中. 依赖如下:</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.quartz-scheduler&lt;/groupId>
+    &lt;artifactId>quartz&lt;/artifactId>
+    &lt;version>2.3.2&lt;/version>
+&lt;/dependency>
+</pre>
+<p>Quartz我看了一遍书, 基本上明白整体结构了. </p>
+<p>就像IOC容器一样, Quartz有一个运行时的容器类, 叫做Scheduler. 通过SchedulerFactory可以创建一个Scheduler对象, 每个Scheduler对象有一个SchedulerContext. 像不像Servlet容器, 像不像IOC容器.</p>
+<p>在容器里边, 因为是触发任务, 所以容器里边有两大类东西: 一类是Trigger, 触发器, 描述如何触发任务; 一类是Job, 表示要干的活. 到了一定时间Trigger就会触发Job的执行, 一个Trigger只能触发一个Job, 多个Trigger都可以触发同一个Job.</p>
+<p>剩下的就是一些辅助的东西, 有辅助Job的, 比如JobDetail, 指定一个Job实现类以及相关的信息. org.quartz.Calendar则是一些特定的时点, Trigger靠这个类精细化控制时间. 还有一个ThreadPool, 是基础设施, 执行任务都使用线程池中的线程来异步执行.</p>
+<p>此外要了解的就是Job有一个子接口StatefulJob, 用于标记该任务是有状态任务. 类似MVC中的model一样, 无状态任务每次都有自己独立的model, 有状态model会共享一个model实例, 每一个任务执行会影响到其他任务. 有状态的没法并发执行, 无状态的可以并发执行.</p>
+<p>如果把任务调度信息保存在数据库中, 无状态的任务仅会在注册时候持久化一次, 而有状态的每次执行完都会持久化, 也就是更新任务调度信息, 这一句暂时还不知道说的是什么, 等后边看了.</p>
+<p>Trigger和JobDetail都需要注册到容器中, 可以放到不同的组里, 如果不指定, 都会放入默认组Scheduler.DEFAULT_GROUP中. 组名和类名组成了对象的全名, 同一类型对象的全名不相同.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

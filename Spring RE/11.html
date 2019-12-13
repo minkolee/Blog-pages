@@ -20,11 +20,16 @@
 
 <ol>
     <li><a href="#con1">缓存常见术语</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">简单的缓存例子</a></li>
+    <li><a href="#con3">缓存注解 - @Cacheable</a></li>
+    <li><a href="#con4">缓存注解 - @Cacheput</a></li>
+    <li><a href="#con5">缓存注解 - @CacheEvict</a></li>
+    <li><a href="#con6">缓存注解 - @Caching</a></li>
+    <li><a href="#con7">缓存注解 - @CacheConfig</a></li>
+    <li><a href="#con8">缓存管理器</a></li>
+    <li><a href="#con9">缓存注解中的SPEL表达式</a></li>
+    <li><a href="#con10">基于XML的声明</a></li>
+    <li><a href="#con11">配置第三方缓存</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">缓存常见术语</h2>
 <p>缓存核心的一个概念就是命中率, 即从缓存中读取的次数/总读取次数. 如果这个非常低, 那其他的概念就无需关心了, 必须先把这个提升上来, 命中率低下意味着缓存根本就没有发挥作用.</p>
@@ -41,7 +46,7 @@
 <p>先用一个简单的例子来看.</p>
 
 <h2 style="text-align: center;" id="con2">简单的缓存例子</h2>
-<p>编写一个简单的缓存管理器, 如下:</p>
+<p>没有什么比自己写一个缓存例子来看一下缓存原理更好的方法了.编写一个简单的缓存管理器, 如下:</p>
 <pre>
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -195,7 +200,6 @@ public static void main(String[] args) {
     UserService service = new UserService();
 
     service.getUserById("N2");
-
     service.getUserById("N2");
     service.getUserById("N2");
     service.getUserById("N2");
@@ -207,7 +211,314 @@ public static void main(String[] args) {
 }
 </pre>
 <p>可以发现, 第一次查询都要到数据库中查询, 之后会将查询到的结果写入到缓存中, 再进行查询, 就都是从缓存中拿数据了.</p>
-<p>不过按照书上的做法, 缓存没有生效, 暂时不知道为什么, 待明天再来调试一番看看.</p>
+<p>后来自己尝试缓存的时候, 发现没有生效, 可能是没有配置好, 或者直接使用的缘故. 后来我使用了之前学习时候的<a href="https://github.com/minkolee/crudmaven" target="_blank">简单增删改查项目</a>, 配置了缓存, 发现就可以了, 具体方式如下:</p>
+<ol>
+    <li>在src/main/webapp/WEB-INF/spring-mvc-crm.xml中添加如下配置:
+    <pre>
+    &lt;cache:annotation-driven/>
+    &lt;bean id="cacheManager" class="org.springframework.cache.support.SimpleCacheManager">
+        &lt;property name="caches">
+            &lt;set>
+                &lt;bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean" p:name="default"/>
+                &lt;bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean" p:name="users"/>
+            &lt;/set>
+        &lt;/property>
+    &lt;/bean>
+    </pre>
+    相关的命名空间和xis:location可以让IDE自动添加.
+    </li>
+    <li>在cc/conyli/dao/CustomerDAOImpl.java中给查找方法加上两个打印语句表明执行了这个函数:
+        <pre>
+    @Override
+    public List&lt;Customer> getCustomers() {
+        <span style="color: red">System.out.println("从数据库中查找多个");</span>
+        Session session = sessionFactory.getCurrentSession();
+        return session.createQuery("From Customer customer ORDER BY customer.id", Customer.class).getResultList();
+    }
+
+    @Override
+    public Customer getCustomer(int customerId) {
+        <span style="color: red">System.out.println("从数据库中查找单个");</span>
+        Session session = sessionFactory.getCurrentSession();
+        return session.get(Customer.class, customerId);
+    }
+        </pre>
+    </li>
+    <li>给Service类加上缓存注解, 名称使用XML配置中的名称:
+    <pre>
+    @Override
+    @Transactional
+    <span style="color: red">@Cacheable(cacheNames = "users")</span>
+    public List&lt;Customer> getCustomers() {
+        return customerDAO.getCustomers();
+    }
+
+
+    @Override
+    @Transactional
+    <span style="color: red">@Cacheable(cacheNames = "users")</span>
+    public Customer getCustomer(int customerId) {
+        return customerDAO.getCustomer(customerId);
+    }
+    </pre>
+    </li>
+</ol>
+<p>这么配置之后, 再启动项目, 可以发现在第一次查找的时候, 显示 "从数据库中查找多个", 之后再刷新页面就不再显示.</p>
+<p>如果将注解去掉, 反复刷新列表页, 可以发现每次都显示"从数据库中查找多个", 前后对比, 说明缓存正常发生了作用.</p>
+<p>回过头来看, 其实我们就是用XML中的Bean来取代了自己编写的Cache类, Spring提供了一些不依赖外部缓存框架的缓存管理类可供使用, 配置中的org.springframework.cache.support.SimpleCacheManager就是一个实现类.</p>
+<p>缓存管理类内部需要配置具体的缓存实现, 需要命名, 命名是一定需要的, 比如配置中有一个默认的default, 然后还配置了一个users名称的缓存, 这些缓存都使用了JDK的并发版本HashMap作为缓存.</p>
+<p>再次强调缓存命名是必须的, 在使用@Cacheable注解的时候, 可以看到提示一定要指定一个缓存的名称.</p>
+
+<h2 style="text-align: center;" id="con3">缓存注解 - @Cacheable</h2>
+<p>通过刚才的例子, 可以发现使用缓存的方法还是比较简单的:</p>
+<ol>
+    <li>XML中配置注解驱动和缓存管理器类, 以及具体的缓存实现</li>
+    <li>使用注解添加在需要缓存的Service上, 以实现缓存功能</li>
+</ol>
+<p>其实不难想到, 肯定也是用AOP去生成的缓存类. 下边就来看一下缓存注解, Spring Cache一共有5种可以在类或者方法级别上使用的缓存注解, 其核心就是决定一个方法的返回值进入缓存还是从缓存中删除.</p>
+<p><code>@Cacheable</code>, 这是最主要的注解, 表示被注解方法的返回值需要放入到缓存中.</p>
+<p>这个注解的主要属性如下:</p>
+<ol>
+    <li><code>value/cacheNames</code>, 要提供至少一个缓存名称, cacheNames属性接受一个字符串数组或者单个字符串表示的缓存名称. </li>
+    <li><code>key</code>, key属性则可以用来指定存入缓存的键是什么, 如果不指定key属性, 会使用默认的键生成器, 默认的键生成器在有参数的时候会使用参数作为key, 无参数的时候使用SimpleKey.EMPTY来当成key, 多个参数的时候则使用包含所有参数的SimpleKey. 指定key属性的话, 可以通过SPEL表达式 key="#varname.xxx"来绑定被注解方法的参数, 也可以指定自行编写的Key生成器(需要实现KeyGenerator接口)的名称, 比如 key="myGenerator".</li>
+    <li><code>condition/unless</code>, 属性condition, 是一个字符串, 这个字符串被当成SPEL表达式来解析, 如果结果为true, 则会进行缓存. unless和condition相反, SPEL表达式为false的时候会进行缓存.</li>
+</ol>
+<p>一个condition的例子如下:</p>
+<pre>
+@Override
+@Transactional
+@Cacheable(cacheNames = "users", <span style="color: red">condition = "#customerId < 5"</span>)
+public Customer getCustomer(int customerId) {
+    return customerDAO.getCustomer(customerId);
+}
+</pre>
+<p>这个表示id小于5的查询才会被缓存. 这么配置之后重启服务器, 访问http://localhost:8080/api/customers/8, 确实不缓存了, 而http://localhost:8080/api/customers/1就依然缓存.</p>
+
+<h2 style="text-align: center;" id="con4">缓存注解 - @Cacheput</h2>
+<p>如果按照例子来做, 现在尝试去更新id=1的用户信息, 会发现在查询页面依然查到的是原来的信息, 这是因为缓存中的信息没有更新. @Cacheput会强制执行被注解的方法, 然后将方法的返回值更新进缓存. 这与@Cacheable是不同的, @Cacheable会在查询到缓存的时候直接跳过方法执行.</p>
+<p>所以@Cacheput一般用于增和改之后, 强制将内容更新到缓存中. 这个注解的属性和上一个完全相同.</p>
+<p>在我们的例子里, 如果想让更新后的客户在单独访问的时候可以获取到新的内容, 就需要在Service类中修改.</p>
+<p>首先, 原来Service中的saveCustomer方法返回值是void, 这样是不能缓存的. 必须将其修改成返回保存的Customer对象. 这很容易, 只需要从DAO类开始修改接口和对应实现类即可:</p>
+<pre>
+@Override
+public Customer saveCustomer(Customer customer) {
+    Session session = sessionFactory.getCurrentSession();
+    session.saveOrUpdate(customer);
+    return customer;
+}
+</pre>
+<p>其他的修改都省略, 然后给Service类的saveCustomer加上注解:</p>
+<pre>
+@Override
+@Transactional
+@CachePut(cacheNames = "users", <span style="color: red">key = "#customer.id"</span>)
+public Customer saveCustomer(Customer customer) {
+    return customerDAO.saveCustomer(customer);
+}
+</pre>
+<p>这里有若干点要注意, 首先@Cacheput保证了每次这个方法都会执行, 然后把返回值, 也就是新保存的customer对象放入缓存.</p>
+<p>其次, 保存的键要注意, 因为这个方法的入参是customer对象, 不像上边的方法入参是int类型的id, 所以要手工指定id.</p>
+<p>在hibernate保存了之后, 就会更新customer对象的id数值, 所以此时将key设置成customer的id, 就可以覆盖原来在缓存中旧的数据了.</p>
+<p>再次启动服务器, 先访问http://localhost:8080/api/customers/2, 反复刷几次 ,可以看到缓存生效, 只有最初的访问需要查询数据库, 之后到列表页中去修改, 修改之后, 再访问http://localhost:8080/api/customers/2, 可以看到数据是更新后的数据, 但是没有再访问数据库, 而是从缓存中访问.</p>
+
+<h2 style="text-align: center;" id="con5">缓存注解 - @CacheEvict</h2>
+<p>这个注解看名称就知道, 是负责从缓存中移除一个指定的值. 如果按照例子来做, 到现在会发现, 不管怎么修改, 列表页中的数据始终没变化. 这是因为这个方法:</p>
+<pre>
+@Override
+@Transactional
+@Cacheable(cacheNames = "users")
+public List&lt;Customer> getCustomers() {
+    return customerDAO.getCustomers();
+}
+</pre>
+<p>在第一次访问之后, 没有其他任何方法去更新缓存, 所以每次都查找缓存中的旧内容. 为了解决这个问题, 可以发现, 每次只要有任何客户的内容增加, 减少, 或者修改, 都需要在缓存里删除这个列表才行.</p>
+<p>所以我们可以尝试一下, 由于这个方法无参, 可以指定一个key:</p>
+<pre>
+    @Override
+    @Transactional
+    @Cacheable(cacheNames = "users", <span style="color: red">key="'list'"</span>)
+    public List&lt;Customer> getCustomers() {
+        return customerDAO.getCustomers();
+    }
+</pre>
+<p>然后在刚才的更新用户的方法上添加@CacheEvict:</p>
+<pre>
+@Override
+@Transactional
+@CachePut(cacheNames = "users", key = "#customer.id")
+<span style="color: red">@CacheEvict(cacheNames = "users", key="'list'")</span>
+public Customer saveCustomer(Customer customer) {
+    return customerDAO.saveCustomer(customer);
+}
+</pre>
+<p>现在每次更新用户信息的时候, 都会强制删除缓存中key=list的内容, 下次访问列表的时候, 就会强制重数据库中载入. 运行程序, 就会发现, 每次在列表页进行更新, 再返回到列表页的时候, 日志都会打印出从数据库中查找数据的信息, 数据也确实更新了.</p>
+<p>这个注解也有key和condition属性, 可以控制每次删除哪些缓存内容.此外还有两个布尔值的属性:</p>
+<ol>
+    <li><code>allEntries</code>, 设置为true, 则直接清空指定缓存的全部内容, 默认是false.</li>
+    <li><code>beforeInvocation</code>, 定义在调用被注解的方法之前还是之后删除指定缓存内容, 默认是false=方法运行之后删除.</li>
+</ol>
+<p>缓存注解看到这里, 基本上也懂了Spring缓存这个套路了, 通过对于方法返回值在缓存中的添加, 删除来达成缓存的目的. </p>
+
+<h2 style="text-align: center;" id="con6">缓存注解 - @Caching</h2>
+<p>这个注解, 就是可以把前边三个注解都写到这个注解里, 一次性配置, 不用像saveCustomer方法一样加上两个缓存注解. 其内部用逗号分割单独的注解. 比如可以将上边的saveCustomer方法修改成:</p>
+<pre>
+@Override
+@Transactional
+<span style="color: red">@Caching(put=@CachePut(cacheNames = "users", key = "#customer.id"),evict = @CacheEvict(cacheNames = "users", key="'list'"))</span>
+public Customer saveCustomer(Customer customer) {
+    return customerDAO.saveCustomer(customer);
+}
+</pre>
+<p>这个注解有三个属性, 从上边已经可以看到有put和evict, 还有cacheable, 每一个都是一个数组, 可以代表多个对应的注解. 这个注解实际上就是个壳子, 可以让代码不那么凌乱.</p>
+
+<h2 style="text-align: center;" id="con7">缓存注解 - @CacheConfig</h2>
+<p>这个注解是添加在类上的, 在Spring4.0之前, 没有基于类的缓存配置注解, 就像前边我们的类一样, 要把缓存名称在每个注解里都写一遍.</p>
+<p>有了这个注解之后, 缓存名称就可以统一抽到类配置上去, key之类其他配置也可以. 只要方法级别的注解不覆盖配置, 就可以生效.</p>
+<p>完整的使用了所有上述注解的Service如下:</p>
+<pre>
+@Service
+@CacheConfig(cacheNames = "users")
+public class CustomerServiceImpl implements CustomerService {
+
+    private CustomerDAO customerDAO;
+
+    @Autowired
+    public CustomerServiceImpl(CustomerDAO customerDAO) {
+        this.customerDAO = customerDAO;
+    }
+
+    @Override
+    @Transactional
+    @Cacheable(key = "'list'")
+    public List&lt;Customer> getCustomers() {
+        return customerDAO.getCustomers();
+    }
+
+    @Override
+    @Transactional
+    @Caching(put = @CachePut(key = "#customer.id"), evict = @CacheEvict(key = "'list'"))
+    public Customer saveCustomer(Customer customer) {
+        return customerDAO.saveCustomer(customer);
+    }
+
+    @Override
+    @Transactional
+    @Cacheable
+    public Customer getCustomer(int customerId) {
+        return customerDAO.getCustomer(customerId);
+    }
+
+    @Override
+    @Transactional
+    public void deleteCustomer(int customerId) {
+        customerDAO.deleteCustomer(customerId);
+    }
+}
+</pre>
+<p>这段代码也更新到这个项目的git上去了, 缓存的基本使用了解了.</p>
+<p>如果要使用外部的缓存框架, 很明显只要替换缓存管理类和具体的缓存实现就可以了.</p>
+
+
+<h2 style="text-align: center;" id="con8">缓存管理器</h2>
+<p>从前边的配置+注解一下就能看出来, 核心就是缓存管理器这个Bean, 需要缓存功能就会到容器里找这个Bean.</p>
+<p>缓存管理器都实现了CacheManager接口, 一般内部都需要再定义具体的缓存实现.</p>
+<p>Spring提供了如下几个实现类:</p>
+<ol>
+    <li><code>SimpleCacheManager</code>, 可以配置缓存列表的缓存管理器, 内部可配置多个名称不同的具体缓存实现.</li>
+    <li><code>NoOpCacheManager</code>, 用于测试目的, 内部无法配置任何缓存实现, 也不会进行缓存.</li>
+    <li><code>CompositeCacheManager</code>, 这个其实是缓存管理器的组合, 如果仅仅使用注解驱动, 只能定义一个缓存管理器, 有了这个, 就可以在CompositeCacheManager的Bean内部继续定义不同的缓存管理器.</li>
+    <li><code>org.springframework.cache.concurrent.ConcurrentMapCacheManager</code>, 这个直接就使用了JDK并发版的HashMap, 无需配置具体缓存实现, 只配置bean就可以.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con9">缓存注解中的SPEL表达式</h2>
+<p>除了使用#varName绑定参数之外, 缓存注解中的SPEL表达式还有额外的一个对象#root,可以用起来获取一些特殊的内容:</p>
+<ol>
+    <li><code>#root.methodname</code>, 获取被注解的方法名</li>
+    <li><code>#root.method</code>, 获取被注解的方法</li>
+    <li><code>#root.target</code>, 被注解的方法所在的对象</li>
+    <li><code>#root.targetClass</code>, 被注解的方法所在的对象的类</li>
+    <li><code>#root.args[0]</code>, 被注解的方法的第0个参数</li>
+    <li><code>#root.caches[0]</code>, 被注解的方法的第0个缓存对象</li>
+</ol>
+<p>这些如果用到, 还是比较方便的.</p>
+
+<h2 style="text-align: center;" id="con10">基于XML的声明</h2>
+<p>注解简单方便, 但是有一大问题就是只能使用在源代码上. 如果只有包和方法, 想要配置缓存, 就要改用AOP的方式配置, 为想要配置缓存的方法设置增强.</p>
+<p>如果是为上一篇文章的CustomerServiceImpl配置XML, 大概是这样:</p>
+<pre>
+&lt;bean id="customerService" class="cc.conyli.service.CustomerServiceImpl"/>
+
+&lt;cache:advice id="cacheAdvice" cache-manager="cacheManager">
+    &lt;cache:caching cache="users">
+        &lt;cache:cacheable method="getCustomers" key="123"/>
+        &lt;cache:cache-evict method="saveCustomer" key="123"/>
+        &lt;cache:cache-put method="saveCustomer" key="'#customer.id'"/>
+        &lt;cache:cacheable method="getCustomer" key="'#root.args[0]'"/>
+    &lt;/cache:caching>
+
+&lt;/cache:advice>
+&lt;aop:config>
+    &lt;aop:advisor advice-ref="cacheAdvice" pointcut="execution(* cc.conyli.service.CustomerServiceImpl.*(..))" />
+&lt;/aop:config>
+</pre>
+<p>不过这里是总的织入, 还有些问题, 查询单个无法更新. 不过基本的套路已经知道了. 还是使用注解方便啊.</p>
+
+<h2 style="text-align: center;" id="con11">配置第三方缓存</h2>
+<p>现在返回到还是原来注解配置的状态, 要配置第三方缓存, 其实前边也提了很多次了, 要么更改缓存管理器, 要么其中的缓存实现.来看一下常用的几种缓存框架.</p>
+<h3>EhCache</h3>
+<p>使用EhCache, 需要将其依赖加入到maven中:</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.ehcache&lt;/groupId>
+    &lt;artifactId>ehcache&lt;/artifactId>
+    &lt;version>3.8.1&lt;/version>
+&lt;/dependency>
+</pre>
+<p>然后修改XML, 将缓存管理器换成EhCache提供的管理器, 但我发现我竟然cache包中没有EhCache相关的类, 查了一下才知道, 原来在spring-context-support里, 把这个添加到Maven中:</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.springframework&lt;/groupId>
+    &lt;artifactId>spring-context-support&lt;/artifactId>
+    &lt;version>${springframework.version}&lt;/version>
+&lt;/dependency>
+</pre>
+<p>之后可以来配置XML文件了, 由于核心是缓存管理器, 所以要把我们目前的缓存管理器来替换掉:</p>
+<pre>
+&lt;bean id="cacheManager" class="org.springframework.cache.ehcache.EhCacheCacheManager" p:cacheManager-ref="ehcache"/>
+
+&lt;bean id="ehcache" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean"
+      p:configLocation="WEB-INF/ehcache.xml" />
+</pre>
+<p>Ehcache的缓存管理类需要另外一个Bean, 也就是EhCacheManagerFactoryBean来加载xml配置文件从而创建一个缓存实现.</p>
+<p><a href="https://www.cnblogs.com/jingmoxukong/p/5975994.html" target="_blank">这里</a>有篇文章可供参考, 在/WEB-INF/下创建ehcache.xml, 在其中配置一个简单的叫做ehentai的缓存:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:noNamespaceSchemaLocation="http://ehcache.org/ehcache.xsd">
+
+    &lt;defaultCache
+            maxEntriesLocalHeap="10000"
+            eternal="false"
+            timeToIdleSeconds="120"
+            timeToLiveSeconds="120"
+            maxEntriesLocalDisk="10000000"
+            diskExpiryThreadIntervalSeconds="120"
+            memoryStoreEvictionPolicy="LRU"/>
+
+        &lt;!-- helloworld缓存 -->
+    &lt;cache name="ehentai"
+           maxElementsInMemory="1000"
+           eternal="false"
+           timeToIdleSeconds="5"
+           timeToLiveSeconds="5"
+           overflowToDisk="false"
+           memoryStoreEvictionPolicy="LRU"/>
+&lt;/ehcache>
+</pre>
+<p>可以看到也配置了叫做default和ehentai的两个缓存. 然后需要把CustomerServiceImpl的注解改成@CacheConfig(cacheNames = "ehentai").</p>
+<p>这里我成功的启动了缓存, 不过不知道为什么没有(表面上)生效, 每次还是要去查询数据库. 不过这个缓存配置的套路算是清楚了.</p>
+<p>剩下的几个缓存库, 如果有需要回来再看了, 还有就是如何使用Redis进行缓存. 有空再进行补充.</p>
+<p>下一个是异步任务了.</p>
 
 
 
@@ -220,17 +531,6 @@ public static void main(String[] args) {
 
 
 
-
-
-
-
-
-<h2 style="text-align: center;" id="con3"></h2>
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
