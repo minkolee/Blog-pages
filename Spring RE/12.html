@@ -22,8 +22,8 @@
 <ol>
     <li><a href="#con1">Quartz</a></li>
     <li><a href="#con2">使用SimpleTrigger的简单例子</a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con3">CronTrigger</a></li>
+    <li><a href="#con4">Calendar的使用</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
@@ -121,15 +121,33 @@ Trigger trigger = TriggerBuilder.newTrigger().withIdentity("job1", "group1")
     <li>星期几, 取值1-7, 注意1是星期天, 7是星期六, 也可以使用字符串SUN, MON, TUE, WED, THU, FRI, SAT</li>
     <li>年, 可以忽略</li>
 </ol>
-<p>除了写具体的时点之外, 还可以使用通配符</p>
+<p>除了写具体的时点之外, 还可以使用通配符, 通配符有如下几种:</p>
+<ol>
+    <li><code>*</code>, 单独使用, 表示对应时间域的每一个时刻</li>
+    <li><code>?</code>, 单独使用, 只使用在日期和星期, 表示没有意义, 也就是表示无所谓哪一天或者星期几, 类似占位符</li>
+    <li><code>-</code>, 需要和前后时点连用, 表示一个范围</li>
+    <li><code>,</code>, 用于分割列表值中的各个值, 整个合起来表示一个列表值, 比如在星期几的位置使用MON,FRI表示星期一和星期五</li>
+    <li><code>/</code>, 斜杠前边表示从多少开始, 斜杠后边表示步长, 比如在分钟处使用0/5, 表示从0分开始, 每隔5分钟执行一次, 实际就会在按照0, 5, 10.....55, 0这样反复执行. 0/x也可以写成*/x</li>
+    <li><code>L</code>, 只在日期和星期的时候使用, 在日期中表示这个月份的最后一天. 如果用在星期中, 单独使用就表示星期六; 前边加上一个N, 就表示这个月的最后一个XXX, 比如6L表示当月的最后一个星期五</li>
+    <li><code>W</code>, 前边加上数字来使用, 只能用于日期, 表示离该日期最近的工作日, 但不能跨月, 默认工作日是周一到周五.</li>
+    <li><code>LW</code>, 单独使用, 只能用于日期, 表示当月最后一个工作日.</li>
+    <li><code>#</code>, 前边需要加上数字, 只能用于星期, #5表示当月的第五个工作日.</li>
+    <li><code>C</code>, 只在日期和星期中使用, 表示计划所关联的Calendar类代表的日期. 如果日期没有被关联, 就相当于每一天.</li>
+</ol>
+<p>需要使用Cron表示方法的时候, 可以向正则一样参考一些例子, 而不用全部记在脑子里, 只要知道有这回事情就可以了.</p>
+<p>根据表达式来看, 上边的例子就是从0秒开始, 每到5的倍数的秒执行一次.</p>
+
+<h2 style="text-align: center;" id="con4">Calendar的使用</h2>
+<p>Java提供的Calendar类是一个通用的时间类. 而Quartz的Calendar, 实际上是一个某些天的集合.</p>
+<p>像CronTrigger, 无法配置成:每个工作日都运行, 除了五一 十一 和元旦. 这就需要补充使用Calendar, 也就是先使用Cron规则定义所有的工作日. 然后将Calendar对象设置成一个元旦, 五一和十一的集合. 之后从Cron中排除掉这三天, 就可以得到最终我们想要的规则.</p>
+<p>Quartz 2.3 使用Calendar的方法也是在创建Trigger的时候指定:</p>
+<pre>
+
+</pre>
 
 
 
 
-
-
-
-<h2 style="text-align: center;" id="con4"></h2>
 
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
