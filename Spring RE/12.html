@@ -17,15 +17,14 @@
 <body>
 <p>掐指算来, IOC+AOP两大神器看完之后, 补充了SPEL, DAO的事务和具体类使用, Spring Cache的知识, 现在还差一个, 就是Web应用很多时候需要定时的, 异步的任务, 比如发送电子邮件等任务, 进行统计, 与用户的请求和响应没有直接关系. 这也是一个Web应用不可或缺的部分.</p>
 <p>在开始使用Spring Web MVC之前, 异步任务是最后一个知识点了. 简单看了一下这章内容, 将接触之前从来没有用过的Java的一些异步任务调度框架, 比如Quartz, JDK Timer等, 每个工具背后也都是一个崭新的世界, 一起来探索吧.</p>
-
+<p>另外，虽然马上要开始最后的Spring MVC了， 但是还需要开启两条重要的支线，就是PostgreSQL和Hibernate。 一个DBA朋友推荐了PostgreSQL的一个很好的<a href="https://github.com/digoal/blog" target="_blank">Git项目</a>，乃是集大成的PgSQL的内容。Hibernate也有一个<a
+        href="https://github.com/yiidiancom/hibernate" target="_blank">Git持久化教程</a>，之后就准备看这两个加上官网文档了。</p>
 
 <ol>
     <li><a href="#con1">Quartz</a></li>
     <li><a href="#con2">使用SimpleTrigger的简单例子</a></li>
     <li><a href="#con3">CronTrigger</a></li>
     <li><a href="#con4">Calendar的使用</a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">Quartz</h2>
 <p>在本章之前, 别说用了, 我基本都没有听说过Quartz, 毕竟经验太少, 还没有玩过什么真正的多线程异步程序.</p>
@@ -140,17 +139,12 @@ Trigger trigger = TriggerBuilder.newTrigger().withIdentity("job1", "group1")
 <h2 style="text-align: center;" id="con4">Calendar的使用</h2>
 <p>Java提供的Calendar类是一个通用的时间类. 而Quartz的Calendar, 实际上是一个某些天的集合.</p>
 <p>像CronTrigger, 无法配置成:每个工作日都运行, 除了五一 十一 和元旦. 这就需要补充使用Calendar, 也就是先使用Cron规则定义所有的工作日. 然后将Calendar对象设置成一个元旦, 五一和十一的集合. 之后从Cron中排除掉这三天, 就可以得到最终我们想要的规则.</p>
-<p>Quartz 2.3 使用Calendar的方法也是在创建Trigger的时候指定:</p>
-<pre>
-
-</pre>
+<p>Quartz 2.3 使用Calendar的方法也是在创建Trigger的时候指定. 不过我发现Quartz的官网做的实在不是很好, 新版的文档就没有很清楚写创建任务的方法, 上边的代码都是从例子中扒拉出来的. Calendar也只看到TriggerBuilder中的方法. 这一篇文章先当一个占位符, 以后有空来专门再看吧.</p>
 
 
 
 
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
