@@ -23,8 +23,8 @@
 
 <ol>
     <li><a href="#con1">PostgreSQL的相关资源</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con2">安装PostgreSQL</a></li>
+    <li><a href="#con3">初步使用</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
@@ -36,19 +36,104 @@
     <li><a href="http://www.pgsql.tech/doc_401" target="_blank">PostgreSQL中文技术站的新手指引</a>，其中列出了很多链接，有PostgreSQL9.6和10的中文翻译的手册，非常方便，还有一些图书可供参考。</li>
     <li><a href="https://www.w3school.com.cn/sql/sql_intro.asp" target="_blank">W3C的SQL指南</a>，SQL也是很重要的一环，以前没有系统的接触过SQL。</li>
     <li><a href="https://github.com/digoal/blog" target="_blank">国内PostgreSQL的大牛德哥的Git</a>，内容相当多，从入门到顶尖技术全有。</li>
+    <li><a href="http://www.postgres.cn/docs/10/" target="_blank">PostgreSQL 10 中文文档</a>，这东西以后经常翻了.</li>
 </ol>
 <p>然后发现PostgreSQL每年9月发布一个大版本，我在当时写CMS项目的时候用的还是10版，今天一看已经12版了，变化真是太快了。</p>
 <p>考虑到用新不用旧，我打算安装PostgreSQL 12，然后学习还是按照10版的来学习。而且核心内容应该是没有什么变化的。</p>
 
+<h2 style="text-align: center;" id="con2">安装PostgreSQL</h2>
+<p>在腾讯云的CentOS 7.6系统上安装的过程如下:</p>
+<ol>
+    <li>到<a href="https://www.postgresql.org/download/linux/redhat/">官网安装指引</a>页面中选好版本和操作系统版本, 之后会生成命令</li>
+    <li><code>yum install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm</code>, 先安装rpm文件</li>
+    <li><code>yum install postgresql12</code>, 然后直接安装postgresql12</li>
+    <li><code>yum install postgresql12-server</code>, 还有server包</li>
+    <li>
+        之后初始化数据库:
+        <pre>
+        ./usr/pgsql-12/bin/postgresql-12-setup initdb
+        systemctl enable postgresql-12
+        systemctl start postgresql-12
+        </pre>
+    </li>
+</ol>
+<p>跟着做了一遍, 毫无问题, 前边安装都OK, 主要就是initdb的时候, /var/lib/pgsql/12/data 下创建了默认的数据库配置文件与数据库文件. </p>
+<p>在执行systemctl start postgresql-12之后, 看到控制台打印出:</p>
+<pre>
+Dec 23 15:32:32 VM_0_14_centos postmaster[16282]: 2019-12-23 15:32:32.604 CST [16282] LOG:  listening on IPv6 addre... 5432
+Dec 23 15:32:32 VM_0_14_centos postmaster[16282]: 2019-12-23 15:32:32.604 CST [16282] LOG:  listening on IPv4 addre... 5432
+Dec 23 15:32:32 VM_0_14_centos postmaster[16282]: 2019-12-23 15:32:32.608 CST [16282] LOG:  listening on Unix socke...5432"
+Dec 23 15:32:32 VM_0_14_centos postmaster[16282]: 2019-12-23 15:32:32.615 CST [16282] LOG:  listening on Unix socke...5432"
+</pre>
+<p>看来已经可以使用了. Linux下边PostgreSQL会创建一个用户叫postgres, 也去查看一下:</p>
+<pre>
+cat /etc/passwd
+
+//用户最下边多了一个:
+postgres:x:26:26:PostgreSQL Server:/var/lib/pgsql:/bin/bash
+</pre>
+<p>这是在服务器上安装, 在自己的电脑上则需要安装<a href="https://www.pgadmin.org/download/pgadmin-4-windows/" target="_blank">pgAdmin4管理软件</a>, 这个软件和postgreSQL是互相独立的. 图形化界面可以非常方便的看到数据库中的各种对象.</p>
+
+
+
+<h2 style="text-align: center;" id="con3">初步使用</h2>
+<p>现在处于最开始的状态, PgSQL的命令行工具是psql, 不过目前只能由postgres用户来使用, 进行切换:</p>
+<pre>
+[root@VM_0_14_centos pgsql]# su postgres
+bash-4.2$ psql
+psql (12.1)
+Type "help" for help.
+
+postgres=#
+</pre>
+<p>出现了postgres=#提示符, 就已经处在本机的psql的环境中了. 试验一些命令, <kbd>\l</kbd>是列出所有数据库:</p>
+<pre>
+postgres=# \l
+                                 List of databases
+   Name    |  Owner   | Encoding |  Collate   |   Ctype    |   Access privileges
+-----------+----------+----------+------------+------------+-----------------------
+ postgres  | postgres | UTF8     | en_US.utf8 | en_US.utf8 |
+ template0 | postgres | UTF8     | en_US.utf8 | en_US.utf8 | =c/postgres          +
+           |          |          |            |            | postgres=CTc/postgres
+ template1 | postgres | UTF8     | en_US.utf8 | en_US.utf8 | =c/postgres          +
+           |          |          |            |            | postgres=CTc/postgres
+(3 rows)
+</pre>
+<p>有三个数据库, 分别是postgres, template0和template1, Hmmmm...究竟各有什么用处... <kbd>\q</kbd>则是退出psql.</p>
+<p>不过此时远程还连不上数据库, 用户也没有配置, 需要进行一些基本的配置.</p>
+
+<h2 style="text-align: center;" id="con4">基础配置</h2>
+<p>在刚才initdb命令后生成的/var/lib/pgsql/12/data下边, 有若干配置文件:</p>
+<ol>
+    <li><code>pg_hba.conf</code>,控制访问权限, 允许哪些用户, 哪些IP地址可以连接到服务器, 还有验证模式</li>
+    <li><code>pg_ident.conf</code>, 存在该文件的话, 系统会把操作系统的用户映射到postgreSQL内部的用户来登录. 有些人会映射root到postgreSQL.</li>
+    <li><code>postgresql.conf</code>, 包含通用设置, 比如IP地址,内存分配, database的存储位置等.</li>
+    <li><code>postgresql.auto.conf</code>, 这个文件从Postgre10开始引入, 优先级比<code>postgresql.conf</code>高, 要修改配置就修改这个文件就可以了.</li>
+</ol>
+<p>如果不知道这些配置文件存放在哪里, 也可以在psql里查一查:</p>
+<pre>
+postgres=# select name, setting From pg_settings where category = 'File Locations';
+       name        |                setting
+-------------------+----------------------------------------
+ config_file       | /var/lib/pgsql/12/data/postgresql.conf
+ data_directory    | /var/lib/pgsql/12/data
+ external_pid_file |
+ hba_file          | /var/lib/pgsql/12/data/pg_hba.conf
+ ident_file        | /var/lib/pgsql/12/data/pg_ident.conf
+(5 rows)
+</pre>
+<p>然后一个一个配置文件来看.</p>
+<p><code>postgresql.conf</code>可以在psql里通过 SELECT * FROM pg_settings, 从pg_settings视图中查询, 内容很多, 都是配置.</p>
+<p>其中的context表示是否需要重启即可生效, 如果是postmaster就需要重新启动服务才能生效. 如果是user, 只需要重新加载配置文件即可, 在控制台中使用service postgresql-9.5 reload即可.</p>
+<p></p>
 
 
 
 
-<h2 style="text-align: center;" id="con2"></h2>
 
-<h2 style="text-align: center;" id="con3"></h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
+
+
 
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>

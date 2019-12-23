@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>数独练习</title>
+    <style>
+        h2 {
+            margin: 10px auto;
+            text-align: center;
+            font-size: 40px;
+        }
+
+        h3 {
+            text-align: center;
+            font-size: 30px;
+        }
+
+        #board {
+            width: 680px;
+            margin: 20px auto;
+            box-sizing: border-box;
+        }
+
+        .clear{
+            clear: both;
+        }
+
+        .grid {
+            border-radius: 10px;
+            color: #eeeeee;
+            width: 150px;
+            float: left;
+            text-align: center;
+            height: 150px;
+            margin: 10px;
+            line-height: 140px;
+            font-size: 40px;
+            background-color: #dddddd;
+            box-sizing: border-box;
+            moz-user-select: -moz-none;
+            -moz-user-select: none;
+            -o-user-select:none;
+            -khtml-user-select:none;
+            -webkit-user-select:none;
+            -ms-user-select:none;
+            user-select:none;
+        }
+
+        .grid1 {
+            background-color: #6E97BF;
+        }
+
+        .grid2 {
+            background-color: darkgreen;
+        }
+
+        .grid3 {
+            background-color: #1abc9c;
+        }
+
+        .grid4 {
+            background-color: #FF6600;
+        }
+
+        .buttons {
+            text-align: center;
+
+        }
+
+        .button {
+            border-radius: 10px;
+            height: 40px;
+            width: 100px;
+            font-size: 16px;
+            background-color: #666666;
+            color: #dddddd;
+        }
+
+        .button-active {
+            background-color: navy;
+        }
+
+        .borderd {
+            border: 3px solid black;
+        }
+
+    </style>
+</head>
+<body>
+<div id="app">
+    <h2 >Suduko 4 </h2>
+    <h3 ref="guide">请点击 开始出题</h3>
+    <div id="board" ref="board">
+        <div class="grid" v-for="n in 16" :data-sequence="n-1" @click="changeNumber"></div>
+        <div class="clear"></div>
+    </div>
+    <div ref="buttonGroup" class="buttons">
+        <button class="button button-active" @click="startGame">开始出题</button>
+        <button class="button" @click="doJob" disabled>开始做题</button>
+        <button class="button" @click="complete" disabled>提交答案</button>
+        <button class="button" @click="reset" disabled>再玩一盘</button>
+    </div>
+
+
+</div>
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            //实际的结果数组, 用于判断是否正确
+            numbers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            //格子是否锁定可以编辑
+            locked: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+        },
+        methods:{
+            changeNumber: function (event) {
+                var target = event.target;
+                var currentIndex = parseInt(event.target.dataset.sequence);
+                var currentNumber = parseInt(event.target.innerText);
+                console.log("当前点击了第" + (currentIndex + 1) + "个格子");
+                console.log("点击前的数字是" + currentNumber);
+
+                if (this.locked[currentIndex]) {
+                    return;
+                }
+
+                //更改显示的数字与对应数组的数字
+                if (currentNumber === 4) {
+                    this.numbers[currentIndex] = 0;
+                    target.innerText = "";
+
+                } else{
+                    this.numbers[currentIndex]++;
+                    target.innerText = this.numbers[currentIndex];
+                }
+
+                //点击之后的结果
+                console.log("点击后的数字是" + event.target.innerText);
+                console.log("当前的numbers: " + this.numbers);
+                console.log(this.$refs.board);
+            },
+
+
+            startGame: function () {
+
+                //更新提示
+                var guide = this.$refs.guide;
+
+                guide.innerText = "点击格子让数字变化成想出的题目,然后点击开始做题";
+
+
+                //解除所有格子的锁定
+                for (var i = 0; i < this.locked.length; i++) {
+                    this.locked[i] = false;
+                }
+
+                //设置颜色
+                var grids = this.$refs.board.children;
+                grids[0].style.backgroundColor = "#C0392B";
+                grids[1].style.backgroundColor = "#C0392B";
+                grids[4].style.backgroundColor = "#C0392B";
+                grids[5].style.backgroundColor = "#C0392B";
+
+                grids[2].style.backgroundColor = "#9B59B6";
+                grids[3].style.backgroundColor = "#9B59B6";
+                grids[6].style.backgroundColor = "#9B59B6";
+                grids[7].style.backgroundColor = "#9B59B6";
+
+                grids[8].style.backgroundColor = "#17A589";
+                grids[9].style.backgroundColor = "#17A589";
+                grids[12].style.backgroundColor = "#17A589";
+                grids[13].style.backgroundColor = "#17A589";
+
+                grids[10].style.backgroundColor = "#2E86C1";
+                grids[11].style.backgroundColor = "#2E86C1";
+                grids[14].style.backgroundColor = "#2E86C1";
+                grids[15].style.backgroundColor = "#2E86C1";
+                console.log(this.locked);
+
+                //点击出题之后, 只有再玩一盘和开始做题可用
+                var buttons = this.$refs.buttonGroup.children;
+                for (var j = 0; j < buttons.length; j++) {
+                    if (j ===1 || j===3) {
+                        buttons[j].disabled = false;
+                        buttons[j].classList.add("button-active");
+                    }else{
+                        buttons[j].disabled = true;
+                        buttons[j].classList.remove("button-active");
+                    }
+                }
+            },
+
+            doJob: function () {
+
+                var guide = this.$refs.guide;
+                guide.innerText = "点击没有被锁定的格子填入数字, 然后点击提交答案";
+                //点击开始做题之后, 将已经有数字的格子锁定并加上边框
+                var grids = this.$refs.board.children;
+                for (var i = 0; i < this.locked.length; i++) {
+                    if (this.numbers[i] > 0) {
+                        this.locked[i] = true;
+                        grids[i].classList.add("borderd");
+                    }
+                }
+                //开始做题之后, 只有提交和再玩一盘可用
+                var buttons = this.$refs.buttonGroup.children;
+                for (var j = 0; j < buttons.length; j++) {
+                    if (j === 2 || j === 3) {
+                        buttons[j].disabled = false;
+                        buttons[j].classList.add("button-active");
+                    } else {
+                        buttons[j].disabled = true;
+                        buttons[j].classList.remove("button-active");
+                    }
+                }
+                console.log(this.locked);
+            },
+
+            reset: function () {
+                //恢复全部内容到默认
+                var grids = this.$refs.board.children;
+
+                for (var i = 0; i < this.numbers.length; i++) {
+                    this.numbers[i] = 0;
+                    this.locked[i] = true;
+                    grids[i].style.backgroundColor = "#dddddd";
+                    grids[i].innerText = "";
+                    grids[i].classList.remove("borderd");
+                }
+
+                var buttons = this.$refs.buttonGroup.children;
+                for (var j = 0; j < buttons.length; j++) {
+                    if (j === 0) {
+                        buttons[j].disabled = false;
+                        buttons[j].classList.add("button-active");
+                    } else {
+                        buttons[j].disabled = true;
+                        buttons[j].classList.remove("button-active");
+                    }
+                }
+
+                var guide = this.$refs.guide;
+
+                guide.innerText = "请点击 开始出题";
+
+            },
+
+            complete: function () {
+
+                //判断错误与否
+                var errors = [];
+
+                var test1 = this.testFourBlock(0, 1, 2, 3);
+                if (!test1) {
+                    errors.push("第一行有错误");
+                }
+                var test2 = this.testFourBlock(4, 5, 6, 7);
+                if (!test2) {
+                    errors.push("第二行有错误");
+                }
+                var test3 = this.testFourBlock(8, 9, 10, 11);
+                if (!test3) {
+                    errors.push("第三行有错误");
+                }
+                var test4 = this.testFourBlock(12, 13, 14, 15);
+                if (!test4) {
+                    errors.push("第四行有错误");
+                }
+
+                var test5 = this.testFourBlock(0, 4, 8, 12);
+                if (!test5) {
+                    errors.push("第一列有错误");
+                }
+
+                var test6 = this.testFourBlock(1, 5, 9, 13);
+                if (!test6) {
+                    errors.push("第二列有错误");
+                }
+                var test7 = this.testFourBlock(2, 6, 10, 14);
+                if (!test7) {
+                    errors.push("第三列有错误");
+                }
+                var test8 = this.testFourBlock(3, 7, 11, 15);
+                if (!test8) {
+                    errors.push("第四列有错误");
+                }
+                var test9 = this.testFourBlock(0, 1, 4, 5);
+                if (!test9) {
+                    errors.push("区域一有错误");
+                }
+                var test10 = this.testFourBlock(2, 3, 6, 7);
+                if (!test10) {
+                    errors.push("区域二有错误");
+                }
+                var test11 = this.testFourBlock(8, 9, 12, 13);
+                if (!test11) {
+                    errors.push("区域三有错误");
+                }
+                var test12 = this.testFourBlock(10, 11, 14, 15);
+                if (!test12) {
+                    errors.push("区域四有错误");
+                }
+
+                if (errors.length === 0) {
+                    alert("恭喜你，答对啦");
+                    this.reset();
+                } else{
+                    console.log("有错");
+                    var guide = this.$refs.guide;
+
+                    guide.innerText = errors.join(",");
+                }
+
+            },
+
+            testFourBlock(a, b, c, d) {
+                var isDifferent = this.numbers[a] !== this.numbers[b]
+                    && this.numbers[a] !== this.numbers[c]
+                    && this.numbers[a] !== this.numbers[d]
+                    && this.numbers[b] !== this.numbers[c]
+                    && this.numbers[b] !== this.numbers[d]
+                    && this.numbers[c] !== this.numbers[d];
+                if (!isDifferent) {
+                    return false;
+                }
+
+                if (this.numbers[a] + this.numbers[b] + this.numbers[c] + this.numbers[d] !== 10) {
+                    return false;
+                }
+
+                return true;
+
+            }
+
+        },
+    })
+</script>
+
+
+
+
+</body>
+</html>
