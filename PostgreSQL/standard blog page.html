@@ -25,8 +25,8 @@
     <li><a href="#con1">PostgreSQL的相关资源</a></li>
     <li><a href="#con2">安装PostgreSQL</a></li>
     <li><a href="#con3">初步使用</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
+    <li><a href="#con4">基础配置</a></li>
+    <li><a href="#con5">数据库们</a></li>
     <li><a href="#con6"></a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">PostgreSQL的相关资源</h2>
@@ -108,7 +108,7 @@ postgres=# \l
     <li><code>pg_hba.conf</code>,控制访问权限, 允许哪些用户, 哪些IP地址可以连接到服务器, 还有验证模式</li>
     <li><code>pg_ident.conf</code>, 存在该文件的话, 系统会把操作系统的用户映射到postgreSQL内部的用户来登录. 有些人会映射root到postgreSQL.</li>
     <li><code>postgresql.conf</code>, 包含通用设置, 比如IP地址,内存分配, database的存储位置等.</li>
-    <li><code>postgresql.auto.conf</code>, 这个文件从Postgre10开始引入, 优先级比<code>postgresql.conf</code>高, 要修改配置就修改这个文件就可以了.</li>
+    <li><code>postgresql.auto.conf</code>, 这个文件从Postgre10开始引入, 优先级比<code>postgresql.conf</code>高, 不允许手动修改该文件, 这个文件保存通过ALTER SYSTEM命令提供的设置,在读取postgresql.conf时自动读取该文件,并且它的设置以相同的方式发生作用. postgresql.auto.conf中的设置覆盖postgresql.conf中的设置</li>
 </ol>
 <p>如果不知道这些配置文件存放在哪里, 也可以在psql里查一查:</p>
 <pre>
@@ -122,20 +122,73 @@ postgres=# select name, setting From pg_settings where category = 'File Location
  ident_file        | /var/lib/pgsql/12/data/pg_ident.conf
 (5 rows)
 </pre>
-<p>然后一个一个配置文件来看.</p>
+<p>对于我们手工修改来说, 就是除了auto.conf之外的三个文件了. 然后一个一个配置文件来看.</p>
 <p><code>postgresql.conf</code>可以在psql里通过 SELECT * FROM pg_settings, 从pg_settings视图中查询, 内容很多, 都是配置.</p>
 <p>其中的context表示是否需要重启即可生效, 如果是postmaster就需要重新启动服务才能生效. 如果是user, 只需要重新加载配置文件即可, 在控制台中使用service postgresql-9.5 reload即可.</p>
-<p></p>
+<p>我把postgresql.conf下载到本地硬盘来, 里边基本上都是使用#号进行的注释, 有如下几个需要先配置一下:</p>
+<ol>
+    <li>listen_addresses, 这个指的是监听地址, 默认是localhost, 则外部无法连接进来, 一般可以配置成本机IP地址或者干脆写成<kbd>listen_addresses = '*'</kbd>, 表示任意地址都可以. 这一行原本是注释掉的, 需要去掉注释才可以.</li>
+    <li>port, 这个指的是端口, 默认是5432, 如果遭受攻击比较多, 可以修改掉.</li>
+    <li>max_connections = 100, 这个没有注释, 默认就是100, 表示并发连接数为100.</li>
+</ol>
+<p>整个文件几百个配置, 显然是留给真正专业的DBA来看的. 下边来看一看pg_hba.conf, 这个配置文件简单的说就是配置用户的, 打开以后是这个样子:</p>
+<pre>
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# "local" is for Unix domain socket connections only
+local   all             all                                     peer
+# IPv4 local connections:
+host    all             all             127.0.0.1/32            ident
+# IPv6 local connections:
+host    all             all             ::1/128                 ident
+# Allow replication connections from localhost, by a user with the
+# replication privilege.
+local   replication     all                                     peer
+host    replication     all             127.0.0.1/32            ident
+host    replication     all             ::1/128                 ident
+</pre>
+<p>首先要知道的是, PgSQL使用角色来处理用户身份认证, 有可以登录数据库的可登录角色, 组角色和成员角色, 组角色未必有登录权限, 只起到一个权限的集合使用. SUPERUSER权限最高, 可以彻底控制PgSQL服务.</p>
+<p>PgSQL现在已经不使用用户和组这两个概念, 虽然CREATE USER和CREATE GROUP的SQL语句依然可用, 但最好使用CREATE ROLE语句. </p>
+<p>知道了童儿之后, 上边每一行就表示一个登录配置, 分别是主机, 数据库名, 用户, 地址 和验证方式, 用一个或者多个空格分割. 目前可以看到, IPV4的情况下, 只允许从本地的ident方式登录, 也就是把linux系统里的postgres用户映射到PgSQL中的postgres用户. 其他方式都不能登录系统.</p>
+<p>常见的验证方式如下:</p>
+<ol>
+    <li>trust, 无需密码就可以连接</li>
+    <li>md5, 需要md5加密的密码</li>
+    <li>ident, 之前说过, 将操作系统用户映射到PgSQL的用户, windows下无法使用ident方式</li>
+    <li>peer, 从操作内核获取当前用户名, 如果一致就可以连接, 在刚安装好PgSQL, 能够无密码使用postgres用户登录, 就是第一行配置了这个方式.</li>
+    <li>cert, SSL证书.</li>
+</ol>
+<p>其他还有很多, 所以为了能够从外部连接PgSQL, 很显然我们需要允许所有的IP地址, 然后需要md5加密, 也就是密码验证, 才可以登录. 这里有个replication暂时不知道是什么.</p>
+<p>在最后添加一行:</p>
+<pre>
+host all all 0.0.0.0/0 md5
+</pre>
+<p>这一句话表示, 来自所有的IP地址, 所有用户都可以访问, 密码使用md5加密. 配置好之后, 还需要进入psql, 给postgres用户加上密码:</p>
+<pre>
+su - postgres
+psql
+postgres=# \password postgres
+</pre>
+<p>\password postgres 表示为postgres这个role来设置密码, 之后系统会提示连续输入两次密码.</p>
+<p>设置好密码, 也修改好之后, 重新启动PgSQL的服务: <kbd>systemctl restart postgresql-12</kbd>. 之后在PgAdmin4中, 选择创建新服务器, 输入主机地址和端口, 数据库(现在只有默认创建的postgres数据库), 以及用户名和密码, 就可以成功连接了.</p>
+<p>PgAdmin4可以在首页的设置中选择设置语言, 为了学习起见, 还是先不要用中文, 看看英文吧. 进去之后可以看到, 一个PgSQL数据库服务器中, 分为三块, 首先是Databases, 也就是数据库对象, 然后是Login/Group Roles, 可以发现里边有很多不具备登录权限的组角色, 以及默认的超级用户postgres. 右击可以查看权限, postgres所有的权限都有.</p>
+<p>然后是Tablespaces, 这个表示表空间对象, 其实就是相当于指定物理存储在哪里. 没有什么可以配置的.</p>
+<p>所以对于我们操作数据库的程序员来说, 核心就是用户和Databases对象.</p>
+<p>Databases点进去之后, 目前可以看到有一个postgres数据库, 这是我们登录的时候输入的. 在之前的\l命令中可以看到默认的PgSQL里一共有3个数据库: postgres, template0, template1. 这三个是什么数据库呢? 这个涉及PgSQL的数据库结构.</p>
+<p>postgres数据库展开之后竟然不是表, 而是一堆没见过的东西: Casts, Catalogs, Event Triggers, Extensions, Foreign Data Wrappers, Languages, Schemas.....这里边不光是PgSQL的内容, 还涉及基础的数据库概念....路漫漫其修远矣....</p>
+
+<h2 style="text-align: center;" id="con5">database和一些术语</h2>
+<p>PgSQL用标准的术语来说, 是一个DBMS数据库管理系统. 当然我们也会简称其数据库, 或者用database来指代数据库管理系统. 但是database更精准的说法, 应该是指一个DBMS中某一级别的数据存储单位.</p>
+<p>一个DBMS可以包含(管理)多个database, PgSQL也一样, 一个PgSQL服务可以包含多个独立的database.</p>
+<p>在上边的PgAdmin4中, 在登录的时候就指定了数据库名是postgres. 为什么不指定另外两个默认的template0和template1数据库, 是因为这两个数据库是模板数据库, 如果不作配置, 任何新建的数据库都会以template1作为新数据库的模板.</p>
+<p>而template0不要去修改, 这是原始的干净模板, 实际上template1也是从template0复制的, 不直接使用0就是怕搞坏了.</p>
+<p>基于模板创建数据库的语法是: <kbd>CREATE DATABASE my_db TEMPLATE my_template;</kbd></p>
+<p>指定一个数据库为模板数据库的语法是: <kbd></kbd></p>
 
 
 
 
 
-
-
-
-
-<h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>

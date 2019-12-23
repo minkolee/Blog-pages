@@ -35,8 +35,8 @@
             text-align: center;
             height: 150px;
             margin: 10px;
-            line-height: 140px;
-            font-size: 40px;
+            line-height: 150px;
+            font-size: 60px;
             background-color: #dddddd;
             box-sizing: border-box;
             moz-user-select: -moz-none;
@@ -102,18 +102,13 @@
         <button class="button" @click="complete" disabled>提交答案</button>
         <button class="button" @click="reset" disabled>再玩一盘</button>
     </div>
-
-
 </div>
 
 
 
 
 
-
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
-
-
 <script>
     var app = new Vue({
         el: '#app',
@@ -211,6 +206,8 @@
                     if (this.numbers[i] > 0) {
                         this.locked[i] = true;
                         grids[i].classList.add("borderd");
+                        //注意行高, 上下加上边框之后, 实际高度变成了144px, 所以要相应调整lineHeight
+                        grids[i].style.lineHeight = "144px";
                     }
                 }
                 //开始做题之后, 只有提交和再玩一盘可用
@@ -237,6 +234,7 @@
                     grids[i].style.backgroundColor = "#dddddd";
                     grids[i].innerText = "";
                     grids[i].classList.remove("borderd");
+                    grids[i].style.lineHeight = "";
                 }
 
                 var buttons = this.$refs.buttonGroup.children;
@@ -335,11 +333,9 @@
                     return false;
                 }
 
-                if (this.numbers[a] + this.numbers[b] + this.numbers[c] + this.numbers[d] !== 10) {
-                    return false;
-                }
+                return this.numbers[a] + this.numbers[b] + this.numbers[c] + this.numbers[d] === 10;
 
-                return true;
+
 
             }
 
