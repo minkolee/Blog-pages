@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>PostgreSQL 02 Java连接PostgreSQL</title>
+    <title>PostgreSQL 02 数据库理论与SQL初步</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -19,100 +19,277 @@
 
 <ol>
     <li><a href="#con1">准备数据</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
+    <li><a href="#con2">Java连接PgSQL</a></li>
+    <li><a href="#con3">关系 元组 主键 外键</a></li>
+    <li><a href="#con4">关系运算</a></li>
+    <li><a href="#con5">SQL初步</a></li>
     <li><a href="#con6"></a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">准备数据</h2>
-<p>在这之前, 先按照上一篇的数据库操作中, 在mydb中创建一个新的schema, 叫test好了, 反正也想不出什么名字. 之后按照数据库系统概念(第六版)第二章的instructor表来创建一个表看看:</p>
-<pre>CREATE TABLE test.department (dept_name varchar(20),buidling varchar(15),budget numeric(12,2),primary key(dept_name));
-</pre>
-<p>然后可以插入一系列的数据, 不过为了插入方便一些, 可以用IDEA来配置数据源, 与连接MySQL等不同的是, PostgreSQL在配置好端口和数据库等内容的时候, 还需要到Schemas选项卡中, 选中mydb下边的test schema. 这样就可以看到department表了.</p>
-<p>在连接设置中可以随时修改schema, 比较方便.</p>
-<p>然后可以插入一些数据:</p>
+<p>在这之前, 先按照上一篇的数据库操作中, 在mydb中创建一个新的schema, 叫test好了, 反正也想不出什么名字. 之后按照数据库系统概念(第六版)第二章的instructor表来创建这些表.</p>
+<p>数据库系统概念的<a href="https://www.db-book.com/" target="_blank">官网</a>(话说上去一看才知道3月份这书已经出了第七版)上提供了<a href="https://www.db-book.com/db6/lab-dir/sample_tables-dir/index.html" target="_blank">SQL语句</a>可以创建附录A中使用的那些表和数据. </p>
+<p>其中先需要运行DDL或者DDL with drop table来创建表格, 然后就可以运行SQL code for creating small relations 或者大型的. 大型的数据是模拟一个真实的校园. 这里可以先用小型的开始操作.</p>
+<p>先创建表格:</p>
 <pre>
-insert into test.department values ('Biology','Watson',90000);
-insert into test.department values ('Comp.Sci.','Taylor',100000);
-insert into test.department values ('Elec.Eng.','Taylor',85000);
-insert into test.department values ('Finance','Painter', 120000);
-insert into test.department values ('History','Painter', 50000);
-insert into test.department values ('Music','Packard', 80000);
-insert into test.department values ('Physics','Waston', 70000);
+create table test.classroom
+(building		varchar(15),
+ room_number		varchar(7),
+ capacity		numeric(4,0),
+ primary key (building, room_number)
+);
+
+create table test.department
+(dept_name		varchar(20),
+ building		varchar(15),
+ budget		        numeric(12,2) check (budget > 0),
+ primary key (dept_name)
+);
+
+create table test.course
+(course_id		varchar(8),
+ title			varchar(50),
+ dept_name		varchar(20),
+ credits		numeric(2,0) check (credits > 0),
+ primary key (course_id),
+ foreign key (dept_name) references test.department
+     on delete set null
+);
+
+create table test.instructor
+(ID			varchar(5),
+ name			varchar(20) not null,
+ dept_name		varchar(20),
+ salary			numeric(8,2) check (salary > 29000),
+ primary key (ID),
+ foreign key (dept_name) references test.department
+     on delete set null
+);
+
+create table test.section
+(course_id		varchar(8),
+ sec_id			varchar(8),
+ semester		varchar(6)
+     check (semester in ('Fall', 'Winter', 'Spring', 'Summer')),
+ year			numeric(4,0) check (year > 1701 and year < 2100),
+ building		varchar(15),
+ room_number		varchar(7),
+ time_slot_id		varchar(4),
+ primary key (course_id, sec_id, semester, year),
+ foreign key (course_id) references test.course
+     on delete cascade,
+ foreign key (building, room_number) references test.classroom
+     on delete set null
+);
+
+create table test.teaches
+(ID			varchar(5),
+ course_id		varchar(8),
+ sec_id			varchar(8),
+ semester		varchar(6),
+ year			numeric(4,0),
+ primary key (ID, course_id, sec_id, semester, year),
+ foreign key (course_id,sec_id, semester, year) references test.section
+     on delete cascade,
+ foreign key (ID) references test.instructor
+     on delete cascade
+);
+
+create table test.student
+(ID			varchar(5),
+ name			varchar(20) not null,
+ dept_name		varchar(20),
+ tot_cred		numeric(3,0) check (tot_cred >= 0),
+ primary key (ID),
+ foreign key (dept_name) references test.department
+     on delete set null
+);
+
+create table test.takes
+(ID			varchar(5),
+ course_id		varchar(8),
+ sec_id			varchar(8),
+ semester		varchar(6),
+ year			numeric(4,0),
+ grade		        varchar(2),
+ primary key (ID, course_id, sec_id, semester, year),
+ foreign key (course_id,sec_id, semester, year) references test.section
+     on delete cascade,
+ foreign key (ID) references test.student
+     on delete cascade
+);
+
+create table test.advisor
+(s_ID			varchar(5),
+ i_ID			varchar(5),
+ primary key (s_ID),
+ foreign key (i_ID) references test.instructor (ID)
+     on delete set null,
+ foreign key (s_ID) references test.student (ID)
+     on delete cascade
+);
+
+create table test.time_slot
+(time_slot_id		varchar(4),
+ day			varchar(1),
+ start_hr		numeric(2) check (start_hr >= 0 and start_hr < 24),
+ start_min		numeric(2) check (start_min >= 0 and start_min < 60),
+ end_hr			numeric(2) check (end_hr >= 0 and end_hr < 24),
+ end_min		numeric(2) check (end_min >= 0 and end_min < 60),
+ primary key (time_slot_id, day, start_hr, start_min)
+);
+
+create table test.prereq
+(course_id		varchar(8),
+ prereq_id		varchar(8),
+ primary key (course_id, prereq_id),
+ foreign key (course_id) references test.course
+     on delete cascade,
+ foreign key (prereq_id) references test.course
+);
 </pre>
-<p>这就算有了最基础的东西了, 把数据库系统概念里的表都写成SQL加进去:</p>
+<p>注意其中的check子句,</p>
+<p>然后插入数据, 这里我把原来的SQL都修改成了使用test schema的语句:</p>
 <pre>
-CREATE TABLE test.course (
-    course_id varchar(7),title varchar(50), dept_name varchar(20),credits numeric(2,0),primary key (course_id),foreign key (dept_name) references test.department
-);
-
-CREATE TABLE test.instructor
-(
-    ID        varchar(5),
-    name      varchar(20) not null,
-    dept_name varchar(20),
-    salary    numeric(8, 2),
-    primary key (ID),
-    foreign key (dept_name) references test.department
-);
-
-CREATE TABLE test.section
-(
-    course_id    varchar(8),
-    sec_id       varchar(8),
-    semester     varchar(6),
-    year         numeric(4, 0),
-    building     varchar(15),
-    room_number  varchar(7),
-    time_slot_id varchar(4),
-    primary key (course_id, sec_id, semester, year),
-    foreign key (course_id) references test.course
-);
-
-CREATE TABLE test.teaches
-(
-    ID        varchar(5),
-    course_id varchar(8),
-    sec_id    varchar(8),
-    semester  varchar(6),
-    year      numeric(4, 0),
-    primary key (Id, course_id, sec_id, semester, year),
-    foreign key (course_id, sec_id, semester, year) references test.section,
-    foreign key (ID) references test.instructor
-);
+insert into test.classroom values ('Packard', '101', '500');
+insert into test.classroom values ('Painter', '514', '10');
+insert into test.classroom values ('Taylor', '3128', '70');
+insert into test.classroom values ('Watson', '100', '30');
+insert into test.classroom values ('Watson', '120', '50');
+insert into test.department values ('Biology', 'Watson', '90000');
+insert into test.department values ('Comp. Sci.', 'Taylor', '100000');
+insert into test.department values ('Elec. Eng.', 'Taylor', '85000');
+insert into test.department values ('Finance', 'Painter', '120000');
+insert into test.department values ('History', 'Painter', '50000');
+insert into test.department values ('Music', 'Packard', '80000');
+insert into test.department values ('Physics', 'Watson', '70000');
+insert into test.course values ('BIO-101', 'Intro. to Biology', 'Biology', '4');
+insert into test.course values ('BIO-301', 'Genetics', 'Biology', '4');
+insert into test.course values ('BIO-399', 'Computational Biology', 'Biology', '3');
+insert into test.course values ('CS-101', 'Intro. to Computer Science', 'Comp. Sci.', '4');
+insert into test.course values ('CS-190', 'Game Design', 'Comp. Sci.', '4');
+insert into test.course values ('CS-315', 'Robotics', 'Comp. Sci.', '3');
+insert into test.course values ('CS-319', 'Image Processing', 'Comp. Sci.', '3');
+insert into test.course values ('CS-347', 'Database System Concepts', 'Comp. Sci.', '3');
+insert into test.course values ('EE-181', 'Intro. to Digital Systems', 'Elec. Eng.', '3');
+insert into test.course values ('FIN-201', 'Investment Banking', 'Finance', '3');
+insert into test.course values ('HIS-351', 'World History', 'History', '3');
+insert into test.course values ('MU-199', 'Music Video Production', 'Music', '3');
+insert into test.course values ('PHY-101', 'Physical Principles', 'Physics', '4');
+insert into test.instructor values ('10101', 'Srinivasan', 'Comp. Sci.', '65000');
+insert into test.instructor values ('12121', 'Wu', 'Finance', '90000');
+insert into test.instructor values ('15151', 'Mozart', 'Music', '40000');
+insert into test.instructor values ('22222', 'Einstein', 'Physics', '95000');
+insert into test.instructor values ('32343', 'El Said', 'History', '60000');
+insert into test.instructor values ('33456', 'Gold', 'Physics', '87000');
+insert into test.instructor values ('45565', 'Katz', 'Comp. Sci.', '75000');
+insert into test.instructor values ('58583', 'Califieri', 'History', '62000');
+insert into test.instructor values ('76543', 'Singh', 'Finance', '80000');
+insert into test.instructor values ('76766', 'Crick', 'Biology', '72000');
+insert into test.instructor values ('83821', 'Brandt', 'Comp. Sci.', '92000');
+insert into test.instructor values ('98345', 'Kim', 'Elec. Eng.', '80000');
+insert into test.section values ('BIO-101', '1', 'Summer', '2009', 'Painter', '514', 'B');
+insert into test.section values ('BIO-301', '1', 'Summer', '2010', 'Painter', '514', 'A');
+insert into test.section values ('CS-101', '1', 'Fall', '2009', 'Packard', '101', 'H');
+insert into test.section values ('CS-101', '1', 'Spring', '2010', 'Packard', '101', 'F');
+insert into test.section values ('CS-190', '1', 'Spring', '2009', 'Taylor', '3128', 'E');
+insert into test.section values ('CS-190', '2', 'Spring', '2009', 'Taylor', '3128', 'A');
+insert into test.section values ('CS-315', '1', 'Spring', '2010', 'Watson', '120', 'D');
+insert into test.section values ('CS-319', '1', 'Spring', '2010', 'Watson', '100', 'B');
+insert into test.section values ('CS-319', '2', 'Spring', '2010', 'Taylor', '3128', 'C');
+insert into test.section values ('CS-347', '1', 'Fall', '2009', 'Taylor', '3128', 'A');
+insert into test.section values ('EE-181', '1', 'Spring', '2009', 'Taylor', '3128', 'C');
+insert into test.section values ('FIN-201', '1', 'Spring', '2010', 'Packard', '101', 'B');
+insert into test.section values ('HIS-351', '1', 'Spring', '2010', 'Painter', '514', 'C');
+insert into test.section values ('MU-199', '1', 'Spring', '2010', 'Packard', '101', 'D');
+insert into test.section values ('PHY-101', '1', 'Fall', '2009', 'Watson', '100', 'A');
+insert into test.teaches values ('10101', 'CS-101', '1', 'Fall', '2009');
+insert into test.teaches values ('10101', 'CS-315', '1', 'Spring', '2010');
+insert into test.teaches values ('10101', 'CS-347', '1', 'Fall', '2009');
+insert into test.teaches values ('12121', 'FIN-201', '1', 'Spring', '2010');
+insert into test.teaches values ('15151', 'MU-199', '1', 'Spring', '2010');
+insert into test.teaches values ('22222', 'PHY-101', '1', 'Fall', '2009');
+insert into test.teaches values ('32343', 'HIS-351', '1', 'Spring', '2010');
+insert into test.teaches values ('45565', 'CS-101', '1', 'Spring', '2010');
+insert into test.teaches values ('45565', 'CS-319', '1', 'Spring', '2010');
+insert into test.teaches values ('76766', 'BIO-101', '1', 'Summer', '2009');
+insert into test.teaches values ('76766', 'BIO-301', '1', 'Summer', '2010');
+insert into test.teaches values ('83821', 'CS-190', '1', 'Spring', '2009');
+insert into test.teaches values ('83821', 'CS-190', '2', 'Spring', '2009');
+insert into test.teaches values ('83821', 'CS-319', '2', 'Spring', '2010');
+insert into test.teaches values ('98345', 'EE-181', '1', 'Spring', '2009');
+insert into test.student values ('00128', 'Zhang', 'Comp. Sci.', '102');
+insert into test.student values ('12345', 'Shankar', 'Comp. Sci.', '32');
+insert into test.student values ('19991', 'Brandt', 'History', '80');
+insert into test.student values ('23121', 'Chavez', 'Finance', '110');
+insert into test.student values ('44553', 'Peltier', 'Physics', '56');
+insert into test.student values ('45678', 'Levy', 'Physics', '46');
+insert into test.student values ('54321', 'Williams', 'Comp. Sci.', '54');
+insert into test.student values ('55739', 'Sanchez', 'Music', '38');
+insert into test.student values ('70557', 'Snow', 'Physics', '0');
+insert into test.student values ('76543', 'Brown', 'Comp. Sci.', '58');
+insert into test.student values ('76653', 'Aoi', 'Elec. Eng.', '60');
+insert into test.student values ('98765', 'Bourikas', 'Elec. Eng.', '98');
+insert into test.student values ('98988', 'Tanaka', 'Biology', '120');
+insert into test.takes values ('00128', 'CS-101', '1', 'Fall', '2009', 'A');
+insert into test.takes values ('00128', 'CS-347', '1', 'Fall', '2009', 'A-');
+insert into test.takes values ('12345', 'CS-101', '1', 'Fall', '2009', 'C');
+insert into test.takes values ('12345', 'CS-190', '2', 'Spring', '2009', 'A');
+insert into test.takes values ('12345', 'CS-315', '1', 'Spring', '2010', 'A');
+insert into test.takes values ('12345', 'CS-347', '1', 'Fall', '2009', 'A');
+insert into test.takes values ('19991', 'HIS-351', '1', 'Spring', '2010', 'B');
+insert into test.takes values ('23121', 'FIN-201', '1', 'Spring', '2010', 'C+');
+insert into test.takes values ('44553', 'PHY-101', '1', 'Fall', '2009', 'B-');
+insert into test.takes values ('45678', 'CS-101', '1', 'Fall', '2009', 'F');
+insert into test.takes values ('45678', 'CS-101', '1', 'Spring', '2010', 'B+');
+insert into test.takes values ('45678', 'CS-319', '1', 'Spring', '2010', 'B');
+insert into test.takes values ('54321', 'CS-101', '1', 'Fall', '2009', 'A-');
+insert into test.takes values ('54321', 'CS-190', '2', 'Spring', '2009', 'B+');
+insert into test.takes values ('55739', 'MU-199', '1', 'Spring', '2010', 'A-');
+insert into test.takes values ('76543', 'CS-101', '1', 'Fall', '2009', 'A');
+insert into test.takes values ('76543', 'CS-319', '2', 'Spring', '2010', 'A');
+insert into test.takes values ('76653', 'EE-181', '1', 'Spring', '2009', 'C');
+insert into test.takes values ('98765', 'CS-101', '1', 'Fall', '2009', 'C-');
+insert into test.takes values ('98765', 'CS-315', '1', 'Spring', '2010', 'B');
+insert into test.takes values ('98988', 'BIO-101', '1', 'Summer', '2009', 'A');
+insert into test.takes values ('98988', 'BIO-301', '1', 'Summer', '2010', null);
+insert into test.advisor values ('00128', '45565');
+insert into test.advisor values ('12345', '10101');
+insert into test.advisor values ('23121', '76543');
+insert into test.advisor values ('44553', '22222');
+insert into test.advisor values ('45678', '22222');
+insert into test.advisor values ('76543', '45565');
+insert into test.advisor values ('76653', '98345');
+insert into test.advisor values ('98765', '98345');
+insert into test.advisor values ('98988', '76766');
+insert into test.time_slot values ('A', 'M', '8', '0', '8', '50');
+insert into test.time_slot values ('A', 'W', '8', '0', '8', '50');
+insert into test.time_slot values ('A', 'F', '8', '0', '8', '50');
+insert into test.time_slot values ('B', 'M', '9', '0', '9', '50');
+insert into test.time_slot values ('B', 'W', '9', '0', '9', '50');
+insert into test.time_slot values ('B', 'F', '9', '0', '9', '50');
+insert into test.time_slot values ('C', 'M', '11', '0', '11', '50');
+insert into test.time_slot values ('C', 'W', '11', '0', '11', '50');
+insert into test.time_slot values ('C', 'F', '11', '0', '11', '50');
+insert into test.time_slot values ('D', 'M', '13', '0', '13', '50');
+insert into test.time_slot values ('D', 'W', '13', '0', '13', '50');
+insert into test.time_slot values ('D', 'F', '13', '0', '13', '50');
+insert into test.time_slot values ('E', 'T', '10', '30', '11', '45 ');
+insert into test.time_slot values ('E', 'R', '10', '30', '11', '45 ');
+insert into test.time_slot values ('F', 'T', '14', '30', '15', '45 ');
+insert into test.time_slot values ('F', 'R', '14', '30', '15', '45 ');
+insert into test.time_slot values ('G', 'M', '16', '0', '16', '50');
+insert into test.time_slot values ('G', 'W', '16', '0', '16', '50');
+insert into test.time_slot values ('G', 'F', '16', '0', '16', '50');
+insert into test.time_slot values ('H', 'W', '10', '0', '12', '30');
+insert into test.prereq values ('BIO-301', 'BIO-101');
+insert into test.prereq values ('BIO-399', 'BIO-101');
+insert into test.prereq values ('CS-190', 'CS-101');
+insert into test.prereq values ('CS-315', 'CS-101');
+insert into test.prereq values ('CS-319', 'CS-101');
+insert into test.prereq values ('CS-347', 'CS-101');
+insert into test.prereq values ('EE-181', 'PHY-101');
 </pre>
-<p>可以看到, department是最基础的表, 这张表没有任何完整性约束由其他关系确定. 然后course表的系名称要和department一致, 讲师所属的系名称也要和department表一致. section中的course_id要和course表一致.</p>
-<p>而teaches表, 实际上是一个纯粹的完整性约束表, 用现实语言来讲, 就是反映老师教哪些课的一个关系.</p>
-<p>然后是插入数据:</p>
-<pre>
-insert into test.course values ('BIO-101', 'Intro.to.Biology', 'Biology', 4);
-insert into test.course values ('BIO-301', 'Genetics', 'Biology', 4);
-insert into test.course values ('BIO-399', 'Computational Biology', 'Biology', 3);
-insert into test.course values ('CS-101', 'Intro.to Computer Science', 'Comp.Sci.', 4);
-insert into test.course values ('CS-190', 'Game Design', 'Comp.Sci.', 4);
-insert into test.course values ('CS-315', 'Robotics', 'Comp.Sci.', 3);
-insert into test.course values ('CS-319', 'Image Processing', 'Comp.Sci.', 3);
-insert into test.course values ('CS-347', 'Database System Concepts', 'Comp.Sci.', 3);
-insert into test.course values ('EE-181', 'Intro.to Digital Systems', 'Elec.Eng.', 3);
-insert into test.course values ('FIN-201', 'Investment Banking', 'Finance', 3);
-insert into test.course values ('HIS-351', 'World History', 'History', 3);
-insert into test.course values ('MU-199', 'Music Video Production', 'Music', 3);
-insert into test.course values ('PHY-101', 'Physical Principles', 'Physics', 4);
-
-insert into test.instructor values ('10101', 'Srinivasan', 'Comp.Sci.', 65000);
-insert into test.instructor values ('12121', 'Wu', 'Finance', 90000);
-insert into test.instructor values ('15151', 'Mozart', 'Music', 40000);
-insert into test.instructor values ('22222', 'Einstein', 'Physics', 95000);
-insert into test.instructor values ('32343', 'El Said', 'History', 60000);
-insert into test.instructor values ('33456', 'Gold', 'Physics', 87000);
-insert into test.instructor values ('45565', 'Katz', 'Comp.Sci.', 75000);
-insert into test.instructor values ('58583', 'Califeiri', 'History', 62000);
-insert into test.instructor values ('76543', 'Singh', 'Finance', 80000);
-insert into test.instructor values ('76766', 'Crick', 'Biology', 72000);
-insert into test.instructor values ('83821', 'Brandt', 'Comp.Sci.', 92000);
-insert into test.instructor values ('98345', 'Kim', 'Elec.Eng.', 80000);
-</pre>
+<p>这么一通操作之后, 基础的数据准备好了. 就可以来用Java连PostgreSQL</p>
 
 <h2 style="text-align: center;" id="con2">Java连接PgSQL</h2>
 <p>很显然, 有了JDBC的经验, 我们知道不管在上边套什么ORM框架, 一开始总要使用JDBC来连接PgSQL.</p>
@@ -125,17 +302,145 @@ insert into test.instructor values ('98345', 'Kim', 'Elec.Eng.', 80000);
     &lt;version>42.2.9&lt;/version>
 &lt;/dependency>
 </pre>
-<p>驱动的<a href="https://jdbc.postgresql.org/documentation/head/index.html" target="_blank">文档</a>里有操作步骤, 跟着来用一下, 实际上JDBC这套样板戏已经唱了不知道多少次了.</p>
-<p></p>
+<p>驱动的<a href="https://jdbc.postgresql.org/documentation/head/connect.html" target="_blank">文档</a>里有操作步骤, 跟着来用一下, 实际上JDBC这套样板戏已经唱了不知道多少次了. 现在反射式的加载方式已经不使用了, 直接用DriverManager就可以了:</p>
+<pre>
+import java.io.*;
+import java.sql.*;
+import java.util.Properties;
+
+public class Test {
+
+    public static void main(String[] args) throws IOException, SQLException {
+//        可以采取Properties的方式, 也可以直接编写URL字符串
+//        String url = "jdbc:postgresql://106.54.215.164/mydb";
+//        Properties props = new Properties();
+//        props.setProperty("user","minkolee");
+//        props.setProperty("password","fflym0709");
+//        <span style="color: red">props.setProperty("currentSchema","test");</span>
+//        Connection conn = DriverManager.getConnection(url, props);
+
+        String url = "jdbc:postgresql://106.54.215.164/mydb?user=minkolee&password=fflym0709&<span style="color: red">currentSchema=test</span>";
+        Connection conn = DriverManager.getConnection(url);
+
+        System.out.println(conn);
+
+        String sql = "SELECT * FROM test.department";
+        Statement statement = conn.createStatement();
+        ResultSet resultSet = statement.executeQuery(sql);
+        while (resultSet.next()) {
+            System.out.println(resultSet.getString(1));
+        }
+    }
+}
+</pre>
+<p>这里使用了两种方式, 都可以连接到PgSQL数据库. 不设置其他任何参数的话, 如果不指定schema, 连到数据库上的时候默认使用数据库的public schema, 这里因为之前的表都是在test上创建的, 所以指定了currentSchema=test.</p>
+<p>不过要注意, 在数据库中, 还是需要指定schema, 习惯就好. 这其实是让PgSQL更加清晰了. 当然也可以自己设置search_path, 不过现阶段觉得还是自己显式指定schema比较好.</p>
+<p>现在调通了, 就先来学习一下关系型数据库的基本知识和SQL语句吧</p>
+
+<h2 style="text-align: center;" id="con3">关系 元组 主键 外键</h2>
+<p>在没有此次正式研究数据库之前, 我一直朦胧的认为关系型数据库中的关系指的是外键, 简单的想, 有了外键才让两张表有关系嘛.</p>
+<p>现在一正规的看, 原来对于数据库的概念从表, 行, 外键 ,现在升级成了关系, 元组和约束. 立刻就不同了. 下边就来看看:</p>
+<p>首先是<strong>关系</strong>这个词, 就是指代表. 所以关系型数据库, 可以简单的说成就是一堆表的集合. 关键是这个关系是什么.</p>
+<p>我自己理解了一下, 其实是这样的: 假如有一个表, 表的各个列分别是姓名, 年龄, 身份证号. 既然这三个列写在一起, 那么就说明, 这个表里的每一行, 自然都是对应一个同时具有这三个属性的一个对象. 用人话来说一行应该就是一个人的身份信息.</p>
+<p>如果我们规定表里的身份证号不能重复, 那么每行就是一个人的信息.</p>
+<p>可见, 姓名, 年龄, 身份证号这三个属性, 如果我们有三个表, 第一张表只有姓名一列, 第二张表只有年龄一列, 第三张表只有身份证号一列, 那么三个表的同一行(比如第一行), 无法判断是不是指的是同一个人. 但我们将其并排在一张表的时候, 这三个属性之间就有了关系, 如果一行数据写到了这张表, 这行数据就代表同时具备这三个属性的一个对象.</p>
+<p>也就是说, 只要将不同的属性并排作为同一个表的列, 那么这些属性就描述了一个数据对象各个属性间的关系. 所以表就代表一种关系, 关系就是通过表反映出来. 像姓名, 年龄, 身份证号可能记录一个人的信息, 而另一个表的字段是1996, 1997, 1998可能就代表了一个具有不同时间对应的属性的对象, 其关系显然和前者是不同的关系.</p>
+<p>对于一个关系来说, 关系是抽象的, 落实到具体的数据对象上, 就是数据表的一行. 一行数据就是一个<strong>关系实例</strong>, 也被称作元组. 一个元组内的各个属性, 显然就是和表具有一样的关系, 即共同描述了一个数据对象.</p>
+<p>对于关系的每一个属性(也就是表的一列), 都会有一个允许取值的集合, 称为这个属性的域(domain), 这个术语倒是很熟悉, 对象的属性也被称为域. 读到这里, 我就知道为什么会有ORM了, 因为这个映射本质上是非常符合面向对象的逻辑的.</p>
+<p>域根据我们是否要将其再分割, 可以是原子的或者不是原子的. 是否原子性取决于我们要怎么使用和看待数据, 而不是数据本身.</p>
+<p>数据库系统概念中将schema称为数据库模式, 对应的实例是数据库实例. 这和之前schema的定义不同, 稍加了解就可以.</p>
+<p>关键是下边的内容, 就是关系模式的概念对应程序设计语言中类型定义. 从前边的描述可以知道, 一个关系, 很像一个类. 一行, 就是一个具体的对象, 各个行之间的区别, 和面向对象的对象的区别一样, 都是域的取值的区别. 读到这里我也理解了为什么每创建一个表, PgSQL会在内部生成一个对应的数据类型. 同时这也再次印证了ORM映射真的是一个非常自然的结果.</p>
+<p>其次是<strong>码(key)</strong>. 所谓key, 就是区分一个关系中所有元组的方法或者说标志. 前边已经说了, 不同元组的区别在于其属性不同, 如果两个元组在所有的属性上取值都相同, 那就是相同的元组. 为了区分元组, 就必须让任意两个元组不能在所有属性上的取值都相同.</p>
+<p><strong>超码(superkey)</strong>指的是这样一个集合: 即一个关系中某些属性的集合, 可以唯一的标识一个元组. 比如instructor表中的ID, 可以区分不同的教师, 但name属性未必. 所以ID是一个超码, name不是. 但是注意, ID+name的组合, 也是一个超码.
+原理很简单, 因为ID已经不会有两个相同的, 所以ID加上任意字段, 都不会有两个元组的 ID和其他字段同时取相同的值. 所以很显然, 如果知道了一个超码, 则这个超码的所有超集都是超码.</p>
+<p>所以用任意的超码去规定一个关系中的重复元素没有必要, 只关心一种超码, 就是任意子集都无法成为超码的超码, 其实就是一种最小超码, 术语叫做(candidate key).</p>
+<p>在一个关系中, 候选码未必只有一个集合, 可能有多个列是候选码, 也可能由多个列组成候选码. 当我们设计数据库的时候, 选中的用于标识唯一性的候选码, 就有了熟悉的名称, 即<strong>主键(primary key)</strong>.</p>
+<p>其实到这里还是很容易理解的, 主键就是最方便的能够标识唯一性的属性或者属性的组合. 一般在写SQL语句的时候, 会将主键写在第一个属性的位置, 如果用模式图的话, 会在主键下边加上下划线. 如果看到一个关系中有多个属性被标上下划线, 则这些属性共同组成最小超码并被选为主键.</p>
+<p>然后是外键(foreign key), 外键这里不要按照原来的思想说什么关联到其他表. 只要记住其抽象定义, 即一个关系r1中的属性fk取值范围是另外一个关系r2的主键. 我们就称r1为参照关系, r2为被参照关系, fk为r1参照r2的外键.</p>
+<p>可见外键的关键是搞清楚属性到底位于哪里, 外键所在的关系是参照关系, 外键的值是哪个关系的主键, 那个关系就是被参照关系. 外键是站在参照关系的角度来说的, 被参照关系中没有外键一说.(当然, 如果已经知道fk为r1参照r2的外键存在, 那r2到r1也是有反向的关联关系, 也可以反向查询: 比如instructor表中的dept_name就是外键, 我们可以知道讲师对应哪个系, 当然也可以查一个系拥有哪些讲师, 只不过不称为外键关系).</p>
+<p>外键是参照完整性约束的一个特化例子. 参照完整性约束指的是参照关系中任意元组在特定属性上的取值必然等于被参照关系中某个元组在特定属性上的取值. 外键就是参照完整性约束中, 参照关系的特定属性(外键)等于被参照关系的主键的情况.</p>
+
+<h2 style="text-align: center;" id="con4">关系运算</h2>
+<p>这里其实是最精彩的地方, 理解了之后再看SQL, 真的就理解更深了.</p>
+<p>所有的查询语言, 都提供的是对关系的一种运算, 这些运算要么作用于单个关系, 要么作用于多个关系, 而最关键的是, <strong>运算结果是一个关系.</strong></p>
+<p>这就使得查询语言可以像递归一样, 对运算的结果再进行查询, 然后再进行查询....</p>
+<p>常用的运算有:</p>
+<ol>
+    <li>从关系中选出满足一些特定条件的属性的元组, 这样选出的结果是一个原有关系的子集. 也被称为选择关系运算</li>
+    <li>从关系中选出特定的属性的元组, 这样的结果是一个新关系(因为属性=列发生了变化), 也叫做投影关系运算</li>
+    <li>结合多个关系生成新的关系, 这种也叫做连接运算. 要详细解释一下.</li>
+</ol>
+<p>最普通的连接运算, 就是两个表的笛卡尔积, 即假设两个关系中间没有任何参考完整性约束. 那么为了连接两种关系, 唯一能做的就是将两种关系的所有可能匹配的关系都组成元组, 这样才能够存放在由两个关系的所有属性共同组成的新关系当中.</p>
+<p>举个简单的例子, 比如有两个表:</p>
+<pre>
+水果 | 产地
+苹果 | 烟台
+西瓜 | 上海
+
+高达型号 | 颜色
+RX-78-2 | 白色
+MSN-06S | 红色
+</pre>
+<p>如果将这两个表连接, 我们认为会创建一种新的关系, 即水果-产地-高达型号-颜色四个属性共同构成一个数据对象的四个属性这样一种关系(当然这究竟在现实中对应什么关系就不知道了, 可能是描述某些颜色的高达上可以携带一些水果及其对应产地的关系).</p>
+<p>每个表中各有2个对象, 则很显然, 如果需要完整的就当前的数据描述出结果, 我们要把所有的可能性都要考虑到, 自然结果就会是:</p>
+<pre>
+水果 | 产地 | 高达型号 | 颜色
+苹果 | 烟台 | RX-78-2 | 白色
+苹果 | 烟台 | MSN-06S | 红色
+西瓜 | 上海 | RX-78-2 | 白色
+西瓜 | 上海 | MSN-06S | 红色
+</pre>
+<p>这个结果的意思就是说, 如果这两张表的四个对象有了关系, 要将其合并成包含所有属性的一个关系, 那么其完整的关系对象就是 2 * 2 = 4种关系类型了, 这个关系运算的结果也就包含了将这两个关系组合之后所有可能的四种情况. (我们手头只有两种水果和两台高达, 从某一天开始要给所有高达的驾驶员在出击的时候带上水果, 这个关系运算的本质就反映了高达带水果的各种可能关系.)</p>
+<p>虽然看上去好像毫无道理硬拼起来, 但对于本来没有任何参照完整性约束的关系来说(也就是风马牛不相及的两批玩意), 硬要说出什么关系, 那就是只能一个一个匹配过来, 也就是笛卡尔积的形式了.</p>
+<p>所有连接运算的本质, 都可以认为是先生成笛卡尔积, 然后再从结果中去掉不符合要求的元组, 最后得到结果. 当然在实际的运算中, 数据库未必是按照这个原理来运算的.</p>
+<p>知道了连接运算的本质, 就可以来看一些特殊的连接了.</p>
+<p>首先是前边提到的外键, instructor关系中的dept_name属性是外键, 被参照对象是department关系的主键. 如果将这两个关系进行连接, 以instructor的属性放在前边的话, 很显然, 连接的关系的属性的前边几个属性还是ID, name, salary, 然后是dept_name, 很自然的, 由于dept_name是主键, 我们只要从department关系中挑出这一行拼在后边, 就得到了一个新的关系.</p>
+<p>instructor关系中有12个元组, department关系中有7个元组, 这么连接你一定想到了, 结果就是12个, 数量和instructor关系的元组相等, 而绝对不是笛卡尔积 12*7 = 94个.</p>
+<p>为什么这种连接起来的数量这么少, 本质上是因为相比前边的高达和水果的连接, 这两个关系中的不同元组有一个属性取值是相同的, 如果笛卡尔积将两个表的全部字段硬拼起来, 你会发现两个dept_name在不相等的情况下, 硬拼起来的结果毫无意义.(这个意义指的是不符合逻辑学的意义, 即一个讲师不可能同时是一个学院又是另外一个学院, 同时又不违反外键关系; 而不是指的现实关系, 高达和水果的例子也很荒唐, 但毕竟不存在关系逻辑上的问题.)</p>
+<p>这种连接就是自然连接. 执行查询:</p>
+<pre>SELECT * FROM test.instructor natural join test.department;</pre>
+<p>就可以得到这个结果:</p>
+<pre>
+Comp. Sci.	10101	Srinivasan	65000.00	Taylor	100000.00
+Finance	    12121	Wu	        90000.00	Painter	120000.00
+Music	    15151	Mozart	    40000.00	Packard	80000.00
+Physics	    22222	Einstein	95000.00	Watson	70000.00
+History	    32343	El Said	    60000.00	Painter	50000.00
+Physics	    33456	Gold	    87000.00	Watson	70000.00
+Comp. Sci.	45565	Katz	    75000.00	Taylor	100000.00
+History	    58583	Califieri	62000.00	Painter	50000.00
+Finance	    76543	Singh	    80000.00	Painter	120000.00
+Biology	    76766	Crick	    72000.00	Watson	90000.00
+Comp. Sci.	83821	Brandt	    92000.00	Taylor	100000.00
+Elec. Eng.	98345	Kim	        80000.00	Taylor	85000.00
+</pre>
+<p>确实只有12个, 与instructor的数量相等. 你可能会想如果执行<kbd>SELECT * FROM test.department natural join test.instructor;</kbd>会如何, 其实很简单, 依然是12个. 只是属性的位置发生了变化:</p>
+<pre>
+Comp. Sci.	Taylor	100000.00	10101	Srinivasan	65000.00
+Finance	    Painter	120000.00	12121	Wu	        90000.00
+Music	    Packard	80000.00	15151	Mozart	    40000.00
+Physics	    Watson	70000.00	22222	Einstein	95000.00
+History	    Painter	50000.00	32343	El Said	    60000.00
+Physics	    Watson	70000.00	33456	Gold	    87000.00
+Comp. Sci.	Taylor	100000.00	45565	Katz	    75000.00
+History	    Painter	50000.00	58583	Califieri	62000.00
+Finance	    Painter	120000.00	76543	Singh	    80000.00
+Biology	    Watson	90000.00	76766	Crick	    72000.00
+Comp. Sci.	Taylor	100000.00	83821	Brandt	    92000.00
+Elec. Eng.	Taylor	85000.00	98345	Kim	        80000.00
+</pre>
+<p>可见这里实际有多了两种关系运算, 即笛卡尔积和自然连接. 还有一些关系运算以后遇到再看, 目前的关键要知道连接运算的本质是笛卡尔积, 然后从笛卡尔积中去掉不需用的部分得到实际的连接运算的结果.</p>
+
+<h2 style="text-align: center;" id="con5">SQL初步</h2>
+<p>正式的来看一下SQL语言了. 这里先看一下SQL语言的概览, 然后后边开始仔细学. 据DBA大佬说, 完整学会SQL外加所使用数据库的方言, 每天看一点, 一个月也足够了. 那就搞起吧.</p>
 
 
 
 
-<h2 style="text-align: center;" id="con3"></h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
 
-<h2 style="text-align: center;" id="con5"></h2>
+
+
 <h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
