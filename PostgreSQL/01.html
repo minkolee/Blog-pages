@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>PostgreSQL 01 开始新支线</title>
+    <title>PostgreSQL 01 开启新世界</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -26,8 +26,8 @@
     <li><a href="#con2">安装PostgreSQL</a></li>
     <li><a href="#con3">初步使用</a></li>
     <li><a href="#con4">基础配置</a></li>
-    <li><a href="#con5">数据库们</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">database</a></li>
+    <li><a href="#con6">权限入门</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">PostgreSQL的相关资源</h2>
 <p>对于开发来说，想看一个新玩意，肯定是找到官网直接从文档开始。不过这是建立在已经了解数据库的基础规范上的，好比你研究Quartz之前已经一直在用Java，而不是说从来没接触过Java，直接要用Quartz，那就相当于你还要有Java的知识储备。对于我现在，还是要把数据库当成一个全新的概念来看待，而不是简单的就用PgSQL。</p>
@@ -183,13 +183,65 @@ postgres=# \password postgres
 <p>在上边的PgAdmin4中, 在登录的时候就指定了数据库名是postgres. 为什么不指定另外两个默认的template0和template1数据库, 是因为这两个数据库是模板数据库, 如果不作配置, 任何新建的数据库都会以template1作为新数据库的模板.</p>
 <p>而template0不要去修改, 这是原始的干净模板, 实际上template1也是从template0复制的, 不直接使用0就是怕搞坏了.</p>
 <p>基于模板创建数据库的语法是: <kbd>CREATE DATABASE my_db TEMPLATE my_template;</kbd></p>
-<p>指定一个数据库为模板数据库的语法是: <kbd></kbd></p>
+<p>指定一个数据库为模板数据库的语法(需要超级用户)是: <kbd></kbd></p>
+<pre>UPDATE pg_database SET datistemplate = TRUE WHERE datname = 'mydb';</pre>
+<p>如果想取消, 就SET datistemplate = FALSE即可. 一旦成为模板数据库, 是无法对其修改的.</p>
+<p>database下边是什么呢, 以前不清楚的时候, 以为数据库里边就是表. 实际上数据库的下一层逻辑叫做schema.</p>
+<p>一个schema我个人理解就可以看成是数据库中存放的所有东西的一个集合, 像一个命名空间一样, 一个database中可以有多个schema.</p>
+<p>这些schema不能重名, 但各个schema中可以有重名的表. 查询的时候可以使用 schema1.user 这样来指定schema. postgresql.conf中还有一个search_path变量, 用于配置查找顺序.</p>
+<p>数据库初始化之后, 有一个默认的schema叫做public, 所有用户都可以在其中创建表. 关于权限发现一篇文章不错: <a href="http://www.pgsql.tech/article_101_10000036" target="_blank">对PostgreSQL中权限的理解(初学者必读)</a>.</p>
+<p>如果是本地使用, 一般的做法是收回public schema的权限, 然后创建一个database 和一个role, 然后指定role为这个数据库的属主. 属主之后就可以在表中创建schema和其他内容. 然后可以再新建两个用户, 给他们对于这个schema中的表的响应权限.</p>
+<p>这样就形成了DBA掌握超级用户, 具体应用的负责人掌握某个schema, 然后下边的开发人员根据开发情况来选择具体用户.</p>
+<p>所以schema的用法就是对新用户, 或者新的扩展创建一个schema. 而如果不同应用, 最好还是分库而不是单独分schema. 由于连接数据库的时候就必须指定数据库, 所以实际上就是直接操作schema了.</p>
+
+<h2 style="text-align: center;" id="con6">权限入门</h2>
+<p>需要创建一个数据库,也是为了之后看SQL和Hibernate的时候要用. 先来创建一个角色, 以便成为要创建的数据库的属主:</p>
+<pre>
+CREATE ROLE minkolee LOGIN PASSWORD '******';
+</pre>
+<p>psql会提示 CREATE ROLE, 说明创建成功, 刷新一下PgAdmin4, 其中也看到了这个新的角色.</p>
+<p>之后创建一个数据库, 并指定拥有者:</p>
+<pre>
+CREATE DATABASE mydb WITH owner = minkolee;
+</pre>
+<p>会提示创建了数据库, 刷新PgAdmin4后, 可以看到连接的PgSQL实例中的Databases对象下, 出现了新创建的mydb数据库. 右键点击查看Properties, 其中的owner显示为minkolee. 这就创建了一个数据库及其属主.</p>
+<p>现在我们来换成minkolee登录. 数据库选成自己的 mydb, 登录之后也可以看到postgres数据库, 但是想在postgres中创建schema, 会提示没有权限. 这是因为目前我们的权限仅仅只是mydb的属主. 对于postgres没有权限.</p>
+<p>在mydb中, 就可以创建schema和表了. 可以看到实际的SQL命令中后边加上了 AUTHORIZATION minkolee. </p>
+<p>一个角色的权限, 有一些是在创建角色和数据库的时候指定的, 比如超级用户权限, 创建database的权限, 登录权限和创建其他用户和角色的权限.</p>
+<p>GRANT命令则一般用来赋予用户对一些数据库中的对象进行增删改查的权限. 命令的格式是 GRANT 权限 ON 目标schema TO 角色 .</p>
+<p>GRANT的细节非常多, 用到的时候还是查看官方手册吧, 常见的权限是:</p>
+<ol>
+    <li>USAGE, 对一个数据库进行任何操作之前, 先得赋予这个权限, 没有这个权限, 其他的权限也没用</li>
+    <li>SELECT, 查询权限</li>
+    <li>UPDATE, 新增</li>
+    <li>ON SEQUENCE, 后续, 如果不加SEQUENCE, 仅仅当前存在于目标SCHEMA上的表才有效, 新创建的表对于用户来说一样没权限.</li>
+</ol>
+<p>每个数据库都有一个默认的public schema, 任何用户都有在其上的权限, 系统会默认在上边赋予所有人CONNECT, 执行函数, 创建临时表的权限, 所以一般要收回来. PgSQL中所有用户都属于一个虚拟的public组角色, 所以要从这个组角色上把权限收回来:</p>
+<pre>
+REVOKE CREATE ON SCHEMA public from public;
+</pre>
+<p>这样就收回了public组用户可以在所有public schema上创建新对象的权限. 然后就可以再创建新用户, 给其具体的权限了.</p>
+<p>这里补充一下, 我用PgAdmin4创建了一个新表,发现没法删除, 后来发现可能是PgAdmin4生成的语句有些问题, 所以这里记录下来如何使用命令行登录PgSQL.</p>
+<ol>
+    <li>需要修改 pg_hba.conf 文件, 默认的是Unix本地采用peer方式, 将local对应的那一行改成md5方式, 即需要验证密码. 这样在系统中切换成postgres用户, 也需要输入密码了. 可见默认数据库叫做postgres其实是为了简便.</li>
+    <li>使用$ psql -U minkolee -d mydb; 来登录, 之后输入密码, 不指定数据库名称的话, 会用和用户名相同的数据库, 导致找不到数据库无法登录.</li>
+    <li>登录进来之后, 默认已经使用了mydb, 可以通过\c name, 来切换数据库</li>
+    <li>\dt 可以查看数据库中所有的关系, 会按照schema和表都列出来. 如果是空就显示Did not find any relations.</li>
+    <li>之后就可执行命令了, 我就执行了DROP TABLE test;把刚才通过PgAdmin4创建的表给删除了.</li>
+    <li>创建Schema CREATE SCHEMA my_schema; 创建表的时候都可以使用schema.table的方式来操作.</li>
+</ol>
+<p>后边我又反复测试了几个命令, 可以创建SCHEMA对应的表, 删除表和schema. 总算稍微折腾点入门了.</p>
+<p>剩下就是来重新看一下数据库关系理论和学一下SQL了, 以及从Java连接PgSQL.</p>
 
 
 
 
 
-<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>

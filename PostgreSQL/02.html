@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>PostgreSQL 02 Java连接PostgreSQL</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>上一篇初步折腾了一下数据库, 数据库远不像一个库那么简单. 不过不要忘记初心, 最终是为了折腾Hibernate和Spring, 所以这一节就用Java来连一下, 然后看一点数据库基础理论, 再开始SQL.</p>
+
+<ol>
+    <li><a href="#con1">准备数据</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">准备数据</h2>
+<p>在这之前, 先按照上一篇的数据库操作中, 在mydb中创建一个新的schema, 叫test好了, 反正也想不出什么名字. 之后按照数据库系统概念(第六版)第二章的instructor表来创建一个表看看:</p>
+<pre>CREATE TABLE test.department (dept_name varchar(20),buidling varchar(15),budget numeric(12,2),primary key(dept_name));
+</pre>
+<p>然后可以插入一系列的数据, 不过为了插入方便一些, 可以用IDEA来配置数据源, 与连接MySQL等不同的是, PostgreSQL在配置好端口和数据库等内容的时候, 还需要到Schemas选项卡中, 选中mydb下边的test schema. 这样就可以看到department表了.</p>
+<p>在连接设置中可以随时修改schema, 比较方便.</p>
+<p>然后可以插入一些数据:</p>
+<pre>
+insert into test.department values ('Biology','Watson',90000);
+insert into test.department values ('Comp.Sci.','Taylor',100000);
+insert into test.department values ('Elec.Eng.','Taylor',85000);
+insert into test.department values ('Finance','Painter', 120000);
+insert into test.department values ('History','Painter', 50000);
+insert into test.department values ('Music','Packard', 80000);
+insert into test.department values ('Physics','Waston', 70000);
+</pre>
+<p>这就算有了最基础的东西了, 把数据库系统概念里的表都写成SQL加进去:</p>
+<pre>
+CREATE TABLE test.course (
+    course_id varchar(7),title varchar(50), dept_name varchar(20),credits numeric(2,0),primary key (course_id),foreign key (dept_name) references test.department
+);
+
+CREATE TABLE test.instructor
+(
+    ID        varchar(5),
+    name      varchar(20) not null,
+    dept_name varchar(20),
+    salary    numeric(8, 2),
+    primary key (ID),
+    foreign key (dept_name) references test.department
+);
+
+CREATE TABLE test.section
+(
+    course_id    varchar(8),
+    sec_id       varchar(8),
+    semester     varchar(6),
+    year         numeric(4, 0),
+    building     varchar(15),
+    room_number  varchar(7),
+    time_slot_id varchar(4),
+    primary key (course_id, sec_id, semester, year),
+    foreign key (course_id) references test.course
+);
+
+CREATE TABLE test.teaches
+(
+    ID        varchar(5),
+    course_id varchar(8),
+    sec_id    varchar(8),
+    semester  varchar(6),
+    year      numeric(4, 0),
+    primary key (Id, course_id, sec_id, semester, year),
+    foreign key (course_id, sec_id, semester, year) references test.section,
+    foreign key (ID) references test.instructor
+);
+</pre>
+<p>可以看到, department是最基础的表, 这张表没有任何完整性约束由其他关系确定. 然后course表的系名称要和department一致, 讲师所属的系名称也要和department表一致. section中的course_id要和course表一致.</p>
+<p>而teaches表, 实际上是一个纯粹的完整性约束表, 用现实语言来讲, 就是反映老师教哪些课的一个关系.</p>
+<p>然后是插入数据:</p>
+<pre>
+insert into test.course values ('BIO-101', 'Intro.to.Biology', 'Biology', 4);
+insert into test.course values ('BIO-301', 'Genetics', 'Biology', 4);
+insert into test.course values ('BIO-399', 'Computational Biology', 'Biology', 3);
+insert into test.course values ('CS-101', 'Intro.to Computer Science', 'Comp.Sci.', 4);
+insert into test.course values ('CS-190', 'Game Design', 'Comp.Sci.', 4);
+insert into test.course values ('CS-315', 'Robotics', 'Comp.Sci.', 3);
+insert into test.course values ('CS-319', 'Image Processing', 'Comp.Sci.', 3);
+insert into test.course values ('CS-347', 'Database System Concepts', 'Comp.Sci.', 3);
+insert into test.course values ('EE-181', 'Intro.to Digital Systems', 'Elec.Eng.', 3);
+insert into test.course values ('FIN-201', 'Investment Banking', 'Finance', 3);
+insert into test.course values ('HIS-351', 'World History', 'History', 3);
+insert into test.course values ('MU-199', 'Music Video Production', 'Music', 3);
+insert into test.course values ('PHY-101', 'Physical Principles', 'Physics', 4);
+
+insert into test.instructor values ('10101', 'Srinivasan', 'Comp.Sci.', 65000);
+insert into test.instructor values ('12121', 'Wu', 'Finance', 90000);
+insert into test.instructor values ('15151', 'Mozart', 'Music', 40000);
+insert into test.instructor values ('22222', 'Einstein', 'Physics', 95000);
+insert into test.instructor values ('32343', 'El Said', 'History', 60000);
+insert into test.instructor values ('33456', 'Gold', 'Physics', 87000);
+insert into test.instructor values ('45565', 'Katz', 'Comp.Sci.', 75000);
+insert into test.instructor values ('58583', 'Califeiri', 'History', 62000);
+insert into test.instructor values ('76543', 'Singh', 'Finance', 80000);
+insert into test.instructor values ('76766', 'Crick', 'Biology', 72000);
+insert into test.instructor values ('83821', 'Brandt', 'Comp.Sci.', 92000);
+insert into test.instructor values ('98345', 'Kim', 'Elec.Eng.', 80000);
+</pre>
+
+<h2 style="text-align: center;" id="con2">Java连接PgSQL</h2>
+<p>很显然, 有了JDBC的经验, 我们知道不管在上边套什么ORM框架, 一开始总要使用JDBC来连接PgSQL.</p>
+<p>老套路, 先找到<a href="https://jdbc.postgresql.org/" target="_blank">PgSQL的JDBC驱动</a>. 写文章时候最新的是2019年12月6号发布的42.2.9版.</p>
+<p>把驱动依赖加入到Maven配置中:</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.postgresql&lt;/groupId>
+    &lt;artifactId>postgresql&lt;/artifactId>
+    &lt;version>42.2.9&lt;/version>
+&lt;/dependency>
+</pre>
+<p>驱动的<a href="https://jdbc.postgresql.org/documentation/head/index.html" target="_blank">文档</a>里有操作步骤, 跟着来用一下, 实际上JDBC这套样板戏已经唱了不知道多少次了.</p>
+<p></p>
+
+
+
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
