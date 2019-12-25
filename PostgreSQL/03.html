@@ -23,9 +23,9 @@
     <li><a href="#con1">SQL基础语法</a></li>
     <li><a href="#con2">基础数据类型</a></li>
     <li><a href="#con3">DDL</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">查询</a></li>
+    <li><a href="#con5">AS 重命名</a></li>
+    <li><a href="#con6">字符串运算</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">SQL基础语法</h2>
 <p>从Python, C, Java这么一路走过来, 最近这一年没有折腾新的语言. 现在年尾了折腾一下SQL.</p>
@@ -101,21 +101,134 @@
 <p>而varchar的比较取决于实现, 所以如果不是特定情况, 比如UUID之类的存放, 而是存普通的字符串, 推荐使用varchar. SQL规定nvarchar可以用来存放Unicode数据, 现实是很多数据库直接都可以指定编码, 这样普通的字符串也可以存放Unicode数据.</p>
 
 
-<h2 style="text-align: center;" id="con3">DDL</h2>
+<h2 style="text-align: center;" id="con3">DDL - 关系操作</h2>
 <p>DDL既然是描述关系, 其本质就是操作表, 自然包含增删改表, 创建一个表不是一个空白的, 而是包含各个属性, 所以要先知道上边的数据类型才能定义属性.</p>
 <p>用CREATE TABLE来定义(创建)关系, 格式为 <kbd>CREATE TABLE 表名 (属性名1 数据类型1, 属性名2 数据类型2...., 完整性约束...)</kbd></p>
+<p>属性名和数据类型好懂, 关键是后边的完整性约束, 有如下几种:</p>
+<ol>
+    <li>primary key(属性名1, 属性名2....), 表示其中的属性(共同)是主键. 主键默认非空(not null)而且唯一(不能重复)</li>
+    <li>foreign key(属性名) references B, 表示外键, 这个前边已经知道了,属性名是当前关系的属性名, 而B是被参照关系的名称.</li>
+    <li>not null, 这个要紧跟在属性名和数据类型之后, 表示该属性不能为空.</li>
+</ol>
+<p>删除关系使用 DROP TABLE tablename. 如果不删除关系, 仅仅删除一个关系内的全部元组, 可以使用 DELETE FROM tablename.</p>
+<p>修改关系则需要使用ALTER TABLE, 这个语句有两个写法, 一个表示给关系添加属性: ALTER TABLE tablename ADD A, D; 其中A是属性名称, D是数据类型.</p>
+<p>另一个写法表示删除一个属性, 如果存在元组, 元组的这个值也会被删除: ALTER TABLE tablename DROP A; A是属性的名称, 这个就相当于从表里删除一列.</p>
+<p>对关系的增删改的基础操作就是这些, 等看到后边章节可以再来补, 尤其是完整性约束的内容.</p>
 
+<h2 style="text-align: center;" id="con4">查询</h2>
+<p>从这里开始就是DML的内容了, 也就对元组=具体数据对象的增删改查了. 核心就是查. 而删除一般是不允许普通用户操作的.</p>
+<p>查询的基础语句是 SELECT FROM WHERE三个子句构成, 三个子句的顺序一定是 SELECT FROM WHERE, 不能够任意更改.</p>
+<p>最基础的从单个关系中查询的语句是 SELECT A.. FROM B, 其中A是属性名称, B是关系名称, 这个查询的结果是由A..组成的一个新关系.</p>
+<p>在默认情况下, 即使A..中有重复的内容, 也会被挑选出来. 如果想要去掉重复, 需要在SELECT之后加上distinct语句. </p>
+<p>实验一下:</p>
+<pre>
+SELECT dept_name FROM test.instructor;
+SELECT distinct dept_name FROM test.instructor;
+</pre>
+<p>很明显可以看到后者去重. 还可以对属性使用运算符, 以获得运算后的结果. 比如:</p>
+<pre>
+SELECT name, salary * 1.5 FROM test.instructor;
+</pre>
+<p>这个出来的结果就是名称与1.5倍的原来salary取值的元组组成的新关系. 实际上还有一些函数也可以作用于属性上, 返回来的结果就是函数执行后的结果. 一会就可以用上聚合函数了.</p>
+<p>还记得查询的结果也是一个关系吗. FROM子句后边就是一个关系, 所以FROM后边跟一个表名, 也可以跟一个查询.</p>
+<p>WHERE子句则表示条件, 用特定谓词表示某个条件, 只会选中符合条件的结果. 其中可以使用 and or not 和< <= = > >= <> 逻辑运算符.</p>
+<p>比如我们想知道, 给所有的讲师涨完20%的工资之后, 有几个人大于100000元:</p>
+<pre>
+SELECT name FROM test.instructor WHERE test.instructor.salary * 1.2 >100000;
+</pre>
+<p>上边就是查询语句的最简单用法, 也就是从一个表内查询. 不过这也是基础.</p>
+<p>如果要从多个表内查询, 就要明确的指出哪个表的属性名, 除非这个属性名在所有被选的表中是唯一的.</p>
+<p>比如我们从两个表中选出一些列, 那就会得到笛卡尔积, 比如:</p>
+<pre>
+SELECT test.instructor.dept_name, section.building FROM test.instructor, test.section;
+</pre>
+<p>结果有180行, instructor表有12行, section表有15行, 可见结果就是一个笛卡尔积.</p>
+<pre>
+SELECT test.course.title, test.department.building
+FROM test.department,
+     test.course
+WHERE test.course.dept_name = test.department.dept_name;
+</pre>
+<p>这个查询语句如果不加上后边的WHERE, 结果依然是一个笛卡尔积 13*7 = 91个, 注意这两个表有外键关联, 但在从多表查询的时候, 不加WHERE语句, 依然是笛卡尔积. 如果用SELECT * 来执行不带WHERE的语句, 可以看的更清晰, 有WHERE的就是从其中取走了department.dept_name与course.dept_name相等的行.</p>
+<p>当然, 由于有外键关系, 使用WHERE语句的查询是有意义的, 表示可以查到课程与系所在楼的关系, 而笛卡尔积中不属于这个关系以外的关系并不是常见的关系.</p>
+<p>这里很显然, 如果将FROM子句改成 FROM test.department natural join test.course 也可以得到想要的结果. 不过如果使用SELECT *, 就可以发现natural join 与使用WHERE查询的细微区别(多表查询有两个dept_name列, 而natural join 只有一列dept_name).</p>
+<p>所以多表查询的关键就是, FROM之后以逗号分隔的关系, 会组成笛卡尔积, 组成之后, 再根据WHERE条件从中选取符合条件的结果. 回头看看上一篇文章里关系型数据库的理论, 会发现数据库确实完美的符合理论.</p>
 
+<h2 style="text-align: center;" id="con5">AS 重命名</h2>
+<p>重命名非常有用, 在出现子查询的时候, SQL更是要强制给子查询命名. 我们刚才计算工资, 如果执行如下查询:</p>
+<pre>
+SELECT name, salary*1.2 FROM test.instructor;
+</pre>
+<p>得到的新关系中1.2倍工资的属性, 没有名称. 如果将这个关系再当做一个关系, 就无法查询这个1.2倍工资的属性, 这个时候就可以给新的属性赋予一个名称:</p>
+<pre>
+SELECT name, salary * 1.2 as new_salary FROM test.instructor;
+</pre>
+<p>这个时候所得到的关系第二列就有了名称, 将其作为子查询的时候, 也可以查到, 比如:</p>
+<pre>
+SELECT foo.new_salary
+FROM (SELECT name, salary * 1.2 as new_salary
+      FROM test.instructor) as foo;
+</pre>
+<p>SQL规定, 子查询必须被as一个名称. 由于我们指定了子查询的新列是new_salary, 又指定了子查询关系的名称是foo, 所以就可以用foo.new_salary来查到这一列薪水了.</p>
+<p>AS 语句只能出现在SELECT和FROM中, 起到命名的作用, WHERE语句中无法使用AS, 只能使用前边语句中由AS新命名的名称, 例如:</p>
+<pre>
+SELECT (foo.new_salary)
+FROM (SELECT name, salary * 1.2 as new_salary
+      FROM test.instructor) as foo
+WHERE foo.new_salary > 90000;
+</pre>
+<p>重命名还有一个重要的作用, 就是自己与自己进行比较. 比如我们符合这样条件的老师: 不属于Biology系和Physics系的, 工资比至少一个Biology系的老师工资要高的老师.</p>
+<p>这个先不用想SQL, 就想如何做, 其实很简单, 只要求instructor和其自身的笛卡尔积, 然后应用条件就可以, 问题是如何使用SQL语句呢? 两个关系虽然都是instructor, 但实际上还是两个关系做笛卡尔积, 一般这种情况都会采用命名, 有了两个命名, 实际上就可以明确的指定笛卡尔积中一半来自一个关系的列, 另一半来自另外一个关系的同名列了.</p>
+<pre>
+SELECT T1.name, T1.salary, T1.dept_name
+FROM test.instructor as T1,
+     test.instructor as T2
+WHERE T1.salary > T2.salary and T2.dept_name='Biology' and T1.dept_name<>'Physics' and T1.dept_name<>'Biology';
+</pre>
+<p>如果不用命名, 这种查询就没办法写出来.</p>
 
-
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+<h2 style="text-align: center;" id="con6">字符串运算</h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 </body>
 </html>
