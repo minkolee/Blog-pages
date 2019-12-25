@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>PostgreSQL 03 SQL-DDL</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>SQL和Java这种还不同, 如果是Java相同的版本, 语法都一样. 但不同的数据库可能支持的具体SQL语句不尽相同, 这就是通常所说数据库使用的是SQL方言的来历.</p>
+<p>然后这两天把各种书捋了一遍, 细细思考, 发现顺序还真不能错, 必须得先会基础理论, 再扩展到PgSQL的具体实践上. 所以SQL还是得先学通用知识和理论, 再看具体的. 包括再深入的比如数据类型, 也是这样, 从通用到具体.</p>
+<p>既然也是一门语言, 也会有关键字, 常量等等要素, 开始吧!</p>
+
+<ol>
+    <li><a href="#con1">SQL基础语法</a></li>
+    <li><a href="#con2">基础数据类型</a></li>
+    <li><a href="#con3">DDL</a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">SQL基础语法</h2>
+<p>从Python, C, Java这么一路走过来, 最近这一年没有折腾新的语言. 现在年尾了折腾一下SQL.</p>
+<p>SQL一条命令由一个分号结尾. 可以一次写多条语句, 顺序执行. 和其他语言一样, 也由各个TOKEN组成.</p>
+<p>每个TOKEN可以是一个关键字, 一个标识符, 字面量或者特殊字符. TOKEN一般用空白(不是空格)来区分, 所以可以写的比较随意, 可以换行. 仅仅有些特殊地方需要严格书写.</p>
+<p>学语言肯定要先知道关键字. 本来想找找<a href="https://www.iso.org/standard/53681.html" target="_blank">SQL 2011的标准</a>看看, 然后发现2016版有更新, 跟过去一看, 下载还收费.</p>
+<p>所以这一块就暂时参考<a href="http://www.pgsql.tech/doc_401" target="_blank">PostgreSQL中文技术站提供的10.1版本手册</a>, 这里不赘述了, 我简单看了一下列表, 除了常用的之外, 剩下的也基本不会遇到了.</p>
+<p>标识符用来表示关系, 属性, 以及其他数据库中的对象的名字, 所以也被简称为名字. 有一种特殊的标识符, 就是如果数据库对象的名称和关键字相同, 则要给标识符加上双引号.</p>
+<p>关键字和标识符对大小写不敏感.</p>
+<p>常量有两种, 一个是纯数字, 一个是字符串.</p>
+<p>PgSQL中还支持标识符用Unicode码点, 以及字符串转义和位串.</p>
+<p>操作符有这些: + - * / < > = ~ ! @ # % ^ & | ` ?. 具体用法遇到再说.</p>
+<p>我翻了一下官网, 官网SQL的逻辑与数据库系统概论还不太相同, 后者更清晰一些, 先按后者的逻辑来.</p>
+
+<h2 style="text-align: center;" id="con2">基础数据类型</h2>
+<p>DDL就是用来定义关系的语句, 核心就是操作表. 由于关系意味着定义一批属性和对应的取值, 因此先看看数据类型.</p>
+<p>SQL标准有如下, 这里一并把对应的PgSQL的也看了:</p>
+<table>
+    <thead>
+    <tr>
+        <th>SQL数据类型</th>
+        <th>PgSQL数据类型</th>
+        <th>说明</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>char(n)</td>
+        <td>character(n), char(n)</td>
+        <td>定长字符串(PgSQL里默认编码就是UTF-8),长度是n</td>
+    </tr>
+    <tr>
+        <td>varchar(n)</td>
+        <td>character varying(n), varchar(n)</td>
+        <td>变长字符串, 最长是n</td>
+    </tr>
+    <tr>
+        <td>int</td>
+        <td>integer</td>
+        <td>四字节长的整数</td>
+    </tr>
+    <tr>
+        <td>smallint</td>
+        <td>smallint</td>
+        <td>二字节长的整数</td>
+    </tr>
+    <tr>
+        <td>numeric(p,d)</td>
+        <td>numeric(p,d)</td>
+        <td>定点数, p为一共有几位, d 为小数点后有几位.</td>
+    </tr>
+    <tr>
+        <td>real, double precision</td>
+        <td>double precision</td>
+        <td>双精度浮点数, 八字节</td>
+    </tr>
+    <tr>
+        <td>double precision</td>
+        <td>double precision</td>
+        <td>双精度浮点数, 八字节</td>
+    </tr>
+    <tr>
+        <td>real, float(n)</td>
+        <td>real</td>
+        <td>单精度浮点数</td>
+    </tr>
+    </tbody>
+</table>
+<p>即使名称不同, 也可以使用SQL标准的名称: bigint、bit、bit varying、boolean、char、character varying、character、varchar、date、double precision、integer、interval、numeric、decimal、real、smallint、time（有时区或无时区）、timestamp（有时区或无时区）、xml.</p>
+<p>这些SQL标准名称是全部数据库都支持的. 此外PgSQL还支持一些特殊的数据类型, 等用到再看, inet, json, jsonb等数据类型确实有意思. 还有text用于存储长字符串.</p>
+<p>每种类型都可以取一个空值, 表示这个值不存在, 或者缺失, 或者暂时未知. 一般尽量不要用空值.(这里我是这么理解的, 如果允许一个空值的出现, 则这个关系和没有这个属性的关系, 其实一样了, 因为这个值不存在, 这本身就是一种打破了关系的存在.</p>
+<p>定长的字符串如果存入短于定长的字符, 会补齐空白. 变长则不会. 如果比较两个长度不同的char属性, 会自动在短的后边补空白.</p>
+<p>而varchar的比较取决于实现, 所以如果不是特定情况, 比如UUID之类的存放, 而是存普通的字符串, 推荐使用varchar. SQL规定nvarchar可以用来存放Unicode数据, 现实是很多数据库直接都可以指定编码, 这样普通的字符串也可以存放Unicode数据.</p>
+
+
+<h2 style="text-align: center;" id="con3">DDL</h2>
+<p>DDL既然是描述关系, 其本质就是操作表, 自然包含增删改表, 创建一个表不是一个空白的, 而是包含各个属性, 所以要先知道上边的数据类型才能定义属性.</p>
+<p>用CREATE TABLE来定义(创建)关系, 格式为 <kbd>CREATE TABLE 表名 (属性名1 数据类型1, 属性名2 数据类型2...., 完整性约束...)</kbd></p>
+
+
+
+
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

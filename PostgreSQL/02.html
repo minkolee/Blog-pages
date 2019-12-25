@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>PostgreSQL 02 数据库理论与SQL初步</title>
+    <title>PostgreSQL 02 关系型数据库理论与SQL概念</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -22,8 +22,7 @@
     <li><a href="#con2">Java连接PgSQL</a></li>
     <li><a href="#con3">关系 元组 主键 外键</a></li>
     <li><a href="#con4">关系运算</a></li>
-    <li><a href="#con5">SQL初步</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">SQL概念</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">准备数据</h2>
 <p>在这之前, 先按照上一篇的数据库操作中, 在mydb中创建一个新的schema, 叫test好了, 反正也想不出什么名字. 之后按照数据库系统概念(第六版)第二章的instructor表来创建这些表.</p>
@@ -431,17 +430,25 @@ Elec. Eng.	Taylor	85000.00	98345	Kim	        80000.00
 </pre>
 <p>可见这里实际有多了两种关系运算, 即笛卡尔积和自然连接. 还有一些关系运算以后遇到再看, 目前的关键要知道连接运算的本质是笛卡尔积, 然后从笛卡尔积中去掉不需用的部分得到实际的连接运算的结果.</p>
 
-<h2 style="text-align: center;" id="con5">SQL初步</h2>
-<p>正式的来看一下SQL语言了. 这里先看一下SQL语言的概览, 然后后边开始仔细学. 据DBA大佬说, 完整学会SQL外加所使用数据库的方言, 每天看一点, 一个月也足够了. 那就搞起吧.</p>
+<h2 style="text-align: center;" id="con5">SQL概念</h2>
+<p>正式的来看一下SQL语言了. 这里先看一下SQL语言的概览, 然后后边开始仔细学. 据DBA大佬说, 完整学会SQL外加所使用数据库的方言, 一个月可以. 既然一个月就能会一门领域专用语言, 那就搞起吧.</p>
+<p>先是点纯理论的东西, 其中两个概念比较重要, 就是SQL的组成:</p>
+<ol>
+    <li>数据定义语言DDL, 也就是创建关系, 删除关系, 修改关系的语句, 其实就是和表操作相关的语句</li>
+    <li>数据定义语言DML, 操作元组的语句, 增删改查. 也就是操作行的语句啦</li>
+    <li>完整性约束, 定义那些约束比如foreign key, not null 之类的语句. 如果定义了完整性约束, 那数据库就不允许不符合约束的操作</li>
+    <li>视图定义, 视图看了前边的理论, 其实就可以知道, 就是一个关系的展示. 查询出来的关系未必是固化在数据库中的关系. </li>
+    <li>事务控制, 事务控制语句, 这个肯定要专门看了. </li>
+    <li>嵌入式和动态SQL, 这个主要是提供给通用编程语言使用的SQL. 也就是Java里写的啦.</li>
+    <li>授权(authorization), 是一种DDL语句, 专门定义对关系和视图的访问权限, 比如之前的GRANT语句.</li>
+</ol>
+<p>接下来就准备看SQL, 要学的确实不少, 除了通用SQL, 可能还要看看PgSQL特有的部分, 就像数据类型一样, 除了通用的, 也得看看PgSQL.</p>
 
 
 
 
 
 
-
-
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
