@@ -13,6 +13,10 @@
 </head>
 <body>
 <div id="app" class="container" v-cloak="">
+
+    <div v-for="game in games">{{game}}</div>
+
+
     <p>{{games}}</p>
     <button @click="changeGame">添加 NWN2</button>
 </div>
