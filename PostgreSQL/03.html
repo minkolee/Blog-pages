@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>PostgreSQL 03 SQL-DDL</title>
+    <title>PostgreSQL 03 SQL 初级</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -22,10 +22,11 @@
 <ol>
     <li><a href="#con1">SQL基础语法</a></li>
     <li><a href="#con2">基础数据类型</a></li>
-    <li><a href="#con3">DDL</a></li>
-    <li><a href="#con4">查询</a></li>
+    <li><a href="#con3">DDL - 关系操作</a></li>
+    <li><a href="#con4">查询 - 基础</a></li>
     <li><a href="#con5">AS 重命名</a></li>
-    <li><a href="#con6">字符串运算</a></li>
+    <li><a href="#con6">LIKE 字符串匹配</a></li>
+    <li><a href="#con6">ORDER BY 排序</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">SQL基础语法</h2>
 <p>从Python, C, Java这么一路走过来, 最近这一年没有折腾新的语言. 现在年尾了折腾一下SQL.</p>
@@ -115,7 +116,7 @@
 <p>另一个写法表示删除一个属性, 如果存在元组, 元组的这个值也会被删除: ALTER TABLE tablename DROP A; A是属性的名称, 这个就相当于从表里删除一列.</p>
 <p>对关系的增删改的基础操作就是这些, 等看到后边章节可以再来补, 尤其是完整性约束的内容.</p>
 
-<h2 style="text-align: center;" id="con4">查询</h2>
+<h2 style="text-align: center;" id="con4">查询 - 基础</h2>
 <p>从这里开始就是DML的内容了, 也就对元组=具体数据对象的增删改查了. 核心就是查. 而删除一般是不允许普通用户操作的.</p>
 <p>查询的基础语句是 SELECT FROM WHERE三个子句构成, 三个子句的顺序一定是 SELECT FROM WHERE, 不能够任意更改.</p>
 <p>最基础的从单个关系中查询的语句是 SELECT A.. FROM B, 其中A是属性名称, B是关系名称, 这个查询的结果是由A..组成的一个新关系.</p>
@@ -187,8 +188,46 @@ WHERE T1.salary > T2.salary and T2.dept_name='Biology' and T1.dept_name<>'Physic
 </pre>
 <p>如果不用命名, 这种查询就没办法写出来.</p>
 
-<h2 style="text-align: center;" id="con6">字符串运算</h2>
+<h2 style="text-align: center;" id="con6">字符串</h2>
+<p>SQL用单引号表示字符串, 如果字符串中有单引号, 就连续写两个单引号表示一个单引号. 其他字符都不转义.</p>
+<p>字符串还可以使用多个函数, 比如 || 表示连接字符串, 提取子串, 计算长度等, 这个以后要仔细看看PgSQL的函数. </p>
+<p>最关键的字符串操作是 like 操作符, 其后跟一个字符串pattern, 一说pattern现在都明白了, 就是个用来匹配的模式串. pattern中用 % 代表0-任意长的子串, _ 代表单个字符. 所以可以使用这个模式来查找出匹配的字符串. 比如:</p>
+<pre>
+SELECT name FROM test.student WHERE name like 'S%';
+</pre>
+<p>会从学生中寻找出以S开头的名称. 在like 模式串中使用 escape 来定义转义字符, 这样就可以使用%和_, 如下:</p>
+<pre>
+SELECT name FROM test.student WHERE name like 'S\%' escape '\';
+</pre>
+<p>这个模式就是查S%, 当然这个例子查不出任何内容.</p>
 
+<h2 style="text-align: center;" id="con7">ORDER BY 排序</h2>
+<p>ORDER BY一般放在最后, 其后跟一个或者多个指定的属性, 默认按照属性的升序排序, 如果相同顺序, 再按照下一个指定的属性排序. 可以用desc加在属性后表示降序, 用asc来表示升序.</p>
+<p>典型的用法如下:</p>
+<pre>
+SELECT * FROM test.instructor ORDER BY dept_name asc, salary desc;
+</pre>
+<p>即将全部intructor关系中的元组按照系名称升序, 再按照工资降序排列. 这样系名称相同的元组, 就会再按照工资降序排列.</p>
+
+<h2 style="text-align: center;" id="con8">WHERE 子句中的 BETWEEN</h2>
+<p>这个BETWEEN子句用在WHERE中表示取值范围, 包含两端的取值. 可以用其来简化一些逻辑判断:</p>
+<pre>
+SELECT * FROM test.instructor WHERE salary >= 80000 and salary <= 100000;
+</pre>
+<p>选出工资在80000和100000之间的讲师, 可以改写成:</p>
+<pre>
+SELECT * FROM test.instructor WHERE salary BETWEEN 80000 and 100000;
+</pre>
+<p>其实可以认为就是一颗语法糖.</p>
+<p>这里多说一下, 由于WHERE子句往往都是使用FROM中的关系来进行判断, 因此很多时候会觉得一定要在WHERE后边使用前边的关系, 其实不是, WHERE后边跟的就是一个布尔表达式, 只要挑选每一行结果的时候表达式的值为true, 就会选中.</p>
+<p>所以像这样的语句:</p>
+<pre>
+SELECT * FROM test.instructor WHERE False;
+</pre>
+<p>永远一个都选不出来. 因为每一行进行判断都是False. 可见SQL虽然是领域特定语言, 但是其灵活性和一门编程语言是一样的.</p>
+
+
+<p>可以说到目前为止, 从单个或者多个表中进行简单查询, 根据条件查询, 将查询结果进行排序都会了. 这已经足够应付很多时候的查询了. 不过SQL肯定不只如此了.</p>
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
 

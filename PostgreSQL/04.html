@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>PostgreSQL 04 SQL 初级</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>这一次系统的看了数据库, 感觉SQL语言就深深的刻在脑海里再也忘不掉了. 瞬间感觉很复杂的语句也可以写出来了, 不过还不够, 仅仅依靠上边的语句可能要写很复杂的WHERE 子句来判断条件, 所以还要继续看一下SQL初级的其他内容. 主要是集合以及聚合函数, 还有子查询的一些操作.</p>
+<p>一个查询, 得到是一个新关系, 同时也是一个关系实例的集合. union, intersect 和 except 对应了集合运算中的并, 交 和 补运算.</p>
+
+<ol>
+    <li><a href="#con1">集合运算 - 并运算</a></li>
+    <li><a href="#con2">集合运算 - 交运算</a></li>
+    <li><a href="#con3">集合运算 - 差运算</a></li>
+    <li><a href="#con4">空值</a></li>
+    <li><a href="#con5">聚集函数 - 基本聚集</a></li>
+    <li><a href="#con6">聚集函数 - 分组聚集</a></li>
+    <li><a href="#con7">聚集函数 - 分组聚集中的having</a></li>
+    <li><a href="#con8">in 与 not in 集合成员资格测试</a></li>
+    <li><a href="#con9">比较集合</a></li>
+    <li><a href="#con10">空关系测试</a></li>
+    <li><a href="#con11">unique 重复性测试</a></li>
+    <li><a href="#con12">with 临时关系</a></li>
+    <li><a href="#con13">可作为标量的子查询</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">集合运算 - 并运算</h2>
+<p>union的使用条件是, 两个集合的列数要相等, 这样就可以进行并运算了. 并运算即使对不相关的内容也可以进行并运算:</p>
+<pre>
+(SELECT dept_name,salary FROM test.instructor) UNION (SELECT name, tot_cred FROM test.student);
+</pre>
+<p>前后两个集合都只有两列, 这个出来的结果实际上列名是第一个集合的两列, 然后把剩下的内容全部拼上去了, 所以结果显得不对. 一般并集都是要用在对关系使用并操作可以产生有意义的情况下.</p>
+<p>比如寻找2009年秋天开课和2010年春天开课的课程组成的并集:</p>
+<pre>
+SELECT course_id from test.section WHERE semester = 'Fall' and year = 2009
+UNION
+SELECT course_id FROM test.section WHERE semester = 'Spring' and year = 2010
+ORDER BY course_id;
+</pre>
+<p>可以发现 union 是自动去重的. 如果不去重, 就使用 UNION ALL.</p>
+
+
+<h2 style="text-align: center;" id="con2">集合运算 - 交运算</h2>
+<p>交运算将上边的UNION替换成 INTERSECT, 意义就编程在2009年秋天和2010年春天都开课的课程, 结果就只有一个, 就是被刚才并运算去重的CS-101课程.</p>
+<pre>
+SELECT course_id from test.section WHERE semester = 'Fall' and year = 2009
+INTERSECT
+SELECT course_id FROM test.section WHERE semester = 'Spring' and year = 2010 ORDER BY course_id;
+</pre>
+<p>同样, INTERSECT ALL就会保留重复, 不过保留的不是所有的重复, 而是多个查询中, 每一个查询的结果中某个元组的重复数量, 等于各个子查询中这个元组重复的最小次数. 举个例子, 比如第一个查询中 CS-101 重复3次, 第二个查询中 CS-101重复4次, 用INTERSECT ALL 连接之后, 结果是3个.</p>
+
+<h2 style="text-align: center;" id="con3">集合运算 - 差运算</h2>
+<p>差运算比较特殊, 如果说前边两个集合运算对顺序没有什么特殊要求, 差运算就不同的, 差运算表示从第一个集合中去掉所有存在于第二个集合中的元素, 也就是第一个集合减第二个集合的运算.</p>
+<p>这个操作会自动去除所有的重复, 比如第一个集合中 CS-101 有两个重复, 第二个集合中 CS-101有三个重复, 差运算的结果不会包含CS-101</p>
+<p>如果想保留重复, 就使用 EXCEPT ALL. 此时结果中某个元组的重复数量等于第一个集合中的重复数量减第二个集合的重复数量, 大于0则就是这个数字, 小于等于0则结果中不存在这个元组.</p>
+
+<h2 style="text-align: center;" id="con4">空值</h2>
+<p>空值是个比较讨厌的东西, SQL规定任何和空值有关的运算都视为unknown, 这可以认为是除了true 和 false 之外的第三个布尔值. 既然是布尔值, 可以进行逻辑运算:</p>
+<ol>
+    <li>true and unknown = unknown, false and unknown = false, unknown and unknown = unknown</li>
+    <li>true or unknown = true, false or unknown = unknown, unknown or unknown = unknown</li>
+    <li>not unknown = unknown</li>
+</ol>
+<p>如果 WHERE 后边的表达式的结果是unknown 或者 false, 则结果集中不会包含这个元组. 从这个角度来看, unknown还是比较接近false一些.</p>
+<p>可以使用特殊的谓词 is null 来测试是不是空值. </p>
+
+<h2 style="text-align: center;" id="con5">聚集函数 - 基本聚集</h2>
+<p>SQL标准规定的聚集函数有5个:</p>
+<ol>
+    <li>avg</li>
+    <li>min</li>
+    <li>max</li>
+    <li>sum</li>
+    <li>count</li>
+</ol>
+<p>聚集函数实际上要分两块看, 一个是基本聚集, 一个是分组聚集.</p>
+<p>基本聚集得到的结果都是单个元组, 直接就对一个集合进行聚集操作, 所以得到的结果都是单个元组.</p>
+<p>一般仅仅会选择单个要聚集的列, 因为其他列不能聚合上去.</p>
+<p>比如计算平均工资:</p>
+<pre>
+SELECT avg(salary) AS avg_salary FROM test.instructor;
+</pre>
+<p>关于聚集的列一般需要重命名, 已经在AS中说过了. 这里要注意的就是, 很多聚集函数在使用的时候是不是要去重, 影响最后的结果.</p>
+<p>此外要明白函数操作的结果, 实际上内部的操作顺序是先选择出不带函数的结果, 然后对这个结果集合应用函数. 例子中实际上会先选出一个包含salary的关系, 然后对这个关系中的集合执行avg函数.</p>
+<p>如果要去重, 就要在函数的参数里加上DISTINCT, 然而这个时候就要考虑实际的意义, 比如:</p>
+<pre>
+SELECT avg(DISTINCT salary) FROM test.instructor;
+</pre>
+<p>如果教师中有两个教师有重复的工资, 这个结果就不会得到正确的平均工资, 因为相同工资的两个教师, 实际上已经被去重去掉了, 这就会导致错误的结果.</p>
+<p>而count就经常需要去重. 此外如果要计算一个关系中元组的个数, 可以直接使用<code>SELECT COUNT(*) FROM course</code>. 但是不允许写成 COUNT(distinct *).</p>
+<p>max和min可以使用DISTINCT, 但使不使用都一样.</p>
+
+<h2 style="text-align: center;" id="con6">聚集函数 - 分组聚集</h2>
+<p>分组这个就得好好理解了. 分组的语句是GROUP BY A, A是属性名. 表示先将所有的结果分组, 再进行操作.</p>
+<p>比如想要统计每个系的老师的平均工资, 显然不能直接将avg作用在全部老师上, 而是先要分组, 将所有讲师分成一个又一个按照系名分类的集合, 再对每个集合进行avg操作, 将结果再收集成一个集合. 写成SQL就是:</p>
+<pre>
+SELECT dept_name, avg(DISTINCT salary) FROM test.instructor GROUP BY dept_name;
+</pre>
+<p>这句还是要好好理解的, SELECT之后有两个属性, 说明是两列, 其中有一个是聚合函数, 另外一个是普通列名. <strong>这里一定要注意, SELECT之后跟的属性如果不是聚集函数, 则一定要出现在GROUP BY之后, 或者SELECT之后仅仅跟聚集函数也可以, 但是结果就看不出来分组的对应关系.</strong></p>
+<p>为何要做如此规定, 是为了让查询结果能够反映分组的关系, 如果有一个属性不再GROUP BY中出现, 则这个属性就不知道如何处理:</p>
+<pre>SELECT dept_name, id, avg(DISTINCT salary) FROM test.instructor GROUP BY dept_name;</pre>
+<p>这一句就会报错: <kbd>ERROR: column "instructor.id" must appear in the GROUP BY clause or be used in an aggregate function.</kbd> 这个提示可谓非常清晰了.</p>
+
+<h2 style="text-align: center;" id="con7">聚集函数 - 分组聚集中的having</h2>
+<p>有的时候对分组限定条件可能比最后的结果限定条件更加方便. 接着上边的例子, 查询平均老师工资大于等于80000元的系和平均工资, 可以写成这样:</p>
+<pre>
+SELECT dept_name, avg_salary
+FROM (SELECT dept_name, avg(DISTINCT salary) as avg_salary FROM test.instructor GROUP BY dept_name) as foo
+WHERE avg_salary > 80000;
+</pre>
+<p>查出的avg_salary无法在同一个语句里再使用WHERE avg_salary, 因为WHERE只能控制FROM中的条件, 在形成分组前起作用, 无法在形成分组后起作用. 所有就用了这种子查询.</p>
+<p>如果我们直接可以对分组后的结果使用条件限定的话, 就可以更方便的查出来. 这就需要在分组后可以起作用的条件, 这就是having 语句, 上边的例子可以修改如下:</p>
+<pre>
+SELECT dept_name, avg(DISTINCT salary) as avg_salary FROM test.instructor GROUP BY dept_name having avg(salary) > 80000;
+</pre>
+<p>这里也是要弄清楚实际执行的顺序:</p>
+<ol>
+    <li>先当做没有任何聚合, 会按照 SELECT detp_name, salary FROM test.instructor 进行查询哦, 将结果叫做结果A</li>
+    <li>如果有WHERE, 会应用到结果A的每一个元组上, 得到结果B</li>
+    <li>结果B按照GROUP BY进行分组, 得到多个分组, 这些分组一起组成结果C, 结果C只存在于运算过程中</li>
+    <li>如果有having 子句, 按照having 子句对结果C中的每个分组进行判断, 去掉所有不满足条件的分组, 剩下的分组一起组成结果D, 结果D也仅仅在过程中; 如果没有having子句, 则就是结果C.</li>
+    <li>上一步得到的结果D或者原来的结果C, 在其中的每个分组上应用聚合函数, 得到和分组数量一致的元组, 将这些元组拼合成最终的聚合后的关系进行输出.</li>
+</ol>
+<p>所以也可以看出, 基本聚集其实就是分组的一个特殊情况, 即所有的元组都被认为在同一个组里.</p>
+<p>特别要注意的是,所有的聚集函数除了count(*)之外, 都会忽略空值. 如果忽略空值导致函数参数是一个空集, 则count之外聚合函数都会返回一个空集, 而count一个空集会返回0.</p>
+
+<h2 style="text-align: center;" id="con8">in 与 not in 集合成员资格测试</h2>
+
+
+
+
+
+<h2 style="text-align: center;" id="con9">some all 比较集合</h2>
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con10">exists 空关系测试</h2>
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con11">unique 重复性测试</h2>
+
+
+
+
+
+<h2 style="text-align: center;" id="con12">with 临时关系</h2>
+
+
+
+
+
+<h2 style="text-align: center;" id="con13">可作为标量的子查询</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
