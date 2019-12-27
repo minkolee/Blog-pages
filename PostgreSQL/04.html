@@ -30,8 +30,8 @@
     <li><a href="#con9">比较集合</a></li>
     <li><a href="#con10">空关系测试</a></li>
     <li><a href="#con11">unique 重复性测试</a></li>
-    <li><a href="#con12">with 临时关系</a></li>
-    <li><a href="#con13">可作为标量的子查询</a></li>
+    <li><a href="#con12">with 临时关系 与 标量子查询</a></li>
+    <li><a href="#con13">数据的增删改</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">集合运算 - 并运算</h2>
 <p>union的使用条件是, 两个集合的列数要相等, 这样就可以进行并运算了. 并运算即使对不相关的内容也可以进行并运算:</p>
@@ -134,39 +134,159 @@ SELECT dept_name, avg(DISTINCT salary) as avg_salary FROM test.instructor GROUP 
 <p>特别要注意的是,所有的聚集函数除了count(*)之外, 都会忽略空值. 如果忽略空值导致函数参数是一个空集, 则count之外聚合函数都会返回一个空集, 而count一个空集会返回0.</p>
 
 <h2 style="text-align: center;" id="con8">in 与 not in 集合成员资格测试</h2>
-
-
-
-
+<p>这个就很像Python动态语言中的in 和 not in 关键字, 用于测试一个关系中的每条元组是否在另一个关系中, 常见就是和子查询搭配使用.</p>
+<p>比如找出所有计算机系的学生, 再找出所有学分大于40的学生, 选出前者也存在于后者中的学生(注意这个选择和同时选出计算机系且学分大于40的学生是一样的, 这也说明SQL语言有冗余, 可以以多种方式完成同样的效果):</p>
+<pre>
+SELECT *
+FROM test.student
+WHERE dept_name = 'Comp. Sci.'
+  and student.tot_cred in (SELECT student.tot_cred FROM test.student WHERE tot_cred > 40);
+</pre>
+<p>可以看到in 用来测试每一个元组中的tot_cred属性的取值, 是否在另外一个也是由tot_cred属性组成的集合中. 如果满足条件, 就选出对应的元组.</p>
+<p>按照上边的分析, 这个也可以写成 <code>SELECT * FROM test.student WHERE dept_name = 'Comp. Sci.' and tot_cred > 40;</code>, 这是因为二者的逻辑本质上是一样的.</p>
+<p>这里测试了单个属性是否属于某个单属性的关系, 测试多属性是否属于一个多属性关系也是可以的, 只要被测试的属性和集合成员的属性匹配即可:</p>
+<pre>
+SELECT count(distinct ID)
+FROM test.takes
+WHERE (course_id, sec_id) in (Select course_id, sec_id from test.teaches WHERE teaches.ID = '10101');
+</pre>
+<p>这个查询的意思是先找到10101老师教的所有课程, 然后从学生中找出所有选了这个老师教的课程的学生, 之后统计学生的数量.</p>
+<p>in 和 not in 之后除了跟一个查询之外, 还可以直接给出枚举值来进行判断, 比如:</p>
+<pre>
+SELECT  * FROM test.instructor WHERE dept_name in ('Biology', 'Comp. Sci.')
+</pre>
 
 <h2 style="text-align: center;" id="con9">some all 比较集合</h2>
-
-
-
-
-
+<p>这里的比较集合并不是指两个集合以整体进行比较, 而是要表达这样一种关系, 即一个集合中的某一个元组比另外一个集合中的某个元组会怎么样.</p>
+<p>常用的就是某一个元组大于(或者其他逻辑)另外一个元组中所有的数据对象, 某一个元组大于(或者其他逻辑)另外一个元组中某一个数据对象这两种情况.</p>
+<p>对于这两个情况, 分别使用了 all 和 some 两个关键字, 在其后加上一个关系, 就表示上边的两个逻辑. 比如查找所有比生物系内至少一个老师工资高的所有老师, 在之前使用了as 进行同一个关系的两次查询, 然后本质是笛卡尔积, 然后选出第一个关系的工资大于第二个关系的工资的结果.</p>
+<p>现在可以简化一下, 使用 大于 some 来表示高于其中至少一个就可以:</p>
+<pre>
+SELECT name, salary
+FROM test.instructor
+WHERE salary > some (Select salary from test.instructor where dept_name = 'Biology');
+</pre>
+<p>生物系中只有一个老师, 工资是72000, 所以查到的结果是大于72000的所有老师.</p>
+<p>同样, 查询高于金融系中所有老师的工资的老师:</p>
+<pre>
+SELECT name, salary
+FROM test.instructor
+WHERE salary > all (Select salary from test.instructor where dept_name = 'Finance');
+</pre>
+<p>金融系中有两个老师, 工资分别是80000和90000, 所以这个结果实际上就是所有工资大于90000的老师.</p>
+<p>SQL也允许 < all, <= all, >= all, = all 和 <> all, some也一样. 注意 <> all 等价于 not in. 而 = all 不等价于in. </p>
+<p>这个比较也可以比较聚合函数后的结果, 并不是一定要比较原始属性:</p>
+<pre>
+SELECT dept_name
+FROM test.instructor
+GROUP BY dept_name
+having avg(salary) >= all (SELECT avg(salary) FROM test.instructor GROUP BY dept_name);
+</pre>
+<p>这个是查询平均工资高于其他所有系的平均工资的系.</p>
+<p>到这里我发现SQL想要用好, 其实是要自己建立这些关系之间的联系, 然后将这些联系转换成SQL语句.</p>
 
 <h2 style="text-align: center;" id="con10">exists 空关系测试</h2>
-
-
-
-
-
-
+<p>这个顾名思义, 加在一个关系前边, 返回一个布尔结果, 如果关系中存在元组, 就返回true, 否则返回false. 通常使用在WHERE HAVING之类条件语句中:</p>
+<pre>
+SELECT *
+FROM test.student
+WHERE exists(SELECT * FROM test.student where tot_cred > 20);
+</pre>
+<p>这个语句其实就是选出全部的学生, 测试条件是只要有学生的学分大于20就选出全部学生. 如果将20改成3000, 则一个结果都没有了. 因为exits()的返回是false.</p>
+<p>这里还一个小概念, 叫做<strong>相关子查询</strong>, 也就是子查询中使用了上一层查询中AS 定义的别名.</p>
 
 <h2 style="text-align: center;" id="con11">unique 重复性测试</h2>
+<p>这个是指测试一个关系中是否包含重复的元组, 如果没有重复返回true, 有重复返回false. 使用这个测试的时候最好在要测试的关系中加上标识唯一性的字段.</p>
+<p>比如查询2009年最多开设一次的课程. 课程在course中, 实际开设的每次课程的信息在section中, 可以先从section中选出2009年开设的课程, 然后将其course_id与course表进行对比.
+    选出其中相等的部分, 然后看这个结果是不是唯一的. 如果一门课在2009年内开设多次, 则结果就不唯一(选出的section有两个):</p>
+<pre>
+SELECT course_id
+FROM test.course as T
+WHERE unique (Select course_id FROM test.section as D WHERE t.course_id = d.course_id and year = 2009);
+</pre>
+<p>这句还得好好理解一下, 针对每一个 course中的 course_id ,去判断section表中与其对应的section是否只有1个.</p>
+<p>在PgSQL上跑这句的时候, 发现 <kbd>UNIQUE predicate is not yet implemented</kbd>, 所以通过判断数量了:</p>
+<pre>
+SELECT course_id
+FROM test.course as T
+WHERE  (Select count(*) FROM test.section as D WHERE t.course_id = d.course_id and year = 2009) =1;
+</pre>
+<p>其实很上边的本质一样, 通过course的id到section中查2009年内对应的section, 查到结果只有1个的话就说明仅在2009年内开了一次课, 似乎比unique还容易理解一些.</p>
+
+<h2 style="text-align: center;" id="con12">with 临时关系 与 标量子查询</h2>
+<p>with子句提供临时的关系, 只在with所在的语句中生效. 对于使用一个简单的标量结果再进一步查询的时候, 用with的语义会清晰很多, 比如找出最大预算的系:</p>
+<pre>
+WITH max_budget(value) as (SELECT max(budget) FROM test.department)
+SELECT budget
+FROM test.department,
+     max_budget
+WHERE department.budget = max_budget.value;
+</pre>
+<p>注意with定义了一个新关系, 关系的名称叫做max_budget, 属性名称是value. SELECT max(budget) FROM test.department 实际查出了只有一列一行的结果, 这个结果通过with被命名为max_budget, 属性是value, value的值就是后边选出来的最大语速的值.</p>
+<p>然后通过先取笛卡尔积, 再进行判断的过程, 得到最后结果.</p>
+<p>如果不使用with, 考虑可以直接判断每个部门的预算数与最大值是否相等. 这个时候可以用到标量子查询, 也就是如果一个查询的结果只有一行一列, 那么就可以将这个查询当成一个标量来使用:</p>
+<pre>
+SELECT budget
+FROM test.department
+WHERE department.budget = (SELECT max(budget) FROM test.department);
+</pre>
+<p>可以看到, (SELECT max(budget) FROM test.department)的结果直接被当成一个标量来和budget数据进行比较. 这就是标量子查询, 有了这个东西就会简化很多操作.</p>
+
+<h2 style="text-align: center;" id="con13">数据的增删改</h2>
+<p>查询的主要部分基本都学完了. 只要记住这些类似语法糖的各种关键字, 就可以方便的写出来了. 感觉最难的还是要把想查询的结果转换成SQL中如何操作关系的语句.</p>
+<p>先是<strong>删除 delete</strong>, 删除只能作用于一个关系, 删除的最小单位是元组, 不能删除元组上的属性.</p>
+<p>delete 也可以加WHERE, 只删除满足条件的元组, 既然可以用WHERE, 就可以写任意复杂的逻辑.</p>
+<p>然后是<strong>添加 insert into</strong>.</p>
+<p>这个insert into可以直接插入常量, into后边接关系名称, 然后加上values(), 其中按照属性顺序写对应的值就可以:</p>
+<pre>
+INSERT INTO test.department values ('NewDept', 'Watson', 123000);
+</pre>
+<p>可以在关系的地方指定属性顺序, 这样就不用按照默认的顺序:</p>
+<pre>
+INSERT INTO test.department(building, budget,dept_name) values ( 'Watson', 123000,'NewDept');
+</pre>
+<p>不过最牛逼是在SELECT的基础上把结果插入到数据库中, 这要求选出来的元组的属性是能够匹配被插入的关系的.</p>
+<p>书上的例子不错, 比如让所有学分超过144的Music系的学生变成Music系的讲师, 初始工资是18000:</p>
+<pre>
+INSERT INTO test.instructor(id, name, dept_name, salary)
+    SELECT id, name, dept_name, 18000 FROM test.student WHERE dept_name = 'Music' and tot_cred > 144;
+</pre>
+<p>这里小技巧, 插常量直接就选常量, 这样那一列全都是常量, 而名称可以用as来指定:</p>
+<pre>
+SELECT id, name, dept_name, 18000 as salary
+FROM test.student;
+</pre>
+<p>有了这个技巧可以任意在选择结果上为每一个元组增加一个属性.</p>
+<p>如果插入的时候给出null, 假如符合完整性约束, 是可以插入null的. 也可以只插入部分元组的值, 没插入的会被当做null, 例子如下:</p>
+<pre>INSERT INTO test.department(building,dept_name) values ( 'Watson','NewDep2t');</pre>
+<p>最后是<strong>改 update</strong>, update 搭配set 和 WHERE 使用, 可以在满足条件的情况下更新元组的属性. </p>
+<p>这里要关注的是带case结构的更新. 即可以同时判断多个条件. 结构是:</p>
+<pre>
+case
+    when 条件1 then 结果1
+    when 条件2 then 结果2
+    when 条件3 then 结果3
+    else 结果4
+end
+</pre>
+<p>这个就是和其他编程语言的swtich case 语句结构很类似, else相当于default. 每个case返回一个具体的值交给set来更新</p>
+<p>比如给所有的老师加工资, 工资少于80000的加10%, 工资在80000-100000的加 8%, 超过100000的加 5%, 语句如下:</p>
+<pre>
+UPDATE test.instructor set salary = case
+    WHEN salary<80000 THEN salary*1.1
+    WHEN salary<=100000 and salary>=80000 THEN salary*1.08
+    ELSE salary * 1.05
+END;
+</pre>
+<p>这样逻辑不容易出错.</p>
+<p>基础的SQL操作到这里就差不多了, 剩下的所谓中级SQL就是连表操作, 视图, 事务和完整性约束的详细内容了.</p>
 
 
 
 
 
-<h2 style="text-align: center;" id="con12">with 临时关系</h2>
 
 
-
-
-
-<h2 style="text-align: center;" id="con13">可作为标量的子查询</h2>
 
 
 
