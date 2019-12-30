@@ -163,14 +163,31 @@ create table test.course
 <p>不得不说, 看了前边的理论, 对于级联就清晰很多了.</p>
 <p>级联的操作要设置的符合现实, 比如学生如果有一个外键去关联到系的名称, 假如学校进行调整, 先在数据库中删除一个系, 再调整学生的归属. 那么学生表肯定不能设置成级联删除. 因为即使系删除, 学生依然还属于学校, 不可能直接就把学生从数据库中删除, 否则删除系之后, 再调整学生的归属, 结果发现要调整的学生已经从数据库中删除了.</p>
 
-<h2 style="text-align: center;" id="con5">SQL - 其他数据类型</h2>
-
-
-
-
-
-
-
+<h2 style="text-align: center;" id="con5">SQL - 时间类型</h2>
+<p>除了基本类型之外, 最常用的就是时间类型了.</p>
+<p>SQL中的时间类型分为三+一种:</p>
+<ol>
+    <li><code>date</code>, 这个表示日期, 仅有年月日. 如果用字符串表示, 是 '2001-04-25' </li>
+    <li><code>time</code>, 这个表示一天内的时间, 只有时分秒, 可以用 time(p) 来表示有几位小数点, 默认为0, 一般已经足够. 字符串表示为 '09:10:20'</li>
+    <li><code>timestamp</code>, 这个就是一个时间戳, 也可以指定小数点, 还可以加上with timezone表示连时区信息也一并存储. timestamp的字符串表示是把两个合起来 '2019-12-31 20:54:39.31' </li>
+    <li><code>interval</code>, 这个是一个时间间隔</li>
+</ol>
+<p>关键是要知道这几个日期的使用方式. 实际上, 这三个事件戳, 在Java里都可以使用java.util.Date对象, 只不过在存到数据库中的时候, 针对不同的数据类型, 被保留的内容是不同的.</p>
+<p>使用时间类型, 实际上就是如何在一定的时间范围内查询想要的结果. 在查询的时候, 可以使用函数来得到结果的. PostgreSQL中有一个<a href="http://www.postgresqltutorial.com/postgresql-date_part/" target="_blank">函数date_part</a>用来处理时间, 得到想要的值, 然后与查询结果进行比较.</p>
+<p>在搜寻这个函数用法的时候, 发现一个网站 <a href="http://www.postgresqltutorial.com/" target="_blank">http://www.postgresqltutorial.com/</a> 不错, 记下来慢慢看, 不知道后边用Hibernate也有这么好的网站么.</p>
+<p>除此之外, SQL标准还可以 使用  extract(field from d) 来提取具体内容, 比如:</p>
+<pre>
+SELECT extract(hour from created) FROM employee;
+</pre>
+<p>这个是指从employee表中的created时间字段中提取出所有的小时组成一个关系.</p>
+<p>SQL里还有一些通用函数(PgSQL也支持), 如下:</p>
+<ol>
+    <li>current_date, 返回当前日期</li>
+    <li>current_time, 返回当前时间, 带有时区</li>
+    <li>localtime, 当前不带时区的时间</li>
+    <li>current_timestamp, 带时区的时间戳</li>
+    <li>localtimestamp, 不带时区的时间戳</li>
+</ol>
 
 
 
