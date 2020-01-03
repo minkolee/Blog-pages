@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Spring RE 05 SQL中级</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>什么是中级SQL, 看了一下, 主要是连表查询, 视图, 事务, 完整性约束.</p>
+
+<ol>
+    <li><a href="#con1">连接表达式</a></li>
+    <li><a href="#con2">视图</a></li>
+    <li><a href="#con3">事务</a></li>
+    <li><a href="#con4">完整性约束</a></li>
+    <li><a href="#con5">SQL - 其他数据类型</a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">连接表达式</h2>
+<p>之前在学理论的时候看过自然连接, 其本质就是因为两个表的某一个属性是相关的. 其本质和用WHERE 指定两个表的外键与被外键关联的列相等即可.</p>
+<p>这个自然连接有一个特点, 就是如果一个表中的某个元组无法与另外一个对应, 则这个元组不会出现在最后的结果中. 这种连接也叫做内连接, SQL中的内连接就是 inner join 或者是join(默认内连接).</p>
+<p>与内连接不同的是外连接, 外连接可以有所指定的保留连接之后没有匹配的元组, 结果中的没有匹配的部分会被设置成null. 这样就产生了三种外连接:</p>
+<ol>
+    <li><code>left outer join</code>, 即保留join关键字左边关系中的元组</li>
+    <li><code>right outer join</code>, 即保留join关键字右边关系中的元组</li>
+    <li><code>full outer join</code>, 同时保留join左右两边关系中的元组</li>
+</ol>
+<p>举一个例子, 先查询:</p>
+<pre>SELECT * FROM test.student natural join test.takes</pre>
+<p>如果不使用natural关键字, 则必须要使用 join ....on, 在内连接的时候, on 和 在笛卡尔积上使用 where 的作用是相同的. 下边这两条和上边一条的结果一样:</p>
+<pre>
+SELECT * FROM test.student join test.takes ON student.id =  takes.id;
+SELECT * FROM test.student, test.takes WHERE student.id = takes.id;
+</pre>
+<p>这是自然连接, 没有选择任何一门课的学生, 不会包含在结果中. 但如果就是想知道所有学生的情况, 需要使用外连接:</p>
+<pre>
+SELECT * FROM test.student natural left outer join test.takes
+</pre>
+<p>这个结果相比上边的内连接结果, 会多出一行:</p>
+<pre>
+70557	Snow	Physics	0 &lt;null> &lt;null> &lt;null> &lt;null> &lt;null>
+</pre>
+<p>这说明这个学生一门课都没有选. 这个时候来实验一下两个变体:</p>
+<pre>
+SELECT * FROM test.student left join test.takes ON student.id =  takes.id;
+SELECT * FROM test.student, test.takes WHERE student.id = takes.id;
+</pre>
+<p>可以发现, 此时ON的作用和WHERE就不同了, WHERE依然从笛卡尔积中去掉所有不相同的元组. 而ON与natural left join 搭配使用的时候, 语义依然保持外连接的定义. 这是因为直接FROM两个表就是笛卡尔积, 而外连接并不是从笛卡尔积中获取结果.</p>
+<p>所以可以知道, 内外连接得到的运算可能是不同的. 内连接一定不会得到不匹配的元素. 而外连接的结果中有可能存在不匹配而导致是null的元素.</p>
+<p>比如我们想找一门课都没有选的学生, 可以写WHERE 条件, 通过count来判断, 也可以通过外连接:</p>
+<pre>
+SELECT name
+FROM test.student
+         natural left outer join test.takes
+WHERE course_id IS NULL
+</pre>
+<p>如果出现没有选课的学生, 其元组的来自test.takes的属性的值一定是null, 所以可以任意选择一个来自test.takes的属性判断是不是null, 只要是null, 就说明该学生没有选课.</p>
+<p>如果不采用连表, 就只能统计对应的数量:</p>
+<pre>
+SELECT name FROM test.student WHERE (SELECT count(*) FROM test.takes WHERE takes.id = student.id) =0
+</pre>
+<p>这两种语义, 怎么说呢, 感觉后者比较直接, 但是前者比较高大上一点.</p>
+<p>总之连表看起来也像一个语法糖....</p>
+
+<h2 style="text-align: center;" id="con2">视图</h2>
+<p>视图, 就是一个关系, 这个关系所以来的数据可能全部存储在数据库中, 也可能是由于其他的查询生成. 将一个关系保存下来供使用, 这个关系其实就是视图.</p>
+<p>视图使用 CREATE VIEW v AS query 来创建视图, 其中v是视图名称, , 创建之后的视图, 就可以当成一个关系使用在任何可以用的地方.</p>
+<p>比如定义一个视图, 仅查出来讲师的姓名和系:</p>
+<pre>
+CREATE VIEW test.demo as
+SELECT name, dept_name
+FROM test.instructor;
+</pre>
+<p>这个命令就在 test schema 之下创建了一个视图叫做 demo, 用PgAdmin4连上之后可以发现, 在test之下的Views中就有了一个叫做demo的视图, 其中也有列, 规则和触发器.</p>
+<p>之后就可以像使用一个关系一样来使用视图, 这个视图很显然, 其数据就没有再保存在数据库中, 只是这个关系保存成了一个view:</p>
+<pre>
+SELECT name FROM test.demo;
+</pre>
+<p>视图是否可更新的条件比较复杂. 对于要编写Web应用来说, 一般不太会操作视图. 这里就省略了.</p>
+
+<h2 style="text-align: center;" id="con3">事务</h2>
+<p>今天下班路上想看看PgSQL的事务, 就提前把书翻到介绍PgSQL的部分, 结果除了看明白两个事务隔离级别, 和知道了MVCC规则, 其他都没看懂....</p>
+<p>这里事务只是一个简单的两个语句, 即:</p>
+<pre>
+commit work;
+rollback work;
+</pre>
+<p>真正的事务, 要到后边看了. 话说今天咨询了DBA, DBA认为既然只是为了更好的写应用, 那么只要搞清楚SQL和索引, 外加事务如何管理就行了. 不错, 这奔着这几个方面努力.</p>
+
+<h2 style="text-align: center;" id="con4">完整性约束</h2>
+<p>在SQL刚开始的DDL里看到过完整性约束. 这里系统的总结了一下, 完整性约束主要包括两部分:</p>
+<ol>
+    <li>单个关系上的约束, 包括not null, unique, check</li>
+    <li>参照完整性, 即一个属性的取值有来自于其他关系的约束.</li>
+</ol>
+<p>先来看单关系约束, not null就是指不能为空.</p>
+<p>unique(a1, a2....), 是特别指定a1, a2...这些属性共同构成一个候选码. 当如此指定的时候, 如果数据的操作导致这些属性组成的元组中任意两个元组相同, 则操作会被拒绝.</p>
+<p>check 子句接一个布尔表达式, 仅仅只有这个布尔表达式为true的时候, 操作才会被接受, 比如:</p>
+<pre>
+CREATE TABLE test.names
+(
+    ID   varchar,
+    name varchar(30),
+    primary key (ID),
+    check (name in ('cony', 'jenny', 'minko'))
+
+);
+</pre>
+<p>执行之后, 使用PgAdmin可以看到, 在test.names表对象里边有一个Constraints, 其中有一个 names_name_check 对象, 右击查看属性, 在Definition的Check中可以看到:</p>
+<pre>
+name::text = ANY (ARRAY['cony'::character varying, 'jenny'::character varying, 'minko'::character varying]::text[])
+</pre>
+<p>这是PgSQL根据我们的约束语句生成的约束.</p>
+<p>虽然CHECK后边的布尔表达式理论上可以是任何语句, 但目前PgSQL还不支持在CHECK后边使用含有子查询的语句, 所以只能使用一些基本的常量和对应的逻辑运算.</p>
+<p>一般情况下, 外键对应的被参照关系的属性是主键. 不过外键的实际实现, 在业务中也可以操作, 而不一定在数据库层面定义.</p>
+<p>参照完整性其实说的就是外键. 理论就不再重复了. 这里需要了解的是cascade 级联关系.</p>
+<p>所谓级联关系, 就是在正常情况下, 如果一个更新会导致参照完整性出现问题, 那么一般这个操作会被拒绝. 然而可以在定义参照完整性的时候特别指定对一些违反参照完整性的操作要如何进行处理, 并且处理的结果不违反参照完整性. 被指定的这些操作就是级联操作.</p>
+<p>看一个例子, 在之前创建表的时候, 语句如下:</p>
+<pre>
+create table test.department
+(dept_name      varchar(20),
+ building       varchar(15),
+ budget             numeric(12,2) check (budget > 0),
+ primary key (dept_name)
+);
+
+create table test.course
+(course_id      varchar(8),
+ title          varchar(50),
+ dept_name      varchar(20),
+ credits        numeric(2,0) check (credits > 0),
+ primary key (course_id),
+ foreign key (dept_name) references test.department
+     <span style="color: red">on delete set null</span>
+);
+</pre>
+<p>这个最后一条跟在外键定义后的语句是什么意思呢, 如果被参照关系被删除(也就是department关系中删除了一条数据), 如果当前的外键值是那个被删除的数据的值, 很显然, 此时就违反了完整性约束, 因为如果数据库同意删除department中一条数据, 则course中的记录的外键值, 在department表中就找不到任何对应关系, 就无法满足外键关系.</p>
+<p>如果没有on delete, 如果你删除一条已经有外键关联的数据, 数据库是不会同意你删除的; 有了 on delete 和后边的 set null, 就告诉数据库, 当被参照关系删除的时候, 你要将这个外键的值改成null, 这样还继续满足参照完整性约束.</p>
+<p>级联关系的设置分为两部分, 即前半段的 on XXX 表示在被参照关系进行了什么操作的情况下, 后边有三种设置, 一种就是 set null, 一种是 set default, 前边这两种都是设置成一个不影响参照完整性的值, 还一种是 cascade, 表示跟着做相应操作.</p>
+<p>如果创建test.course的语句如下:</p>
+<pre>
+create table test.course
+(course_id      varchar(8),
+ title          varchar(50),
+ dept_name      varchar(20),
+ credits        numeric(2,0) check (credits > 0),
+ primary key (course_id),
+ foreign key (dept_name) references test.department
+     <span style="color: red">on delete cascade</span>
+     <span style="color: red">on update cascade</span>
+);
+</pre>
+<p>这两条的意思就表示, 如果course的外键关联的department对象删除了, 很显然完整性约束受到破坏, 那怎么办呢, 就连course关联的对象一起也删除了吧. 如果department对象的主键更新成了另外一个值, 约束又破坏了, 那干脆就把外键的值改成新的department的主键吧, 这样就继续能保持一致了.</p>
+<p>不得不说, 看了前边的理论, 对于级联就清晰很多了.</p>
+<p>级联的操作要设置的符合现实, 比如学生如果有一个外键去关联到系的名称, 假如学校进行调整, 先在数据库中删除一个系, 再调整学生的归属. 那么学生表肯定不能设置成级联删除. 因为即使系删除, 学生依然还属于学校, 不可能直接就把学生从数据库中删除, 否则删除系之后, 再调整学生的归属, 结果发现要调整的学生已经从数据库中删除了.</p>
+
+<h2 style="text-align: center;" id="con5">SQL - 时间类型</h2>
+<p>除了基本类型之外, 最常用的就是时间类型了.</p>
+<p>SQL中的时间类型分为三+一种:</p>
+<ol>
+    <li><code>date</code>, 这个表示日期, 仅有年月日. 如果用字符串表示, 是 '2001-04-25' </li>
+    <li><code>time</code>, 这个表示一天内的时间, 只有时分秒, 可以用 time(p) 来表示有几位小数点, 默认为0, 一般已经足够. 字符串表示为 '09:10:20'</li>
+    <li><code>timestamp</code>, 这个就是一个时间戳, 也可以指定小数点, 还可以加上with timezone表示连时区信息也一并存储. timestamp的字符串表示是把两个合起来 '2019-12-31 20:54:39.31' </li>
+    <li><code>interval</code>, 这个是一个时间间隔</li>
+</ol>
+<p>关键是要知道这几个日期的使用方式. 实际上, 这三个事件戳, 在Java里都可以使用java.util.Date对象, 只不过在存到数据库中的时候, 针对不同的数据类型, 被保留的内容是不同的.</p>
+<p>使用时间类型, 实际上就是如何在一定的时间范围内查询想要的结果. 在查询的时候, 可以使用函数来得到结果的. PostgreSQL中有一个<a href="http://www.postgresqltutorial.com/postgresql-date_part/" target="_blank">函数date_part</a>用来处理时间, 得到想要的值, 然后与查询结果进行比较.</p>
+<p>在搜寻这个函数用法的时候, 发现一个网站 <a href="http://www.postgresqltutorial.com/" target="_blank">http://www.postgresqltutorial.com/</a> 不错, 记下来慢慢看, 不知道后边用Hibernate也有这么好的网站么.</p>
+<p>除此之外, SQL标准还可以 使用  extract(field from d) 来提取具体内容, 比如:</p>
+<pre>
+SELECT extract(hour from created) FROM employee;
+</pre>
+<p>这个是指从employee表中的created时间字段中提取出所有的小时组成一个关系.</p>
+<p>SQL里还有一些通用函数(PgSQL也支持), 如下:</p>
+<ol>
+    <li>current_date, 返回当前日期</li>
+    <li>current_time, 返回当前时间, 带有时区</li>
+    <li>localtime, 当前不带时区的时间</li>
+    <li>current_timestamp, 带时区的时间戳</li>
+    <li>localtimestamp, 不带时区的时间戳</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
