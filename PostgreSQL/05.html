@@ -22,8 +22,9 @@
     <li><a href="#con2">视图</a></li>
     <li><a href="#con3">事务</a></li>
     <li><a href="#con4">完整性约束</a></li>
-    <li><a href="#con5">SQL - 其他数据类型</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">SQL - 时间类型</a></li>
+    <li><a href="#con6">SQL - 索引</a></li>
+    <li><a href="#con7">SQL - 授权</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">连接表达式</h2>
 <p>之前在学理论的时候看过自然连接, 其本质就是因为两个表的某一个属性是相关的. 其本质和用WHERE 指定两个表的外键与被外键关联的列相等即可.</p>
@@ -188,6 +189,37 @@ SELECT extract(hour from created) FROM employee;
     <li>current_timestamp, 带时区的时间戳</li>
     <li>localtimestamp, 不带时区的时间戳</li>
 </ol>
+<p>可见以后在使用Java的时候, 灵活使用Java里时间数据类型的字符串格式, 然后通过这个来查询SQL就可以了. 还需要注意带不带时区就行了.</p>
+
+<h2 style="text-align: center;" id="con6">SQL - 索引</h2>
+<p>写到这里刚写完2020年的总结, 思路有了一些变化, 先习得数据库通论, 然后靠新发现的<a href="https://www.postgresqltutorial.com/">https://www.postgresqltutorial.com/</a>来详细学习PostgreSQL的使用.</p>
+<p>如果不深究索引的原理, 只是使用索引的话, 只需要知道, 索引也是一种数据结构, 也存放于数据库中.</p>
+<p>索引创建于某一个或者多个属性之上, 其用途很直白, 就是帮助找到这个属性的某一个值所属的元组. 很多时候, 依靠索引, 数据库就无需迭代所有元组, 而可以直接定位. 这就比迭代要快很多.</p>
+<p>SQL没有标准的用于创建索引的, 一般采用 <code>CREATE INDEX xxx_index ON xxx</code>的语法来使用. 索引的详细实现之后有能力就看看了, 先来试验一下.</p>
+<p>PgSQL创建语句的格式如下:</p>
+<pre>
+CREATE INDEX name_index ON test.instructor USING btree (
+    name desc NULLS first
+);
+</pre>
+<p>ON后边是表名, 前边是索引名称, 之后的USING是使用何种算法, 可以省略.</p>
+<p>括号中的是该索引对应的属性名, 其中可以规定索引顺序, 以及指定如果遇到null属性, 将其排在最前边还是后边, 具体可以看<a href="https://www.postgresqltutorial.com/postgresql-indexes/postgresql-create-index/" target="_blank">这里</a>.</p>
+<p>执行之后, PgAdmin里可以看到table - instructor 里边的indexes内部多了一个name_index对象, 查看其属性, 可以在definition中看到详细定义, 还可以自行修改.</p>
+<p>之后如果查询涉及到单独查询name列, 就会使用这个索引.</p>
+<p>SQL的自定义类型, 等用到PgSQL过一遍的时候再看, 如果有需要使用自定义类型, 就来看看.</p>
+
+<h2 style="text-align: center;" id="con7">SQL - 授权</h2>
+<p>授权的指令在前边已经简单介绍过, 这里指的是授予用户对于数据的权限, 即读取, 插入, 更新, 删除:</p>
+<p>SQL的标准包括SELECT, INSERT, UPDATE, DELETE四种权限, 以及一个包含四种权限的简写关键字 ALL. </p>
+<p>一般来说, 一个新创建了一个关系的用户(或者说创建关系的时候指定的用户)会获得这个关系的所有权限. 使用GRANT语句来进行授权:</p>
+<pre>GRANT 权限 ON 关系名或视图名 TO 用户/角色列表.</pre>
+<p>如果将GRANT改成REVOKE, 就是收回权限.</p>
+<p>PUBLIC 用户是公共权限, 包含所有现存的用户和将来的用户, 在之前看PgSQL的时候还以为这一块是PgSQL专属, 其实是SQL的标准.</p>
+<p>SQL还可以规定权限的接受者还可以将这个权限再赋予别人, 默认不允许再次授权, 加上 WITH GRANT OPTION 表示允许再次授权. 授权的最小单位是一个关系, 无法限定对于某个具体元组的权限.</p>
+<p>这里还提到了ROLE的概念, 只要记住PgSQL都使用ROLE就可以了.</p>
+<p>权限实际上是通过一个路径图来查看, 收回权限的时候一般默认是级联收回, 如果不要级联收回, 可以在最后加上STRICT 关键字. 加上后, 如果收回权限的时候发现存在级联情况, 就会报错, 而不会执行收回.</p>
+<p>所以实际上可以把STRICT看做是一个检查.</p>
+<p>莽完了中级SQL的内容, 其实核心不多, 主要是回头来看, 比起原来心智又成熟了很多, 理解这些概念也更容易了. 后边的函数和触发器等高级内容, 就要配合PostgreSQL来学习了.</p>
 
 
 
@@ -195,30 +227,6 @@ SELECT extract(hour from created) FROM employee;
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
