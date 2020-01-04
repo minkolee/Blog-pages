@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 05 SQL中级</title>
+    <title>PostgreSQL 05 SQL 中级</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -219,7 +219,7 @@ CREATE INDEX name_index ON test.instructor USING btree (
 <p>这里还提到了ROLE的概念, 只要记住PgSQL都使用ROLE就可以了.</p>
 <p>权限实际上是通过一个路径图来查看, 收回权限的时候一般默认是级联收回, 如果不要级联收回, 可以在最后加上STRICT 关键字. 加上后, 如果收回权限的时候发现存在级联情况, 就会报错, 而不会执行收回.</p>
 <p>所以实际上可以把STRICT看做是一个检查.</p>
-<p>莽完了中级SQL的内容, 其实核心不多, 主要是回头来看, 比起原来心智又成熟了很多, 理解这些概念也更容易了. 后边的函数和触发器等高级内容, 就要配合PostgreSQL来学习了.</p>
+<p>莽完了中级SQL的内容, 其实核心不多, 主要是回头来看, 比起原来心智又成熟了很多, 理解这些概念也更容易了. 后边的函数和触发器等高级内容, 就要学习PostgreSQL的专门内容了.</p>
 
 
 
