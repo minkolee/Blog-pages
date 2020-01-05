@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>PostgreSQL 06 </title>
+    <title>PostgreSQL 06 要点记录</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,17 +15,28 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>已经看完了https://www.postgresqltutorial.com/postgresql-select/ 的section 11 教学部分, 大部分都在之前的SQL学习中看过了, 但是也有一些新的知识点, 总结一下以方便速查.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
+    <li><a href="#con1">SELECT相关</a></li>
     <li><a href="#con2"></a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">SELECT系列</h2>
+<ol>
+    <li><code>DISTINCT column_1, column_2</code>, 根据两列组合在一起的不同来选择</li>
+    <li><code>DISTINCT ON(column_1) column_alias, column_2</code>, 按照第一列进行分组, 然后仅仅选出每一个组中按照指定顺序的第一个, 所以就是仅仅保证第一列不同, 结果集中仅有与不相同的column_1数量相等的结果. </li>
+    <li><code>ILIKE</code>, 是忽略大小写的LIKE</li>
+    <li><code>LIMIT M OFFSET N</code>, 不是SQL标准, 但是PgSQL支持</li>
+    <li><code>OFFSET 5 ROWS FETCH FIRST 5 ROW ONLY</code>, FETCH是SQL标准, 效果与LIMIT OFFSET相同.</li>
+    <li><code>WHERE payment_date BETWEEN '2007-02-07' AND '2007-02-15';</code>, 遇到日期可以用符合ISO标准的字符串进行替代, 会自动进行类型转换.</li>
+</ol>
+
+
+
 
 <h2 style="text-align: center;" id="con2"></h2>
 
