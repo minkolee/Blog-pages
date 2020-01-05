@@ -29,10 +29,29 @@
 <ol>
     <li><code>DISTINCT column_1, column_2</code>, 根据两列组合在一起的不同来选择</li>
     <li><code>DISTINCT ON(column_1) column_alias, column_2</code>, 按照第一列进行分组, 然后仅仅选出每一个组中按照指定顺序的第一个, 所以就是仅仅保证第一列不同, 结果集中仅有与不相同的column_1数量相等的结果. </li>
-    <li><code>ILIKE</code>, 是忽略大小写的LIKE</li>
+    <li><code>ILIKE</code>, 是忽略大小写的LIKE, 匹配的范围更加广. PgSQL提供LIKE和ILIKE的简写: ~~ ~~* !~~ !~~*</li>
     <li><code>LIMIT M OFFSET N</code>, 不是SQL标准, 但是PgSQL支持</li>
     <li><code>OFFSET 5 ROWS FETCH FIRST 5 ROW ONLY</code>, FETCH是SQL标准, 效果与LIMIT OFFSET相同.</li>
     <li><code>WHERE payment_date BETWEEN '2007-02-07' AND '2007-02-15';</code>, 遇到日期可以用符合ISO标准的字符串进行替代, 会自动进行类型转换.</li>
+    <li><code>所有值包括NULL与NULL都不相等, 判断NULL用 IS NULL, PgSQL中还有 ISNULL</code>, 遇到日期可以用符合ISO标准的字符串进行替代, 会自动进行类型转换.</li>
+    <li><code>SELECT column_name AS alias_name</code>, PgSQL中可以省略AS, 直接将别名接在关系名之后. FROM中出现的别名可以用在SELECT和WHERE之中</li>
+    <li><code>INNER JOIN payment ON payment.customer_id = customer.customer_id</code>, INNER JOIN 记得用ON</li>
+    <li><code>CROSS JOIN</code>, 结果是笛卡尔积, 也可以写成 <code>INNER JOIN XXX ON TRUE;</code></li>
+    <li><code>NATURAL JOIN</code>, 隐含是有两列有对应关系, 可以是INNER, LEFT, RIGHT, 如果不指定, 默认是INNER JOIN</li>
+    <li><code>GROUP BY col1, col2</code>, 根据多列来分组, 实际上是根据这些列组成的元组来分组</li>
+    <li><code>GROUP BY GROUPING SETS ((brand, segment), (brand), (segment), ());</code>, 可以一次性得到多个根据多个列来分组的结果. 可以用CUBE得到全排列的组合, 用Rollup得到从最右边元素逐个减少的组合</li>
+    <li><code>WITH</code>, 语句在PgSQL中叫common table expressions, 即CTEs</li>
+    <li>
+    <pre>
+    WITH RECURSIVE cte_name(
+    CTE_query_definition -- non-recursive term
+    UNION [ALL]
+    CTE_query definion  -- recursive term
+    ) SELECT * FROM cte_name;
+    </pre>
+        递归查询, 在同一个表内反复查询</li>
+    <li><code>INSERT INTO table_name(column_list) VALUES(value_list) ON CONFLICT target action;</code>, 插入时候遇到冲突的处理</li>
+
 </ol>
 
 
