@@ -164,7 +164,7 @@ WITH TEMPLATE dvdrental;
 <ol>
     <li>boolean, 也可以写作bool, 可取三个值: true, false 和 null, 在插入布尔类型的列的时候可以进行类型转换, 比如1, yes, y, t转换成true.</li>
     <li>CHAR(n), VARCHAR(n), TEXT都是字符类型</li>
-    <li>SMALLINT, INT, Serial 都是整数, 其中Serial默认是一个从1开始的序列</li>
+    <li>SMALLINT, INT, BIGINT, Serial 都是整数, 其中Serial默认是一个从1开始的序列</li>
     <li>float(n) 是指定小数点精度的8字节浮点数, real和float8是4字节单精度浮点, 此外numeric(p,s)是定点数, 可以用来表示精确的数字.</li>
     <li>DATE, TIME, TIMESTAMP, TIMESTAMPTZ, INTERVAL 都知道了</li>
     <li>ARRAYS, 存放指定数据类型的数组</li>
@@ -229,7 +229,7 @@ CREATE TABLE account_role
       ON UPDATE NO ACTION ON DELETE NO ACTION
 );
 </pre>
-<p>还有一个CREATE TABLE new_table_name AS query;, query指的是一个关系, 可以使用这个关系直接创建一个新表.</p>
+<p>还有一个CREATE TABLE new_table_name AS query;, query指的是一个关系, 可以使用这个关系直接创建一个新表. 后边加上WITH NO DATA可以依照该关系创建一个新的空表.</p>
 
 <h2 style="text-align: center;" id="con6">创建自增序列</h2>
 <p>在PgSQL中创建自增序列的话, 只需要将列的数据类型指定为Serial:</p>

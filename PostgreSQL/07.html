@@ -15,26 +15,206 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>前边知道了怎么创建表, 以及关键的创建自增序列和主键. 现在来看看其他的表操作</p>
+<p>此外还有一些常用的数据类型比如DATE等的操作, 由于日期也是常用操作, 一定得掌握.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">ALTER TABLE</a></li>
+    <li><a href="#con2">临时表</a></li>
+    <li><a href="#con3">PostgreSQL的约束</a></li>
+    <li><a href="#con4">时间类型 - DATE类型</a></li>
+    <li><a href="#con5">时间类型 - TIMESTAMP类型</a></li>
+    <li><a href="#con6">时间类型 - INTERVAL类型</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">ALTER TABLE</h2>
+<p>ALTER TABLE命令用来改变关系的内容, 改变关系已经知道就是改变属性, 所以可以增删改列, 设置默认值, 添加约束条件等. 还可以重命名一个关系, 简要命令如下:</p>
+<ol>
+    <li><code>ALTER TABLE table_name ADD COLUMN new_column_name TYPE;</code>, 添加新列</li>
+    <li><code>ALTER TABLE table_name DROP COLUMN column_name</code>, 删除列</li>
+    <li><code>ALTER TABLE table_name RENAME COLUMN column_name TO new_column_name;</code>, 修改列名</li>
+    <li><code>ALTER TABLE table_name ALTER COLUMN column_name [SET DEFAULT value | DROP DEFAULT];</code>, 添加和删除默认值</li>
+    <li><code>ALTER TABLE table_name ALTER COLUMN column_name [SET NOT NULL| DROP NOT NULL];</code>, 添加约束</li>
+    <li><code>ALTER TABLE table_name ADD CHECK expression;</code>, 添加CHECK约束</li>
+    <li><code>ALTER TABLE table_name ADD CONSTRAINT constraint_name constraint_definition;</code>, 添加其他约束</li>
+    <li><code>ALTER TABLE table_name RENAME TO new_table_name;</code>, 修改表名</li>
+</ol>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">临时表</h2>
+<p>临时表指的是存在于一次数据库会话中的表, 在会话结束的时候, PgSQL会删除临时表. 在一个会话中创建的临时表, 其他会话无法使用.</p>
+<p>创建临时表的指令是:</p>
+<pre>
+CREATE TEMPORARY TABLE temp_table(
+   ...
+);
+</pre>
+<p>可以用TEMP来代替TEMPORARY. 临时表的一个特性是可以创建与已经存在的表同名的临时表, 只要临时表还在, 访问同名的表只会访问到临时表. 如果不指定schema, PgSQL会在一个特殊的schema中创建临时表.</p>
+<p>操作临时表的各种命令与操作普通表一样.</p>
 
-<h2 style="text-align: center;" id="con3"></h2>
+<h2 style="text-align: center;" id="con3">PostgreSQL的约束</h2>
+<p>有如下几种约束:</p>
+<ol>
+    <li>主键, 操作已经基本都知道了.</li>
+    <li>外键, 操作已经基本都知道了, 唯一注意就是可以指定联合外键:
+        <pre>
+CREATE TABLE child_table(
+  c1 INTEGER PRIMARY KEY,
+  c2 INTEGER,
+  c3 INTEGER,
+  FOREIGN KEY (c2, c3) REFERENCES parent_table (p1, p2)
+);
+        </pre></li>
+    <li><code>CHECK</code>, CHECK只能进行与字段相关的简单比较, 不能使用复杂的SQL SELECT等操作</li>
+    <li><code>UNIQUE</code>, 这个在之前的SQL标准中也看过了</li>
+    <li><code>NOT NULL</code>, 这个在之前的SQL标准中也看过了</li>
+</ol>
 
-<h2 style="text-align: center;" id="con4"></h2>
+<h2 style="text-align: center;" id="con4">时间类型 - DATE类型</h2>
+<p>日期操作是很普遍的操作, 这次就好好看看PgSQL中日期的操作, 这样以后根据日期来进行查询也能彻底掌握了.</p>
+<p>DATE类型仅仅保留日期的部分, 也就是年月日, 范围是4713 BC 到 5874897 AD. 对于一般的时间记录足够使用了.</p>
+<p>在存储DATE类型的时候, PgSQL允许使用yyyy-mm-dd的字符串形式来写入到DATE类型的列中.</p>
+<p>如果需要创建一个默认值是当前日期的列, 采用如下语句:</p>
+<pre>
+col_name DATE NOT NULL <span style="color: orangered">DEFAULT CURRENT_DATE</span>
+</pre>
+<p>CURRENT_DATE 就是代表当前时间的关键字, 与函数now()结果一样;</p>
+<pre>
+SELECT now();
+</pre>
+<p>不过NOW()返回的其实是一个TIMESTAMP类型. 可以使用TOCHAR函数将其转换成指定格式的字符串:</p>
+<pre>
+SELECT TO_CHAR(NOW() :: DATE, 'yyyy/mm/dd');
+SELECT TO_CHAR(NOW() :: DATE, 'Mon dd, yyyy');
+</pre>
+<p>可以直接相减得到Interval类型:</p>
+<pre>
+SELECT
+    rental_date,
+    now() - rental_date as diff
+FROM
+    rental
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+order by diff
+limit 10
+</pre>
+<p>用age()函数加上一个时间, 可以计算这个时间到现在的间隔, 所以叫AGE函数:</p>
+<pre>
+SELECT
+    rental_date,
+    age(rental_date) diff
+FROM
+    rental
+
+order by diff
+limit 10
+</pre>
+<p>从日期中获取年, 月, 日, 使用EXTRACT:</p>
+<pre>
+SELECT
+   employee_id,
+   first_name,
+   last_name,
+   EXTRACT (YEAR FROM birth_date) AS YEAR,
+   EXTRACT (MONTH FROM birth_date) AS MONTH,
+   EXTRACT (DAY FROM birth_date) AS DAY
+FROM
+   employees;
+</pre>
+<p>最后总结列出一下上边所用的函数和操作:</p>
+<ol>
+    <li><code>CURRENT_DATE</code>, 代表当前DATE</li>
+    <li><code>NOW()</code>, 函数, 返回当前TIMESTAMP</li>
+    <li><code>TOCHAR()</code>, 功能之一是格式化输出时间</li>
+    <li><code>AGE()</code>, 计算指定时间到今天的间隔</li>
+    <li><code>EXTRACT(YEAR/MONTH/DAY FROM birth_date)</code>, 抽取年月日</li>
+</ol>
+
+<h2 style="text-align: center;" id="con5">时间类型 - TIMESTAMP类型</h2>
+<p>这个时间类型分为两种, 一是TIMESTAMP 二是TIMESTAMPZ. 第一个是不带时区信息, 第二个带时区信息.</p>
+<p>所谓不带时区信息的意思是, 如果PgSQL所在的服务器的时区发生了变化, 从TIMESTAMP中取出的结果不会变化. 带时区的意思指的是当插入一个时间的时候, PgSQL会根据当前的时间将其转换成一个UTC时间格式写入数据库.
+查询的时候, 会将查到的结果以数据库软件运行所在的时区展示出来. 所以实际上, <span style="color: orangered">TIMESTAMPZ不携带任何时区信息</span>, 只是一个UTC值.</p>
+<p>TIMESTAMP都是8字节存储的, 查看数据类型可以使用:</p>
+<pre>
+SELECT
+    typname,
+    typlen
+FROM
+    pg_type
+WHERE
+        typname ~ '^timestamp';
+</pre>
+<p>实际中选用哪一个呢, 看一个例子:</p>
+<pre>
+-- 创建一个表带有这两种数据类型
+CREATE TABLE timestamp_demo (ts TIMESTAMP, tstz TIMESTAMPTZ);
+
+-- 查看当前时区, 结果发现是UTC
+SHOW TIMEZONE
+
+-- 设置时区是上海
+SET timezone = 'Asia/Shanghai';
+
+-- 插入当前时间
+INSERT INTO timestamp_demo (ts, tstz)
+VALUES
+(
+    now(),
+    now()
+);
+-- 结果是:
+             ts                            tstz
+2020-01-06 15:20:26.966515	2020-01-06 15:20:26.966515 +08:00
+</pre>
+<p>可以发现, ts存的就是那个UTC的值, 取出来的时候也是按照UTC进行解释, 而tstz在取出来的时候, 是按照时区进行解释的.</p>
+<p>更改服务器的时区再检索:</p>
+<pre>
+SET timezone = 'America/Los_Angeles';
+SHOW TIMEZONE;
+SELECT * FROM timestamp_demo;
+</pre>
+<p>可以发现tstz的结果又变化了, 而ts没有变化:</p>
+<pre>
+             ts                            tstz
+2020-01-06 15:20:26.966515	2020-01-05 23:20:26.966515 -08:00
+</pre>
+<p>所以实践中, 应该首先设置好服务器的时区, 然后选择TIMESTAMPZ来存储数据. 再看看TIMESTAMP相关的函数:</p>
+<ol>
+    <li><code>now()</code>, 这个在DATA里也见过, 返回值其实是一个TIMESTAMPZ, 包含DATA和TIME数据和根据当前时区转换.</li>
+    <li><code>CURRENT_TIMESTAMP</code>, 这个在DATA里也见过, 返回值其实是一个TIMESTAMPZ, 包含DATA和TIME数据并且根据当前时区转换.(CURRENT_TIME也是带时区的)</li>
+    <li><code>timeofday()</code>, 返回字符串格式的当前时间, 也是带时区的</li>
+    <li><code>timezone(zone, timestamp)</code>, 按照一个时区转换指定的timestamp, 比如 SELECT timezone('Asia/Tokyo', CURRENT_TIMESTAMP), 将当前的东八区转换成东九区时间.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con6">时间类型 - INTERVAL类型</h2>
+<p>INTERVAL类型比较特殊, 保存的其实是一个时间段, 但本质也是一个时间, 采用16字节保存, 范围是-178,000,000 年到 178,000,000 年.</p>
+<p>INTERVAL定义的语句是: <code>interval [ fields ] [ (p) ] </code></p>
+<p>其中(p)表示精度, 可以选0-6, 表示秒数后边的小数长度.</p>
+<p>fields表示时间内容, 比较特殊的是可以使用字符串形式的内容,比如:</p>
+<pre>
+interval '2 months ago';
+interval '3 hours 20 minutes';
+</pre>
+<p>比如想知道当前时间3天以前, 就可以写如下语句:</p>
+<pre>
+SELECT now() -  INTERVAL '3 days ago'
+</pre>
+<p>这个就会用当前时间精确的减去3天然后得到3天前的相同时间的TIMESTAMP.</p>
+<p>所以关键就是来看看这个fields怎么写, 有如下规则 <code>quantity unit [quantity unit...] [direction]</code>:</p>
+<ol>
+    <li>最开头的 quantity 是数量</li>
+    <li>unit表示时间单位, 可以使用的时间单位有很多, 从 y m d到复数 months, days都支持. 粒度则是从microsecond 一直到millennium都可以.</li>
+    <li>quantity和unit的组合可以写多个, 比如 1 year 3 months 10 days, 写完以后最后是方向</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
