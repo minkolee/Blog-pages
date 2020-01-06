@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>PostgreSQL 08 数据类型补完</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>继续看一些开发中很实用的数据类型</p>
+
+<ol>
+    <li><a href="#con1">UUID类型</a></li>
+    <li><a href="#con2">Array类型</a></li>
+    <li><a href="#con3">hstore类型</a></li>
+    <li><a href="#con4">JSON类型</a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">UUID类型</h2>
+<p>UUID指的是RFC 4122标准中规定的128位的二进制码, 通常用32位16进制数表示, 并且在特定的位置用减号连接, 如下是一些UUID的例子:</p>
+<pre>
+40e6215d-b5c6-4896-987c-f30f3678f608
+6ecd8c99-4036-403d-bf84-cf8400f67836
+3f333df6-90a4-4fda-8dd3-9485d27cee36
+</pre>
+<p>在分布式环境下, UUID要比使用SERIAL更能确保数据的唯一性.</p>
+<p>在Java中使用UUID, 简单的做法是直接使用UUID库:</p>
+<pre>
+public static void main(String[] args) {
+
+    UUID uuid = UUID.randomUUID();
+
+    System.out.println(uuid);
+
+}
+</pre>
+<p>结果就会打印出一个UUID, 比如 <code>0623b7fb-f975-4217-bb93-0f604313f97a</code>. 在PgSQL中, 可以使用一个插件来生成UUID.</p>
+<p>剩下就是在使用Hibernate的时候, 来试验一下这个新的数据类型吧.</p>
+
+<h2 style="text-align: center;" id="con2">Array类型</h2>
+<p>ARRAY类型很重要, 在PgSQL中每一个数据类型, PgSQL都会创建一个对应的数组类型, 甚至自定义一个数据类型的同时, PgSQL也会在后台创建对应的数组类型.</p>
+<p>数组类型采取的是C系风格, 即在数据类型后加上[], 创建一个表带有数组类型如下:</p>
+<pre>
+CREATE TABLE contacts (
+   id serial PRIMARY KEY,
+   name VARCHAR (100),
+   phones TEXT []
+);
+</pre>
+<p>插入数组的时候, 使用特殊的 ARRAY 关键字, 然后用方括号括住数组中的每一个值:</p>
+<pre>
+INSERT INTO contacts (name, phones)
+VALUES
+(
+    'John Doe',
+    ARRAY [ '(408)-589-5846',
+        '(408)-589-5555' ]
+);
+</pre>
+<p>之后查询, 可以得到如下结果:</p>
+<pre>
+id   name      phones
+1    John Doe  {(408)-589-5846,(408)-589-5555}
+</pre>
+<p>如果不使用ARRAY[], 也可以使用{}大括号:</p>
+<pre>
+INSERT INTO contacts (name, phones)
+VALUES
+   (
+      'Lily Bush',
+      '{"(408)-589-5841"}'
+   ),
+   (
+      'William Gate',
+      '{"(408)-589-5842","(408)-589-58423"}'
+   );
+</pre>
+<p>要注意的是, 单引号括在大括号外边, 内部是用双引号括住字符串类型.</p>
+<p>在查询或者取出数组的时候, 使用索引即可, 比如:</p>
+<pre>
+UPDATE contacts
+SET phones [ 2 ] = '(408)-589-5843'
+WHERE
+   ID = 3;
+</pre>
+<p>这是更新其中的一个元素, 也可以直接更新整个字段, 这个时候就无须使用索引, 当然其后的类型也要正确.</p>
+<p>数组的一个特点是, 可以将其当成一个结果集, 使用ANY, SOME之类进行引用:</p>
+<pre>
+SELECT
+   name,
+   phones
+FROM
+   contacts
+WHERE
+   '(408)-589-5555' = ANY (phones);
+</pre>
+<p>unnest()函数可以将数组展开成一列, 比如:</p>
+<pre>
+SELECT
+   name,
+   unnest(phones)
+FROM
+   contacts;
+</pre>
+<p>结果中一个name对应的数组有几个值, 就会被展开成几行.</p>
+
+<h2 style="text-align: center;" id="con3">hstore类型</h2>
+<p>这个需要安装扩展, 被包含在contrib包中, 在VPS上运行:</p>
+<pre>yum search postgresql12</pre>
+<p>可以找到PgSQL的相关安装包:</p>
+<pre>
+postgresql12-debuginfo.x86_64 : Debug information for package postgresql12
+postgresql12.x86_64 : PostgreSQL client programs and libraries
+postgresql12-contrib.x86_64 : Contributed source and binaries distributed with PostgreSQL
+postgresql12-devel.x86_64 : PostgreSQL development header files and libraries
+postgresql12-docs.x86_64 : Extra documentation for PostgreSQL
+postgresql12-libs.x86_64 : The shared libraries required for any PostgreSQL clients
+postgresql12-llvmjit.x86_64 : Just-in-time compilation support for PostgreSQL
+postgresql12-odbc.x86_64 : PostgreSQL ODBC driver
+postgresql12-plperl.x86_64 : The Perl procedural language for PostgreSQL
+postgresql12-plpython.x86_64 : The Python procedural language for PostgreSQL
+postgresql12-plpython3.x86_64 : The Python3 procedural language for PostgreSQL
+postgresql12-pltcl.x86_64 : The Tcl procedural language for PostgreSQL
+postgresql12-server.x86_64 : The programs needed to create and run a PostgreSQL server
+postgresql12-test.x86_64 : The test suite distributed with PostgreSQL
+</pre>
+<p>要安装的其实也就是contrib, server和posgresql12.x86_64之前都安装过了, 一个是服务器, 一个是客户端.</p>
+<pre>
+yum install postgresql12-contrib.x86_64
+</pre>
+<p>安装完之后, 扩展的文件都有了, 但是扩展不是自动启用的, 而是要在每个数据库中执行创建扩展的命令, 要使用hstore就需要执行:</p>
+<pre>
+CREATE EXTENSION hstore;
+</pre>
+<p>没有报错就说明安装扩展完成, 扩展仅仅对使用了这个命令的数据库生效, 这样可以有效的隔离不同的数据库, 避免因装了太多扩展互相污染.</p>
+<p>通过PgAdmin4查看, 可以看到dvdrental中的Extension中增加了hstore.</p>
+<p>hstore类似于一个Map类型, 里边存放一个一个的键值对, 创建一个表然后插入数据的方式如下:</p>
+<pre>
+CREATE TABLE books (
+   id serial primary key,
+   title VARCHAR (255),
+   attr hstore
+);
+
+INSERT INTO books (title, attr)
+VALUES
+   (
+      'PostgreSQL Tutorial',
+      '"paperback" => "243",
+      "publisher" => "postgresqltutorial.com",
+      "language"  => "English",
+      "ISBN-13"   => "978-1449370000",
+       "weight"    => "11.2 ounces"'
+   );
+
+INSERT INTO books (title, attr)
+VALUES
+(
+    'PostgreSQL Cheat Sheet',
+    '
+"paperback" => "5",
+"publisher" => "postgresqltutorial.com",
+"language"  => "English",
+"ISBN-13"   => "978-1449370001",
+"weight"    => "1 ounces"'
+);
+</pre>
+<p>可以看到, 用一个单引号包围住以=>分割的字符串键值对. 如果直接查询整个字段, 是如下结果:</p>
+<pre>
+ISBN-13 => 978-1449370000, weight => "11.2 ounces", paperback => 243, publisher => postgresqltutorial.com, language => English
+</pre>
+<p>如果要查询其中的一个键对应的值, 采取如下写法:</p>
+<pre>
+SELECT
+       title, <span style="color: orangered">attr -> 'ISBN-13'</span> AS isbn
+FROM
+    books;
+</pre>
+<p>这会在attr这个hstore对象中, 寻找键为 'ISBN-13' 的值, 然后列名叫做ISBN, 返回结果集.</p>
+<p>用在其他地方也一样, 只要记住 attr -> 'key' 代表了一个值.</p>
+<p>如果要向hstore中添加一个键, 使用如下语句:</p>
+<pre>
+UPDATE books
+SET attr = attr || '"freeshipping"=>"yes"' :: hstore;
+</pre>
+<p>注意这里使用了字符串连接符, 然后加上了一个键值对, 之后显式指明了数据类型为 hstore. </p>
+<p>更新一个键也类似, 只要键存在就是更新:</p>
+<pre>
+UPDATE books
+SET attr = attr || '"freeshipping"=>"yes"' :: hstore;
+</pre>
+<p>删除的语法有些特别:</p>
+<pre>
+UPDATE books
+SET attr = delete(attr, 'freeshipping');
+</pre>
+<p>然后是几个特别的用法:</p>
+<ol>
+    <li><code>WHERE attr ? 'publisher';</code>, 表示选出所有attr属性中键名包含publisher的元组</li>
+    <li><code>WHERE attr @> '"weight"=>"11.2 ounces"' :: hstore;</code>, 这个表示选出attr中存在这个键值对的元组</li>
+    <li><code>WHERE attr ?& ARRAY [ 'language', 'weight' ];</code>, 这个表示选出键同时包含language和weight两个键的元组.</li>
+</ol>
+<p>之后是一系列函数:</p>
+<ol>
+    <li><code>akeys()</code>,获取一个hstore对象内所有的键</li>
+    <li><code>skeys()</code>,将键拆开成序列</li>
+    <li><code>avals()</code>,获取一个hstore对象内所有的值</li>
+    <li><code>svals()</code>,将值拆开成序列</li>
+    <li><code>hstore_to_json()</code>,将hstore转换成JSON, 超级好用的函数</li>
+    <li><code>each()</code>,将hstore拆开成键值, 然后按行显示</li>
+</ol>
+<p>最后一个函数用法如下:</p>
+<pre>
+SELECT
+   title,
+   (EACH(attr) ).*
+FROM
+   books;
+</pre>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

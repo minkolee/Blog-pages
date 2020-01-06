@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>PostgreSQL 07 表操作</title>
+    <title>PostgreSQL 07 表约束和时间类型</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -25,6 +25,7 @@
     <li><a href="#con4">时间类型 - DATE类型</a></li>
     <li><a href="#con5">时间类型 - TIMESTAMP类型</a></li>
     <li><a href="#con6">时间类型 - INTERVAL类型</a></li>
+    <li><a href="#con7">时间类型 - TIME类型</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">ALTER TABLE</h2>
 <p>ALTER TABLE命令用来改变关系的内容, 改变关系已经知道就是改变属性, 所以可以增删改列, 设置默认值, 添加约束条件等. 还可以重命名一个关系, 简要命令如下:</p>
@@ -202,8 +203,71 @@ SELECT now() -  INTERVAL '3 days ago'
 <ol>
     <li>最开头的 quantity 是数量</li>
     <li>unit表示时间单位, 可以使用的时间单位有很多, 从 y m d到复数 months, days都支持. 粒度则是从microsecond 一直到millennium都可以.</li>
-    <li>quantity和unit的组合可以写多个, 比如 1 year 3 months 10 days, 写完以后最后是方向</li>
+    <li>quantity和unit的组合可以写多个, 比如 1 year 3 months 10 days, 写完以后最后是方向, 有两个选择, 一个是 ago 表示之前, 一个是什么都不写, 表示之后.</li>
 </ol>
+<p>fields还可以使用ISO 8601的格式, 这个格式如下: <code>P quantity unit [ quantity unit ...] [ T [ quantity unit ...]]</code></p>
+<p>其中的UNIT用 YMWDHMS 分别代表 年月周日时分秒, 还可以使用 <code>P [ years-months-days ] [ T hours:minutes:seconds ]</code> 格式, 例子如下:</p>
+<pre>
+P6Y5M4DT3H2M1S
+P0006-05-04T03:02:01
+</pre>
+<p>上边就是INTERVAL的赋值.</p>
+<p>而如何输出INTERVAL格式, 也有讲究, 可以设置四种输出方法, 格式各不相同, 例子如下:</p>
+<pre>
+SET intervalstyle = 'sql_standard';
+
+SELECT
+   INTERVAL '6 years 5 months 4 days 3 hours 2 minutes 1 second';
+
+
+SET intervalstyle = 'postgres';
+
+SELECT
+   INTERVAL '6 years 5 months 4 days 3 hours 2 minutes 1 second';
+
+
+SET intervalstyle = 'postgres_verbose';
+
+SELECT
+   INTERVAL '6 years 5 months 4 days 3 hours 2 minutes 1 second';
+
+
+SET intervalstyle = 'iso_8601';
+
+SELECT
+   INTERVAL '6 years 5 months 4 days 3 hours 2 minutes 1 second';
+</pre>
+<p>INTERVAL数值之间可以使用加减来计算得到新的INTERVAL数值, 此外也可以用TOCHAR函数转换成字符串, 用EXTRACT提取具体字段, 用法和普通的时间对象一样.</p>
+
+
+<h2 style="text-align: center;" id="con7">时间类型 - TIME类型</h2>
+<p>最后一种时间类型是TIME类型, 这个仅仅表示一天之内的时间, 不包含日期要素. 使用8字节保存, 范围是 00:00:00 到 24:00:00(会被转换成00:00:00, 所以实际上是00:00:00 - 23:59:59, 但是使用24:00:00不会报错)</p>
+<p>在填入该类型的数据时, 可以用对应的字符串表示, 如下字符串PgSQL都支持:</p>
+<pre>
+HH:MM
+HH:MM:SS
+HHMMSS
+</pre>
+<p>TIME也有另外一种时区相关的类型, 叫做 TIME WITH TIME ZONE. </p>
+<p>与TIME相关的函数有:</p>
+<ol>
+    <li><code>CURRENT_TIME</code>, 单独使用, 就是带时区的当前时间, 带6位小数精度</li>
+    <li><code>CURRENT_TIME(n)</code>, 带时区的当前时间, 带n位小数精度</li>
+    <li><code>LOCALTIME</code>, 带时区的当前时间, 不带小数</li>
+    <li><code>[TIME with time zone] AT TIME ZONE time_zone</code>, 将带时区的时间转换成另外一个时区的时间</li>
+</ol>
+<p>时区转换的例子如下:</p>
+<pre>
+-- 本地时间转换成东九区时间
+SELECT LOCALTIME AT TIME ZONE 'UTC-9';
+</pre>
+
+
+
+
+
+
+
 
 
 
