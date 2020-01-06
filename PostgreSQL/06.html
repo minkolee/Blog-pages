@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>PostgreSQL 06 要点记录</title>
+    <title>PostgreSQL 06 部分要点记录</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -18,12 +18,14 @@
 <p>已经看完了https://www.postgresqltutorial.com/postgresql-select/ 的section 11 教学部分, 大部分都在之前的SQL学习中看过了, 但是也有一些新的知识点, 总结一下以方便速查.</p>
 
 <ol>
-    <li><a href="#con1">SELECT相关</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">SELECT系列</a></li>
+    <li><a href="#con2">Upsert</a></li>
+    <li><a href="#con3">创建,修改和删除数据库</a></li>
+    <li><a href="#con4">数据类型</a></li>
+    <li><a href="#con5">创建表</a></li>
+    <li><a href="#con6">创建自增序列</a></li>
+    <li><a href="#con7">创建序列对象</a></li>
+    <li><a href="#con8">IDENTITY 列</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">SELECT系列</h2>
 <ol>
@@ -41,6 +43,7 @@
     <li><code>GROUP BY col1, col2</code>, 根据多列来分组, 实际上是根据这些列组成的元组来分组</li>
     <li><code>GROUP BY GROUPING SETS ((brand, segment), (brand), (segment), ());</code>, 可以一次性得到多个根据多个列来分组的结果. 可以用CUBE得到全排列的组合, 用Rollup得到从最右边元素逐个减少的组合</li>
     <li><code>WITH</code>, 语句在PgSQL中叫common table expressions, 即CTEs</li>
+    <li><code>UPDATE A SET A.c1 = expresion FROM B WHERE A.c2 = B.c2;</code>, 在UPDATE中, 如果需要根据其他表的数据进行判断, 可以使用这样的连表语句.</li>
     <li>
     <pre>
     WITH RECURSIVE cte_name(
@@ -50,21 +53,351 @@
     ) SELECT * FROM cte_name;
     </pre>
         递归查询, 在同一个表内反复查询</li>
-    <li><code>INSERT INTO table_name(column_list) VALUES(value_list) ON CONFLICT target action;</code>, 插入时候遇到冲突的处理</li>
+    <li><code>INSERT INTO table_name(column_list) VALUES(value_list) ON CONFLICT target action;</code>, 插入时候遇到冲突的处理, 即更新或者新增, 下边详述</li>
+    <li><code>SELECT column_list INTO new_table_name FROM table_name WHERE condition</code>, 从一个表中查出数据然后写入到一个新表中, 非常方便.</li>
 
 </ol>
 
+<h2 style="text-align: center;" id="con2">Upsert</h2>
+<p>在关系数据库中，术语upsert称为合并, 即如果一行已经存在, 就更新改行, 否则将新增该行. 所以这个词由Update 和 Insert 拼成, 即更新或者插入.</p>
+<p>这个功能不是SQL标准, 仅在PgSQL 9.5版本及以后版本中可以使用. 使用这个功能的语句如下:</p>
+<pre>
+INSERT INTO table_name(column_list) VALUES(value_list)
+ON CONFLICT target action;</pre>
+<p>第一行是INSERT语句, 关键是第二行的 ON CONFLICT 子句, 搭配INSERT使用, 构成了Upsert功能.</p>
+<p>第二行中的target 可以是如下内容:</p>
+<ol>
+    <li>写在括号中的列名</li>
+    <li>ON CONSTRAINT constraint_name, 即一个约束的名称</li>
+    <li>WHERE 子句</li>
+</ol>
+<p>action可以是如下内容:</p>
+<ol>
+    <li>DO NOTHING, 表示不做任何事情</li>
+    <li>DO UPDATE SET column_1 = value_1, .. WHERE condition, 一个UPDATE子句</li>
+</ol>
+<p>创建一个表和插入一些数据:</p>
+<pre>
+CREATE TABLE customers (
+   customer_id serial PRIMARY KEY,
+   name VARCHAR UNIQUE,
+   email VARCHAR NOT NULL,
+   active bool NOT NULL DEFAULT TRUE
+);
+
+INSERT INTO customers (NAME, email)
+VALUES
+   ('IBM', 'contact@ibm.com'),
+   (
+      'Microsoft',
+      'contact@microsoft.com'
+   ),
+   (
+      'Intel',
+      'contact@intel.com'
+   );
+</pre>
+<p>这里注意, name列是UNIQUE约束, 即不能重复. 现在假如要修改'Microsoft'的电子邮件为'hotline@microsoft.com', 很显然可以使用UPDATE语句来更新.</p>
+<p>但是如果不清楚是否存在'Microsoft'记录的情况下, 可能需要先执行一次查询, 根据结果然后更新. 但其实可以直接使用Upsert功能如下:</p>
+<pre>
+INSERT INTO customers (name, email)
+VALUES
+(
+    'Microsoft',
+    'hotline@microsoft.com'
+)
+ON CONFLICT(name) DO UPDATE SET email = 'hotline@microsoft.com';
+</pre>
+<p>前半段是插入新的数据, 然后在name列发生冲突的时候(隐含了对发生冲突的列所在的行, 其实也同时就定位了已经存在的行), 对该行数据进行UPDATE操作, 更新邮件地址.</p>
+<p>执行该语句可以得到一个成功执行的结果, 也确实更新了邮件. 现在尝试将'Microsoft'删除. 再执行这个语句. 结果是直接插入了('Microsoft', 'hotline@microsoft.com')这条数据.</p>
+
+<h2 style="text-align: center;" id="con3">创建,修改和删除数据库</h2>
+<p>完整语句如下:</p>
+<pre>
+CREATE DATABASE db_name
+OWNER =  role_name
+TEMPLATE = template
+ENCODING = encoding
+LC_COLLATE = collate
+LC_CTYPE = ctype
+TABLESPACE = tablespace_name
+CONNECTION LIMIT = max_concurrent_connection
+</pre>
+<p>除了数据库名之外, 都可以不给出, 会使用默认数据库的设置, 其中OWNER会设置成执行该CREATE命令的角色.</p>
+<p>LC_COLLATE指的是排序规则, 如果不给出, 就是模板数据库的默认排序规则</p>
+<p>LC_CTYPE指的是字符分类, 这个目前还不是很明白.</p>
+<p>创建数据库之后, 还可以使用ALTER DATABASE命令来更改数据库的一些设置, 有如下命令:</p>
+<ol>
+    <li><code>ALTER DATABASE target_database RENAME TO new_database;</code></li>
+    <li><code>ALTER DATABASE target_database OWNER TO new_onwer;</code></li>
+    <li><code>ALTER DATABASE target_database SET TABLESPACE new_tablespace;</code></li>
+    <li><code>ALTER DATABASE target_database SET configuration_parameter = value;</code>, 这个用来覆盖默认设置, 只有超级用户和数据库的OWNER才能执行这个设置.</li>
+</ol>
+<p>在修改数据库的设置时, 必须断开所有该数据库的连接, 可以在psql中使用如下命令:</p>
+<pre>
+SELECT
+    *
+FROM
+    pg_stat_activity
+WHERE
+    datname = 'db';
+</pre>
+<p>查看数据库db的所有活动连接. 找到查询结果中的pid, 然后使用函数关闭连接:</p>
+<pre>
+SELECT
+    pg_terminate_backend (pid)
+FROM
+    pg_stat_activity
+WHERE
+    datname = 'db';
+</pre>
+<p>这里使用了pg_terminate_backend函数. 如果还需要关闭其他连接, 反复操作直到查询不出连接即可, 之后就可以执行ALTER DATABASE系列命令了.</p>
+<p>删除数据库使用 DROP DATABASE, 同样也必须先断开连接.</p>
+<p>还可以复制一份数据库:</p>
+<pre>
+CREATE DATABASE dvdrental_back
+WITH TEMPLATE dvdrental;
+</pre>
+
+<h2 style="text-align: center;" id="con4">数据类型</h2>
+<p>主要的数据类型如下:</p>
+<ol>
+    <li>boolean, 也可以写作bool, 可取三个值: true, false 和 null, 在插入布尔类型的列的时候可以进行类型转换, 比如1, yes, y, t转换成true.</li>
+    <li>CHAR(n), VARCHAR(n), TEXT都是字符类型</li>
+    <li>SMALLINT, INT, Serial 都是整数, 其中Serial默认是一个从1开始的序列</li>
+    <li>float(n) 是指定小数点精度的8字节浮点数, real和float8是4字节单精度浮点, 此外numeric(p,s)是定点数, 可以用来表示精确的数字.</li>
+    <li>DATE, TIME, TIMESTAMP, TIMESTAMPTZ, INTERVAL 都知道了</li>
+    <li>ARRAYS, 存放指定数据类型的数组</li>
+    <li>JSON存字符串形式的JSON. JSONB存放二进制形式的JSON, 并且支持索引</li>
+    <li>UUID, 专门存放符合UUID标准的UUID类型</li>
+</ol>
+<p>除此之外还有一些地理类型的数据.</p>
+<p>数据类型之后还得详细看, 有些数据类型看着确实方便.</p>
+
+<h2 style="text-align: center;" id="con5">创建表</h2>
+<p>创建表的时候, 很多完整性约束就带出来了, 这次就看一下PgSQL中的创建表.</p>
+<pre>
+CREATE TABLE IF NOT EXISTS table_name (
+   column_name TYPE column_constraint,
+   table_constraint table_constraint
+) INHERITS existing_table_name;
+</pre>
+<p>创建表中的每一列, 需要指定列名, 数据类型, 列约束. 关于整张表的约束, 放在最后指定. 如果需要继承, 还可以使用INHERITS来继承表, 使用CREATE TEMPORARY TABLE可以创建临时表, 这两点之后再学.</p>
+<p>IF NOT EXISTS可以忽略, 但是如果已经存在表就会得到错误.</p>
+<p>关于列的约束有如下(这些都可以写在数据类型之后):</p>
+<ol>
+    <li><code>NOT NULL</code>, 不能为空</li>
+    <li><code>UNIQUE</code>, 值不能相同</li>
+    <li><code>PRIMARY KEY</code>, 这个是NOT NULL与UNIQUE的复合, 用于标识元组的唯一性</li>
+    <li><code>CHECK</code>, 在插入和更新的时候执行一些条件判断.</li>
+    <li><code>REFERENCES</code>, 将列的数据限定为其他表中的一列数据, 用于创建外键.</li>
+</ol>
+<p>表约束如下(用起来像函数, 写在创建表中的最后, 最大的特点就是可以作用于多个列):</p>
+<ol>
+    <li><code>UNIQUE (column_list)</code>, 指定一列或者多列组成的组合是唯一的.</li>
+    <li><code>PRIMARY KEY(column_list)</code>, 指定一列或者多列组成的组合作为主键.</li>
+    <li><code>CHECK (condition)</code>, 整张表插入和修改数据的时候都会执行条件判断.</li>
+    <li><code>REFERENCES</code>, 这个和列约束的REFERENCES一样.</li>
+</ol>
+<p>一个简单的创建两个表以及多对多关系表的SQL语句如下:</p>
+<pre>
+CREATE TABLE account(
+   user_id serial PRIMARY KEY,
+   username VARCHAR (50) UNIQUE NOT NULL,
+   password VARCHAR (50) NOT NULL,
+   email VARCHAR (355) UNIQUE NOT NULL,
+   created_on TIMESTAMP NOT NULL,
+   last_login TIMESTAMP
+);
+
+CREATE TABLE role(
+   role_id serial PRIMARY KEY,
+   role_name VARCHAR (255) UNIQUE NOT NULL
+);
+
+CREATE TABLE account_role
+(
+  user_id integer NOT NULL,
+  role_id integer NOT NULL,
+  grant_date timestamp without time zone,
+  PRIMARY KEY (user_id, role_id),
+  CONSTRAINT account_role_role_id_fkey FOREIGN KEY (role_id)
+      REFERENCES role (role_id) MATCH SIMPLE
+      ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT account_role_user_id_fkey FOREIGN KEY (user_id)
+      REFERENCES account (user_id) MATCH SIMPLE
+      ON UPDATE NO ACTION ON DELETE NO ACTION
+);
+</pre>
+<p>还有一个CREATE TABLE new_table_name AS query;, query指的是一个关系, 可以使用这个关系直接创建一个新表.</p>
+
+<h2 style="text-align: center;" id="con6">创建自增序列</h2>
+<p>在PgSQL中创建自增序列的话, 只需要将列的数据类型指定为Serial:</p>
+<pre>
+CREATE TABLE table_name(
+    id SERIAL
+);
+</pre>
+<p>执行这条语句的时候, PgSQL会做如下动作:</p>
+<ol>
+    <li>在表所属的schema的Sequences对象中新增一个序列对象, 然后将这个id列的默认值指向这个对象</li>
+    <li>为id列加上 NOT NULL 约束</li>
+    <li>将id列的owner, 设置为序列对象的owner.</li>
+</ol>
+<p>如果之后ALTER TABLE删除id列的话, 对应的序列对象也会被删除.</p>
+<p>如果不特别单独生成序列对象, 序列对象的名称会是: table_name_id_seq, 也就是表名_列名_seq. 根据上边列出的三个步骤, 这个语句可以改写成:</p>
+<pre>
+CREATE SEQUENCE table_name_id_seq;
+
+CREATE TABLE table_name (
+    id integer NOT NULL DEFAULT nextval('table_name_id_seq')
+);
+
+ALTER SEQUENCE table_name_id_seq
+OWNED BY table_name.id;
+</pre>
+<p>可见可以手工创建序列对象, 然后给id指定序列对象, 再进行授权.</p>
+<p>SERIAL实际上有三种数据类型:</p>
+<ol>
+    <li><code>SMALLSERIAL</code>, 2字节, 从1到32767</li>
+    <li><code>SERIAL</code>, 4字节, </li>
+    <li><code>BIGSERIAL</code>, 8字节整数</li>
+</ol>
+<p>注意, 单独指定一个列为序列类型, 并不意味着在该列创建索引, 也不意味该列是主键, 只有额外再用PRIMARY KEY去约束, 才能够在其上创建索引并确定主键性质.</p>
+<p>一般由于序列也会被当做主键使用, 所以常用命令是:</p>
+<pre>
+CREATE TABLE fruits(
+   id SERIAL PRIMARY KEY,
+   name VARCHAR NOT NULL
+);
+</pre>
+<p>在插入新数据的时候, 可以不插入主键列, 也可以显式的使用DEFAULT关键字让数据库自动写入序列:</p>
+<pre>
+INSERT INTO fruits(name) VALUES('Orange');
+INSERT INTO fruits(id,name) VALUES(DEFAULT,'Apple');
+</pre>
+<p>如果想反过来通过一个表的列查对应的序列对象的名称, 可以使用函数:</p>
+<pre>
+pg_get_serial_sequence('table_name','column_name')
+</pre>
+<p>知道了一个序列的名称(pg_get_serial_sequence函数的返回值), 可以通过currval()来获取当前序列最后生成的一个值.</p>
+<p>序列不是线程安全的, 这不是指序列会生成相同的值, 而是指多线程操作的时候, 如果一个事务回滚或者出错, 序列生成的值会被抛弃, 但对于序列来讲, 其生成的值会继续增加, 所以实际插入到数据库的序列值未必是连续的.</p>
+
+<h2 style="text-align: center;" id="con7">创建序列对象</h2>
+<p>既然了解了序列, 就来看看如何创建序列对象.</p>
+<pre>
+CREATE SEQUENCE [ IF NOT EXISTS ] sequence_name
+    [ AS { SMALLINT | INT | BIGINT } ]
+    [ INCREMENT [ BY ] increment ] - 每次增加几, 默认是1
+    [ MINVALUE minvalue | NO MINVALUE ]
+    [ MAXVALUE maxvalue | NO MAXVALUE ]
+    [ START [ WITH ] start ] - 初始值, 递增序列默认是MINVALUE, 递减序列默认是MAXVALUE
+    [ CACHE cache ] - 提前生成多少个放在内存中供使用, 默认是1个
+    [ [ NO ] CYCLE ] - 如果CYCLE, 循环结束的时候会根据递增还是递减来继续循环, 默认不循环, 数字用尽就会报错
+    [ OWNED BY { table_name.column_name | NONE } ] - 指定应用于哪个关系的列
+</pre>
+<p>这些内容其实一看便知其意, 最小值和最大值如果不设置, 就是默认值, 这里有个很有意思的, 就是如果是递减序列, 默认最大值是-1, 最小值是数据类型可以允许的最小值.</p>
+<p>然后是一些操作序列的函数:</p>
+<pre>
+CREATE SEQUENCE mysequence
+INCREMENT 5
+START 100;
+
+SELECT nextval('mysequence');
+</pre>
+<p>nextval()会触发序列的新增, 返回的是序列新生成的值, 每次执行都会让序列新生成值然后返回.</p>
+<pre>SELECT currval('mysequence');</pre>
+<p>currval()返回已经生成的最后一个值, 不会触发序列生成新值.</p>
+<p>如果要将已经存在的序列应用于一个列, 就要使用OWNED BY:</p>
+<pre>
+CREATE TABLE order_details(
+    order_id SERIAL,
+    item_id INT NOT NULL,
+    product_id INT NOT NULL,
+    price DEC(10,2) NOT NULL,
+    PRIMARY KEY(order_id, item_id)
+);
+
+CREATE SEQUENCE order_item_id
+START 10
+INCREMENT 10
+MINVALUE 10
+OWNED BY order_details.item_id;
+</pre>
+<p>如果明确的要将一个序列用作主键, 最好使用上边的简写方法. 如果序列器有其他用处, 再考虑手工指定.</p>
+<p>删除一个序列器使用如下命令:</p>
+<pre>
+DROP SEQUENCE [ IF EXISTS ] sequence_name [, ...]
+[ CASCADE | RESTRICT ];
+</pre>
+<p>命令很简单, 唯一注意是 CASCADE, 表示级联删除所有使用了该序列器的对象, 这个一般不用写. 如果一个表被删除, 相关的序列对象也会被删除.</p>
+
+<h2 style="text-align: center;" id="con8">IDENTITY 列</h2>
+<p>知道了序列和如何作用于列上, 就可以来看看PostgreSQL 10中新增的一个用法: <code>GENERATED AS IDENTITY</code>了.</p>
+<p>这其实是对SERAIL用法的符合SQL标准的写法, 作为列的约束出现, 语法是:</p>
+<pre>column_name type GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY[ ( sequence_option ) ]</pre>
+<p>这里的type限定必须是SMALLINT, INT 或者 BIGINT三种类型.</p>
+<p>ALWAYS表示始终由PgSQL来维护此字段, 如果想手工插入和更新该列, 会报错. 设置成BY DEFAULT, 如果不提供值, PgSQL会使用自动生成的值, 如果提供了值(而且合法), 就会使用提供的值去插入或更新.</p>
+<p>sequence_option指的就是上边SEQUENCE对象中的那些设置, 以语句的形式写出来即可. 看几个例子:</p>
+<pre>
+CREATE TABLE color (
+    color_id INT GENERATED ALWAYS AS IDENTITY,
+    color_name VARCHAR NOT NULL
+);
+
+-- 只插入颜色列是可以的
+INSERT INTO color (color_name)
+VALUES
+    ('Red');
+
+-- ALWAYS不允许显式插入id列, 会报错
+INSERT INTO color (color_id, color_name)
+VALUES
+    (2, 'Green');
+</pre>
+<p>可以使用特殊的语句来插入:</p>
+<pre>
+INSERT INTO color (color_id, color_name)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (2, 'Green'),
+    (30,'Brown');
+</pre>
+<p>这个OVERRIDING SYSTEM VALUE可以强制更改系统生成的值, 作用和GENERATED BY DEFAULT AS IDENTITY一样, 也可以直接插入10.</p>
+<p>带有序列参数的语句如下:</p>
+<pre>
+CREATE TABLE color (
+    color_id INT GENERATED BY DEFAULT AS IDENTITY
+    (START WITH 10 INCREMENT BY 10),
+    color_name VARCHAR NOT NULL
+);
+</pre>
+<p>如果要给一个已经存在的表的某一列添加IDENTITY功能, 使用如下语句: </p>
+<pre>
+ALTER TABLE table_name
+ALTER COLUMN column_name
+ADD GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY { ( sequence_option ) }
+</pre>
+<p>删除则是使用:</p>
+<pre>
+ALTER TABLE table_name
+ALTER COLUMN column_name
+DROP IDENTITY [ IF EXISTS ]
+</pre>
 
 
 
-<h2 style="text-align: center;" id="con2"></h2>
 
-<h2 style="text-align: center;" id="con3"></h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
