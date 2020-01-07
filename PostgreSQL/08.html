@@ -15,15 +15,15 @@
     </style>
 </head>
 <body>
-<p>继续看一些开发中很实用的数据类型</p>
+<p>继续看一些开发中很实用的数据类型, 看完以后就可以进入到函数等高级内容了, Hibernate也可以尽快搞起了.</p>
 
 <ol>
     <li><a href="#con1">UUID类型</a></li>
     <li><a href="#con2">Array类型</a></li>
     <li><a href="#con3">hstore类型</a></li>
     <li><a href="#con4">JSON类型</a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">自定义类型</a></li>
+    <li><a href="#con6">Schema操作</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">UUID类型</h2>
 <p>UUID指的是RFC 4122标准中规定的128位的二进制码, 通常用32位16进制数表示, 并且在特定的位置用减号连接, 如下是一些UUID的例子:</p>
@@ -227,10 +227,159 @@ FROM
    books;
 </pre>
 
-<h2 style="text-align: center;" id="con4"></h2>
+<h2 style="text-align: center;" id="con4">JSON类型</h2>
+<p>JSON类型感觉是以后常用的一个类型, 也要仔细来看看, 创建JSON类型的列如下:</p>
+<pre>
+CREATE TABLE orders (
+   ID serial NOT NULL PRIMARY KEY,
+   info json NOT NULL
+);
+</pre>
+<p>info就是json类型的列, 之后插入数据的时候, 可以插入标准的JSON字符串:</p>
+<pre>
+INSERT INTO orders (info)
+VALUES
+   (
+      '{ "customer": "Lily Bush", "items": {"product": "Diaper","qty": 24}}'
+   ),
+   (
+      '{ "customer": "Josh William", "items": {"product": "Toy Car","qty": 1}}'
+   ),
+   (
+      '{ "customer": "Mary Clark", "items": {"product": "Toy Train","qty": 2}}'
+   );
+</pre>
+<p>如果要取出来的时候, PgSQL提供了两个操作符, ->用于取对象, ->>用于取出字符串. 写法都是 列名 ->/->> 属性名 的写法. 这两个操作符的区别在于是否可以对嵌套的对象继续执行操作:</p>
+<pre>
+-- 选出JSON中customer对应的值, 结果是一个JSON对象
+SELECT info -> 'customer' as name FROM orders;
+-- 选出JSON中items对应的值,结果依然是一个JSON对象
+SELECT info -> 'items' as item FROM orders;
+-- 验证上一个查询的结果, 可以对对象继续取属性, 返回字符串
+SELECT info -> 'items' ->> 'product' as product FROM orders;
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+-- 这行会报错! 选出JSON中items对应的值, 返回字符串, 不能对字符串进行进一步取值操作
+SELECT info ->> 'items' -> 'product' as product FROM orders;
+</pre>
+<p>知道了如何从JSON中取值后, 这个表达式就可以用在任意地方了, 比如WHERE或者其他子句中. 取出的值可以转换成其他类型进行比较, 现在还没有学CAST函数, 但是可以先看一个例子:</p>
+<pre>
+SELECT
+   info ->> 'customer' AS customer,
+   info -> 'items' ->> 'product' AS product
+FROM
+   orders
+WHERE
+   CAST (
+      info -> 'items' ->> 'qty' AS INTEGER
+   ) = 2
+</pre>
+<p>这个例子选出所有items的数量为2的客户名称和产品名称.</p>
+<p>对于一个JSON, 就可以认为是一个元组, 在其上选一个属性, 就和从普通关系中选一列一样, 可以进行对应的操作, 比如聚集函数:</p>
+<pre>
+SELECT
+    MIN (
+            CAST (
+                            info -> 'items' ->> 'qty' AS INTEGER
+                )
+        ),
+    MAX (
+            CAST (
+                            info -> 'items' ->> 'qty' AS INTEGER
+                )
+        ),
+    SUM (
+            CAST (
+                            info -> 'items' ->> 'qty' AS INTEGER
+                )
+        ),
+    AVG (
+            CAST (
+                            info -> 'items' ->> 'qty' AS INTEGER
+                )
+        )
+
+FROM
+    orders;
+</pre>
+<p>来看一些操作JSON的函数:</p>
+<ol>
+    <li><code>json_each()</code>, 可以将一个JSON展开成键值对, 展开的各个结果依然是JSON对象, 仅展开第一层. 需要的话可以再对获取的结果继续调用.</li>
+    <li><code>json_each_text()</code>, 上一个函数的字符串版本.</li>
+    <li><code>json_object_keys()</code>, 展开并返回所有键, 一般搭配其他函数针对单个JSON对象使用.</li>
+    <li><code>json_typeof()</code>, 返回某个键对应的值的类型, 参数必须是一个JSON对象, 不能是字符串. 结果是object就表示是一个JSON对象. 例如
+    <pre>SELECT json_typeof(info -> 'items' -> 'qty') FROM orders;</pre>
+    结果是number类型.</li>
+</ol>
+<p><a href="https://www.postgresql.org/docs/current/functions-json.html" target="_blank">官网的JSON函数页面</a>还有更多函数.</p>
+
+<h2 style="text-align: center;" id="con5">自定义类型</h2>
+<p>自定义类型涉及后边很多函数等相关的内容, 还没有学会. 这里先记录下来.</p>
+<p>创建自定义有两种:</p>
+<ol>
+    <li>创建一个自定义的单个类型, 使用 <code>CREATE DOMAIN 新类型名称 AS 已知类型 约束;</code> 语句, 很明显创建了一个域对应的类型, 这个实际上看上去像一个别名.</li>
+    <li>创建复合类型, 使用CREATE TYPE. 详情见下.</li>
+</ol>
+<p>创建的类型, 仅在对应的schema中生效. 如果创建DOMAIN类型, 通过PgADmin4可以看到当前Schema下的Domains中新增了一个内容. 而新创建的TYPE复合类型, 则是在Types对象下.</p>
+<p>看两个从网站上抄的例子:</p>
+<pre>
+CREATE DOMAIN contact_name AS VARCHAR NOT NULL CHECK (value !~ '\s');
+
+CREATE TABLE mail_list (
+    id serial PRIMARY KEY,
+    first_name contact_name,
+    last_name contact_name,
+    email VARCHAR NOT NULL
+);
+</pre>
+<p>创建了一个域类型和使用这个类型的表, !~操作符是PgSQL中不匹配正则表达式的意思, 也就是不能有空白.</p>
+<p>创建一个复合类型和返回此类型结果的函数:</p>
+<pre>
+CREATE TYPE film_summary AS (
+    film_id INT,
+    title VARCHAR,
+    release_year YEAR
+);
+
+CREATE OR REPLACE FUNCTION get_film_summary (f_id INT)
+    RETURNS film_summary AS
+$$
+SELECT
+    film_id,
+    title,
+    release_year
+FROM
+    film
+WHERE
+    film_id = f_id ;
+$$
+LANGUAGE SQL;
+</pre>
+<p>这个函数接受一个INT类型的参数, 然后到film中查找与参数相等的ID, 然后返回film_summary类型, film_summary复合类型中的三个字段由函数中的查询结果填充.</p>
+
+<h2 style="text-align: center;" id="con6">Schema操作</h2>
+<p>Schema的操作也不外乎增删改, 简明列出如下:</p>
+<ol>
+    <li>可以显式指定<code>schema_name.object_name</code>来使用schema中的对象(不仅仅是表).</li>
+    <li><code>SELECT current_schema();</code>,获得当前schema名称.</li>
+    <li><code>SHOW search_path;</code>,查看当前默认寻找路径.</li>
+    <li><code>SET search_path TO schema_name1, schema_name2...;</code>,设置搜索路径, 设置了之后就可以不显式写schema路径</li>
+    <li><code>GRANT USAGE/CRUD ON SCHEMA schema_name TO user_name;</code>,授权, schema必须先授予USAGE权限, 才能让其他权限发挥作用</li>
+    <li><code>CREATE SCHEMA [IF NOT EXISTS] schema_name;</code>,创建Schema</li>
+    <li><code>CREATE SCHEMA [IF NOT EXISTS] AUTHORIZATION user_name;</code>,创建一个与user_name同名的schema, 且这个用户拥有schema权限.</li>
+    <li><code>ALTER SCHEMA schema_name RENAME TO new_name;</code>,修改schema名称</li>
+    <li><code>ALTER SCHEMA schema_name OWNER TO { new_owner | CURRENT_USER | SESSION_USER};</code>,修改schema所属用户, 用户这里还分SESSION_USER, 先暂时不讨论.</li>
+    <li><code>DROP SCHEMA [IF EXISTS] schema_name [ CASCADE | RESTRICT ];</code>,删除schema, 最后一个级联默认是RESTRICT, 即仅在schema为空的情况下删除. CASCADE会删除schema中所有对象和依赖这些对象的内容, 但可以在schema不为空的情况下删除schema.</li>
+</ol>
+<p>到目前为止, 就把PgSQL操作的部分基本上都看完了, 还剩下几大部分: 索引, 触发器, 视图, 以及函数.</p>
+<p>这几部分在纯操作层面简单看了一下, 也不会很难. 现在应该是可以进军Hibernate了.</p>
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
