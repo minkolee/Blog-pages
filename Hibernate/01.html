@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 01 冬眠不觉晓</title>
+    <title>Hibernate 01 域模型与元数据</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,423 +15,53 @@
     </style>
 </head>
 <body>
-<p>Spring 4 好好复习之后, 在最后的Spring MVC之前开启了两条支线, 一条PgSQL已经初步看过了日常操作的部分, 现在就要开启第二条支线, 也就是Hibernate了.</p>
-<p>在之前初学Hibernate的时候, 其实已经知道了Hibernate的那些注解和简单的开发,不过对于什么缓存之类还不是很清楚,这次来仔细看一下吧.</p>
+<p>上一篇的破冰之旅中的最大收获是发现JPA和Hibernate都可以自行创建数据库, 而不用先行创建, 果然爽.</p>
+<p>不过例子实在太简单, 这一章是来看看Domain model 和 metadata. 然后创建一个更复杂的数据库来操作.</p>
 
 <ol>
-    <li><a href="#con1">Hibernate相关资源</a></li>
-    <li><a href="#con2">安装Hibernate依赖和创建数据库</a></li>
-    <li><a href="#con3">创建Entity对象</a></li>
-    <li><a href="#con4">配置cfg文件</a></li>
-    <li><a href="#con5">SQL与HQL</a></li>
+    <li><a href="#con1">Domain Model</a></li>
+    <li><a href="#con2">CaveatEmptor系统</a></li>
+    <li><a href="#con3">如何创建可持久化的类</a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1">Hibernate相关资源</h2>
-<p>中文圈子里发现专门讲Hibernate5的书和资源很少, 不过想想也是, 反正都是要硬啃中文的, 目前找到的资源如下:</p>
-<ol>
-    <li><a href="https://github.com/yiidiancom/hibernate" target="_blank">Hibernate5 持久化教程</a>, 这个是<a href="http://www.yiidian.com/hibernate/">Hibernate教程</a>的Git库.</li>
-    <li><a href="https://o7planning.org/en/10969/java-hibernate" target="_blank">Hibernate Framework Tutorials</a>, 这个是我自己搜索到的, 带数据库样例, 还算不错.</li>
-    <li><a href="https://www.manning.com/books/java-persistence-with-hibernate-second-edition" target="_blank">Java Persistence with Hibernate, 2nd Edition</a>, 2016年的教程, 有中文版但是看评论翻译的实在不怎么样, 那么就只能硬上了.</li>
-    <li><a href="https://hibernate.org/" target="_blank">Hibernate官网</a>, 到这看文档准没错.</li>
-    <li><a href="https://docs.jboss.org/hibernate/orm/5.4/userguide/html_single/Hibernate_User_Guide.html" target="_blank">Hibernate官网的用户手册</a>, 列出来方便快速的看.</li>
-</ol>
-<p>现在先用英文的<a href="https://o7planning.org/en/10969/java-hibernate" target="_blank">Hibernate Framework Tutorials</a>看一遍, 然后再看书了.</p>
+<h2 style="text-align: center;" id="con1">Domain Model</h2>
+<p>在一个系统中, Entity用来称呼一个系统中被广为接受的各种概念, 对于一个电商系统来说, 可能会有付款, 订单, 客户, 商品等. 可以看到, 这些概念主要基于商业模型.</p>
+<p>基于商业模型, 系统设计师们会设计出一个面向对象的模型, 这个模型依然是概念上的(即不是用某种具体的编程语言写出来的), UML类图就是典型的面向对象的模型的代表.</p>
+<p>将这个面向对象的模型中代表Entity的部分, 以及表示Entity之间的关系抽出来, 就组成了 Domain Model, Domain Model实际上是现实世界的抽象.</p>
 
-<h2 style="text-align: center;" id="con2">安装Hibernate依赖和创建数据库</h2>
-<p>现在都采用maven项目了, 所以直接配置Maven就可以了, 除了Hibernate之外, 还需要JDBC驱动, 博客写的多就是好, <a href="https://conyli.cc/archives/3345#con2" target="_blank">这里</a>就可以找到Java连接PgSQL的方法.</p>
-<pre>
-&lt;dependency>
-    &lt;groupId>org.postgresql&lt;/groupId>
-    &lt;artifactId>postgresql&lt;/artifactId>
-    &lt;version>42.2.9&lt;/version>
-&lt;/dependency>
+<h2 style="text-align: center;" id="con2">CaveatEmptor UML类图</h2>
+<p>例子的数据库就是用于一个CaveatEmptor网站, 这个网站是一个拍卖网站, 采用英式拍卖方式, 即竞拍者可以不断出价, 直到竞拍期结束, 出价最高的人会赢得竞标. 每个商品仅仅会被拍卖一次.</p>
+<p>拍卖的商品被分为大类, 然后相似的商品存放在同一个区域和货架上. 拍卖网站会提供分层次的目录以让竞拍者可以浏览商品或者搜索.</p>
+<p>选择一个商品之后, 就会跳转到商品详情页, 可以查看商品的图片等信息. </p>
+<p>一次拍卖包含一系列的出价, 其中一个是赢得竞标的出价. 竞标人的信息包括姓名, 地址, 付款信息.</p>
+<p>通过这些分析, 就可以组织出一个UML图:</p>
+<img src="http://img.conyli.cc/blogs/caveatemptoruml.jpg" alt="UML类图">
+<p>由于一个商品就被拍卖一次, 因此无需单独设置ITEM(表示商品)和AUCTION(表示一次拍卖)两个对象, 仅仅用一个ITEM就可以.</p>
+<p>有了ITEM对象后, 很显然, ITEM要属于一个CATEGORY, 一个CATEGORY之下可以没有商品. 此外表示每一次出价的BID显然需要和ITEM关联, 一个ITEM可能有多个出价, 也可能没有出价. 一个BID必然要与一个ITEM关联.</p>
+<p>IMAGE也与ITEM有关联, 一个ITEM可能没有也可能有图片, 一个图片对象则一定对应一个ITEM. 所以ITEM 与 BID IMAGE都是组合关系.</p>
+<p>CATEGORY比较有意思, 这个UML类图的0..*表示一个CATEGORY最多从属于另外一个CATOGORY, 一个CATEGORY可以有多个子CATEGORY.</p>
+<p>USER和BID, USER和ITEM, USER和BillingDetails之间都是0..*的关系, 即一个用户有0到多个BID, ITEM和付款信息, USER和Address是组合关系, 即用户肯定有Address信息.</p>
+<p>CreditCard类和BankAccount类继承自BillingDetails类.</p>
+<p>这个UML类图是只描述了所有要进行持久化的类, 而且也省略了这些类的方法, 仅关注成员变量, 也就是会被持久化的内容.</p>
 
-&lt;dependency>
-  &lt;groupId>org.hibernate&lt;/groupId>
-  &lt;artifactId>hibernate-core&lt;/artifactId>
-  &lt;version>5.4.10.Final&lt;/version>
-&lt;/dependency>
-</pre>
-<p>maven运行完之后自带junit外加设置好了编码为UTF-8d等一系列内容, 确实IDEA方便很多.</p>
-<p>然后准备<a href="https://o7planning.org/en/10117/sample-database#a7356" target="_blank">样例数据库</a>.</p>
-<p>这里我就将样例数据库弄到mydb下边默认的public schema去了.</p>
-<p>代码不放了, 看一下四张表的关系:</p>
-<ol>
-    <li>DEPARTMENT表, 这个表存放部门信息, 没有任何外键约束, 是一个基础表</li>
-    <li>EMPLOYEE表, 这个表存放部门信息, 其中的DEPT_ID关联到部门表的主键. 表明人员所属的部门</li>
-    <li>EMPLOYEE表, EMP_ID关联到自己的EMP_ID, 这个是什么意思?</li>
-    <li>EMPLOYEE表, MNG_ID关联到自己的EMP_ID, 这是指自己的Manager是谁</li>
-    <li>SALARY_GRADE表, 表存放工资级别, 以及对应级别的上限和下限, 没看到这个表和其他表的关联.</li>
-    <li>TIMEKEEPER表, 这是一个计时表, 看表的内容是记录每次员工上下班打卡的时间, 其中的EMP_ID关联到EMPLOYEE表的主键.</li>
-</ol>
+<h2 style="text-align: center;" id="con3">如何创建可持久化的类</h2>
+<p>接下来的一个关键工作, 就是如何根据UML类图, 创建可以持久化的类.</p>
 
-<h2 style="text-align: center;" id="con3">创建Entity对象</h2>
-<p>实体映射类在使用前需要先创建, 一般都是放在entities包下边, 然后就是关键的配置注解, 以Department类为例:</p>
-<pre>
-package cc.conyli.entities;
 
-import javax.persistence.*;
-import java.util.HashSet;
-import java.util.Set;
 
-@Entity
-@Table(name="DEPARTMENT", uniqueConstraints = {@UniqueConstraint(columnNames = {"DEPT_NO"})})
-public class Department {
 
-//    对应表字段的域
-    private Integer deptId;
 
-    private String deptName;
 
-    private String deptNo;
 
-    private String location;
 
-//  这个显然是要通过部门查员工
-    private Set&lt;Employee> employees = new HashSet&lt;Employee>(0);
 
-//  构造器部分, 一个无参构造器(Bean的要求, 不能省了)
-    public Department() {
-    }
 
-//  带参构造器
-    public Department(Integer deptId, String deptName, String location) {
-        this.deptId = deptId;
-        this.deptNo = "D" + this.deptId;
-        this.deptName = deptName;
-        this.location = location;
-    }
 
+<h2 style="text-align: center;" id="con4"></h2>
 
-//  这里的套路是注解标记在get方法上, 又学到了
-    @Id
-    @Column(name = "DEPT_ID")
-    public Integer getDeptId() {
-        return deptId;
-    }
-
-    public void setDeptId(Integer deptId) {
-        this.deptId = deptId;
-    }
-
-//  length默认是255长, 可以不写
-    @Column(name = "DEPT_NAME", length = 255, nullable = false)
-    public String getDeptName() {
-        return deptName;
-    }
-
-    public void setDeptName(String deptName) {
-        this.deptName = deptName;
-    }
-
-    @Column(name = "DEPT_NO", length = 20, nullable = false)
-    public String getDeptNo() {
-        return deptNo;
-    }
-
-    public void setDeptNo(String deptNo) {
-        this.deptNo = deptNo;
-    }
-
-    @Column(name = "LOCATION")
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-//  通过外键反向查询的关联, 是一对多, 延迟加载, 然后参照是自己
-    @OneToMany(fetch = FetchType.LAZY, mappedBy = "department")
-    public Set&lt;Employee> getEmployees() {
-        return employees;
-    }
-
-    public void setEmployees(Set&lt;Employee> employees) {
-        this.employees = employees;
-    }
-}
-</pre>
-<p>可以看到这里的套路是将注解加到get方法上, 此外还有一个要注意的就是写明了column, 这是好习惯, 否则Hibernate会自动进行名称的转换. 这里还有点小问题是数据库中用的BIGINT, 实际上id应该用long.</p>
-<p>最后是外键, 这里因为有对应关系, 所以加上了外键, 可以通过这个来反向查询, 所以Employee表那边很显然应该是多对一的关系.</p>
-<p>再看一个Employee类基本就明白了:</p>
-<pre>
-package cc.conyli.entities;
-
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
-
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.Lob;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
-import javax.persistence.UniqueConstraint;
-
-@Entity
-@Table(name = "EMPLOYEE", uniqueConstraints = {@UniqueConstraint(columnNames = {"EMP_NO"})})
-public class Employee {
-    private Long empId;
-    private String empName;
-    private String empNo;
-    private Date hideDate;
-    private byte[] image;
-    private String job;
-    private Float salary;
-    //外键关联的属性直接用对应的表
-    private Department department;
-    private Employee manager;
-
-//这是要通过经理查手下的员工
-    private Set&lt;Employee> employees = new HashSet&lt;Employee>(0);
-
-    public Employee() {
-    }
-
-    public Employee(Long empId, String empName, String job, Employee manager,
-                    Date hideDate, Float salary, Float comm, Department department) {
-        this.empId = empId;
-        this.empNo = "E" + this.empId;
-        this.empName = empName;
-        this.job = job;
-        this.manager = manager;
-        this.hideDate = hideDate;
-        this.salary = salary;
-        this.department = department;
-    }
-
-    @Id
-    @Column(name = "EMP_ID")
-    public Long getEmpId() {
-        return empId;
-    }
-
-    public void setEmpId(Long empId) {
-        this.empId = empId;
-    }
-
-    @Column(name = "EMP_NO", length = 20, nullable = false)
-    public String getEmpNo() {
-        return empNo;
-    }
-
-    public void setEmpNo(String empNo) {
-        this.empNo = empNo;
-    }
-
-    @Column(name = "EMP_NAME", length = 50, nullable = false)
-    public String getEmpName() {
-        return empName;
-    }
-
-    public void setEmpName(String empName) {
-        this.empName = empName;
-    }
-
-    @Column(name = "JOB", length = 30, nullable = false)
-    public String getJob() {
-        return job;
-    }
-
-    public void setJob(String job) {
-        this.job = job;
-    }
-
-
-    //反映员工的经理多对一关系, 可以看到, 外键所在的表中注解写法与之前Department不同
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "MNG_ID")
-    public Employee getManager() {
-        return manager;
-    }
-
-    public void setManager(Employee manager) {
-        this.manager = manager;
-    }
-
-    //标记这是一个时间类型, 具体类型是DATE
-    @Column(name = "HIRE_DATE", nullable = false)
-    @Temporal(TemporalType.DATE)
-    public Date getHideDate() {
-        return hideDate;
-    }
-
-    public void setHideDate(Date hideDate) {
-        this.hideDate = hideDate;
-    }
-
-    @Column(name = "SALARY", nullable = false)
-    public Float getSalary() {
-        return salary;
-    }
-
-    public void setSalary(Float salary) {
-        this.salary = salary;
-    }
-
-    //Lob对象的注解, 是一个字节数组, 存放二进制
-    @Column(name = "IMAGE", length = 1111111, nullable = true)
-    @Lob
-    public byte[] getImage() {
-        return image;
-    }
-
-    public void setImage(byte[] image) {
-        this.image = image;
-    }
-
-    //外键的用法, 已经用Department类型来标识了被参照关系
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "DEPT_ID", nullable = false)
-    public Department getDepartment() {
-        return department;
-    }
-
-    public void setDepartment(Department department) {
-        this.department = department;
-    }
-
-    @OneToMany(fetch = FetchType.LAZY, mappedBy = "empId")
-    public Set&lt;Employee> getEmployees() {
-        return employees;
-    }
-
-    public void setEmployees(Set&lt;Employee> employees) {
-        this.employees = employees;
-    }
-
-}
-</pre>
-<p>这里唯一没明白的就是最后的主键关联到自己的主键, 究竟想做什么, 其他的倒是比较明白. 还有个就是TIMEKEEPER的UUID自动产生的配置.</p>
-
-<h2 style="text-align: center;" id="con4">配置cfg文件</h2>
-<p>看了一下, 上边四个类所使用的注解, 全部来自Hibernate提供的标准JPA的实现. 下一步就是需要配置XML文件, 告诉Hibernate这四个Entity类了:</p>
-<p>文件需要写在类路径下边, 也就是和cc.conyli的最上层cc目录所在的java目录下边, cfg文件和cc目录是平级的.</p>
-<p>网站上没有提供PostgreSQL的配置文件, 其实也就是DataSource那里不同, 自己改了一版:</p>
-<pre>
-&lt;?xml version='1.0' encoding='utf-8'?>
-    &lt;!DOCTYPE hibernate-configuration PUBLIC
-        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
-        "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
-
-&lt;hibernate-configuration>
-
-    &lt;session-factory>
-        &lt;!-- Database connection settings -->
-        &lt;property name="connection.driver_class">org.postgresql.Driver&lt;/property>
-        &lt;property name="connection.url">jdbc:postgresql://106.54.215.164:5432/mydb&lt;/property>
-        &lt;property name="connection.username">postgres&lt;/property>
-        &lt;property name="connection.password">********&lt;/property>
-
-        &lt;!-- JDBC connection pool (use the built-in) -->
-        &lt;property name="connection.pool_size">1&lt;/property>
-
-        &lt;!-- SQL dialect -->
-        &lt;property name="dialect">org.hibernate.dialect.PostgreSQL10Dialect&lt;/property>
-
-        &lt;!-- Enable Hibernate's automatic session context management -->
-        &lt;property name="current_session_context_class">thread&lt;/property>
-
-        &lt;!-- Disable the second-level cache -->
-        &lt;property name="cache.provider_class">org.hibernate.cache.internal.DisabledCaching&lt;/property>
-
-        &lt;!-- Echo all executed SQL to stdout -->
-        &lt;property name="show_sql">true&lt;/property>
-
-        &lt;mapping class="cc.conyli.entities.Department" />
-        &lt;mapping class="cc.conyli.entities.Employee" />
-        &lt;mapping class="cc.conyli.entities.SalaryGrade" />
-        &lt;mapping class="cc.conyli.entities.Timekeeper" />
-
-    &lt;/session-factory>
-
-&lt;/hibernate-configuration>
-</pre>
-<p>XML文件要放在src/main/resouces下边, 这样启动的时候Hibernate才可以自动认出来.</p>
-<p>之后创建一个工具类, 这个工具类返回根据配置文件创建的SessionFactory对象.</p>
-<p>SessionFactory就是Hibernate的核心类, 可以从中每次获取一个Session对象用于操作数据库.</p>
-<pre>
-import org.hibernate.SessionFactory;
-import org.hibernate.boot.Metadata;
-import org.hibernate.boot.MetadataSources;
-import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
-import org.hibernate.service.ServiceRegistry;
-
-public class HibernateUtils {
-
-    private static final SessionFactory sessionFactory = buildSessionFactory();
-
-    private static SessionFactory buildSessionFactory() {
-        try {
-            //从XML文件中加载配置
-            ServiceRegistry serviceRegistry = new StandardServiceRegistryBuilder()
-                    .configure("hibernate.cfg.xml").build();
-
-            //创建一个元数据, 包含配置文件中的内容, 然后调用方法, 返回一个根据配置文件创建的SessionFactory
-            Metadata metadata = new MetadataSources(serviceRegistry).getMetadataBuilder().build();
-
-            return metadata.getSessionFactoryBuilder().build();
-        } catch (Throwable ex) {
-
-            System.err.println("Initial SessionFactory creation failed." + ex);
-            throw new ExceptionInInitializerError(ex);
-        }
-    }
-
-    public static SessionFactory getSessionFactory() {
-        return sessionFactory;
-    }
-
-    public static void shutdown() {
-        //关闭SessionFactory, 这会断开数据库的所有连接和清除缓存
-        getSessionFactory().close();
-    }
-
-}
-</pre>
-<p>之后启动:</p>
-<pre>
-public static void main( String[] args )
-{
-    System.out.println("尝试启动Hibernate5...");
-    try {
-
-        SessionFactory sessionFactory = HibernateUtils.getSessionFactory();
-        System.out.println("启动成功");
-
-    } catch (Exception ex) {
-        System.out.println("启动失败");
-    }
-}
-</pre>
-<p>在日志窗口可以看到Hibernate的日志, 就说明启动成功了.</p>
-
-<h2 style="text-align: center;" id="con5">SQL与HQL</h2>
-<p>SQL是用表名.列名来表示的, HQL相比之下, 采用的是 类名.属性名来表示. 二者相比如下:</p>
-<pre>
--- SQL
-Select d.DEPT_NO, d.DEPT_NAME from DEPARTMENT d;
-
--- HQL
-Select d.deptNo, d.deptName from Department d;
-
--- 如果查出全部列, 不能用通配符*, 而要写作如下:
-Select d from Department d;
-</pre>
-<p>
-    allocationSize = 1 は非常に重要です。これを省略すると、Hibernateはシーケンスが INCREMENT 50 で定義されていると盲目的に判断します
-</p>
-<p>如果省略, 会判断成50, 不太对</p>
-
-
+<h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>

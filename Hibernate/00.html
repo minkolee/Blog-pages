@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 01 持久化理论</title>
+    <title>Hibernate 00 冬眠不觉晓</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,16 +15,13 @@
     </style>
 </head>
 <body>
-<p>这一篇文章译自 Java Persistence with Hibernate 2nd edition 的第一章, 在学Hibernate之前确实有必要看一看.</p>
+<p>Spring 4 好好复习之后, 在最后的Spring MVC之前开启了两条支线, 一条PgSQL已经初步看过了日常操作的部分, 现在就要开启第二条支线, 也就是Hibernate了.</p>
 <p>在之前初学Hibernate的时候, 其实已经知道了Hibernate的那些注解和简单的开发,不过对于什么缓存之类还不是很清楚,这次来仔细看一下吧.</p>
 
 <ol>
     <li><a href="#con1">Hibernate相关资源</a></li>
-    <li><a href="#con2">安装Hibernate依赖和创建数据库</a></li>
-    <li><a href="#con3">创建Entity对象</a></li>
-    <li><a href="#con4">配置cfg文件</a></li>
-    <li><a href="#con5">SQL与HQL</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">使用JPA API启动一个简单项目</a></li>
+    <li><a href="#con3">使用Hibernate原生API</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">Hibernate相关资源</h2>
 <p>中文圈子里发现专门讲Hibernate5的书和资源很少, 不过想想也是, 反正都是要硬啃中文的, 目前找到的资源如下:</p>
@@ -35,10 +32,13 @@
     <li><a href="https://hibernate.org/" target="_blank">Hibernate官网</a>, 到这看文档准没错.</li>
     <li><a href="https://docs.jboss.org/hibernate/orm/5.4/userguide/html_single/Hibernate_User_Guide.html" target="_blank">Hibernate官网的用户手册</a>, 列出来方便快速的看.</li>
 </ol>
-<p>现在先用英文的<a href="https://o7planning.org/en/10969/java-hibernate" target="_blank">Hibernate Framework Tutorials</a>看一遍, 然后再看书了.</p>
+<p>现在先用英文的Java Persistence with Hibernate, 2nd Edition看一遍. 这本书讲的是使用Hibernate的JPA, 所以会首先讲JPA的操作, 然后是原生Hibernate的操作.</p>
 
-<h2 style="text-align: center;" id="con2">安装Hibernate依赖和创建数据库</h2>
-<p>现在都采用maven项目了, 所以直接配置Maven就可以了, 除了Hibernate之外, 还需要JDBC驱动, 博客写的多就是好, <a href="https://conyli.cc/archives/3345#con2" target="_blank">这里</a>就可以找到Java连接PgSQL的方法.</p>
+<h2 style="text-align: center;" id="con2">使用JPA API启动一个简单项目</h2>
+<p>真是开卷有益, 上来讲一个JPA的实现, 由于没有单独折腾过JPA, 书上讲的又比较简略, 自己折腾了一番还真的有不少新收获.</p>
+<p>首先JPA是一套规范, 在标准的JDK里并不包含JPA的实现, 只要安装了Hibernate, 就附带了一套JPA标准的接口, 在持久化的时候既可以选择JPA的API, 也可以选择Hibernate的原生API.</p>
+
+<p>现在都采用maven项目了, 所以在IDEA里启动一个Maven achetype 是 quickstart的项目, 直接配置Maven就可以了, 除了Hibernate之外, 还需要JDBC驱动, 博客写的多就是好, <a href="https://conyli.cc/archives/3345#con2" target="_blank">这里</a>就可以找到Java连接PgSQL的方法.</p>
 <pre>
 &lt;dependency>
     &lt;groupId>org.postgresql&lt;/groupId>
@@ -52,390 +52,314 @@
   &lt;version>5.4.10.Final&lt;/version>
 &lt;/dependency>
 </pre>
-<p>maven运行完之后自带junit外加设置好了编码为UTF-8d等一系列内容, 确实IDEA方便很多.</p>
-<p>然后准备<a href="https://o7planning.org/en/10117/sample-database#a7356" target="_blank">样例数据库</a>.</p>
-<p>这里我就将样例数据库弄到mydb下边默认的public schema去了.</p>
-<p>代码不放了, 看一下四张表的关系:</p>
-<ol>
-    <li>DEPARTMENT表, 这个表存放部门信息, 没有任何外键约束, 是一个基础表</li>
-    <li>EMPLOYEE表, 这个表存放部门信息, 其中的DEPT_ID关联到部门表的主键. 表明人员所属的部门</li>
-    <li>EMPLOYEE表, EMP_ID关联到自己的EMP_ID, 这个是什么意思?</li>
-    <li>EMPLOYEE表, MNG_ID关联到自己的EMP_ID, 这是指自己的Manager是谁</li>
-    <li>SALARY_GRADE表, 表存放工资级别, 以及对应级别的上限和下限, 没看到这个表和其他表的关联.</li>
-    <li>TIMEKEEPER表, 这是一个计时表, 看表的内容是记录每次员工上下班打卡的时间, 其中的EMP_ID关联到EMPLOYEE表的主键.</li>
-</ol>
-
-<h2 style="text-align: center;" id="con3">创建Entity对象</h2>
-<p>实体映射类在使用前需要先创建, 一般都是放在entities包下边, 然后就是关键的配置注解, 以Department类为例:</p>
+<p>配置好之后, 先来看JPA的一个简单持久化程序.</p>
+<p>JPA的配置需要一个 <code>persistence.xml</code> 文件, 对于maven项目, 路径是 src/main/resources/META-INF/persistence.xml. 对于打包后的文件, 就是classpath:/META-INF/persistence.xml.</p>
+<p>这个文件的内容书上提供的是一个JTA数据源, 我查了一下, 是可以自行配置的. 内容如下:</p>
 <pre>
-package cc.conyli.entities;
+&lt;persistence
+        version="2.1"
+        xmlns="http://xmlns.jcp.org/xml/ns/persistence"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence
+            http://xmlns.jcp.org/xml/ns/persistence_2_1.xsd">
 
-import javax.persistence.*;
-import java.util.HashSet;
-import java.util.Set;
+&lt;!--    一个持久化单元, 相当于一个数据源, name属性需要在创建EntityManagerFactory的时候指定-->
+    &lt;persistence-unit name="HelloWorldPU">
+&lt;!--        持久化技术提供商, 这里不指定可以, 因为包含在Hibernate套件中, 如果有多个提供商, 就需要指定类-->
+        &lt;provider>org.hibernate.jpa.HibernatePersistenceProvider&lt;/provider>
 
-@Entity
-@Table(name="DEPARTMENT", uniqueConstraints = {@UniqueConstraint(columnNames = {"DEPT_NO"})})
-public class Department {
+        &lt;!--        很重要, 是所有实体化类, 有几个就要用几个class属性指定-->
+        &lt;class>cc.conyli.model.helloworld.Message&lt;/class>
 
-//    对应表字段的域
-    private Integer deptId;
+        &lt;!--        表示除了指定的Entity类之外, 不自动扫描其他类-->
+        &lt;exclude-unlisted-classes>true&lt;/exclude-unlisted-classes>
 
-    private String deptName;
+        &lt;!--        持久化单元的各个属性配置-->
+        &lt;properties>
 
-    private String deptNo;
+&lt;!--            以javax.persistence开头的是JPA的配置属性, 以hibernate开头的是hibernate的属性-->
 
-    private String location;
+            &lt;!--            这个设置表示JPA启动的时候去DROP对应表格, 这样每次都是全新数据-->
+            &lt;property
+                    name="javax.persistence.schema-generation.database.action"
+                    value="drop-and-create"/>
 
-//  这个显然是要通过部门查员工
-    private Set&lt;Employee> employees = new HashSet&lt;Employee>(0);
+            &lt;!--            配置数据源-->
+            &lt;property name="javax.persistence.jdbc.driver" value="org.postgresql.Driver"/>
+            &lt;property name="javax.persistence.jdbc.url" value="jdbc:postgresql://106.54.215.164:5432/mydb"/>
+            &lt;property name="javax.persistence.jdbc.user" value="postgres"/>
+            &lt;property name="javax.persistence.jdbc.password" value="fflym0709"/>
 
-//  构造器部分, 一个无参构造器(Bean的要求, 不能省了)
-    public Department() {
-    }
+            &lt;!--            hibernate的配置, 开启显示SQL-->
+            &lt;property name="hibernate.show_sql" value="true"/>
+            &lt;!--            将单行的SQL改成多行显示, 提高可读性-->
+            &lt;property name="hibernate.format_sql" value="true"/>
+            &lt;!--            在SQL之前显示 /* ... */ 的注释, 解释改行语句或者显示原来的查询字符串-->
+            &lt;property name="hibernate.use_sql_comments" value="true"/>
 
-//  带参构造器
-    public Department(Integer deptId, String deptName, String location) {
-        this.deptId = deptId;
-        this.deptNo = "D" + this.deptId;
-        this.deptName = deptName;
-        this.location = location;
-    }
-
-
-//  这里的套路是注解标记在get方法上, 又学到了
-    @Id
-    @Column(name = "DEPT_ID")
-    public Integer getDeptId() {
-        return deptId;
-    }
-
-    public void setDeptId(Integer deptId) {
-        this.deptId = deptId;
-    }
-
-//  length默认是255长, 可以不写
-    @Column(name = "DEPT_NAME", length = 255, nullable = false)
-    public String getDeptName() {
-        return deptName;
-    }
-
-    public void setDeptName(String deptName) {
-        this.deptName = deptName;
-    }
-
-    @Column(name = "DEPT_NO", length = 20, nullable = false)
-    public String getDeptNo() {
-        return deptNo;
-    }
-
-    public void setDeptNo(String deptNo) {
-        this.deptNo = deptNo;
-    }
-
-    @Column(name = "LOCATION")
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-//  通过外键反向查询的关联, 是一对多, 延迟加载, 然后参照是自己
-    @OneToMany(fetch = FetchType.LAZY, mappedBy = "department")
-    public Set&lt;Employee> getEmployees() {
-        return employees;
-    }
-
-    public void setEmployees(Set&lt;Employee> employees) {
-        this.employees = employees;
-    }
-}
+        &lt;/properties>
+    &lt;/persistence-unit>
+&lt;/persistence>
 </pre>
-<p>可以看到这里的套路是将注解加到get方法上, 此外还有一个要注意的就是写明了column, 这是好习惯, 否则Hibernate会自动进行名称的转换. 这里还有点小问题是数据库中用的BIGINT, 实际上id应该用long.</p>
-<p>最后是外键, 这里因为有对应关系, 所以加上了外键, 可以通过这个来反向查询, 所以Employee表那边很显然应该是多对一的关系.</p>
-<p>再看一个Employee类基本就明白了:</p>
+<p>然后就是Java代码了, 其实想想也知道, 先创建持久化类, 然后也会创建一个XXX工厂, 从工厂中获得一个会话对象, 开启事务然后进行操作, 最后提交事务.</p>
+<p>持久类如下:</p>
 <pre>
-package cc.conyli.entities;
-
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
-
-import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.Lob;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
-import javax.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "EMPLOYEE", uniqueConstraints = {@UniqueConstraint(columnNames = {"EMP_NO"})})
-public class Employee {
-    private Long empId;
-    private String empName;
-    private String empNo;
-    private Date hideDate;
-    private byte[] image;
-    private String job;
-    private Float salary;
-    //外键关联的属性直接用对应的表
-    private Department department;
-    private Employee manager;
-
-//这是要通过经理查手下的员工
-    private Set&lt;Employee> employees = new HashSet&lt;Employee>(0);
-
-    public Employee() {
-    }
-
-    public Employee(Long empId, String empName, String job, Employee manager,
-                    Date hideDate, Float salary, Float comm, Department department) {
-        this.empId = empId;
-        this.empNo = "E" + this.empId;
-        this.empName = empName;
-        this.job = job;
-        this.manager = manager;
-        this.hideDate = hideDate;
-        this.salary = salary;
-        this.department = department;
-    }
+public class Message {
 
     @Id
-    @Column(name = "EMP_ID")
-    public Long getEmpId() {
-        return empId;
+    @GeneratedValue
+    private Long id;
+
+    private String text;
+
+    public String getText() {
+        return text;
     }
 
-    public void setEmpId(Long empId) {
-        this.empId = empId;
+    public void setText(String text) {
+        this.text = text;
     }
 
-    @Column(name = "EMP_NO", length = 20, nullable = false)
-    public String getEmpNo() {
-        return empNo;
+    @Override
+    public String toString() {
+        return "Message{" +
+                "id=" + id +
+                ", text='" + text + '\'' +
+                '}';
     }
-
-    public void setEmpNo(String empNo) {
-        this.empNo = empNo;
-    }
-
-    @Column(name = "EMP_NAME", length = 50, nullable = false)
-    public String getEmpName() {
-        return empName;
-    }
-
-    public void setEmpName(String empName) {
-        this.empName = empName;
-    }
-
-    @Column(name = "JOB", length = 30, nullable = false)
-    public String getJob() {
-        return job;
-    }
-
-    public void setJob(String job) {
-        this.job = job;
-    }
-
-
-    //反映员工的经理多对一关系, 可以看到, 外键所在的表中注解写法与之前Department不同
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "MNG_ID")
-    public Employee getManager() {
-        return manager;
-    }
-
-    public void setManager(Employee manager) {
-        this.manager = manager;
-    }
-
-    //标记这是一个时间类型, 具体类型是DATE
-    @Column(name = "HIRE_DATE", nullable = false)
-    @Temporal(TemporalType.DATE)
-    public Date getHideDate() {
-        return hideDate;
-    }
-
-    public void setHideDate(Date hideDate) {
-        this.hideDate = hideDate;
-    }
-
-    @Column(name = "SALARY", nullable = false)
-    public Float getSalary() {
-        return salary;
-    }
-
-    public void setSalary(Float salary) {
-        this.salary = salary;
-    }
-
-    //Lob对象的注解, 是一个字节数组, 存放二进制
-    @Column(name = "IMAGE", length = 1111111, nullable = true)
-    @Lob
-    public byte[] getImage() {
-        return image;
-    }
-
-    public void setImage(byte[] image) {
-        this.image = image;
-    }
-
-    //外键的用法, 已经用Department类型来标识了被参照关系
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "DEPT_ID", nullable = false)
-    public Department getDepartment() {
-        return department;
-    }
-
-    public void setDepartment(Department department) {
-        this.department = department;
-    }
-
-    @OneToMany(fetch = FetchType.LAZY, mappedBy = "empId")
-    public Set&lt;Employee> getEmployees() {
-        return employees;
-    }
-
-    public void setEmployees(Set&lt;Employee> employees) {
-        this.employees = employees;
-    }
-
 }
 </pre>
-<p>这里唯一没明白的就是最后的主键关联到自己的主键, 究竟想做什么, 其他的倒是比较明白. 还有个就是TIMEKEEPER的UUID自动产生的配置.</p>
-
-<h2 style="text-align: center;" id="con4">配置cfg文件</h2>
-<p>看了一下, 上边四个类所使用的注解, 全部来自Hibernate提供的标准JPA的实现. 下一步就是需要配置XML文件, 告诉Hibernate这四个Entity类了:</p>
-<p>文件需要写在类路径下边, 也就是和cc.conyli的最上层cc目录所在的java目录下边, cfg文件和cc目录是平级的.</p>
-<p>网站上没有提供PostgreSQL的配置文件, 其实也就是DataSource那里不同, 自己改了一版:</p>
+<p>这个没什么好说的, 不写@Column的域会对应到同名的id和text列(这里还没说带下划线如何匹配), 唯一就是要观察@GeneratedValue这个注解在PostgreSQL中的作用.</p>
+<p>之后就可以来进行操作:</p>
 <pre>
-&lt;?xml version='1.0' encoding='utf-8'?>
+import org.junit.Test;
+
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.EntityTransaction;
+import javax.persistence.Persistence;
+
+public class HelloWorldJPA {
+
+    @Test
+    public void testStart() {
+
+        //创建会话工厂, 线程安全, 可以被共享
+        EntityManagerFactory emf =
+                Persistence.createEntityManagerFactory("HelloWorldPU");
+
+        //获取当前线程绑定的会话对象
+        EntityManager em = emf.createEntityManager();
+
+        //获取事务对象并启动事务
+        EntityTransaction tx = em.getTransaction();
+        tx.begin();
+
+        //创建新对象
+        Message message = new Message();
+        message.setText("Hello World!");
+
+        //持久化
+        em.persist(message);
+
+        //提交事务
+        tx.commit();
+
+        //关闭会话
+        em.close();
+    }
+}
+</pre>
+<p>这个套路很熟悉, 启动之后, 日志中Hibernate开始启动, 毕竟是Hibernate提供的JPA实现, 之后注意观察输出:</p>
+<pre>
+Hibernate:
+    drop table if exists Message cascade
+
+Hibernate:
+    drop sequence if exists hibernate_sequence
+
+Hibernate: create sequence hibernate_sequence start 1 increment 1
+
+Hibernate:
+
+    create table Message (
+       id int8 not null,
+        text varchar(255),
+        primary key (id)
+    )
+
+Hibernate:
+    select
+        nextval ('hibernate_sequence')
+
+Hibernate:
+    /* insert cc.conyli.model.helloworld.Message
+        */ insert
+        into
+            Message
+            (text, id)
+        values
+            (?, ?)
+</pre>
+<p>可以看到Hibernate首先会检查表和序列存在与否, 然后重新创建表和序列, 之后先从序列中取值, 然后插入数据. 用PgADmin可以查看新的序列和表.</p>
+<p>然后是查和修改:</p>
+<pre>
+@Test
+public void test2() {
+    EntityManagerFactory emf = Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    Message message = new Message();
+    message.setText("Hello World!");
+    em.persist(message);
+
+    tx.commit();
+
+    tx.begin();
+
+    List&lt;Message> messages = em.createQuery(<span style="color: orangered">"select m from Message m"</span>).getResultList();
+
+    assertEquals(messages.size(), 1);
+    assertEquals(messages.get(0).getText(), "Hello World!");
+
+    messages.get(0).setText("A new World!");
+
+    tx.commit();
+
+    messages.get(0).setText("After commit!");
+}
+</pre>
+<p>可以看到最后的结果是"A new World!", 在关闭事务之后, 就这个对象就和会话断开了关联. 这是一大特点, 即默认情况下, 选出的结果还与会话关联, 修改都会反映到事务提交之后的数据库内部.</p>
+<p>橙色的部分是Java Persistence Query Language, 即JPQL, Java持久化查询语句. JPQL中都使用的是类名和属性名, 因为在映射关系中已经将类和属性映射到了表和列上.</p>
+<p>这样的一大好处就是, 如果类和属性映射到别的表和列上, 上边所有的代码都完全不用更改, 一样可以发挥作用.</p>
+
+<h2 style="text-align: center;" id="con3">使用Hibernate原生API</h2>
+<p>与EntityManagerFactory相对应的是org.hibernate.SessionFactory, 同样也是线程安全, 每个应用共享一个就可以了.</p>
+<p>使用Hibernate的好处是可以更详尽的进行设置, 仅仅通过persistence.xml中的设置是无法完全设置Hibernate的一些配置的.</p>
+<p>来看看创建SessionFactory的方法, 首先需要创建src/main/resources/hibernate.cfg.xml, 也就是classpath之下, 内容如下:</p>
+<pre>
+&lt;?xml version='1.0' encoding='UTF-8'?>
     &lt;!DOCTYPE hibernate-configuration PUBLIC
         "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
         "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
 
 &lt;hibernate-configuration>
 
+&lt;!--    会话工厂设置-->
     &lt;session-factory>
-        &lt;!-- Database connection settings -->
+
+    &lt;!--    配置Session上下文环境, 必须要写-->
+        &lt;property name="hibernate.current_session_context_class">org.hibernate.context.internal.ThreadLocalSessionContext&lt;/property>
+
+    &lt;!--        配置数据库连接-->
         &lt;property name="connection.driver_class">org.postgresql.Driver&lt;/property>
         &lt;property name="connection.url">jdbc:postgresql://106.54.215.164:5432/mydb&lt;/property>
         &lt;property name="connection.username">postgres&lt;/property>
-        &lt;property name="connection.password">********&lt;/property>
-
-        &lt;!-- JDBC connection pool (use the built-in) -->
-        &lt;property name="connection.pool_size">1&lt;/property>
-
-        &lt;!-- SQL dialect -->
+        &lt;property name="connection.password">fflym0709&lt;/property>
+&lt;!--    配置方言, 所谓方言就是类型转换的规则-->
         &lt;property name="dialect">org.hibernate.dialect.PostgreSQL10Dialect&lt;/property>
-
-        &lt;!-- Enable Hibernate's automatic session context management -->
-        &lt;property name="current_session_context_class">thread&lt;/property>
-
-        &lt;!-- Disable the second-level cache -->
-        &lt;property name="cache.provider_class">org.hibernate.cache.internal.DisabledCaching&lt;/property>
-
-        &lt;!-- Echo all executed SQL to stdout -->
+&lt;!--    三个和对应JPA中一样的配置-->
         &lt;property name="show_sql">true&lt;/property>
-
-        &lt;mapping class="cc.conyli.entities.Department" />
-        &lt;mapping class="cc.conyli.entities.Employee" />
-        &lt;mapping class="cc.conyli.entities.SalaryGrade" />
-        &lt;mapping class="cc.conyli.entities.Timekeeper" />
-
+        &lt;property name="format_sql">true&lt;/property>
+        &lt;property name="use_sql_comments">true&lt;/property>
+&lt;!--    类似于JPA的启动时先DROP再CREATE的操作-->
+        &lt;property name="hibernate.hbm2ddl.auto">create-drop&lt;/property>
+    &lt;!--    Entity类, 有多个就要配置多个-->
+        &lt;mapping class="cc.conyli.model.helloworld.Message"/>
     &lt;/session-factory>
 
 &lt;/hibernate-configuration>
 </pre>
-<p>XML文件要放在src/main/resouces下边, 这样启动的时候Hibernate才可以自动认出来.</p>
-<p>之后创建一个工具类, 这个工具类返回根据配置文件创建的SessionFactory对象.</p>
-<p>SessionFactory就是Hibernate的核心类, 可以从中每次获取一个Session对象用于操作数据库.</p>
+<p>这个配置文件在效果上和JPA的配置文件完全相同, 将其中的配置都写了进来. 在使用IDEA编辑的时候, 可以发现有很多配置可供选择, 比JPA标准要多很多, 这是使用原生Hibernate的一大好处.</p>
+<p>其中的<code>hibernate.current_session_context_class</code>比较特殊, 如果不使用JTA, 一般配置成thread, 会用ThreadLocal来隔离线程取得的会话对象.</p>
+<p>之后就可以来创建SessionFactory了, 快速根据hibernate.cfg.xml创建的方法如下:</p>
 <pre>
-import org.hibernate.SessionFactory;
-import org.hibernate.boot.Metadata;
-import org.hibernate.boot.MetadataSources;
-import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
-import org.hibernate.service.ServiceRegistry;
+SessionFactory sessionFactory = new MetadataSources(
+        new StandardServiceRegistryBuilder()
+                .configure("hibernate.cfg.xml").build()
+).buildMetadata().buildSessionFactory();
+</pre>
+<p>拆开来说, 其实分为三步:</p>
+<ol>
+    <li>使用StandardServiceRegistryBuilder创建一个配置对象ServiceRegistry</li>
+    <li>使用MetadataSources, 构造参数为ServiceRegistry对象, 然后创建一个ORM元数据类型Metadata对象</li>
+    <li>使用Metadata对象创建SessionFactory</li>
+</ol>
+<p>第一步, StandardServiceRegistryBuilder可以根据一个配置文件, 也可以加载一个Properties文件, 还可以手工进行配置, 最后调用.build()方法创建一个ServiceRegistry对象:</p>
+<pre>
+StandardServiceRegistryBuilder serviceRegistryBuilder =
+        new StandardServiceRegistryBuilder();
 
-public class HibernateUtils {
+serviceRegistryBuilder
+        .applySetting("hibernate.connection.datasource", "myDS")
+        .applySetting("hibernate.format_sql", "true")
+        .applySetting("hibernate.use_sql_comments", "true")
+        .applySetting("hibernate.hbm2ddl.auto", "create-drop");
 
-    private static final SessionFactory sessionFactory = buildSessionFactory();
+ServiceRegistry serviceRegistry = serviceRegistryBuilder.build();
+</pre>
+<p>第二步, 使用MetadataSources对象, 加载配置对象, 然后可以添加Entity类:</p>
+<pre>
+MetadataSources metadataSources = new MetadataSources(serviceRegistry);
+metadataSources.addAnnotatedClass(cc.conyli.model.helloworld.Message.class);
+</pre>
+<p>最后一步, 创建SessionFactory对象:</p>
+<pre>
+MetadataBuilder metadataBuilder = metadataSources.getMetadataBuilder();
+Metadata metadata = metadataBuilder.build();
+assertEquals(metadata.getEntityBindings().size(), 1);
+SessionFactory sessionFactory = metadata.buildSessionFactory();
+</pre>
+<p>我自己尝试着完全用这个方法, 没有启动成功Hibernate, 还是用xml文件方便一些.</p>
+<p>查询, 修改的代码如下:</p>
+<pre>
+@Test
+public void test() {
+    SessionFactory sessionFactory = new MetadataSources(
+            new StandardServiceRegistryBuilder()
+                    .configure("hibernate.cfg.xml").build()
+    ).buildMetadata().buildSessionFactory();
 
-    private static SessionFactory buildSessionFactory() {
-        try {
-            //从XML文件中加载配置
-            ServiceRegistry serviceRegistry = new StandardServiceRegistryBuilder()
-                    .configure("hibernate.cfg.xml").build();
+    //获取会话对象, 等于EntityManager
+    Session session = sessionFactory.getCurrentSession();
 
-            //创建一个元数据, 包含配置文件中的内容, 然后调用方法, 返回一个根据配置文件创建的SessionFactory
-            Metadata metadata = new MetadataSources(serviceRegistry).getMetadataBuilder().build();
+    //启动事务
+    Transaction tx = session.getTransaction();
+    tx.begin();
 
-            return metadata.getSessionFactoryBuilder().build();
-        } catch (Throwable ex) {
+    //写入
+    Message message = new Message();
+    message.setText("Hello World!");
+    session.persist(message);
 
-            System.err.println("Initial SessionFactory creation failed." + ex);
-            throw new ExceptionInInitializerError(ex);
-        }
-    }
+    //查询
+    List&lt;Message> messages = session.createQuery("SELECT m FROM Message m", Message.class).list();
 
-    public static SessionFactory getSessionFactory() {
-        return sessionFactory;
-    }
+    assertEquals(messages.size(), 1);
+    assertEquals(messages.get(0).getText(), "Hello World!");
 
-    public static void shutdown() {
-        //关闭SessionFactory, 这会断开数据库的所有连接和清除缓存
-        getSessionFactory().close();
-    }
+    messages.get(0).setText("Hibernate good!");
 
+    tx.commit();
+
+    System.out.println(messages);
 }
 </pre>
-<p>之后启动:</p>
-<pre>
-public static void main( String[] args )
-{
-    System.out.println("尝试启动Hibernate5...");
-    try {
-
-        SessionFactory sessionFactory = HibernateUtils.getSessionFactory();
-        System.out.println("启动成功");
-
-    } catch (Exception ex) {
-        System.out.println("启动失败");
-    }
-}
-</pre>
-<p>在日志窗口可以看到Hibernate的日志, 就说明启动成功了.</p>
-
-<h2 style="text-align: center;" id="con5">SQL与HQL</h2>
-<p>SQL是用表名.列名来表示的, HQL相比之下, 采用的是 类名.属性名来表示. 二者相比如下:</p>
-<pre>
--- SQL
-Select d.DEPT_NO, d.DEPT_NAME from DEPARTMENT d;
-
--- HQL
-Select d.deptNo, d.deptName from Department d;
-
--- 如果查出全部列, 不能用通配符*, 而要写作如下:
-Select d from Department d;
-</pre>
-<p>
-    allocationSize = 1 は非常に重要です。これを省略すると、Hibernateはシーケンスが INCREMENT 50 で定義されていると盲目的に判断します
-</p>
-<p>如果省略, 会判断成50, 不太对</p>
+<p>可以看到这里的查询语句比起JPA的还可以传类型进去, 就不用强制转换. 与JPA一样, 在事务没有提交前, 不显式分离的话, messages及其中对象与会话依然关联, 修改内容后提交事务, 修改的内容也会写入到数据库中.</p>
+<p>这样就看书外加自己摸索出了名副其实的JPA with Hibernate.</p>
 
 
-<h2 style="text-align: center;" id="con6"></h2>
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
 
 </body>
-</html>
+&lt;/html>
