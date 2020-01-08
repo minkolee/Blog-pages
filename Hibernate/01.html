@@ -21,7 +21,7 @@
 <ol>
     <li><a href="#con1">Domain Model</a></li>
     <li><a href="#con2">CaveatEmptor系统</a></li>
-    <li><a href="#con3">如何创建可持久化的类</a></li>
+    <li><a href="#con3">创建可持久化的类</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
@@ -46,7 +46,7 @@
 <p>CreditCard类和BankAccount类继承自BillingDetails类.</p>
 <p>这个UML类图是只描述了所有要进行持久化的类, 而且也省略了这些类的方法, 仅关注成员变量, 也就是会被持久化的内容.</p>
 
-<h2 style="text-align: center;" id="con3">如何创建可持久化的类</h2>
+<h2 style="text-align: center;" id="con3">创建可持久化的类</h2>
 <p>接下来的一个关键工作, 就是如何根据UML类图, 创建可以持久化的类.</p>
 <p>需要用一个POJO类型的Java Bean类来作为持久化类的基础, 还需要满足如下条件:</p>
 <ol>
@@ -56,7 +56,7 @@
     <li>JPA和Hibernate都要求必须有一个至少有包可见权限的无参构造器, JavaBean无此要求.</li>
     <li>与UML类图中规定的成员变量相同</li>
 </ol>
-<p>关于Hibernate这里有一个特点, 就是通过set和get方法暗示的一个字段. </p>
+<p>此外, 还有一些特殊的问题需要解决. 一个一个来看. 首先就是Hibernate通过成员变量还是get方法进行操作的问题.</p>
 
 
 
