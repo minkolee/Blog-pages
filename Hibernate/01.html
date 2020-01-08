@@ -46,7 +46,7 @@
 <p>CreditCard类和BankAccount类继承自BillingDetails类.</p>
 <p>这个UML类图是只描述了所有要进行持久化的类, 而且也省略了这些类的方法, 仅关注成员变量, 也就是会被持久化的内容.</p>
 
-<h2 style="text-align: center;" id="con3">创建可持久化的类</h2>
+<h2 style="text-align: center;" id="con3">创建可持久化的类 - 访问成员变量的方法</h2>
 <p>接下来的一个关键工作, 就是如何根据UML类图, 创建可以持久化的类.</p>
 <p>需要用一个POJO类型的Java Bean类来作为持久化类的基础, 还需要满足如下条件:</p>
 <ol>
@@ -57,6 +57,32 @@
     <li>与UML类图中规定的成员变量相同</li>
 </ol>
 <p>此外, 还有一些特殊的问题需要解决. 一个一个来看. 首先就是Hibernate通过成员变量还是get方法进行操作的问题.</p>
+<p>Java的get和set方法(private权限的成员变量+public权限的set/get方法), 实际上提供的是一个隔离, 即可以改变类内部的实现, 而不更改接口. 实际上, 即使没有直接对应set/get方法的成员变量也没有关系.</p>
+<p>将Hibernate配置为直接通过反射存取成员变量的时候, 没有问题. 配置成通过get方法访问成员变量的时候, 类内部实际的实现可能与对应的数据库表设计相互分离 - 即没有关系.</p>
+<p>看下边这个例子:</p>
+<pre>
+public class User {
+
+    protected String firstname;
+    protected String lastname;
+
+    public String getName() {
+        return firstname + ' ' + lastname;
+    }
+
+    public void setName(String name) {
+        StringTokenizer t = new StringTokenizer(name);
+        firstname = t.nextToken();
+        lastname = t.nextToken();
+    }
+}
+</pre>
+<P>如果数据库中有name列, 就可以添加这个方法, 但实际的User类并没有该成员变量. 这里经我测试, 在getName上添加注解, 自动生成表的时候不会生成该字段, 还是需要有Name成员变量才行.</P>
+<p>这里还一个坑就是如果User类不指定表名, 则User是一个关键字, SQL语句会执行出错.</p>
+<p>如果都使用默认的@Id和@GeneratedValue, Hibernate创建的序列对象相同, 如果更新两个类, 都会使用同一个序列对象, 可以具体配置不同的序列对象.</p>
+<p>还有就是JPA启动的时候删除表和重新创建表并不在事务管理范围内, 所以会变成每行语句直接提交.</p>
+
+<h2 style="text-align: center;" id="con4">创建可持久化的类 - dirtycheck</h2>
 
 
 
@@ -66,7 +92,22 @@
 
 
 
-<h2 style="text-align: center;" id="con4"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
