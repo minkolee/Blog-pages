@@ -48,8 +48,15 @@
 
 <h2 style="text-align: center;" id="con3">如何创建可持久化的类</h2>
 <p>接下来的一个关键工作, 就是如何根据UML类图, 创建可以持久化的类.</p>
-
-
+<p>需要用一个POJO类型的Java Bean类来作为持久化类的基础, 还需要满足如下条件:</p>
+<ol>
+    <li>可以没有get set方法, 可以将Hibernate配置成直接存取字段或者通过方法存取. </li>
+    <li>不能是内部类</li>
+    <li>类本身和所有方法都不能是final, 这是JPA标准的要求.</li>
+    <li>JPA和Hibernate都要求必须有一个至少有包可见权限的无参构造器, JavaBean无此要求.</li>
+    <li>与UML类图中规定的成员变量相同</li>
+</ol>
+<p>关于Hibernate这里有一个特点, 就是通过set和get方法暗示的一个字段. </p>
 
 
 
