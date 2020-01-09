@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 01 域模型与元数据</title>
+    <title>Hibernate 01 Domain Model与元数据</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,16 +15,20 @@
     </style>
 </head>
 <body>
+<p>不知道是不是开始学习Hibernate的原因, 最近有点犯困, 总觉得睡不醒.</p>
 <p>上一篇的破冰之旅中的最大收获是发现JPA和Hibernate都可以自行创建数据库, 而不用先行创建, 果然爽.</p>
-<p>不过例子实在太简单, 这一章是来看看Domain model 和 metadata. 然后创建一个更复杂的数据库来操作.</p>
+<p>不过例子实在太简单, 这一章是来看看Domain model 和 metadata. 这一篇的内容还是偏理论为主, 还没有真正一个一个介绍具体内容. 不过理论先学好也很有必要, 2019年复习Java的过程中就觉得理论和实践真的是互相加强, 互相融合, 互相推动的.</p>
 
 <ol>
     <li><a href="#con1">Domain Model</a></li>
     <li><a href="#con2">CaveatEmptor系统</a></li>
     <li><a href="#con3">创建可持久化的类</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">创建可持久化的类 - dirtycheck</a></li>
+    <li><a href="#con5">创建可持久化的类 - 类之间的关系</a></li>
+    <li><a href="#con6">metadata 元数据 与 Validator</a></li>
+    <li><a href="#con7">注解方式配置元数据和验证器</a></li>
+    <li><a href="#con8">XML方式配置元数据和验证器</a></li>
+    <li><a href="#con9">运行时获取元数据</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">Domain Model</h2>
 <p>在一个系统中, Entity用来称呼一个系统中被广为接受的各种概念, 对于一个电商系统来说, 可能会有付款, 订单, 客户, 商品等. 可以看到, 这些概念主要基于商业模型.</p>
@@ -82,7 +86,321 @@ public class User {
 <p>如果都使用默认的@Id和@GeneratedValue, Hibernate创建的序列对象相同, 如果更新两个类, 都会使用同一个序列对象, 可以具体配置不同的序列对象.</p>
 <p>还有就是JPA启动的时候删除表和重新创建表并不在事务管理范围内, 所以会变成每行语句直接提交.</p>
 
-<h2 style="text-align: center;" id="con4">创建可持久化的类 - dirtycheck</h2>
+<h2 style="text-align: center;" id="con4">创建可持久化的类 - dirty check</h2>
+<p>Hibernate如果配置成通过get方法存取, 就要注意Hibernate的检测更新的机制.</p>
+<p>Hibernate会自动检测状态改变, 然后将状态改变与更新数据库关联起来. 通常来说, 对于一个成员变量, get方法返回一个与Hibernate赋给这个成员变量的值不同的值, 没有关系, 因为Hibernate对于基本类型是比较值是否相等, 而不是对象内存地址, 比如:</p>
+<pre>
+public String getFirstname() {
+    return new String(firstname);
+}
+</pre>
+<p>返回一个新的字符串, Hibernate会用.equals来比较, 而不是返回新的字符串和原来作为成员变量的字符串不是同一个对象而因此去更新数据库.</p>
+<p>但是对于集合元素, 就不是如此了, Hibernate比较集合元素的时候, 用的是内存地址, 而不是比较其中所有内容是否相同. 所以get方法要返回Hibernate在查询的时候给对象设置上的集合变量, 而不能是一个新的集合, 否则就会触发Hibernate的更新机制. 所以要注意这个特性, 避免造成不必要的更新.</p>
+<pre>
+protected String[] names = new String[0];
+    
+public void setNames(List&lt;String> names) {
+    this.names = names.toArray(new String[names.size()]);
+}
+public List&lt;String> getNames() {
+    return Arrays.asList(names);
+}
+</pre>
+<p>如果类写成这样, 虽然getNames返回的是一个其中内容和names参数一样的数组, 但Hibernate会认为是不同的结果, 因此就会去更新names字段, 就会造成不必要的更新. 这一定要注意.</p>
+<p>如果直接配置在字段上, 则会破坏类的封装, Hibernate会通过反射直接读取和设置值, 不过一般问题不大.</p>
+
+<h2 style="text-align: center;" id="con5">创建可持久化的类 - 类之间的关系</h2>
+<p>在上边两个问题中, 主要解决了持久化类的基础设置, 与其他类无关的成员变量设置, 然后还有最重要的是, 类之间的关系如何体现.</p>
+<p>以ITEM和BID为例, UML类图中只ITEM中,  标出了name等成员变量, 还标出了ITEM与BID的关系, 即实心菱形的组合关系, 即BID不能离开ITEM单独存在, 必定要成为ITEM(发挥功能)的一部分, ITEM要负责BID的生命周期, 如果ITEM消亡, BID也没有存在必要.</p>
+<p>同时0..*表示数量对应关系, 由于没有箭头, 因此关系是双向的, 即BID中应该有一个代表ITEM的变量, ITEM中有一个代表多个BID的变量(一个BID集合).</p>
+<p>根据这些分析, 可以简单的写出如下的BID类中表示ITEM的相关部分:</p>
+<pre>
+@Entity
+public class Bid {
+
+    ......
+
+    protected Item item;
+
+    public Item getItem() {
+        return item;
+    }
+
+    public void setItem(Item item) {
+        this.item = item;
+    }
+}
+</pre>
+<p>而ITEM中的BID, 是一个集合, 这里用SET是因为BID是不能重复的:</p>
+<pre>
+public class Item {
+    protected Set&lt;Bid> bids = new HashSet&lt;Bid>();
+    
+    public Set&lt;Bid> getBids() {
+       return bids;
+    }
+        
+    public void setBids(Set&lt;Bid> bids) {
+      this.bids = bids;
+    }
+}
+</pre>
+<p>通过这两个类的代码, 标识了这两个类存在bidirectional双向关系, 而且是一对多的关系, 即一个ITEM可拥有多个BID. JPA要求属性的类型必须是java.util.Set/List/Collection三种接口之一. 所以这里是用的多态设置属性.</p>
+<p>比较这两个可以看到, BID的item字段没有初始化, 但是由于BID必须对应一个ITEM, 很显然要在创建对象之后立刻为其设置上item属性. Item类的bids属性在一开始就进行了初始化为一个空的set(), 这是JPA的要求, 不能为null.</p>
+<p>这里还有一个特殊的类型, 就是要不要使用List, 初看起来似乎List可以保持一个排序, 但实际上数据的完整性并不会因此丢失, 此外还有一些辅助的字段比如TIMESTAMP等可以辅助排序, 如何按照顺序展示, 其实是Java代码的层面, 而不是持久化类的层面.</p>
+<p>还一个要注意的是, 对于关系的访问器函数, 也要是public的.</p>
+<p>有了上述代码之后, 就可以将两个对象关联起来了:</p>
+<pre>
+anItem.getBids().add(aBid);
+aBid.setItem(anItem)
+</pre>
+<p>这两行代码要连续写和执行, 这是因为不如此的话, 就违反了之前的关系, 比如仅仅给Item设置了Bid, 而Bid找不到对应的Item. JPA并不会管关系, 所以这些代码要我们自己维护, 也就是写在Item类或者Bid类或者操作这两个类的代码中.</p>
+<p>时刻记得, 现在仅仅是在讨论UML类图到满足UML类图关系的类, 然后在此基础上将其做的符合持久化类的要求, 还没有涉及到如何与数据库打交道.</p>
+
+<p>比较好的写法是带有防御性质的写法, 避免空指针错误, 也避免关联一个已经有了关联的Item的Bid对象:</p>
+<pre>
+public void addBid(Bid bid) {
+    if (bid == null)
+        throw new NullPointerException("Can't add null Bid");
+    if (bid.getItem() != null)
+        throw new IllegalStateException("Bid is already assigned to an Item");
+
+    getBids().add(bid);
+    bid.setItem(this);
+}
+</pre>
+<p>有了这个方法之后, 一般的套路就是在类中将对应的set方法改成私有, 仅仅通过addBid/addItem这种方法来进行操作, 因为关系只需要确立, 不需要解除. 所以无需再暴露set方法. </p>
+<p>关于封装还需要注意的是get方法, 如果直接返回集合, 则可以对集合进行操作, 对于表示关系的这些字段, 则不应该直接返回集合, 否则会被除了addBid/addItem之外的方法修改关系, 所以一般可以返回一个不可变的对象如下:</p>
+<pre>
+Collections.unmodifiableCollection(collection)
+Collections.unmodifiableSet(collection)
+</pre>
+<p>还有一个确保关系被设置后不可变的方法就是采取依赖注入, 即将Item作为Bid的构造器, 然后不设置对应的访问器方法, 这样在创建Bid对象的时候, 就关联了Item而且之后无法再变化. 但是这种方法一般不太推荐, 因为Hibernate不会调用这个构造器, 而且创建Bid对象的时候就必须要求Item对象已经创建, 这可能会要求程序必须满足一些流程限制.</p>
+<p>最后来总结一下从UML类创建持久化类的要点:</p>
+<ol>
+    <li>有包可见级别的无参构造器</li>
+    <li>访问成员变量可以通过反射也可以通过get方法</li>
+    <li>如果通过get方法, 要注意返回集合的时候, 返回相同内容的新建集合, 会导致Hibernate的更新</li>
+    <li>设置关系的时候采取优化的套路, 也就是检测空指针和是否已经关联之后, 再进行添加, 并且不要对外暴露关系属性相关的访问器方法.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con6">metadata 元数据</h2>
+<p>元数据是什么, 其实就是注解, 或者是XML配置. 都是提供元数据的一种方式. 在创建好了上边的类之后, 就算在persistence.xml中的class属性或者Hibernate的mapping class=中指定这些类, 也是不起作用的.</p>
+<p>这是因为这些类本身还只是POJO, 还没有元数据, 也就是说JPA/Hibernate还不知道如何将这些类的对象持久化. 对于ORM来说, 元数据就是提供给ORM工具(Hibernate)用的.</p>
+<p>JPA标准规定了两种提供元数据的方式:</p>
+<ol>
+    <li>注解方式, 也被称为内部方式, 因为注解是包含在Java代码中的</li>
+    <li>XML方式, 也被称为外部方式, 因为XML文件并非Java代码</li>
+</ol>
+<p>Hibernate在JPA的标准之外还有自己的一些原生功能, 也同样可以通过这两种方法提供元数据. 所以对于现在的我们来说, 要将上边的POJO类加上元数据, 既可以加上注解, 也可以在XML里再多写一点东西.</p>
+<p>与JPA的元数据紧密相关的, 还有JSR303 Bean Validation标准, 代表如何去检测一个持久化对象每一个持久化的域是否符合要求. Hibernate也提供了JSR 303的实现, 即Hibernate Validator:</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.hibernate.validator&lt;/groupId>
+    &lt;artifactId>hibernate-validator&lt;/artifactId>
+    &lt;version>6.1.0.Final&lt;/version>
+&lt;/dependency>
+</pre>
+<p>JSR303 自然也可以通过注解或者是XML配置</p>
+<p>在当今的开发中, 注解方式已经是主流, 对于一些注解方式难以配置的或者特殊的功能, 才会使用XML配置. 不过也要了解一下, 如果要用到老版本就会有XML配置的问题.</p>
+
+<h2 style="text-align: center;" id="con7">注解方式配置元数据和验证</h2>
+<p>这里其实只是对理论的稍微介绍, 还没有介绍的具体的注解怎么写.</p>
+<p>要给持久化类加上注解, 首先要加的就是@Entity注解, 很多时候仅仅有这个注解, 就已经足够ORM工具将其转换成可以写入到数据库中的关系对象.</p>
+<p>注解都是类型安全的, 如果赋值错误, 编译的时候就会报错, 所以可以放心大胆使用.</p>
+
+<h3 style="color: orangered">区分JPA标准与Hibernate的注解</h3>
+<ol>
+    <li>JPA的注解都来自<code>javax.persistence.*</code></li>
+    <li>Hibernate的注解来自<code>org.hibernate.annotations.*</code></li>
+</ol>
+<p>在给类加注解的时候, 一个好实践是JPA的注解都使用简单的注解类名, 而Hibernate注解都采用完整包名, 比如:</p>
+<pre>
+import javax.persistence.Entity;
+
+@Entity
+@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)
+public class Item {
+}
+</pre>
+<p>这么做的好处是如果要更换JPA的提供商, 可以非常清楚的看到哪些属于JPA标准, 哪些注解属于具体提供商, 只需要更换提供商的注解即可.</p>
+<p>加上注解之后, 我们的类是否就依赖于JPA呢, 答案是肯定的, 但是仅限于编译时期, JPA的注解都是Runtime的, 必须在运行的时候让ORM工具获得. 不过如果不使用ORM, 则这些类依然可以正常的使用.</p>
+<h3 style="color: orangered">全局注解</h3>
+<p>像@Entity这样的注解, 仅仅在被注解的类中发挥作用. JPA和Hibernate都有一些全局注解, 所谓全局注解, 就是不需要将其注解到某个类上, 就可以发挥作用(比如其他的注解可以知道该注解中的内容), 比如@NamedQuery注解, 无需放在某个持久化类中, 而是可以找一个java文件, 里边只写注解:</p>
+<pre>
+@org.hibernate.annotations.GenericGenerator(
+  name = "ID_GENERATOR",
+  strategy = "enhanced-sequence",
+  parameters = {
+     @org.hibernate.annotations.Parameter(
+        name = "sequence_name",
+        value = "JPWH_SEQUENCE"
+     ),
+     @org.hibernate.annotations.Parameter(
+        name = "initial_value",
+        value = "1000"
+     )
+})
+package org.jpwh.model;
+</pre>
+<p>这个套路我读到这里确实第一次见到, 这么配置之后, 其他的注解里就可以引用这里定义好的注解内容. 确实刺激.</p>
+<p>不过我看这个东西还是少用为好, 作者解释了为何这里不用JPA标准的注解, 而使用Hibernate的注解, 因为JPA的注解不具备这样的功能, 作者自己也很奇怪. 所以如果想用JPA的注解, 还是需要将其放在某个功能类上, 而不能在一个.java文件中只写注解.</p>
+<h3 style="color: orangered">注解配置验证器</h3>
+<p>这个和配置元数据没有什么太大不同, 其实可以将其直接认为也是ORM的一个元数据, 因为如今都是二者搭配使用, 形影不离. 注解都来自<code>javax.validation.constraints.*</code>, 例子如下:</p>
+<pre>
+import javax.validation.constraints.Future;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+
+@Entity
+public class Item {
+    @NotNull
+    @Size(min = 2, max = 255, message = "Name is required, maximum 255 characters.")
+    protected String name;
+    @Future
+    protected Date auctionEnd
+
+    ...
+}
+</pre>
+<p>验证注解还可以自定义, 具有很高的灵活性. 加上注解之后, 这些验证字段并不会随时都进行验证, 而是会在指定的时候进行验证. 这分为两种, 一种是手工的代码进行验证, 一种是如果使用Hibernate框架, 加上了验证元数据之后, Hibernate会在classpath下寻找JSR 303的Provider程序, 如果找到, 就会在写入数据库之前进行验证.</p>
+<p>手工验证的代码的逻辑就是先创建验证器工厂, 然后获取验证器对象. 之后用一个ConstraintViolation&lt;T>对象来装验证后的结果. 例子如下:</p>
+<pre>
+ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+Validator validator = factory.getValidator();
+
+Item item = new Item();
+item.setName("Some Item");
+item.setAuctionEnd(new Date());
+
+Set&lt;ConstraintViolation&lt;Item>> violations = validator.validate(item);
+assertEquals(1, violations.size());
+ConstraintViolation&lt;Item> violation = violations.iterator().next();
+String failedPropertyName = violation.getPropertyPath().iterator().next().getName();
+assertEquals(failedPropertyName, "auctionEnd");
+if (Locale.getDefault().getLanguage().equals("en"))
+    assertEquals(violation.getMessage(), "must be in the future");
+</pre>
+<p>手工验证的逻辑还是比较清晰的, 不过一般Hibernate ORM都和Hibernate Validator一起搭配使用, 所以持久化类会在被持久化之前自动进行验证, 如果验证错误, 会抛出ConstraintViolationException, 包含所有的验证错误信息.</p>
+<p>在persistence.xml的PU内部, 可以使用<code>&lt;validation-mode></code>来控制验证, 有三个选项:</p>
+<ol>
+    <li><code>AUTO</code>, 如果找到验证器提供商的包, 就进行验证, 找不到就验证.</li>
+    <li><code>CALLBACK</code>, 强制验证, 如果找不到验证器包, 就报错.</li>
+    <li><code>NONE</code>, 不进行验证.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con8">XML方式配置元数据</h2>
+<p>XML配置的元数据的“级别”要比注解“高”一些, XML配置可以完全替代注解, 或者覆盖注解的配置. 所以XML可以完全替代注解. </p>
+<p>对于JPA标准来说, persistence.xml中包含持久类的元数据, 而是默认位于/META-INF/orm.xml文件中, 还可以在persistence.xml中通过&lt;mapping-file>来指定其他路径和名称的XML文件.</p>
+<p>一个针对最开始的例子Message类的orm.xml的例子如下:</p>
+<pre>
+&lt;entity-mappings
+        version="2.1"
+        xmlns="http://xmlns.jcp.org/xml/ns/persistence/orm"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence/orm
+http://xmlns.jcp.org/xml/ns/persistence/orm_2_1.xsd">
+
+    &lt;persistence-unit-metadata>
+
+&lt;!--    表示忽略所有注解和所有其他XML文件中的映射关系, 即仅采用当前文件针对某个类的设置-->
+        &lt;xml-mapping-metadata-complete/>
+
+        &lt;persistence-unit-defaults>
+&lt;!--        自动转义所有SQL关键字-->
+            &lt;delimited-identifiers/>
+        &lt;/persistence-unit-defaults>
+    &lt;/persistence-unit-metadata>
+    &lt;entity class="cc.conyli.model.helloworld.Message" access="FIELD">
+        &lt;attributes>
+            &lt;id name="id">
+                &lt;generated-value strategy="AUTO"/>
+            &lt;/id>
+            &lt;basic name="text"/>
+        &lt;/attributes>
+    &lt;/entity>
+&lt;/entity-mappings>
+</pre>
+<p>然后把Entity的所有注解都删除, persistence.xml中的<code>&lt;class>cc.conyli.model.helloworld.Message&lt;/class></code>可以注释掉. 然后运行JPA的测试, 可以发现正常执行, 说明XML配置生效了.</p>
+<p>Hibernate的ORM文件要和持久化类放在同一个路径里, 名称要叫做类名.hbm.xml, Message类的XML文件如下:</p>
+<pre>
+&lt;?xml version="1.0"?>
+    &lt;hibernate-mapping
+            xmlns="http://www.hibernate.org/xsd/orm/hbm"
+            package="cc.conyli.model.helloworld"
+            default-access="field">
+    &lt;class name="Message">
+        &lt;id name="id">
+            &lt;generator class="native"/>
+        &lt;/id>
+        &lt;property name="text"/>
+    &lt;/class>
+    &lt;query name="findMessagesHibernate">select i from Message i&lt;/query>
+    &lt;database-object>
+        &lt;create>create index ITEM_NAME_IDX on Message(text)&lt;/create>
+        &lt;drop>drop index if exists
+            ITEM_NAME_IDX&lt;/drop>
+    &lt;/database-object>
+&lt;/hibernate-mapping>
+</pre>
+<p>其中指定了包名, 和具体的类名, 然后配置了每个属性对应的持久化元数据. 如此配置完之后, 将Message.hbm.xml放在META-INF/下边, 然后需要修改hibernate.cfg.xml中的如下内容:</p>
+<pre>
+&lt;hibernate-configuration>
+
+    &lt;session-factory>
+      ......
+
+        <span style="color: orangered">&lt;mapping resource="META-INF/Message.hbm.xml"/></span>
+
+        &lt;!--        &lt;mapping class="cc.conyli.model.helloworld.Message"/>-->
+    &lt;/session-factory>
+
+&lt;/hibernate-configuration>
+</pre>
+<p>需要注释掉原来的mapping class(Message类上的注解也要删除), 添加红色的语句, 即不直接从类映射, 而是从XML文件映射,</p>
+<p>然后运行上一章Hibernate API的测试, 发现也能成功运行.</p>
+<p>Hibernate的Mapping是一个完全的映射, 即其他任何的元数据, 包括注解和JPA的XML文件, 都会触发一个"duplicate mapping"错误. 与JPA不同的是, Hibernate的hbm文件必须显式列出每一个要映射的成员变量, 否则便不会持久化该成员变量, 这与JPA标准的@Entity注解有很大区别.
+    一个@Entity注解就会自动将一个类的所有成员变量都映射成要持久化的属性. 所以Hibernate的XML注解并不是首选, 也可以这么说, Hibernate是在JPA之下对映射要求配置更多细节. 所以一般除了Hibernate特有的东西, 无需使用Hibernate的XML元数据配置. 后边还会遇到Hibernate特有的功能, 那个时候就需要用到XML了.</p>
+<p>至于验证器, 一般不采用XML配置.</p>
+
+<h2 style="text-align: center;" id="con9">运行时获取元数据</h2>
+<p>在开发阶段知道所有元数据固然好, 如果需要运行时操作元数据, JPA提供了一个API, 通过EntityManagerFactory来获取Metamodel对象, 以此来操作元数据. 看一个例子:</p>
+<pre>
+public void testMetaModel() {
+    EntityManagerFactory emf = CaveatEmptorUtil.getEntityManagerFactory();
+
+    Metamodel mm = emf.getMetamodel();
+
+    Set&lt;ManagedType&lt;?>> managedTypes = mm.getManagedTypes();
+
+    System.out.println(managedTypes);
+
+    //判断有元数据的类有几个, 目前其实就一个, 也就是Message类
+    assertEquals(managedTypes.size(), 1);
+
+    //获取其中的第一个也是唯一一个ManagedType
+    ManagedType type = managedTypes.iterator().next();
+
+    //查看这个ManagedType的持久化类型, 是javax.persistence.metamodel.Type.PersistenceType.ENTITY类型
+    System.out.println(type.getPersistenceType());
+    //查看ManagedType的Java类型, 发现就是cc.conyli.model.helloworld.Message
+    System.out.println(type.getJavaType());
+
+    //获取这个类中名称为text的属性, 查看这个属性的Java类型, 结果是String类型
+    SingularAttribute text = type.getDeclaredSingularAttribute("text");
+    System.out.println(text.getJavaType());
+
+    //查看这个text属性对应的持久化类型,是javax.persistence.metamodel.Attribute.PersistentAttributeType.BASIC类型
+    System.out.println(text.getPersistentAttributeType());
+}
+</pre>
+<p>通过这个例子可以知道, ORM框架在内部, 将每个类T转换成一个<code>ManagedType&lt;T></code>类型, 其中包含了原来的类的所有数据和用于持久化的元数据, 包括Java类型与持久化类型, 每个成员变量的Java类型以及对应的持久化类型.</p>
+<p>ORM通过这个方式, 一方面可以让<code>ManagedType&lt;T></code>与普通Java类交互, 另一方面可以将其持久化.</p>
+<p>再深入其实就是具体API了, 不多深究了.</p>
+
+<p>总体来看, 这一部分加上前边的最简单的小例子, 其实是勾画出了ORM框架的大致结构, 包括JPA与Hibernate实现, 配置与持久化类的编写, 以及如何操作进行持久化的API, 外加上验证. ORM的本质就是这些东西.</p>
+<p>看来老外写的书还真不错, 继续看下去了, 后边就逐渐开始是具体技术了.</p>
+<p>其实通过这个UML图也能大概想到, 一对多, 多对多, 还有那个CATEGORY自身的递归查询, 估计在后边都会涉及到. 既然要学, 就继续加油吧.</p>
 
 
 
@@ -98,19 +416,6 @@ public class User {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
