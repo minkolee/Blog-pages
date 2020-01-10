@@ -22,9 +22,12 @@
     <li><a href="#con1">Entity与value types</a></li>
     <li><a href="#con2">唯一性映射注解 @Id</a></li>
     <li><a href="#con3">@GeneratedValue的主键生成策略</a></li>
-    <li><a href="#con4">自定义策略属性</a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">自定义主键生成策略的属性</a></li>
+    <li><a href="#con5">Hibernate的主键生成策略</a></li>
+    <li><a href="#con6">Entity的其他映射配置 - 各种名称</a></li>
+    <li><a href="#con7">Entity的其他映射配置 - 是否允许动态生成SQL</a></li>
+    <li><a href="#con8">Entity的其他映射配置 - 不可变</a></li>
+    <li><a href="#con9">Entity的其他映射配置 - 持久化类映射为子查询/视图</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">Entity与value types</h2>
 <p>一上来又是Hibernate中的两个概念, 这两个概念其实不难理解.</p>
@@ -112,7 +115,7 @@ public class Item {
 </ol>
 <p>这四个都是JPA的标准, 实际上, 如果仅仅依赖这些标准, 在实践中是不够的, 就像前边的序列共用, 很显然会出问题. 因此JPA及Hibernate提供了一些可以自定义的选项.</p>
 
-<h2 style="text-align: center;" id="con4">自定义策略属性</h2>
+<h2 style="text-align: center;" id="con4">自定义主键生成策略的属性</h2>
 <p>要使用自定义的策略属性, 对于JPA标准来说, 要写成<code>@GeneratedValue(generator = "ID_GENERATOR")</code>, 即不再直接指定策略, 而是指定一个生成器的名称.</p>
 <p>然后就可以自定义生成器的具体属性了. 定义的方法可以使用@javax.persistence.SequenceGenerator或者@javax.persistence.TableGenerator,比如:</p>
 <pre>
@@ -182,8 +185,235 @@ public class Message {
 </pre>
 <p>默认是true, 表示可以使用新策略.</p>
 
-<h2 style="text-align: center;" id="con5">Hibernate的策略</h2>
-<h2 style="text-align: center;" id="con6"></h2>
+<h2 style="text-align: center;" id="con5">Hibernate的主键生成策略</h2>
+<p>来看一下Hibernate的策略:</p>
+<ol>
+    <li><code>native</code>, 相当于使用JPA的AUTO策略, 会自动选择SEQUENCE或者IDENTITY.</li>
+    <li><code>sequence</code>, 使用默认名称为HIBERNATE_SEQUENCE的序列, 在每次INSERT之前获取序列, 当然, 可以像上边一样自定义名称和其他属性, 这个sequence背后的类是org.hibernate.id.SequenceGenerator.</li>
+    <li><code>sequence-identity</code>, 在插入的时候生成值, 是在INSERT之后去序列中获取值, 可配置的属性和sequence一样,背后的类是org.hibernate.id.SequenceIdentityGenerator.</li>
+    <li><code>enhance-sequence</code>, 特性在前边介绍过, 相当于JPA的 GenerationType.SEQUENCE, 或者是打开了新策略下的AUTO, 这也是Hibernate内置策略中最推荐使用的策略. 还支持额外的优化器</li>
+    <li><code>seqhilo</code>, 使用数据库的序列加上高低位来进行操作. 了解即可. 对应老策略下的JPA SEQUENCE策略.</li>
+    <li><code>hilo</code>, 使用额外的一个表加上高低位算法来进行操作. 了解即可.</li>
+    <li><code>enhance-table</code>, 使用叫做Hibernate_SEQUENCES的表, 等于打开新策略下的JPA TABLE策略.</li>
+    <li><code>identity</code>, 使用以SQL Server和MySQL为代表的自增列, 奇怪的是不能直接在@GenericGeneric中配置该策略. 使用老策略映射的时候, JPA的IDENTITY就对应这个策略</li>
+    <li><code>increment</code>, Hibernate启动的时候读取所有数据表的主键列的最大值, 在每个表插入新行的时候, Hibernate生成最大值+1来更新. 除非Hibernate对某个数据库有完全而且非并发的独占, 否则不要使用该策略.</li>
+    <li><code>select</code>, Hibernate完全不生成任何主键值, 在插入的时候也不会将主键列包含在INSERT语句中, 而是预期DBMS会在插入的时候通过触发器等指定一个值, 仅用于旧式的无法返回生成键的JDBC数据库程序中.</li>
+    <li><code>uuid2</code>, 在应用层生成一个128位的UUID, 使用这个需要@Id注解的属性是String, byte[16] 或者java.util.UUID类型.背后的类是org.hibernate.id.UUIDGenerationStrategy和org.hibernate.id.UUIDGenerator.</li>
+    <li><code>guid</code>, 使用Oracle , MySQL等数据库的GUID生成程序创建GUID, 映射到String属性. 背后的类是org.hibernate.id.IdentityGenerator</li>
+</ol>
+<p>一般来说, 使用插入前生成主键值的策略, 然后选择可以支持原生序列的enhance-sequence. 此外UUID也是可用的好策略之一. 所以最终的结论是:</p>
+<ol>
+    <li>JPA标准: 打开新策略然后配置enerationType.SEQUENCE</li>
+    <li>Hibernate原生: enhance-sequence</li>
+    <li>Hibernate原生: uuid2</li>
+</ol>
+<p>看到这里就尝试了一下uuid2, 简单配置了一下发现确实可用:</p>
+<pre>
+@Entity
+@org.hibernate.annotations.GenericGenerator(
+        name = "my",
+        strategy = "uuid2"
+        }
+)
+public class Message {
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "my")
+    private String id;
+
+    private String text;
+
+    ......
+}
+</pre>
+<p>就这样直接配置, 发现就可以自动生成uuid的主键了. 不过由于没有指定长度, id列依然是用的255长度的varchar.</p>
+<p>到这里, 映射策略解决了第一步也是很重要的一步, 即一个Entity对象的主键映射方法.</p>
+
+<h2 style="text-align: center;" id="con6">Entity的其他映射配置 - 各种名称</h2>
+<p>只使用@Entity和@Id系列属性配置的持久化类, 除了前边说的意味着所有成员变量都由Hibernate直接读取之外, 很多配置都是采取默认的, 比如表名, 字段名称等. 这里就来看看如下三种更精细的配置:</p>
+<ol>
+    <li>各种命名及相关策略</li>
+    <li>动态SQL的生成</li>
+    <li>可变性</li>
+</ol>
+<p>先来看各种名称, 当仅使用@Entity的时候, 该持久化类的表名就是类名, 由于SQL大小写不敏感, 所以数据库中的表名实际上就是java类名的全小写.</p>
+<p>需要注意的是, 如果Java类名小写之后是SQL的关键字, 那么将报错. 为了能够具体指定表名, 可以采用<code>@Tables(name = "table_name")</code>来指定表名, 最常见的User表, 其小写user就是SQL关键字, 一般会将其指定为users表.</p>
+<p>如果数据库是按照catalog或者schema组织的, @Table的设置中还可以设置相关属性, 默认是采用数据库的当前schema.</p>
+<p>对于SQL关键字, 像PgSQL中就提供了双引号用来表名这不是一个关键字, 只是一个变量名称, 从而避免占用关键字或者需要转义. persistence.xml可以配置一个属性, 用来让Hibernate 5 自动通过配置的SQL方言在关键字上添加双引号.</p>
+<p>Hibernate 5有一个功能, 可以自动为关键字添加引号, 有如下两种方式操作:</p>
+<ol>
+    <li>在注解的地方用反引号包围关键字</li>
+    <li>在persistence.xml中配置<code>&lt;property name="hibernate.auto_quote_keyword" value="true"/></code></li>
+</ol>
+<p>这里我就去掉了User类上边的@Table, 然后进行了XML配置, 之后查看Hibernate创建表的语句, 是这样的:</p>
+<pre>
+create table "User" (
+   id int8 not null,
+    firstname varchar(255),
+    lastname varchar(255),
+    primary key (id)
+)
+</pre>
+<p>JPA对此的规定与Hibernate不同, 而是要求使用转义字符: <code>@Table(name = "\"USER\"")</code>.</p>
+<p>虽然可以使用上边这些技巧, 但是依然建议<span style="color: red">如果表和列的名称与SQL关键字相同, 首先考虑的应该是修改这些表和列的映射名称, 而不是使用上述技巧.</span></p>
+<h3>自定义表名</h3>
+<p>实际上仅仅使用@Table还不够, 需要手工一个一个的指定, 如果所有的表名都符合某个规范, 可以使用Hibernate提供的PhysicalNamingStrategy接口, 继承Hibernate提供的PhysicalNamingStrategyStandardImpl这个标准实现, 来编写自定义的名称处理器.</p>
+<p>如果想把所有表的名称都加上一个前缀, 可以编写如下的类:</p>
+<pre>
+import org.hibernate.boot.model.naming.Identifier;
+import org.hibernate.engine.jdbc.env.spi.JdbcEnvironment;
+
+public class MyNamingStrategy extends org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl {
+
+    @Override
+    public Identifier toPhysicalTableName(Identifier name, JdbcEnvironment context) {
+        return new Identifier("cony_" + name.getText(), name.isQuoted());
+    }
+}
+</pre>
+<p>查看这个类的文档可以知道, 提供了对于catalog, schema, table, sequence和column的重命名方法, 显然配置在Table中, 被调用的就是这个更改物理表名的方法.</p>
+<p>将其配置到persistence.xml中:</p>
+<pre>
+&lt;persistence-unit name="HelloWorldPU">
+    &lt;properties>
+    &lt;!--            自动为关键字添加引号-->
+        &lt;property name="hibernate.auto_quote_keyword" value="true"/>
+    &lt;!--            自定义生成表名的规则-->
+        &lt;property name="hibernate.physical_naming_strategy" value="cc.conyli.model.helloworld.MyNamingStrategy"/>
+    ......
+</pre>
+<p>运行程序, 可以看到建表语句和查询语句, 都变成了带有cony_前缀的SQL语句. </p>
+<p>还有一种隐式命名策略, 也就是不使用@Table的时候, 不过最终还是PhysicalNamingStrategy策略其作用, 这个了解即可, 在持久化类上使用@Table是一个良好的习惯, 尤其是针对带有schema的数据库.</p>
+<h3>名称重复的持久化类</h3>
+<p>在ORM框架启动的时候, 会将类名加入到查询引擎的公共命名空间中, 这样当编写JPQL/HQL语句的时候, 就可以直接使用类名, 比如:</p>
+<pre>SELECT m FROM Message m;</pre>
+<p>这其中的Message只使用了类名, ORM的查询引擎通过命名空间内的Message名称知道Message实际对应的类, 不会有问题</p>
+<p>目前仅仅只有一个叫做Message的持久化类, 如果在同一个程序的另外一个路径下也存在一个叫做Message的持久化类, 直接使用类名就会出现冲突, 要解决这个问题,有两个办法:</p>
+<ol>
+    <li>在JPQL/HQL中使用类的完整包名</li>
+    <li>在@Entity注解中指定name属性, 比如<code>@Entity(name = "Message2")</code></li>
+</ol>
+<p>使用第二种方法的话, 可以看到很有意思的现象, 如果没有配置@Table, 则物理表名会变成cony_message2, 如果配置了<code>@Table(name= "saner")</code>, 最后的物理表名会变成cony_saner, 这就是前边所说的显示和隐式表名都受最后物理表名的处理.</p>
+<p>使用第二种方法的话, 在编写JPQL/HQL的时候, 就可以使用Message2这个名称了. 当然, 硬是要写成<code>"select m from cc.conyli.model.helloworld.Message m"</code>也是没有问题的, 但是谁不喜欢简单一点呢.</p>
+
+<h2 style="text-align: center;" id="con7">Entity的其他映射配置 - 是否允许动态生成SQL</h2>
+<p>说到底, ORM就是一个高级一点的壳, 到最后执行的还是SQL. 稍加了解就知道, 一般都不会生成一条SQL就执行一次, 而是可以缓存一些SQL然后一起提交.</p>
+<p>Hibernate为了提高效率, 在框架启动的时候, 会为每一个持久化类创建一些简单的静态SQL语句, 这些语句是用于单行的CRUD. 很显然, 预先生成并缓存这些语句要比运行的时候现生成会快一些.</p>
+<p>不过这带来一个问题, 就是Hibernate在启动的时候根本不知道会更新哪些列, 如何生成对应的SQL语句呢?. Hibernate这里用了笨但是可以包括所有情况的办法, 就是生成更新所有列的SQL语句. 在仅更新某些列的时候, 会先读出数据, 然后UPDATE的时候, 不更新的列就直接采用原值.</p>
+<p>对于简单的表来说, 这样没有什么问题, 但对于大型数据库, 一行有很多列的时候, 读出的内容占据的内存空间就会很大. 而且Hibernate的启动时间也会变长.</p>
+<p>如果确实遇到这种情况, 通过添加两个注解可以启用动态生成SQL功能:</p>
+<pre>
+@Entity
+@org.hibernate.annotations.DynamicInsert
+@org.hibernate.annotations.DynamicUpdate
+public class Message {
+    ......
+}
+</pre>
+<p>启用了这两个注解之后, 在更新和插入的时候, 就会动态生成SQL语句, 到底使用哪种情况, 就根据数据大小来权衡利弊吧.</p>
+
+<h2 style="text-align: center;" id="con8">Entity的其他映射配置 - 不可变</h2>
+<p>在前边的例子中已经知道, Hibernate查询出来的结果, 如果进行修改, 会直接反映到数据库中, 这也是ORM映射的本来要做的, 就是类的引用等于对数据库中一行的引用.</p>
+<p>这个方法虽然方便, 但很多时候可能不希望查询结果被改变, 以免出现不必要的错误. 比如UML图中的BID数据, 一旦在业务层面生成并且持久化之后, 没有任何理由再去UPDATE.</p>
+<p>对于这种类, 可以在其上进行注解如下:</p>
+<pre>
+@Entity
+@org.hibernate.annotations.Immutable
+public class Bid {
+    ......
+}
+</pre>
+<p>如此注解之后, 取出来之后Hibernate不会进行dirty check, 随你修改, 也不会将数据更新到数据库中.</p>
+<p>这里要注意的是, 你可能会想, 既然BID已经如此注解, 干脆在Java代码中取消Bid类全部的public set方法, 只剩构造器, 这样在Java层面POJO类也是不可变. 对于Hibernate来说, 如果@Id配置在成员变量上, 会采用反射直接读取所有成员变量, 有没有set方法无所谓. 但如果搭配其他一些框架使用, 要注意这些框架对于POJO的要求.</p>
+
+<h2 style="text-align: center;" id="con9">Entity的其他映射配置 - 持久化类映射为子查询/视图</h2>
+<p>没想到这才刚开始, 就已经有高级一点的内容了.</p>
+<p>在现实中, 很多时候数据库管理和开发者的工作是互相分离的, 创建数据库和维护的工作由DBA完成, 开发者一般不被允许修改数据库结构, 甚至是创建视图.</p>
+<p>在这种时候, ORM框架面向对象的特点就凸显出来了, 相比干巴巴用JDBC查完之后再处理, Hibernate可以让一个被@Entity标注的持久化类, 映射到一个应用程序级别的子查询, 或者说是一个视图, 而不是一个真正的数据库表.</p>
+<p>以后使用这个类的时候, Hibernate就替你执行了指定的查询, 然后将结果设置到对象上, 果然够高级.</p>
+<p>比如Message目前已经有若干个数据, 想取出Message对象的id, text, text+id 组成的字符串的结果. 如果不能在数据库添加视图, 那么可能的操作是先查出来Message对象, 然后创建一个具有这三个属性的类, 再从结果集中把每一个属性设置到类上去.</p>
+<p>现在用这个高级办法, 既然查询结果有三列, 就直接创建一个类, 然后映射到这个查询上去:</p>
+<pre>
+import javax.persistence.Entity;
+import javax.persistence.Id;
+
+@Entity
+@org.hibernate.annotations.Immutable
+@org.hibernate.annotations.Subselect(
+        value = "Select m.id as MID, m.text as TEXT, concat(cast(m.id as varchar), m.text) as IDTEXT FROM Message m"
+)
+@org.hibernate.annotations.Synchronize("Message")
+public class MessagePart {
+
+    @Id
+    protected int mid;
+
+    protected String text;
+
+    protected String idtext;
+
+    @Override
+    public String toString() {
+        return "MessagePart{" +
+                "mid=" + mid +
+                ", text='" + text + '\'' +
+                ", idtext='" + idtext + '\'' +
+                '}';
+    }
+
+    public MessagePart() {
+
+    }
+}
+</pre>
+<p>这里有几个要点:</p>
+<ol>
+    <li><code>@org.hibernate.annotations.Subselect</code>注解就是将这个@Entity映射为一个子查询/视图的关键注解. 其value就是子查询的SQL语句</li>
+    <li>SQL语句使用了PgSQL的concat函数和cast转换, 将id和text拼成一个字符串. 注意其中每一行AS的别名, 要与MessagePart类中的属性名称对应.</li>
+    <li><code>@org.hibernate.annotations.Synchronize("Message")</code>, @Synchronize注解要和上边的@SubSelect搭配使用, 其中要把所有SQL语句中提到的表名=关系名都列入进来. 这其中的名称, 必须是能在查询框架命名空间中能找到的表名.</li>
+    <li>类的设置要有一个@ID,此外各个属性名, 必须与SQL中的各个列的别名一致.</li>
+</ol>
+<p>然后要在persistence.xml中的class中加入这个MessagePart. 现在暂时删去自定义的名称处理器和Message类上的其他自定义名称的注解, 就默认采用message表名.</p>
+<p>然后来编写一段查询, 看看着究竟是怎么一回事:</p>
+<pre>
+@Test
+public void test() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    <span style="color: orangered">MessagePart messagePart = em.find(MessagePart.class, 80);</span>
+    System.out.println(messagePart);
+
+    tx.commit();
+}
+</pre>
+<p>执行程序, 查看Hibernate的SQL语句:</p>
+<pre>
+select
+        messagepar0_.mid as mid1_0_0_,
+        messagepar0_.idtext as idtext2_0_0_,
+        messagepar0_."text" as text3_0_0_
+    from
+        ( Select
+            m.id as MID,
+            m.text as TEXT,
+            concat(cast(m.id as varchar),
+            m.text) as IDTEXT
+        FROM
+            Message m ) messagepar0_
+    where
+        messagepar0_.mid=?
+</pre>
+<p>可以看到, 实际就是将MessagePart上注解的SQL语句当成了一个子查询或者说是视图, 在这个视图里, 自动再查询id=80的结果.</p>
+<p>最后查询得到的结果, 直接就映射到一个MessagePart对象上.</p>
+<p>想想就可以发现这个功能的本质, 无论是视图, 子查询还是实际存在于关系数据库中的表, 都是关系. 而一个持久化类, 实际上对应的应该就是一个关系, 无论这个关系是实际存储在数据库中, 还是以视图或者临时的子查询存在, 都没有关系.</p>
+<p>通过这个技巧, Hibernate就可以把一个持久化类映射到虚拟的视图或者子查询上, 等于提供了一种灵活的过渡, 确实有趣.</p>
+<p>这里我遇到的一个问题就是, 如果使用了之前的处理表名, 或者更改Message类的命名空间的名称等问题, 将新的名称写到子查询的SQL中, 会报找不到xxx关系的错误. 看来这个命名查询里边可能还有一些坑, 尤其是@Synchronize注解. 而且目前自己的所有查询API还没学过, 看看后边能不能搞的再清楚一些.</p>
+<p>目前使用默认名称能够运行起来这个高阶功能, 已经感觉可以了.</p>
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
