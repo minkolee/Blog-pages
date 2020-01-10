@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 02</title>
+    <title>Hibernate 02 映射基础技术</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,25 +15,174 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>ORM的框架大致怎么玩知道了, 最基础的部分就是创建持久化类并且提供元数据, 这一个过程也就是ORM中的M, 即映射, 也就是我们实际要做的事情.</p>
+<p>映射完成之后, 后边的工作就是与ORM框架交互, 等于是通过套了一层壳的JDBC去进行对数据库的操作. 所以这映射技术就是重中之重了. 映射做好了, 后边另一个重点就是操作框架.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con1">Entity与value types</a></li>
+    <li><a href="#con2">唯一性映射注解 @Id</a></li>
+    <li><a href="#con3">@GeneratedValue的主键生成策略</a></li>
+    <li><a href="#con4">自定义策略属性</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">Entity与value types</h2>
+<p>一上来又是Hibernate中的两个概念, 这两个概念其实不难理解.</p>
+<p>Entity, 就是独立可以持久化的一个对象, 具有唯一性. 作为Entity的一个Java对象, 实际是一个引用, 对这个引用的持久化, 就是对数据库中一条记录的引用.</p>
+<p>value types就是没有独立持久化身份的类, 比如String 和一些原始类型, 甚至是一个更复杂的类. 比如书里举的例子, 一个单纯依附于User对象的Address对象.</p>
+<p>所以对于一个持久化类中的所有成员变量, 即使变量代表的是一个类, 也可以根据类之间的关系, 将其映射为Entity或者value types.</p>
+<p>好比User与Address, 如果将User中的Address变量映射为value types, 其本质和对一条User记录添加三个Address相关的字段没区别.</p>
+<p>如果将其映射为一个Entity, 那么在数据库中就要存在一个Address关系, 用来存储Address的数据, 既然存在于数据库中, 很显然, 这个对象也可以单独被取出使用, 不再依赖于User的生命周期.</p>
+<p>在JPA中也有这两个概念, 只是称呼不同.对应关系如下:</p>
+<table>
+    <tr>
+       <th>JPA</th>
+       <th>Hibernate</th>
+    </tr>
+    <tr>
+        <td>Entity</td>
+        <td>Entity</td>
+    </tr>
+    <tr>
+        <td>value types</td>
+        <td>basic property types<br>embeddable classes</td>
+    </tr>
+</table>
+<p>后边就可以看到embeddable class 在实践中的应用, 这比单纯的扩大User类的成员变量数目, 显得要更加牛逼一些.</p>
+<p>回到这UML类图上来, 很显然像ITEM, USER这种都是Entity, Address可以作为value types, 从图上可以发现User组合Address, UML类图中的组合关系意味着User要负责Address的生命周期, 单独的Address是没有意义的. Address对象也不需要User之外的引用.</p>
+<p>Bid类就有点问题, 单从图上来看, ITEM组合BID, BID单向通过bidder变量指向User对象, 似乎可以将BID设置成为ITEM的value types.</p>
+<p>但如果考虑未来domain model扩展, 要求知道一个User对应的所有bid, 很显然, 此时bid对象就被多个Entity对象共享, 根据一开始的定义, Bid需要成为一个Entity.</p>
+<p>实践中经常会碰到这种复杂的问题, 也许会本能的想, 应该先将这些具有两面性的类都映射为value types, 仅仅只在必要的时候, 才将其提升为Entity.</p>
+<p>一般来说, 增加整个映射的复杂度, 又不会带来任何好处的事情不要做. 通过Item和User查询Bid, 都可以通过SQL查询做到, UML类图中bid也都是单向关系, 所以Bid就可以被映射成Value Type. 但实际上, 对于Bid这种相对独立的内容, 映射成Entity是很好的做法.</p>
+<p>我个人想了一下, 其实一对一的这种关系, 有一方映射成为value types会很方便., 而一对多这种关系, 双方当然还是映射成为Enttiy比较好.</p>
+<p>总的来说,在选择将一个类映射成Entity或Value Type时候, 要考虑如下几点:</p>
+<ol>
+    <li><strong>Shared references</strong>, 共享引用. 查看Java类关系中是否有共享引用, 这个共享引用不仅是UML类图级别, 而且是Java代码级别的. 比如如果想Address类作为User类的value type, 那应该使用将Address做成一个不可变类, 禁止所有setUser()等公共方法, 通过构造器注入User对象, User对象中也必须加入address变量的判断来确保只拥有一个Address类的引用等等方法, 来确保这种Value type关系. 此外还需要一个无参构造器以让Hibernate也能创建Address实例.</li>
+    <li><strong>Life cycle dependencies</strong>, 生命周期的依赖关系. 如果一个User从数据库中被删除, 对应的地址有没有必要删除? 元数据中会包含对于级联规则, 使用何种级联规则实际上就取决于如何看待这个持久化类. 一旦确定, 无论在Java类的编写还是元数据的设置上, 都应该遵照同样的规则.</li>
+    <li><strong>Identity</strong>, 数据库理论里常讲的identity, 就是唯一性. Entity类一般都要有一个用于标志其唯一性的成员变量, 而不能依靠Java代码的比较相等性. value type则没有必要使用唯一性属性. 如果一个类需要唯一性, 那就需要将其作为Entity来映射. </li>
+</ol>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">唯一性映射注解 @Id</h2>
+<p>映射的第一个具体问题, 就是解决唯一性. 既然是Java框架, 先来了解一下几个唯一性的名词:</p>
+<ol>
+    <li><strong>Object identity</strong>,就是 == 操作符, JVM通过比较两个对象的内存地址来确定是否是同一个对象.</li>
+    <li><strong>.equals()</strong>, 如果说上一个比较重在"是不是同一个对象", 这个方法在语义上重在"意义上是否等同", 通过.equals()方法返回的结果判断是否是同一个对象, 一般用来比较两个对象的某些值是否相等进而判断意义上的相等关系.</li>
+    <li><strong>database identity</strong>, 数据库唯一性, 即一个持久化对象对应的数据库中的表和行是否相同. 由于一个持久化对象在内存中, 就对应着一个具体的数据库中的某个表的某一行. 即使两个Java对象的地址不同, 属性不同, 但如果代表的是同一个表的同一行, 持久化框架在持久化这个类的时候, 都会往同一行去写入.</li>
+</ol>
+<p>这三种唯一性不是互斥的, 而是类似于三种属性, 可以同时存在于某(两个)对象上. 例如两个Java对象都有相同的数据库一致性, .equals()返回true, 但地址却并不相同.</p>
+<p>数据库一致性在持久化类中的映射, 就是@Id注解. 当一个类加上@Entity注解的时候, 如果去启动框架, 就会报错, 提示至少需要一个属性被@Id注解.</p>
+<p>通过前边的理论分析, 就知道了, Entity是必然要求有一个数据库唯一性的标记. @Id就是用于标记哪个成员变量作为唯一性的标记:</p>
+<pre>
+@Entity
+public class Item {
+    @Id
+    @GeneratedValue(generator = "ID_GENERATOR")
+    protected Long id;
 
-<h2 style="text-align: center;" id="con3"></h2>
+    public Long getId() {
+        return id;
+    }
+}
+</pre>
+<p>这是一个最简单的Item例子, 标记了@Entity属性, 相比原来, 只知道要加上这个注解, 现在对于@Entity代表的Entity理论也更清楚了.</p>
+<p>然后这里使用了@Id注解加在id属性上, 意味着将使用这一个作为数据库唯一性的标记, 对应到关系型数据库中, 意味着将id属性作为主键.</p>
+<p>除此之外@Id还有另外一个作用, 即如果@Id直接加在成员变量而不是访问器方法上, JPA会对这个类中所有的成员变量都采取通过反射直接访问的方式, 不会使用通过get方法访问的方式. 即使后边将@Column写在get方法上也没用. 这是JPA的标准, 当然也会有其他配置来覆盖这个配置, 此是后话.</p>
+<p>还一个注意的要点是, 对于@Id标记的主键属性, 不需要设置set方法. Hibernate会自动替你管理. 既然不需要赋值, Hibernate如何知道给主键赋值呢, 当然就是要通过@GeneratedValue来指定如何生成主键了.</p>
+<p>Hibernate的主键管理是基于主键不可变这一性质的, 如果数据库采取的是主键可变策略, 那么就不能简单的使用Hibernate.</p>
 
-<h2 style="text-align: center;" id="con4"></h2>
+<h2 style="text-align: center;" id="con3">@GeneratedValue的主键生成策略</h2>
+<p>数据库外键的知识已经了解过了, 采取surrogate keys也就是生成的, 不具有语义的, 也不对应用程序用户暴露的, 仅仅用于内部标识唯一性的主键是最好的.</p>
+<p>这种主键的生成, 一般依赖于数据库或者应用. 良好的主键必须满足唯一性, 不可变性和不能是null, 加上Hibernate并不允许修改主键, 因此主键生成策略是紧跟着@Id马上要配置的.</p>
+<p>如果在@Id之后没有@GeneratedValue注解, JPA会认为主键将在应用级别生成. 如今依赖应用生成的主键越来越多, 可以有效提高数据库效率, UUID就是典型的好实践, 这也是后话按下不表.</p>
+<p>JPA标准规定了如下主键生成策略, 将其按照<code>@GeneratedValue(strategy = ...)</code>指明即可:</p>
+<ol>
+    <li><code>GenerationType.AUTO</code>, 让JPA提供商自行选择策略. 这等于什么参数都没有的@GeneratedValue注解, 在最开始的Message类中, 就是如此配置的. Hibernate则是根据所选择的数据库方言进行具体操作的, 可以看到对于PostgreSQL, Hibernate创建了一个序列并且设置从1开始, 然后将主键与该序列关联.</li>
+    <li><code>GenerationType.SEQUENCE</code>, 让JPA提供商创建并使用序列, 需要支持序列的数据库,比如Oracle或PgSQL. 对于Hibernate来说,会创建一个HIBERNATE_SEQUENCE, 并从中产生主键值. 对于PgSQL可以发现, 这和设置为AUTO是一样的效果.</li>
+    <li><code>GenerationType.IDENTITY</code>, 采用具有类似AUTO INCREMENT机制的主键生成策略, 需要具体数据库支持. 对于PgSQL来说, 使用之后, 创建Message表的语句会变成:
+    <pre>
+    create table Message (
+        id int8 generated by default as identity,
+        text varchar(255),
+        primary key (id)
+    )
+    </pre>
+    但由于PgSQL数据库的特性, 其实还是相当于创建了一个message_id_seq的序列, 然后指定给主键. 这二者的区别是, <code>GenerationType.SEQUENCE</code>如果不指定序列名称, 这个序列会被复用. 而<code>GenerationType.IDENTITY</code>就让PgSQL自己创建每个表关联的序列, 不会复用序列的值. 可见相比之下, 还是IDENTITY策略更好一些.
+    </li>
+    <li><code>GenerationType.TABLE</code>, 使用一张表生成主键, 会创建一个叫做HIBERNATE_SEQUENCES的表, 有列名叫做SEQUENCE_NAME和SEQUENCE_NEXT_HI_VALUE. 经过PgSQL的试验, 确实也是如此, 每次Hibernate插入新数据,都会先从表中选出新产生的数字, 再将数字作为主键插入.</li>
+</ol>
+<p>这四个都是JPA的标准, 实际上, 如果仅仅依赖这些标准, 在实践中是不够的, 就像前边的序列共用, 很显然会出问题. 因此JPA及Hibernate提供了一些可以自定义的选项.</p>
 
-<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con4">自定义策略属性</h2>
+<p>要使用自定义的策略属性, 对于JPA标准来说, 要写成<code>@GeneratedValue(generator = "ID_GENERATOR")</code>, 即不再直接指定策略, 而是指定一个生成器的名称.</p>
+<p>然后就可以自定义生成器的具体属性了. 定义的方法可以使用@javax.persistence.SequenceGenerator或者@javax.persistence.TableGenerator,比如:</p>
+<pre>
+import javax.persistence.*;
+
+@Entity
+<span style="color: #FF6600">@SequenceGenerator(name = "my", initialValue = 20, <span style="color: #FF6600">allocationSize = 30</span>)</span>
+public class Message {
+    @Id
+    <span style="color: #FF6600">@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "my")</span>
+    private Long id;
+
+    private String text;
+
+    ......
+}
+</pre>
+<p>这里说一下的是, 一般只要有一个persistence.xml配置文件就可以, 不用同时使用persistence.xml和hibernate.cfg.xml, 如果同时有, 其中的属性不要重复设置.</p>
+<p>将Hibernate的配置文件都删除, 按照上述配置之后, 尝试写入几十个Message对象, 可以看到, 序列从20开始, 每个增加1. 这里一定要注意allocationSize = 30这个奇怪的东西, 一定要设置成Hibernate的异常中报出来的数字. 这个表示插入多少个之后要重新查询一下数据库生成的序列值.</p>
+<p>不过JPA的注解能设置的属性比较少, 所以一般都会使用Hibernate的注解, 反正我们JPA的提供商是Hibernate, 使用Hibernate特有的注解也一样OK:</p>
+<pre>
+import javax.persistence.*;
+
+@Entity
+<span style="color: #FF6600">@org.hibernate.annotations.GenericGenerator(
+        name = "my",
+        strategy = "enhanced-sequence",
+        parameters = {
+                @org.hibernate.annotations.Parameter(
+                        name = "sequence_name",
+                        value = "CONY_SEQUENCE"
+                ),
+                @org.hibernate.annotations.Parameter(
+                        name = "initial_value",
+                        value = "1000"
+                ),
+                @org.hibernate.annotations.Parameter(
+                        name = "allocation_size",
+                        value = "30"
+                )}
+)</span>
+public class Message {
+    @Id
+    <span style="color: orangered">@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "my")</span>
+    private Long id;
+
+    private String text;
+
+    ......
+}
+</pre>
+<p>这里遵循了之前的规则, 将Hibernate的注解写全称, 这里配置了一个名称叫做"my"的生成器, 其生成策略strategy设置成<code>"enhanced-sequence"</code>, 然后是参数部分, 设置了序列名称为CONY_SEQUENCE, 初始值为1000.</p>
+<p>下边的allcation_size是我自己加的, 其实删去也没事. 另外我发现如果将这个序列移动到其他类上边, 依然会报allocationSize的错误, 注解在当前类上就没有问题.</p>
+<p>实际运行JPA的API去操作, 可以发现正常. 在JPA提供商是Hibernate的情况下, 使用Hibernate的配置方式更好, 有如下优点:</p>
+<ol>
+    <li><code>"enhanced-sequence"</code>是一个可移植的特性, 如果DBMS原生支持SEQUENCE, 会使用SEQUENCE, 如果不支持, 会使用一个表来生成序列. 在INSERT之前会进行序列的生成工作.插入失败的话生成的序列值会被抛弃.</li>
+    <li>可以自定义序列的名称, 相比JPA更灵活, JPA只能依赖于提供商的默认名称</li>
+    <li>可以重用. 但是这里如果在其他地方也指定相同名称的生成器, 又会报INCREMENT SIZE不匹配的错误, 即使在GenericGenerator中设置了也不行, 所以很是奇怪.</li>
+</ol>
+<p>这里着重要说的是<code>"enhanced-sequence"</code>, 除了这个之外, 还有很多的Hibernate的策略可选, 这些和JPA标准并不完全相同. 在persistence.xml中有一个配置可以控制使用JPA的策略(称为老策略)还是Hibernate的策略(称为新策略):</p>
+<pre>
+&lt;properties>
+    ......
+    &lt;property name="hibernate.id.new_generator_mappings" value="true"/>
+
+&lt;/properties>
+</pre>
+<p>默认是true, 表示可以使用新策略.</p>
+
+<h2 style="text-align: center;" id="con5">Hibernate的策略</h2>
 <h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
