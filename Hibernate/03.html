@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 03</title>
+    <title>Hibernate 03 映射value types</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,26 +15,346 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>在上一章解决了映射Entity类最基本的东西, 即主键还有一些命名的问题. 剩下就要来解决映射值类型.</p>
+<p>在一个Entity类里除了关键的和Entity必须搭配出现的@Id之外, 剩下的有很多都是值类型, 就来看看如何映射这些类型.</p>
+<p>要映射的值分成两大类, 一类是Java的基本类型, 还有一类就是自定义类型, 在Java中自定义类型就是自定义的类. 像Address对象这样的一个类如果映射成值类型, 应该如何操作.</p>
+<p>由于所有的持久化对象要么映射成Entity, 要么映射成value type, 因此看完这章之后, 最基本的映射就了解了.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con1">基础类型映射规则</a></li>
+    <li><a href="#con2">控制默认映射规则 - @Transient @Basic @Column @Access</a></li>
+    <li><a href="#con3">派生值 - @Formula</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">基础类型映射规则</h2>
+<p>在映射一个持久化类的时候, 无论映射成Entity还是Embedded类型(后边会学), 持久化类的所有属性默认都会被持久化. JPA对于所有属性默认的规则如下:</p>
+<ol>
+    <li>如下的Java类型或者包装器类型, 都会被自动持久化, Hibernate会用对应的SQL类型和与属性相同的列名称在数据库中存取值:
+    <ul>
+        <li><code>String</code></li>
+        <li><code>int 系列</code></li>
+        <li><code>BigDecimal</code></li>
+        <li><code>java.util.Date</code></li>
+        <li><code>java.util.Calendar</code></li>
+        <li><code>java.sql.Date</code></li>
+        <li><code>java.sql.Time</code></li>
+        <li><code>java.sql.Timestamp</code></li>
+        <li><code>byte[]</code></li>
+        <li><code>Byte[]</code></li>
+        <li><code>char[]</code></li>
+        <li><code>Character[]</code></li>
+    </ul>
+    </li>
+    <li>将一个类或者一个成员变量加上@Embeddable注解, Hibernate会将这个类映射成为宿主类的内嵌对象, 晚点就会看到Address类是如何被映射的. 用于</li>
+    <li>如果一个属性的类型是java.io.Serializable, 则数据会被以二进制形式存在数据库中, 一般不要使用这种类型的属性</li>
+    <li>Hibernate在上述规则都无法匹配一个属性或者一个对象的引用的时候, 就会报异常.</li>
+</ol>
+<p>上述规则使得我们无需针对每一个类型进行具体配置, 仅仅只有出现异常或者想要具体控制的属性才需要具体配置. 下边就来看看一些控制具体配置的方法.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">自定义控制映射规则</h2>
+<h3 style="color: orangered">不持久化某些属性</h3>
+<p>首先就是要看看如果不持久化一个属性要如何标记出来.</p>
+<p>很多时候未必持久化全部的属性, 比如一些属性在运行时生成或者计算所得, 没有必要将其持久化, 可以采取如下方法(目前都是基于@Id注解在属性上让Hibernate通过反射直接存取字段):</p>
+<ol>
+    <li><code>@javax.persistence.Transient</code>注解</li>
+    <li>这个属性使用了Java的<code>transient</code>关键字</li>
+    <li><code>@Basic(optional = false)</code>注解</li>
+</ol>
+<h3 style="color: orangered">覆盖默认名称和是否可以为空的设置</h3>
+<p>在默认的情况下, 一个持久化属性按照名称全小写, 然后是optional 即可以为空的方式进行持久化, 观看生成的SQL语句就可以知道这个规则.Java的命名采取驼峰样式, 所以一个aProperty的默认持久化列名是全小写. </p>
+<p>可以使用如下几个注解来覆盖默认的名称和是否可以为空</p>
+<ol>
+    <li><code>@Basic(optional = false)</code>, 这个注解用来将属性标明不可为空, 生成的SQL语句会带上 not null约束. 不过这个注解因为只有两个属性, 可用范围太小, 一般不用</li>
+    <li><code>@Column(nullable = false, name = "saner")</code>, 这个注解非常通用, 推荐用这个替代@Basic, 可以控制具体的列名, 是否为空, 还可以配置catalog和schema等信息.</li>
+    <li><code>@NotNull</code>,来自validation 标准的注解, 如果为空是报异常.</li>
+</ol>
+<h3 style="color: orangered">控制通过字段还是方法存取属性</h3>
+<p>在之前一直都是@Id标记在属性上, 而且没有提供其他配置, 这样一个类及其所属的Embedded类型都会使用这个类的访问配置, 即通过反射直接存取.</p>
+<p>如果要配置具体通过字段还是方法存取属性, 可以在两个层面进行设置:</p>
+<ol>
+    <li>类层面, 将<code>@Access(AccessType.PROPERTY/FIELD)</code>加在类上, 表示这个类的所有默认设置, PROPERTY表示运行时通过方法存取, FIELD表示通过反射存取. 在配置了类的策略之后, 还可以把@Access加在具体的属性或者方法上来表示某个字段的具体设置.
+    实际上, 单独使用@Id放在属性上, 就和默认使用<code>@Access(AccessType.FIELD)</code>相同.</li>
+    <li><code>@Access</code>加在属性上, 表示覆盖类的设置, 单独配置这个属性. 如果配置成PROPERTY, 在类中要编写符合规范的访问器方法.</li>
+</ol>
+<p>一个简单的例子如下:</p>
+<pre>
+import javax.persistence.*;
 
-<h2 style="text-align: center;" id="con3"></h2>
+@Entity
+@Table
+public class Message {
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    private long id;
 
-<h2 style="text-align: center;" id="con4"></h2>
+    @Column(nullable = false, name="saner")
+    @Access(AccessType.PROPERTY)
+    private String text;
+
+    public Message() {
+
+    }
+
+    public String getText() {
+        return text;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
+}
+</pre>
+<p>这里没有在类上配置<code>@Access</code>注解, 然后看到@Id配置在成员变量上, 那么这个类的默认策略就是通过反射访问属性. 然后<code>@Access(AccessType.PROPERTY)</code>配置在text属性上, 说明对text属性的存取通过get/set方法来操作. 所以还需要配上对应的方法.</p>
+<p>假如Message类中还有一个没有进行任何标记的成员变量, 这个成员变量的访问方式也是按照类的默认策略, 即反射访问属性. </p>
+<p>注意, 如果类加上了<code>@Access(AccessType.PROPERTY)</code>注解, 所有的注解需要移动到getter方法上, 哪怕是指定这个属性需要通过反射访问的<code>@Access(AccessType.FIELD)</code>也需要加在getter方法上.</p>
+<p>没有特殊需求的情况下, 使用反射方式足够. 但是这里要知道通过方法访问的特色, 就是之前提过, 未必需要一个实际的成员变量, 而是让Hibernate只要看到有对应的getter/setter方法就认为有一个字段, 看这个例子:</p>
+<pre>
+import javax.persistence.*;
+
+@Entity
+@Table
+<span style="color: orangered">@Access(AccessType.PROPERTY)</span>
+public class Message {
+
+    private long id;
+
+    private String text;
+
+    public Message() {
+
+    }
+
+    @Column(nullable = false, name="saner")
+    public String getText() {
+        return text;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getFullName() {
+        return this.text;
+    }
+
+    <span style="color: orangered">public void setFullName(String text) {
+        if (text == null) {
+            this.text = "NONAME";
+        } else {
+            this.text = text + "set";
+        }
+    }
+
+    public String getFullName(String text) {
+        return this.text;
+    }</span>
+
+        @Override
+    public String toString() {
+        return "Message{" +
+                "id=" + id +
+                ", text='" + text + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>这个类在生成SQL语句的时候如下:</p>
+<pre>
+Hibernate:
+    create table Message (
+       id int8 not null,
+        <span style="color: orangered">fullName varchar(255),</span>
+        saner varchar(255) not null,
+        primary key (id)
+    )
+</pre>
+<p>Message类中全部属性都通过方法访问, 而不是字段, setFullName和getFullName就刻画出了一个可以被持久化但是实际上存在的成员变量. 如果这里将类策略改成通过字段访问(@Id要挪到成员变量上), 持久化的时候就不出现fullname这个属性了.</p>
+
+<h2 style="text-align: center;" id="con3">@Formula注解</h2>
+<p>Hibernate提供了@Formula注解, 被注解的属性不会进行持久化, 而是每次查询这个类的时候, 会执行@Formula中的SQL语句, 将结果写入到这个属性上. 不过这个仅发生在查询的时候, 所以可能值会过期.</p>
+<p>Formula中如果写SELECT的话, 是一个子查询, 需要搭配其他的来使用. 如果写表达式的话, 就是一个值可以生成, 比如PgSQL中的那些函数.</p>
+<pre>
+@Entity
+@Table
+public class Message {
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    private long id;
+
+    private String text;
+
+    @org.hibernate.annotations.Formula("CURRENT_DATE")
+    private Date currentDate;
+
+    public Date getCurrentDate() {
+        return currentDate;
+    }
+
+    public void setCurrentDate(Date currentDate) {
+        this.currentDate = currentDate;
+    }
+
+    ......
+}
+</pre>
+<p>这里我实验了一下, 从数据库中查询的时候, 生成的SQL语句是:</p>
+<pre>
+Hibernate:
+    /* SELECT
+        m
+    from
+        Message m */ select
+            message0_.id as id1_1_,
+            message0_."text" as text2_1_,
+            CURRENT_DATE as formula1_
+        from
+            Message message0_
+</pre>
+<p>可见@Formula中的语句会放到外边一个SELECT中的一个列的结果. 不过这里很奇怪, 最后拿到的结果其他字段都正常, 时间还是null, 不知道为什么. 以后再看了. 网上看了一下, @Formula中还必须是原生的SQL语句, 不是直接生成的. 结果只要能返回一个标量值就可以.</p>
+
+<h2 style="text-align: center;" id="con4">列转换器 - @ColumnTransformer</h2>
+<p>上边还没有实验成功的@Formula, 仅仅只在查询的时候起作用. 列转换器的效果与其有点类似, 但是在读写的时候都会发生作用.</p>
+<p>我们现在有一个持久化类, 其中存储着一个重量, 用千克表示, 但是为了精确, 在数据库中存储的是克, 也就是千克*1000, 但是这个类我们对外声称是千克数.</p>
+<p>现在我们需要一个自动转换器, 将这个千克类持久化的时候, 在千克对应的字段上自动保存千克*1000之后的结果, 在取出字段写入到Java类的时候, 将数据库中的值除以1000得到千克. 这个类如下:</p>
+<pre>
+import javax.persistence.*;
+
+@Entity
+public class TestColumnTrans {
+    @Id
+    @GeneratedValue
+    private long id;
+
+    @Column(name = "gram")
+    <span style="color: orange">@org.hibernate.annotations.ColumnTransformer(
+            read = "gram * 1000",
+            write = "? / 1000"
+    )</span>
+    private long kilo;
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public long getKilo() {
+        return kilo;
+    }
+
+    public void setKilo(long kilo) {
+        this.kilo = kilo;
+    }
+
+    public TestColumnTrans() {
+    }
+
+    @Override
+    public String toString() {
+        return "TestColumnTrans{" +
+                "id=" + id +
+                ", kilo=" + kilo +
+                '}';
+    }
+}
+</pre>
+<p>首先需要给这个列一个命名方便使用, 然后一看就是原生的Hibernate注解. 这里有两个属性, 分别表示在读出和写入的时候, 实际执行的SQL语句. 在这么设置之后, 无论是查询还是读写,都会与转换之后的值进行比较, 而不是转换之前的值.</p>
+<p>写测试如下, 看一下翻译后的SQL语句:</p>
+<pre>
+@Test
+public void test() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    //#1
+    TestColumnTrans testColumnTrans = new TestColumnTrans();
+    testColumnTrans.setKilo(3000000);
+
+    em.persist(testColumnTrans);
+
+    tx.commit();
+
+    tx.begin();
+
+    TestColumnTrans testColumnTrans1 = (TestColumnTrans) em.createQuery("select t FROM TestColumnTrans t").getSingleResult();
+    #2
+    System.out.println(testColumnTrans1);
+
+    #3
+    List&lt;TestColumnTrans> testColumnTransList = em.createQuery("select t FROM TestColumnTrans t where t.kilo > 3000000").getResultList();
+
+    System.out.println(testColumnTransList);
+
+    #4
+    testColumnTrans1.setKilo(356000);
+
+    tx.commit();
+}
+</pre>
+<p></p>
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
+
+
+<p>遗留了一个问题, 就是@Formula如何使用.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
