@@ -469,40 +469,64 @@ public void Test() {
 <p>这里#1直接插入一个没有设置initialPrice字段的对象, 可以看到生成的对象initialPrice=1.00. #2插入一个被设置了40.00的tg1对象, 数据库中的值就是40.</p>
 
 <h2 style="text-align: center;" id="con6">时间类型 - @Temporal</h2>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<p>刚才已经见过了<code>@Temporal</code>注解, 这个注解时间上就是精确指定具体是哪种时间类型.</p>
+<p>Hibernate支持java.Util.Date, java.Util.Calendar, java.sql.Date, java.sql.Time, java.sql.Timestamp 以及 JDK 8的java.time库.</p>
+<p>但是Date, Calendar等类的时间大二全, Hibernate对于这些属性, 默认使用最全的TIMESTAMP类型. 如果想做精确的指定, 要么使用java.sql.*的类型, 要么就使用<code>@Temporal</code>注解来指定具体的类型, 这样时间就可以自动转换.</p>
+<p>此外还有一个有用的注解经常用于创建生成时间:</p>
+<pre>
+@Temporal(TemporalType.TIMESTAMP)
+@Column(updatable = false)
+<code>@org.hibernate.annotations.CreationTimestamp</code>
+protected Date createdOn;
+</pre>
+<p>搭配只允许INSERT的时候使用, 就可以自动创建一条记录的创建时间, 实在非常好用. 所以很多时候通过<code>@Column</code>将读写控制交给框架, 而不是数据库, 确实更加方便. 与其类似的, 还有一个@UpdateTimestamp注解, 用于自动更新每次的时间. 这里不禁想起了Django ORM每次控制这种字段的方式.</p>
 
 <h2 style="text-align: center;" id="con7">枚举类型 - @Enumerated</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 <p>遗留了一个问题, 就是@Formula如何使用.</p>
