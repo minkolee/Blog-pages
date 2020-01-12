@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 03 映射value types</title>
+    <title>Hibernate 03 基础类型映射为value types</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -24,9 +24,10 @@
     <li><a href="#con1">基础类型映射规则</a></li>
     <li><a href="#con2">控制默认映射规则 - @Transient @Basic @Column @Access</a></li>
     <li><a href="#con3">派生值 - @Formula</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">列转换器 - @ColumnTransformer</a></li>
+    <li><a href="#con5">默认值 - 数据库生成/强制默认值/普通默认值</a></li>
+    <li><a href="#con6">时间类型 - @Temporal</a></li>
+    <li><a href="#con7">枚举类型 - @Enumerated</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">基础类型映射规则</h2>
 <p>在映射一个持久化类的时候, 无论映射成Entity还是Embedded类型(后边会学), 持久化类的所有属性默认都会被持久化. JPA对于所有属性默认的规则如下:</p>
@@ -283,10 +284,10 @@ public void test() {
     EntityTransaction tx = em.getTransaction();
     tx.begin();
 
-    //#1
+
     TestColumnTrans testColumnTrans = new TestColumnTrans();
     testColumnTrans.setKilo(3000000);
-
+    //#1
     em.persist(testColumnTrans);
 
     tx.commit();
@@ -308,15 +309,200 @@ public void test() {
     tx.commit();
 }
 </pre>
-<p></p>
+<p>#1对应的SQL语句是:</p>
+<pre>
+insert
+into
+    TestColumnTrans
+    (gram, id)
+values
+    (? / 1000, ?)
+</pre>
+<p>可以看到按照设置的3000000/1000之后持久化, 实际写入的是3000. #2的语句是:</p>
+<pre>
+select
+    testcolumn0_.id as id1_2_,
+    testcolumn0_.gram * 1000 as gram2_2_
+from
+    TestColumnTrans testcolumn0_
+</pre>
+<p>可以看到选出的时候直接就乘1000. #3语句是:</p>
+<pre>
+select
+    testcolumn0_.id as id1_2_,
+    testcolumn0_.gram * 1000 as gram2_2_
+from
+    TestColumnTrans testcolumn0_
+where
+    <span style="color: orangered">testcolumn0_.gram * 1000>3000000</span>
+</pre>
+<p>从#3语句可以看出, 查询的时候也是用经过转换之后的数值来进行比较, 这个时候就要注意一些了, 可别因为这个kilo属性就用千克去查询, 还是要转换成克的.</p>
+<p>#4的update实际上和insert一样, 都是插入转换之后的结果:</p>
+<pre>
+update
+    TestColumnTrans
+set
+    gram=? / 1000
+where
+    id=?
+</pre>
+
+
+<h2 style="text-align: center;" id="con5">默认值 - 数据库生成/强制默认值/普通默认值</h2>
+<p>数据库有的时候需要生成一个值, 而不是让外界插入, 比如创建时间, 修改时间, 或者通过触发器安排的一个值.</p>
+<p>通常来说, Hibernate在INSERT和UPDATE之后, 都会立刻读取数据, 去获取数据库自动生成的数值, 从而去更新内存中的Java类. 可以使用<code>@org.hibernate.annotations.Generated</code>来让Hibernate而不是数据库来做这个事情:</p>
+<pre>
+import org.junit.Test;
+
+import javax.persistence.*;
+import java.math.BigDecimal;
+import java.util.Date;
+
+@Entity
+public class TestGenerated {
+    @Id
+    @GeneratedValue
+    private long id;
+
+    <span style="color: orangered">@Temporal(TemporalType.TIMESTAMP)
+    @Column(insertable = false, updatable = false)
+    @org.hibernate.annotations.Generated(
+            org.hibernate.annotations.GenerationTime.ALWAYS
+    )</span>
+    protected Date lastModified;
+
+    <span style="color: orangered">@Column(insertable = false)
+    @org.hibernate.annotations.ColumnDefault("1.00")
+    @org.hibernate.annotations.Generated(
+            org.hibernate.annotations.GenerationTime.INSERT
+    )</span>
+    protected BigDecimal initialPrice;
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public Date getLastModified() {
+        return lastModified;
+    }
+
+    public void setLastModified(Date lastModified) {
+        this.lastModified = lastModified;
+    }
+
+    public BigDecimal getInitialPrice() {
+        return initialPrice;
+    }
+
+    public void setInitialPrice(BigDecimal initialPrice) {
+        this.initialPrice = initialPrice;
+    }
+
+}
+</pre>
+<p>上边的两个属性一个代表值由数据库的触发机制或者其他类似机制生成, 一个代表有默认值, 详细解释如下:</p>
+<ol>
+    <li><code>lastModified</code>属性的注解, 表示如何标记一个值由数据库生成的属性, 典型应用就是这种最后修改时间, 一般数据库中使用触发器来生成. <code>@Temporal(TemporalType.TIMESTAMP)</code>表示一个TIMESTAMP字段. 因为java.Util.Date对应的SQL属性有三种时间对象.
+    接下来的<code>@Column</code>属性标记了这一列不允许更新, 不允许插入, 意味着这个属性从Hibernate看来是不可变的, 此处这么设置之后, 在Hibernate生成的语句中, 就不包括这一列. 然后<code>@Generated</code>属性中配置了值何时生成. 设置为ALWAYS的时候, Hibernate在每次UPDATE和INSERT之后都会刷新Java对象.
+    </li>
+    <li><code>initialPrice</code>属性的注解代表了另外一种情况, 即强制该字段插入之后使用默认值. 对于默认值的情况, Hibernate也认为该字段不能够INSERT, 但能够UPDATE, 所以<code>@Column</code>如此设置. 此外, 还使用了默认值注解<code>ColumnDefault</code>, 注解内容是一个SQL表达式, 也可以使用函数比如"now()".
+    之后<code>@Generated</code>中配置的生成时间是INSERT, 表示只在INSERT之后刷新Java类, 这就表示会获取默认值.
+    </li>
+</ol>
+<p>写一个代码来测试一下:</p>
+<pre>
+@Test
+public void Test() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    TestGenerated tg = new TestGenerated();
+    tg.setInitialPrice(new BigDecimal("20"));
+
+//    #1
+    em.persist(tg);
+    System.out.println(tg);
+//    #2
+    tg.setInitialPrice(new BigDecimal("40"));
+
+    tx.commit();
+}
+</pre>
+<p>根据上边的设置, 不允许INSERT, 虽然#1插入的值应该是40, 但此时插入之后, 数据库中仍然使用默认值1.00. 在#2更新之后, 可以看到执行了一条UPDATE语句, 数据库中的数值才变成了40.00</p>
+<p>即使将@Column设置为允许INSERT和UPDATE, 插入的时候也依然使用默认值, 因为这个默认值虽然在建表的时候告诉了数据库, 但是如此配置这三个注解之后, 可以看到HQL语句中根本不包含lastModified和initialPrice字段, 因此这两个字段一个固定使用数据库生成值, 一个固定在插入的时候是默认值.</p>
+<p>还有<strong>第三种控制默认值的方法</strong>, 即像默认的数据库操作一样, 那个字段如果插入被允许的其他值, 就采用其他值, 不插入, 就使用默认值, 将initialPrice改写如下:</p>
+<pre>
+@Column(nullable = false, columnDefinition = "numeric(8,2) default 1.00")
+protected BigDecimal initialPrice = new BigDecimal("1.00");
+</pre>
+<p><code>@Column(nullable = false, <span style="color: orangered">columnDefinition = "numeric(8,2) default 1.00"</span>)</code>中的红色部分的SQL语句会接在建表的列属性之后, 但是由于不能为null, 所以不能插入没有设置这个字段的新对象. 此时还需要在成员变量上直接标记好对应的默认值.</p>
+<p>测试代码如下:</p>
+<pre>
+@Test
+public void Test() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+//  #1
+    TestGenerated tg = new TestGenerated();
+    TestGenerated tg = new TestGenerated();
+    em.persist(tg);
+
+//  #2
+    TestGenerated tg1 = new TestGenerated();
+    tg1.setInitialPrice(new BigDecimal("40"));
+    em.persist(tg1);
+
+    tx.commit();
+}
+</pre>
+<p>这里#1直接插入一个没有设置initialPrice字段的对象, 可以看到生成的对象initialPrice=1.00. #2插入一个被设置了40.00的tg1对象, 数据库中的值就是40.</p>
+
+<h2 style="text-align: center;" id="con6">时间类型 - @Temporal</h2>
 
 
 
 
 
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con7">枚举类型 - @Enumerated</h2>
 
 
 <p>遗留了一个问题, 就是@Formula如何使用.</p>
