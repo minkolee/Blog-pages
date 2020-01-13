@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Hibernate 04 value type映射 - embedded与类型转换器</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>Embedded马上就要露出庐山真面目了. 本质上也是映射成为值类型, 来看看如何把一个类加上其中属性都映射成为值类型.</p>
+
+<ol>
+    <li><a href="#con1">Embedded 内嵌类 - @Embeddable</a></li>
+    <li><a href="#con2">多个同类型内嵌类</a></li>
+    <li><a href="#con3">内嵌类中还有内嵌类</a></li>
+    <li><a href="#con4">类型转换 - 基本类型和数值</a></li>
+    <li><a href="#con5">类型转换 - 字符类型</a></li>
+    <li><a href="#con6">类型转换 - 时间类型</a></li>
+    <li><a href="#con7">类型转换 - 二进制和大数字</a></li>
+    <li><a href="#con8">类型转换 - 创建类型转换器</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">Embedded 内嵌类</h2>
+<p>像之前分析的一样, User类型中的Address不需要共享. 意味着在数据库层面, 实际上只要添加若干列来保存一个对应某个User数据的类型就可以.</p>
+<p>然后Address为了方便起见, 也是一个Java类, 并没有直接将其拆分为几个成员变量, 直接加到User类型上. 我们甚至需要在Java代码中通过User来访问Address类型.</p>
+<p>这个时候我们来看看Address 和 User类到底应该如何映射. 先看Address类:</p>
+<pre>
+import javax.persistence.Column;
+import javax.persistence.Embeddable;
+import javax.validation.constraints.NotNull;
+
+//被@Embeddable注解的类, 内部不需要一个@Id注解
+<span style="color: #FF6600">@Embeddable</span>
+public class Address {
+
+    //验证所用, 创建表格时候不看@NotNull
+    @NotNull
+
+    //@Column建表的时候参考这个注解, 这个相当于 not null 约束
+    @Column(nullable = false)
+    protected String street;
+
+    @NotNull
+    //length控制长度, 这里相当于varchar(5), 覆盖了默认的varchar(255)的设定
+    @Column(nullable = false, length = 5)
+    protected String zipcode;
+
+    @NotNull
+    @Column(nullable = false)
+    protected String city;
+
+    protected Address() {
+    }
+
+    public Address(String street, String zipcode, String city) {
+        this.street = street;
+        this.zipcode = zipcode;
+        this.city = city;
+    }
+
+    ......
+}
+</pre>
+<p>可以看到, Address是一个单独的Java类, 但是我们要将其映射成为值类型, 把一个类映射成为值类型, 就需要在其上添加<code>@Embeddable</code>注解, 使用这个注解, 就不需要@Id了,
+    说明其和@Entity是两种类型的映射.</p>
+<p>这里要注意的是, @NotNull约束仅仅在运行时才有效, 如果需要创建表的时候就带上not null约束, 需要使用@Column, 毕竟@NotNull是验证器注解, 而不是持久化注解, 这点要搞清楚.</p>
+<p>然后是关键的User类型, 看代码:</p>
+<pre>
+import javax.persistence.AttributeOverride;
+import javax.persistence.AttributeOverrides;
+import javax.persistence.Column;
+import javax.persistence.Embedded;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import java.io.Serializable;
+import java.math.BigDecimal;
+
+@Entity
+@Table(name = "USERS")
+public class User implements Serializable {
+
+    @Id
+    @GeneratedValue()
+    protected Long id;
+
+    protected String username;
+
+    <span style="color: #FF6600">protected Address homeAddress;</span>
+
+    public User() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public Address getHomeAddress() {
+        return homeAddress;
+    }
+
+    public void setHomeAddress(Address homeAddress) {
+        this.homeAddress = homeAddress;
+    }
+
+    ......
+
+}
+</pre>
+<p>可以看到, Address已经被注解了@Embeddable, User类中的Address类型的成员变量, 压根不需要任何注解, 因为Hibernate会检测到Address对应的持久化类型, 然后会将Address中的属性,
+    映射到User表中.</p>
+<p>Address这样就被映射成一个User类的Embedded内嵌类, 而且Hibernate对Address的访问类型会继承User类的访问类型(@Access), 除非明确指定.</p>
+<p>在集成的时候, 时刻要注意, Address的各个值最好不是null, 否则取出来的三个属性都是null, 和Java类中本身address都是null, 会无法在概念上区分开来, 因为在内嵌类变量上加不加@NotNull都没用,
+    只看字段是不是null. 所以这要求, 持久化的时候一定要获取足够的信息.</p>
+<p>现在运行一个测试看看究竟生成了什么语句:</p>
+<pre>
+@Test
+public void test() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    //创建Address对象
+    Address address = new Address("owlroad", "12345", "Shanghai");
+
+    //创建User对象并设置地址
+    User user = new User();
+    user.setUsername("cony");
+    user.setHomeAddress(address);
+
+    em.persist(user);
+
+    tx.commit();
+
+    //查询
+    tx.begin();
+    List&lt;User> result = em.createQuery("SELECT u FROM User u",User.class).getResultList();
+    System.out.println(result);
+    tx.commit();
+}
+</pre>
+<p>建表和插入数据库的语句是:</p>
+<pre>
+Hibernate:
+    create table USERS (
+        id int8 not null,
+        city varchar(255) not null,
+        street varchar(255) not null,
+        zipcode varchar(5) not null,
+        username varchar(255),
+        primary key (id)
+    )
+
+insert
+    into
+        USERS
+        (city, street, zipcode, username, id)
+    values
+        (?, ?, ?, ?, ?)
+</pre>
+<p>可以发现, 对于数据库来讲, 并没有address表, Address对象的所有属性都嵌入到了User对象中, 但是取出来的时候, 又自动映射到Java类型上, 确实棒.</p>
+
+<h2 style="text-align: center;" id="con2">多个同类型内嵌类</h2>
+<p>现在已经知道了User和Address之间是组合关系, 如果此时还想在User中再添加一个Address属性, 用于保存这个用户的额外地址, 比如账单地址.</p>
+<p>很显然, 在Java层面要再添加一个Address类型的成员变量, 但问题接踵而至, 列名怎么办. 如果都是自动映射到Address上, 在Address类中更改列名解决不了冲突问题.</p>
+<p>这个时候就需要使用<code>@AttributeOverrides</code>来覆盖默认设置, 代码如下:</p>
+<pre>
+@Entity
+@Table(name = "USERS")
+public class User implements Serializable {
+
+    ......
+
+    @NotNull
+    @AttributeOverrides({
+        @AttributeOverride(name = "street",
+                column = @Column(name = "BILLING_STREET")),
+        @AttributeOverride(name = "zipcode",
+                column = @Column(name = "BILLING_ZIPCODE", length = 10)),
+        @AttributeOverride(name = "city",
+                column = @Column(name = "BILLING_CITY"))
+    })
+    protected Address billingAddress;
+
+    ......
+}
+</pre>
+<p>很显然,<code>@AttributeOverrides</code>中包含所有要覆盖的属性的条目, 每一个条目都是一个<code>@AttributeOverride</code>注解, <code>@AttributeOverride</code>中的name是要覆盖的列名,
+    要与Address类中的列名对应.</p>
+<p>然后在<code>@AttributeOverride</code>写要覆盖的属性名称和设置, 注意<code>@AttributeOverride</code>的覆盖是完整覆盖,
+    也就是说Address上的@Column中的内容会被完全抛弃.</p>
+<p>通过测试看一下:</p>
+<pre>
+@Test
+public void test2() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    //创建Address对象和billingAddress对象
+    Address homeAddress = new Address("owlroad", "12345", "Shanghai");
+    Address billingAddress = new Address("timberroad", "66666", "Shanghai");
+
+    //创建User对象并设置地址
+    User user = new User();
+    user.setUsername("cony");
+    user.setHomeAddress(homeAddress);
+    user.setBillingAddress(billingAddress);
+
+    em.persist(user);
+
+    tx.commit();
+
+    tx.begin();
+    List&lt;User> result = em.createQuery("SELECT u FROM User u", User.class).getResultList();
+
+    for (User u : result) {
+        System.out.println(u);
+    }
+
+    tx.commit();
+}
+</pre>
+<p>实际的语句是:</p>
+<pre>
+Hibernate:
+create table USERS (
+   id int8 not null,
+    BILLING_CITY varchar(255),
+    BILLING_STREET varchar(255),
+    BILLING_ZIPCODE varchar(10),
+    city varchar(255) not null,
+    street varchar(255) not null,
+    zipcode varchar(5) not null,
+    username varchar(255),
+    primary key (id)
+)
+</pre>
+<p>打印查询结果是:</p>
+<pre>
+User{id=40, username='cony', homeAddress=Address{street='owlroad', zipcode='12345', city='Shanghai'},
+    billingAddress=Address{street='timberroad', zipcode='66666', city='Shanghai'}}
+</pre>
+<p>可以看到, 实际还是映射了和Address一样类型的数值, 但是列名不同, 取出来的时候自动映射到两个不同的成员变量上. 确实好用.</p>
+
+<h2 style="text-align: center;" id="con3">内嵌类中还有内嵌类</h2>
+<p>目前Address中都是基本类型, 而且User类型虽然组合了两个Address类, 但都是直接组合.</p>
+<p>现在考虑这样一种情况, 即Address类中只有一个基本类型street, 然后还有一个City类, City类有cityName和zipcode两个基本类型. 即内嵌类中还有内嵌类.</p>
+<p>其实处理很简单, 只要将City也标记为@Embeddable, 就行了, 对于City的属性覆盖, 则在其上一层的Address中完成就可以了.</p>
+<p>修改一下上一个例子中的类. 首先是City类:</p>
+<pre>
+import javax.persistence.Column;
+import javax.persistence.Embeddable;
+import javax.validation.constraints.NotNull;
+
+@Embeddable
+public class City {
+
+    @NotNull
+    @Column(nullable = false)
+    private String cityName;
+
+    @NotNull
+    @Column(length = 5)
+    private String zipcode;
+
+    ......
+
+}
+</pre>
+<p>City类比较简单, 现在要将Address类中加入City引用:</p>
+<pre>
+@Embeddable
+public class Address {
+
+    @NotNull
+    @Column(nullable = false)
+    protected String street;
+
+    @NotNull
+    @AttributeOverrides({
+            @AttributeOverride(name = "cityName",
+                    column = @Column(name = "addname")),
+            @AttributeOverride(name = "zipcode",
+                    column = @Column(name = "addzip", length = 10))
+    })
+    protected City city;
+
+    ......
+}
+</pre>
+<p>可以在Address里对City进行属性覆盖, 比如这里就将City类的cityName名称, 覆盖成了addname名称, 注意覆盖的名称不能和User类中其他列名称相同, 注解中也可以写成name =
+    "city.cityName". 如果不进行任何覆盖, 就会使用City类中的列名.</p>
+<p>如果有多层嵌套, 就可以这样一直嵌套映射下去, 直到最后一个内嵌类的所有成员变量都是基本类型.</p>
+<p>使用的方法与原来一样, 创建City, Address类, 最后给User类设置上:</p>
+<pre>
+@Test
+public void test3() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    City city = new City();
+    city.setCityName("shanghai");
+    city.setZipcode("66666");
+
+    Address address = new Address();
+    address.setStreet("kiwiroad");
+    address.setCity(city);
+
+    User user = new User();
+    user.setUsername("cony");
+    user.setHomeAddress(address);
+
+    em.persist(user);
+
+    tx.commit();
+}
+</pre>
+<p>不过这里我试验了, 如果再有一个billingAddress成员, 也映射到address类, 这时候配置就算在billingAddress上覆盖列名, 也会提示重复, 还暂时不知道原因. 不过目前应该是够用了.</p>
+<p>到目前为止, 将一个类型映射成为Entity或者Embedded类型都会了, 映射的问题初步解决了. 现在就来看看映射的过程中如何使用类型转换器.</p>
+
+<h2 style="text-align: center;" id="con4">类型转换 - 基本类型和数值</h2>
+<p>映射的本质就是类型转换, 从Java类型到SQL类型的互相转换. 到目前为止, 不论什么样的属性, 似乎添加几个注解就可以发现Hibernate将其转换成了某种数据库类型. 这就是类型转换器的功劳, 即将一个Java类(和属性)转换成SQL类型. 可以来总结一下类型转换了.</p>
+<p>类型转换器主要有两种, 一种是内建转换器, 一种是自定义转换器. 之前都是用的基本类型转换器, 即使是Embedded类型, 其实也是一个拆解, 最后还是落到实际的基本类型上.</p>
+<p>JPA标准提供了一个Java类型到SQL类型的转换列表, 要求JPA provider必须实现这些转换. 凡是Java成员变量属于这些类型, 不加任何注释的话, 都会使用列表中的映射关系.</p>
+<table>
+    <caption>基本类型和数值</caption>
+    <thead>
+    <tr>
+        <th>Hibernate类型名称</th>
+        <th>Java类型</th>
+        <th>SQL标准类型</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>integer</code></td>
+        <td><code>int, java.lang.Integer</code></td>
+        <td><code>INTEGER</code></td>
+    </tr>
+    <tr>
+        <td><code>long</code></td>
+        <td><code>long, java.lang.Long</code></td>
+        <td><code>BIGINT</code></td>
+    </tr>
+    <tr>
+        <td><code>short</code></td>
+        <td><code>short, java.lang.Short</code></td>
+        <td><code>SMALLINT</code></td>
+    </tr>
+    <tr>
+        <td><code>float</code></td>
+        <td><code>float, java.lang.Float</code></td>
+        <td><code>FLOAT</code></td>
+    </tr>
+    <tr>
+        <td><code>double</code></td>
+        <td><code>double, java.lang.Double</code></td>
+        <td><code>DOUBLE</code></td>
+    </tr>
+    <tr>
+        <td><code>byte</code></td>
+        <td><code>byte, java.lang.Byte</code></td>
+        <td><code>TINYINT</code></td>
+    </tr>
+    <tr>
+        <td><code>boolean</code></td>
+        <td><code>boolean, java.lang.Boolean</code></td>
+        <td><code>BOOLEAN</code></td>
+    </tr>
+    <tr>
+        <td><code>big_decimal</code></td>
+        <td><code>java.math.BigDecimal</code></td>
+        <td><code>NUMERIC</code></td>
+    </tr>
+    <tr>
+        <td><code>big_integer</code></td>
+        <td><code>java.math.BigInteger</code></td>
+        <td><code>NUMERIC</code></td>
+    </tr>
+    </tbody>
+</table>
+<p>由于历史原因, 很多数据库的数据类型的名称并不是表中的ANSI名称, 但是Hibernate可以通过配置方言来自动使用对应的名称, 所以不用太关心. 这里唯一特殊的是NUMERIC类型, 需要指定两个参数. 使用@Column的presision和scale参数即可.</p>
+<p>如果想知道具体对应关系, 可以查看Hibernate的方言类源代码或者JavaDoc.</p>
+
+<h2 style="text-align: center;" id="con5">类型转换 - 字符类型</h2>
+<p>字符类型也是非常常用的类型.</p>
+<table>
+    <caption>字符类型</caption>
+    <thead>
+    <tr>
+        <th>Hibernate类型名称</th>
+        <th>Java类型</th>
+        <th>SQL标准类型</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>integer</code></td>
+        <td><code>int, java.lang.Integer</code></td>
+        <td><code>INTEGER</code></td>
+    </tr>
+    <tr>
+        <td><code>string</code></td>
+        <td><code>java.lang.String</code></td>
+        <td><code>VARCHAR</code></td>
+    </tr>
+    <tr>
+        <td><code>character</code></td>
+        <td><code>char[], Character[], java.lang.String</code></td>
+        <td><code>CHAR</code></td>
+    </tr>
+    <tr>
+        <td><code>yes_no</code></td>
+        <td><code>boolean, java.lang.Boolean</code></td>
+        <td><code>CHAR(1), 'Y' or 'N'</code></td>
+    </tr>
+    <tr>
+        <td><code>true_false</code></td>
+        <td><code>boolean, java.lang.Boolean</code></td>
+        <td><code>CHAR(1), 'T' or 'F'</code></td>
+    </tr>
+    <tr>
+        <td><code>locale</code></td>
+        <td><code>java.util.Locale</code></td>
+        <td><code>VARCHAR</code></td>
+    </tr>
+    <tr>
+        <td><code>timezone</code></td>
+        <td><code>java.util.TimeZone</code></td>
+        <td><code>VARCHAR</code></td>
+    </tr>
+    <tr>
+        <td><code>currency</code></td>
+        <td><code>java.util.Currency</code></td>
+        <td><code>VARCHAR</code></td>
+    </tr>
+    <tr>
+        <td><code>class</code></td>
+        <td><code>java.lang.Class</code></td>
+        <td><code>VARCHAR</code></td>
+    </tr>
+    </tbody>
+</table>
+<p>关于字符类型有几个特别之处:</p>
+<ol>
+    <li>纯粹存放字符的话, 一般数据库都有若干种实现, Hibernate是根据长度和方言来确定使用何种字符类型的. Hibernate默认的所有字符串映射是varchar(255), 可以在@Column中设置length.</li>
+    <li>很多数据库都提供了UTF-8支持, 如果想细粒度的控制, 尤其是NVARCHAR, NCHAR等要求使用UTF-8的类型, 可使用@org.hibernate.annotations.Nationalized. 不过如今一些数据库默认编码就是UTF-8, 也可以不使用该设置.</li>
+    <li>很多数据库比如PgSQL对于布尔类型可以使用多种方式表示, 结合方言和这里的规则具体使用.</li>
+</ol>
+<h2 style="text-align: center;" id="con6">类型转换 - 时间类型</h2>
+<p>时间类型对于SQL而言有三种, 但Java中的类型很多:</p>
+<table>
+    <caption>时间类型</caption>
+    <thead>
+    <tr>
+        <th>Hibernate类型名称</th>
+        <th>Java类型</th>
+        <th>SQL标准类型</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>integer</code></td>
+        <td><code>int, java.lang.Integer</code></td>
+        <td><code>INTEGER</code></td>
+    </tr>
+    <tr>
+        <td><code>date</code></td>
+        <td><code>java.util.Date, java.sql.Date</code></td>
+        <td><code>DATE</code></td>
+    </tr>
+    <tr>
+        <td><code>time</code></td>
+        <td><code>java.util.Date, java.sql.Time</code></td>
+        <td><code>TIME</code></td>
+    </tr>
+    <tr>
+        <td><code>timestamp</code></td>
+        <td><code>java.util.Date, java.sql.Timestamp</code></td>
+        <td><code>TIMESTAMP</code></td>
+    </tr>
+    <tr>
+        <td><code>calendar</code></td>
+        <td><code>java.util.Calendar</code></td>
+        <td><code>TIMESTAMP</code></td>
+    </tr>
+    <tr>
+        <td><code>calendar_date</code></td>
+        <td><code>java.util.Calendar</code></td>
+        <td><code>DATE</code></td>
+    </tr>
+    <tr>
+        <td><code>duration</code></td>
+        <td><code>java.time.Duration</code></td>
+        <td><code>BIGINT</code></td>
+    </tr>
+    <tr>
+        <td><code>instant</code></td>
+        <td><code>java.time.Instant</code></td>
+        <td><code>TIMESTAMP</code></td>
+    </tr>
+    <tr>
+        <td><code>localdatetime</code></td>
+        <td><code>java.time.LocalDateTime</code></td>
+        <td><code>TIMESTAMP</code></td>
+    </tr>
+    <tr>
+        <td><code>localdate</code></td>
+        <td><code>java.time.LocalDate</code></td>
+        <td><code>DATE</code></td>
+    </tr>
+    <tr>
+        <td><code>localtime</code></td>
+        <td><code>java.time.LocalTime</code></td>
+        <td><code>TIME</code></td>
+    </tr>
+    <tr>
+        <td><code>offsetdatetime</code></td>
+        <td><code>java.time.OffsetDateTime</code></td>
+        <td><code>TIMESTAMP</code></td>
+    </tr>
+    <tr>
+        <td><code>offsettime</code></td>
+        <td><code>java.time.OffsetTime</code></td>
+        <td><code>TIME</code></td>
+    </tr>
+    <tr>
+        <td><code>zoneddatetime</code></td>
+        <td><code>java.time.ZonedDateTime</code></td>
+        <td><code>TIMESTAMP</code></td>
+    </tr>
+    </tbody>
+</table>
+<p>虽然时间的对应有很多, 但其实不复杂, TIMESTAMP是一个信息最全的对象, 而TIME的信息最少, 如果不是追求细节, 都用TIMESTAMP对象也未尝不可. 要点如下:</p>
+<ol>
+    <li>java.sql.3种类型可以直接对应具体数据库类型.</li>
+    <li>一般使用java.util.Date对象也可以, 通过TemporalType.DATE/TIME/TIMESTAMP三种类型指定具体映射关系.</li>
+    <li>java.util.Date类型精确到毫秒, 而java.sql.Timestamp精确到纳秒. Hibernate在将TIMESTAMP转换成Java的Date类型的时候会保留到纳秒的信息, 结果就是不能简单的通过.equals()比较两个时间. 而是要通过取出时间日期属性的时候来比较.</li>
+</ol>
+<p>所以对于时间的处理, 只要牢记使用时间处理函数, 而不是Java对象自己的比较方式就可以.</p>
+
+<h2 style="text-align: center;" id="con7">类型转换 - 二进制和大数字</h2>
+<table>
+    <caption>二进制和大数字</caption>
+    <thead>
+    <tr>
+        <th>Hibernate类型名称</th>
+        <th>Java类型</th>
+        <th>SQL标准类型</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>integer</code></td>
+        <td><code>int, java.lang.Integer</code></td>
+        <td><code>INTEGER</code></td>
+    </tr>
+    <tr>
+        <td><code>binary</code></td>
+        <td><code>byte[], java.lang.Byte[]</code></td>
+        <td><code>VARBINARY</code></td>
+    </tr>
+    <tr>
+        <td><code>text</code></td>
+        <td><code>java.lang.String</code></td>
+        <td><code>CLOB</code></td>
+    </tr>
+    <tr>
+        <td><code>clob</code></td>
+        <td><code>java.sql.Clob</code></td>
+        <td><code>CLOB</code></td>
+    </tr>
+    <tr>
+        <td><code>blob</code></td>
+        <td><code>java.sql.Blob</code></td>
+        <td><code>BLOB</code></td>
+    </tr>
+    <tr>
+        <td><code>serializable</code></td>
+        <td><code>java.io.Serializable</code></td>
+        <td><code>VARBINARY</code></td>
+    </tr>
+    </tbody>
+</table>
+<p>二进制的要点如下:</p>
+<ol>
+    <li>如果一个Java属性是byte[], 会映射到VARBINARY, 但是实际采用的SQL属性还是需要结合方言和数据库决定. 比如在PgSQL中, 是BYTEA类型.</li>
+    <li>通常情况下String映射到VARCHAR,但是长度太长的时候, 就会映射为text, 从而使用CLOB.</li>
+    <li>如果想强制byte[]使用CLOB或者BLOB属性, 就采用@Lob注解即可:
+    <pre>
+    @Entity
+        public class Item {
+        @Lob
+        protected byte[] image;
+        @Lob
+        protected String description;
+        // ...
+    }
+    </pre>
+    这会让byte[]变成BLOB, 而对String采用CLOB, 这也是将String映射成为text类型最简单的方法.
+    </li>
+    <li>对于LOB系列, JDBC会延迟加载, 即在加载对象的时候, LOB类型的属性只是一个占位符, 需要的时候可以采取流的方式读出来, 或者复制到一个输出流中. 比如:
+    <pre>
+    Item item = em.find(Item.class, ITEM_ID);
+    InputStream imageDataStream = item.getImageBlob().getBinaryStream();
+    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+    StreamUtils.copy(imageDataStream, outStream);
+    byte[] imageBytes = outStream.toByteArray();
+    </pre>
+    </li>
+    <li>对于Hibernate来说, 提供了一些辅助工具用于方便的读取流, 比如:
+    <pre>
+    Session session = em.unwrap(Session.class);
+    Blob blob = session.getLobHelper().createBlob(imageInputStream, byteLength);
+    someItem.setImageBlob(blob);
+    em.persist(someItem);
+    </pre>
+    </li>
+    <li>Hibernate对于无法映射的二进制类型, 如果是类型是Serializable, 会将其按照序列化之后的二进制, 以VARBINARY类型保存在数据库中. 但是一般来说不要如此使用, 因为这会让Java对象的生存周期超过应用的周期, 将来谁也不知道数据库里存了什么东西.</li>
+</ol>
+<p>如今需要存储文件的场景不太多, 额外的文件一般都提供文件服务器, 不过类似于头像之类的也可以在测试代码中简单尝试一下.</p>
+
+<h2 style="text-align: center;" id="con8">类型转换 - 类型转换器</h2>
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

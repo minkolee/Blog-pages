@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 03 基础类型映射为value types</title>
+    <title>Hibernate 03 value type映射 - 基础规则</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -482,54 +482,68 @@ protected Date createdOn;
 <p>搭配只允许INSERT的时候使用, 就可以自动创建一条记录的创建时间, 实在非常好用. 所以很多时候通过<code>@Column</code>将读写控制交给框架, 而不是数据库, 确实更加方便. 与其类似的, 还有一个@UpdateTimestamp注解, 用于自动更新每次的时间. 这里不禁想起了Django ORM每次控制这种字段的方式.</p>
 
 <h2 style="text-align: center;" id="con7">枚举类型 - @Enumerated</h2>
+<p>还有一个比较特殊的是枚举类型, 枚举类实际上不是被当成一个类来使用, 而是被当成一系列值常量值来使用. 使用<code>@Enumerated</code>来标注一个枚举类型, 有如下的枚举类:</p>
+<pre>
+public enum AnimalType {
+    KIWI,OWL,PENGUIN
+}
+</pre>
+<p>然后就是使用这个枚举类的持久化类:</p>
+<pre>
+import org.junit.Test;
+import javax.persistence.*;
+
+@Entity
+public class TestEnum {
+
+    @Id
+    @GeneratedValue
+    private long id;
+
+    <span style="color: #FF6600">@Enumerated(EnumType.STRING)</span>
+    private AnimalType animalType;
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public AnimalType getAnimalType() {
+        return animalType;
+    }
+
+    public void setAnimalType(AnimalType animalType) {
+        this.animalType = animalType;
+    }
+
+    @Test
+    public void test() {
+        EntityManagerFactory emf =
+                Persistence.createEntityManagerFactory("HelloWorldPU");
+        EntityManager em = emf.createEntityManager();
+        EntityTransaction tx = em.getTransaction();
+        tx.begin();
+
+        TestEnum testEnum = new TestEnum();
+        TestEnum testEnum1 = new TestEnum();
 
 
+        testEnum.setAnimalType(AnimalType.KIWI);
+        testEnum1.setAnimalType(AnimalType.OWL);
 
+        em.persist(testEnum);
+        em.persist(testEnum1);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<p>遗留了一个问题, 就是@Formula如何使用.</p>
+        tx.commit();
+    }
+}
+</pre>
+<p><code>@Enumerated(EnumType.STRING)</code>中间的string表示存储枚举的时候, 存储枚举字符串. 测试中生成表的HQL语句将枚举类型生成为一个varchar字段.</p>
+<p>还一个设置是EnumType.ORDINAL, 表示用枚举类型对应的整数来存储. 一般来说, 使用字符串的可读性会高一些, 但是<code>@Enumerated()</code>的默认是ORDINAL.</p>
+<p>最后遗留了一个问题, 就是@Formula虽然没有报错, 但是也没有获取到值, 看来还得继续学学.</p>
 
 
 
