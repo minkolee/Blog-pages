@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Hibernate 05 映射继承关系</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>终于看完了Entity和value type两大类型, 对于一般的单体类和组合类, 现在都可以有办法来映射了.</p>
+<p>现在回头看看UML类图中的BillingDetails类, 这个类很显然要被映射为Entity类, 但是其问题在于, BillingDetails是一个抽象类并且提供了一个属性owner, 但真正需要持久化的类是CreditCard和BankAccount这两个类.</p>
+<p>在不考虑和User类关系的情况下, 来看看如何将这个继承关系映射到数据库中.</p>
+
+<ol>
+    <li><a href="#con1">继承体系映射的方式</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">继承体系映射的方式</h2>
+<p>在之前, 最基本的映射方式是"一个Entity一张表", 这种模式到现在为止一直工作良好, 直到遇到了继承关系.</p>
+<p>SQL中是无法体现继承关系的, SQL仅仅只能体现关系, 而不能体现类型的继承. 即使有些数据库实现了一些操作看上去好像可以继承一个表来创建一个表, 实际上二者并不具备像Java一样的类型继承关系, 只是全部或者部分字段的名称相同.</p>
+<p>对于继承, ORM采取的方式是通过框架将继承体系来通过不同的表进行匹配, 有四种映射方法:</p>
+<ol>
+    <li>每个具体类使用一张表, 使用默认的运行时多态, 即将多态行为翻译成查某张具体的表.</li>
+    <li>每个具体类使用一张表, 使用SQL UNION来进行多态查询, 而不是第一种的默认多态行为</li>
+    <li>每个继承层次使用一张表, 用非规范化(提供额外数据), 基于行来实现多态.</li>
+    <li>每个子类使用一张表, 将继承(is a)关系表示为外键(has a)关系, 使用SQL JOIN</li>
+</ol>
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

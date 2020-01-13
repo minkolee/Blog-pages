@@ -25,7 +25,8 @@
     <li><a href="#con5">类型转换 - 字符类型</a></li>
     <li><a href="#con6">类型转换 - 时间类型</a></li>
     <li><a href="#con7">类型转换 - 二进制和大数字</a></li>
-    <li><a href="#con8">类型转换 - 创建类型转换器</a></li>
+    <li><a href="#con8">类型转换 - 将类转换成一个值</a></li>
+    <li><a href="#con9">类型转换 - 转换继承体系的类</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">Embedded 内嵌类</h2>
 <p>像之前分析的一样, User类型中的Address不需要共享. 意味着在数据库层面, 实际上只要添加若干列来保存一个对应某个User数据的类型就可以.</p>
@@ -643,8 +644,235 @@ public void test3() {
     <li>Hibernate对于无法映射的二进制类型, 如果是类型是Serializable, 会将其按照序列化之后的二进制, 以VARBINARY类型保存在数据库中. 但是一般来说不要如此使用, 因为这会让Java对象的生存周期超过应用的周期, 将来谁也不知道数据库里存了什么东西.</li>
 </ol>
 <p>如今需要存储文件的场景不太多, 额外的文件一般都提供文件服务器, 不过类似于头像之类的也可以在测试代码中简单尝试一下.</p>
+<p>还有一个类型适配器的概念. 在上边可以发现, 一种Java类型可以映射为很多类型. 比如boolean可以映射成BOOLEAN, 也可以映射成CHAR(1), 这就很有意思.</p>
+<p>如果想覆盖默认的Hibernate替你选择的类, 可以使用上边所有表中的Hibernate的名称, 以及@Type注解来指定具体的类型:</p>
+<pre>
+@Entity
+public class Item {
+@org.hibernate.annotations.Type(type = "yes_no")
+    protected boolean verified = false;
+}
+</pre>
+<p>如果不使用@Type注解, 这个boolean将会被映射成为BOOLEAN类型, 现在指定了"yes_no"属性, 就不会被映射成很多数据库中的BIT或者BOOLEAN类型, 而是会映射成为CHAR(1).</p>
 
-<h2 style="text-align: center;" id="con8">类型转换 - 类型转换器</h2>
+<h2 style="text-align: center;" id="con8">类型转换 - 将类转换成一个值</h2>
+<p>这个类型转换器很有意思. 将一个类转换成一列. 书里的例子很有意思, 就是这个拍卖数据库中的所有价格, 都可以国际化, 采用的方法就是在Java的层面, 用一个MonetaryAmount类型来取代BigDecimal类型.</p>
+<p>但是这个类型和之前的Embedded类不同, 不是仅仅为类增加额外的属性, 而是同一个属性代表不同的意思, 如下:</p>
+<pre>
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.Currency;
+
+public class MonetaryAmount implements Serializable {
+
+    protected final BigDecimal value;
+    protected final Currency currency;
+
+    public MonetaryAmount(BigDecimal value, Currency currency) {
+        this.value = value;
+        this.currency = currency;
+    }
+
+    public BigDecimal getValue() {
+        return value;
+    }
+
+    public Currency getCurrency() {
+        return currency;
+    }
+
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof MonetaryAmount)) return false;
+
+        final MonetaryAmount monetaryAmount = (MonetaryAmount) o;
+
+        if (!value.equals(monetaryAmount.value)) return false;
+        if (!currency.equals(monetaryAmount.currency)) return false;
+
+        return true;
+    }
+
+    public int hashCode() {
+        int result;
+        result = value.hashCode();
+        result = 29 * result + currency.hashCode();
+        return result;
+    }
+
+    public String toString() {
+        return getValue() + " " + getCurrency();
+    }
+
+    public static MonetaryAmount fromString(String s) {
+        String[] split = s.split(" ");
+        return new MonetaryAmount(
+            new BigDecimal(split[0]),
+            Currency.getInstance(split[1])
+        );
+    }
+}
+</pre>
+<p>这个类有两个成员变量, 其中一个还是一个Currency类, 然后编写了hashcode()和equals()用于比较相等, 这个属性映射成的类都需要编写此方法, 因为Hibernate使用这个来判断是否需要更新, veli . 之后还编写了一个从String 中生成这个实例的方法.</p>
+<p>这个类的类型是Serializable, 意味着Hibernate会在二级缓存中保存其二进制代码. </p>
+<p>如果现在用这个类替换掉所有的BigDecimal类型, 很显然, 没办法将其保存到数据库中, 因为按照之前学到的内容, 将其映射成一个@Entity的话, 似乎不太对, 因为只是一个价格.</p>
+<p>如果映射成一个@Embedded类型倒是可以, 但是还需要对Currency来映射.</p>
+<p>牛逼的是, 我们可以采用JPA标准提供的类型转换器, 将一个类转换成一个SQL基本类型. 具体的说, 是将Java类在保存的时候转换成SQL类型的值, 在取出的时候, 调用合理的方法将值转换成Java类. 这样无论这个类有多复杂, 只要实现了对象和一个值之间的转换, 就可以用一列来保存一个对象.</p>
+<p>JPA提供的接口是javax.persistence.AttributeConverter:</p>
+<pre>
+import javax.persistence.AttributeConverter;
+import javax.persistence.Converter;
+
+@Converter(autoApply = true)
+public class MoneyConverter implements AttributeConverter&ltMonetaryAmount, String> {
+
+    @Override
+    public String convertToDatabaseColumn(MonetaryAmount monetaryAmount) {
+        return monetaryAmount.toString();
+    }
+
+    @Override
+    public MonetaryAmount convertToEntityAttribute(String s) {
+        return MonetaryAmount.fromString(s);
+    }
+}
+</pre>
+<p><code>@Converter</code>注解表示这是一个类型转换器, 设置autoApply为true表示所有持久化类中, 无论是Entity还是Embedded, 只要类型是MonetaryAmount, 没有加上特别的注解, 都会使用这个转换器来持久化.</p>
+<p>这个泛型接口有两个泛型, 第一个泛型表示Java类型, 第二个泛型表示存放到数据库中的类型. 然后有两个方法需要覆盖, 从名字就能看出来, 一个是把Java类型转换成数据库中类型的, 一个恰好相反.</p>
+<p>在MonetaryAmount中已经编写好了为了这两个接口的函数. 下一步就是要在使用到这个MonetaryAmount类型的持久化类上进行设置. 这里就自建一个简单的类加测试(访问器方法都省略):</p>
+<pre>
+import org.junit.Test;
+
+import javax.persistence.*;
+import javax.validation.constraints.NotNull;
+import java.math.BigDecimal;
+import java.util.Currency;
+
+@Entity
+public class Sr {
+
+    @Id
+    @GeneratedValue
+    private long id;
+
+    @NotNull
+    @Column(name = "PRICE", length = 63)
+    @Convert(converter = MoneyConverter.class, disableConversion = false)
+    private MonetaryAmount monetaryAmount;
+
+
+    @Override
+    public String toString() {
+        return "Sr{" +
+                "id=" + id +
+                ", monetaryAmount=" + monetaryAmount +
+                '}';
+    }
+
+    @Test
+    public void test() {
+        EntityManagerFactory emf =
+                Persistence.createEntityManagerFactory("HelloWorldPU");
+        EntityManager em = emf.createEntityManager();
+        EntityTransaction tx = em.getTransaction();
+        tx.begin();
+
+        Sr sr = new Sr();
+
+        MonetaryAmount monetaryAmount = new MonetaryAmount(new BigDecimal("25.00"), Currency.getInstance("CNY"));
+
+        sr.setMonetaryAmount(monetaryAmount);
+
+        em.persist(sr);
+
+        tx.commit();
+    }
+}
+</pre>
+<p><code>@Convert(converter = MoneyConverter.class, disableConversion = false)</code>指定了转换器, 并且这个还提供了一个简单的选项用于控制是否启用转换器. 虽然启用了autoApply, 但是推荐还是完整的写上注解.</p>
+<p>生成表的语句是:</p>
+<pre>
+Hibernate:
+
+    create table Sr (
+    id int8 not null,
+    PRICE varchar(63),
+    primary key (id)
+)
+</pre>
+<p>可以看到, 由于发现了要转换成String类型, 所以PRICE列被持久化成为varchar类型. 查看数据库可以发现, 其中写入了<code>"25.00 CNY" </code>这样的字符串. 从其中查询出来的肯定是字符串, 转换的过程发生在应用级别.</p>
+<p>更方便的是, 如果MonetaryAmount类型本身都是基本类型, 如果哪一天需要将其转换成为Embedded类(比如在数据库中添加了额外的两行保存金额和货币名称, 只需要在Sr类上去掉Convert等注解, 然后把MonetaryAmount注解为@Embedded就可以了.</p>
+<p>Hibernate的方便之处又一次感受到了. 到目前为止, 知道了基本类型的映射, Embedded类的属性拆解到主体类中的映射, 以及将一个类映射成为一个值的手段, 可以根据需要灵活选用.</p>
+
+<h2 style="text-align: center;" id="con9">类型转换 - 转换继承体系的类</h2>
+<p>这个就不用写代码了. 简述一下.</p>
+<p>假设Sr类又多了一个属性, 类型是PostCode, 这个PostCode是一个抽象类, 有两个子类ChinaPostCode和USAPostCode, 二者的不同是ChinaPostCode有6位长的邮编, USAPostCode内部的邮编字符串是5位.</p>
+<p>这个时候编写的转换类可以是这样:</p>
+<pre>
+@Converter
+public class ZipcodeConverter implements AttributeConverter&ltPostCode, String> {
+
+    @Override
+    public String convertToDatabaseColumn(PostCode postcode) {
+        return attribute.getValue();
+    }
+
+    @Override
+    public Zipcode convertToEntityAttribute(String s) {
+        if (s.length() == 5)
+            return new GermanZipcode(s);
+        else if (s.length() == 4)
+            return new SwissZipcode(s);
+        else
+        throw new IllegalArgumentException(
+            "Unsupported zipcode in database: " + s
+        );
+    }
+}
+</pre>
+<p>其他的配置都类似, 这样就可以像多态一样来转换, 相比刚才一个具体的类转换成一个值, 现在数据库中的一个列可以对应一个体系中的类, 更加扩展了类型转换的范围.</p>
+<p>这里留下一个问题, 也就是Hibernate的UserType的使用, 待以后再看.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
