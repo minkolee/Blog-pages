@@ -16,28 +16,803 @@
 </head>
 <body>
 <p>终于看完了Entity和value type两大类型, 对于一般的单体类和组合类, 现在都可以有办法来映射了.</p>
-<p>现在回头看看UML类图中的BillingDetails类, 这个类很显然要被映射为Entity类, 但是其问题在于, BillingDetails是一个抽象类并且提供了一个属性owner, 但真正需要持久化的类是CreditCard和BankAccount这两个类.</p>
+<p>现在回头看看UML类图中的BillingDetails类, 这个类很显然要被映射为Entity类, 但是其问题在于, BillingDetails是一个抽象类并且提供了一个属性owner,
+    但真正需要持久化的类是CreditCard和BankAccount这两个类.</p>
 <p>在不考虑和User类关系的情况下, 来看看如何将这个继承关系映射到数据库中.</p>
 
 <ol>
     <li><a href="#con1">继承体系映射的方式</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">每个具体类使用一张表的默认多态方式</a></li>
+    <li><a href="#con3">每个具体类使用一张表, 使用UNION进行查询</a></li>
+    <li><a href="#con4">每个继承体系使用一张表</a></li>
+    <li><a href="#con5">每个类使用一张表, 使用JOIN方式</a></li>
+    <li><a href="#con6">四种方式对比</a></li>
+    <li><a href="#con7">Embedded类的继承</a></li>
+    <li><a href="#con8">如何选择策略</a></li>
+    <li><a href="#con9">抽象类与其他类的关联关系</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">继承体系映射的方式</h2>
 <p>在之前, 最基本的映射方式是"一个Entity一张表", 这种模式到现在为止一直工作良好, 直到遇到了继承关系.</p>
-<p>SQL中是无法体现继承关系的, SQL仅仅只能体现关系, 而不能体现类型的继承. 即使有些数据库实现了一些操作看上去好像可以继承一个表来创建一个表, 实际上二者并不具备像Java一样的类型继承关系, 只是全部或者部分字段的名称相同.</p>
+<p>SQL中是无法体现继承关系的, SQL仅仅只能体现关系, 而不能体现类型的继承. 即使有些数据库实现了一些操作看上去好像可以继承一个表来创建一个表, 实际上二者并不具备像Java一样的类型继承关系,
+    只是全部或者部分字段的名称相同.</p>
 <p>对于继承, ORM采取的方式是通过框架将继承体系来通过不同的表进行匹配, 有四种映射方法:</p>
 <ol>
     <li>每个具体类使用一张表, 使用默认的运行时多态, 即将多态行为翻译成查某张具体的表.</li>
     <li>每个具体类使用一张表, 使用SQL UNION来进行多态查询, 而不是第一种的默认多态行为</li>
-    <li>每个继承层次使用一张表, 用非规范化(提供额外数据), 基于行来实现多态.</li>
+    <li>每个继承体系使用一张表, 用非规范化(提供额外数据), 基于行来实现多态.</li>
     <li>每个子类使用一张表, 将继承(is a)关系表示为外键(has a)关系, 使用SQL JOIN</li>
 </ol>
 
+<h2 style="text-align: center;" id="con2">每个具体类使用一张表的默认多态方式</h2>
+<p>先来创建一下BillingDetails抽象类和一个具体实现类CreditCard, 其中都是一些基本类型.</p>
+<p>抽象类BillingDetails:</p>
+<pre>
+public abstract class BillingDetails {
+
+    protected String owner;
+
+    protected BillingDetails() {
+    }
+
+    protected BillingDetails(String owner) {
+        this.owner = owner;
+    }
+
+    ......
+}
+</pre>
+<p>CreditCard类:</p>
+<pre>
+public class CreditCard extends BillingDetails {
+
+    protected Long id;
+
+    protected String cardNumber;
+
+    protected String expMonth;
+
+    protected String expYear;
+
+    public CreditCard() {
+        super();
+    }
+
+    public CreditCard(String owner, String cardNumber, String expMonth, String expYear) {
+        super(owner);
+        this.cardNumber = cardNumber;
+        this.expMonth = expMonth;
+        this.expYear = expYear;
+    }
+
+    ......
+}
+</pre>
+<p>如果要使用这种方式, 因为是具体类才映射, 所以抽象类BillingDetails无需映射成@Entity, 但需要一个特别的映射, 就是@MappedSuperclass, 使用了这个注解之后,
+    实际上是将抽象类的属性嵌入到具体类生成的表格中去.</p>
+<p>读到这里我就明白了这个implicit polymorphism是什么意思, 就是指Java的默认的多态方式, 两个具体类都包含抽象类的成员变量, 就这个意思.</p>
+<p>使用了@MappedSuperclass之后, 这个类也会被JPA扫描, 其中被继承的成员变量owner会用到具体类的表中, 所以需要的注解可验证注解都可以加到上边去. 现在的BillingDetails是这样:</p>
+<pre>
+@MappedSuperclass
+public abstract class BillingDetails {
+
+    @NotNull
+    protected String owner;
+
+    ......
+}
+</pre>
+<p>@MappedSuperclass不能和@Entity同用.</p>
+<p>来映射CreditCard类:</p>
+<pre>
+@Entity
+@AttributeOverride(
+        name = "owner",
+        column = @Column(name = "CC_OWNER", nullable = false))
+public class CreditCard extends BillingDetails {
+
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    @NotNull
+    protected String cardNumber;
+
+    @NotNull
+    protected String expMonth;
+
+    @NotNull
+    protected String expYear;
+
+    ...
+}
+</pre>
+<p>毫无意外的首先需要使用@Entity, 这里的@AttributeOverride其实并不一定要写, 只是展示一下可以将父类的列名重新命名, 这是一个完全覆盖, 所以可以在子类中自由的控制从父类继承过来的映射.</p>
+<p>其他配置都是如此, 现在把BankAccount也进行映射:</p>
+<pre>
+@Entity
+public class BankAccount extends BillingDetails {
+
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    @NotNull
+    protected String account;
+
+    @NotNull
+    protected String bankname;
+
+    @NotNull
+    protected String swift;
+
+    ......
+}
+</pre>
+<p>BankAccount就简单很多, 没有覆盖, 直接使用了父类的列名和设置. 现在来写一个测试看看:</p>
+<pre>
+@Test
+public void test() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    CreditCard creditCard = new CreditCard("conyli", "00000000", "7", "2038");
+    BankAccount bankAccount = new BankAccount("conyli", "0120009", "BankOfEarth", "809190388");
+
+    em.persist(creditCard);
+    em.persist(bankAccount);
+
+    tx.commit();
+
+}
+</pre>
+<p>创建表的代码如下:</p>
+<pre>
+Hibernate:
+    create table BankAccount (
+        id int8 not null,
+        "owner" varchar(255),
+        account varchar(255),
+        bankname varchar(255),
+        swift varchar(255),
+        primary key (id)
+    )
+Hibernate:
+    create table CreditCard (
+        id int8 not null,
+        CC_OWNER varchar(255) not null,
+        cardNumber varchar(255),
+        expMonth varchar(255),
+        expYear varchar(255),
+        primary key (id)
+    )
+</pre>
+<p>可以看到两个表中, 继承来的字段名称按照我们的设置, 然后创建了两个表, 等于实现了多态, 在查询的时候, 自然是需要什么类, 就差对应的表..</p>
+<p>既然能够将抽象类的成员变量写入到两个实现类中, 实际上, 将id列写到抽象类中也是可以的, 这样就不用重复写主键类了, 这是有了继承体系的一大妙用. 我实际试验了从BankAccount和CreditCard中删除主键,
+    然后移动到BillingDetails中, 发现实际SQL语句完全相同, 这就是默认继承的映射, 也就是根据所有具体类的所有继承来的属性下加上自己的属性来创建对应的表.</p>
+<p>这种继承方式的缺点有两个:
+<ol>
+    <li>数据库中并不存在BillingDetails表, 再回头观察UML类图, 其中的对应关系是BillingDetails与User的关系, 意味着编写类关系的代码时候, 那些代码应该放在抽象类中. 虽然现在还没学外键映射,
+        但是很显然, 每个具体类都要有一个外键映射到User类, 这个无法通过继承来处理, 因为BillingDetails中如果映射外键,没法去指定某一个具体类, 继承过来也没有用.
+    </li>
+    <li>扩展抽象类的影响非常大, 扩展一个就会改变很多表的物理结构.</li>
+    <li>无法使用多态查询, 只能查具体的实现类, 比如写"SELECT bd FROM BillingDetails bd"是不行的, 因为没有名叫BillingDetails的表.</li>
+</ol>
+<p>这种方式一般使用在简单的继承关系中, 或者是一个继承体系的顶点部分, 即抽象类中的内容很少变化的的情况, 而且无需外键关联. 很显然其实适用场景不太多.</p>
+
+<h2 style="text-align: center;" id="con3">每个具体类使用一张表, 使用UNION进行查询</h2>
+<p>在这种情况下, CreditCard和BankAccount依然每个类对应一个表, 但是采用了一个继承策略叫做TABLE_PER_CLASS, 这个策略声明在抽象类上, 而且还要注意, 抽象类也被声明为了@Entity:</p>
+<pre>
+<span style="color: #FF6600">@Entity
+@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)</span>
+public abstract class BillingDetails {
+
+    @Id
+    @GeneratedValue
+    protected Long id;
+    ......
+}
+</pre>
+<p>注意这里的@Entity, 本来应该成为一个实体类, 但是额外的指定了<code>@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)</code>,所以不会在数据库中创建BillingDetails表.
+</p>
+<p>对于两个具体类, 无需更改代码. 跑个测试来看看:</p>
+<pre>
+Hibernate:
+    create table BankAccount (
+        id int8 not null,
+        "owner" varchar(255),
+        account varchar(255),
+        bankname varchar(255),
+        swift varchar(255),
+        primary key (id)
+    )
+
+    create table CreditCard (
+        id int8 not null,
+        "owner" varchar(255),
+        cardNumber varchar(255),
+        expMonth varchar(255),
+        expYear varchar(255),
+        primary key (id)
+    )
+</pre>
+<p>可以发现建表方面完全一样. 但是关键在于查询部分, 可以使用多态查询了:</p>
+<pre>
+    tx.begin();
+
+    //查具体类型
+    List&lt;CreditCard> cc = em.createQuery("SELECT cc FROM CreditCard cc", CreditCard.class).getResultList();
+    List&lt;BankAccount> ba = em.createQuery("SELECT ba FROM BankAccount ba", BankAccount.class).getResultList();
+    System.out.println(cc);
+    System.out.println(ba);
+
+    //多态查询
+    List&lt;BillingDetails> billingDetails = em.createQuery("SELECT bd FROM BillingDetails bd", BillingDetails.class).getResultList();
+    System.out.println(billingDetails);
+
+    tx.commit();
+</pre>
+<p>前两个查询还是去查具体的表, 最后一个查询是怎么做到的呢, 其实就是使用了UNION, 看语句就明白了:</p>
+<pre>
+SELECT
+        bd
+    FROM
+        BillingDetails bd */ select
+            billingdet0_.id as id1_1_,
+            billingdet0_."owner" as owner2_1_,
+            billingdet0_.cardNumber as cardNumb1_2_,
+            billingdet0_.expMonth as expMonth2_2_,
+            billingdet0_.expYear as expYear3_2_,
+            billingdet0_.account as account1_0_,
+            billingdet0_.bankname as bankname2_0_,
+            billingdet0_.swift as swift3_0_,
+            billingdet0_.clazz_ as clazz_
+        from
+            ( select
+                id,
+                "owner",
+                cardNumber,
+                expMonth,
+                expYear,
+                null::varchar as account,
+                null::varchar as bankname,
+                null::varchar as swift,
+                1 as clazz_
+            from
+                CreditCard
+            union
+            all select
+                id,
+                "owner",
+                null::varchar as cardNumber,
+                null::varchar as expMonth,
+                null::varchar as expYear,
+                account,
+                bankname,
+                swift,
+                2 as clazz_
+            from
+                BankAccount
+        ) billingdet0_
+</pre>
+<p>虽然有点长, 但很好懂, 先把两个表全部查出来, 列数不相等怎么办, 补null列让二者相等, 然后多了一个clazz_属性用于标识该行属于哪一个类型. 最后一行一行按照类型标记, 将查出来的值设置到具体的Java类型上,
+    这就是多态查询.</p>
+<p>相比上一个配置, 这里很巧妙的就实现了多态查询, 果然很有意思. 这个方法还能以UNION的方式模拟一个表来实现抽象类与User类的关联.</p>
+<p>到目前为止, 这两种继承映射方式, 都不需要多考虑数据库结构, 都是比较简单的, 都是一个具体类对着一个表. 后边的映射模式就有点高级了.</p>
+
+<h2 style="text-align: center;" id="con4">每个继承体系使用一张表</h2>
+<p>每个继承体系使用一张表, 这个是什么意思呢, 可以看到目前BillingDetails中有两个被继承的id和owner, CreditCard中有独有的三个属性, BankAccount也有独有的三个属性,
+    也就是说这个继承体系内一共有8个属性.</p>
+<p>每个继承体系使用一张表, 对于目前的例子来说, 只要创建一个包含这8个属性的表就可以了, 然后可以再加上一列, 用于标记属于哪种类型, 这样就用一张表就可以存放这个继承体系中的任何持久化类,
+    相比另外两个方法,这个映射在简单程度占优势.</p>
+<p>这个方式的主要缺点有两个:</p>
+<ol>
+    <li>对数据库完整性有要求, 如果没有合理的配置@NotNull, 出现一个一行都是null的, 就不知道匹配何种类型了.</li>
+    <li>这实际上是一种非规范化, 即对于一个关系来说, 存储了额外的冗余数据, 并且除了主键之外, 某些列之间有关系(构成一个Java类的属性), 违反第三范式. 大量冗余数据也会导致查询的缓慢.</li>
+</ol>
+<p>使用这种映射方式分为三个步骤:</p>
+<ol>
+    <li>在抽象类上要使用<code>@Inheritance(strategy = InheritanceType.SINGLE_TABLE)</code>注解</li>
+    <li>在抽象类上要使用<code>@DiscriminatorColumn(name = "CLASS_TYPE")</code>注解来给最后生成的物理表添加一列, 用来标识不同的类型</li>
+    <li>在每个具体类上, 要使用<code>@DiscriminatorValue("CC")</code>注解来标记自己类的类型名称.</li>
+</ol>
+<p>配置例子如下:</p>
+<pre>
+@Entity
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@DiscriminatorColumn(name = "TYPE")
+public abstract class BillingDetails
+
+@Entity
+@DiscriminatorValue("CC")
+public class CreditCard extends BillingDetails
+
+@Entity
+@DiscriminatorValue("BA")
+public class BankAccount extends BillingDetails
+</pre>
+<p>现在还是来看看生成的语句:</p>
+<pre>
+Hibernate:
+create table BillingDetails (
+    TYPE varchar(31) not null,
+    id int8 not null,
+    "owner" varchar(255),
+    cardNumber varchar(255),
+    expMonth varchar(255),
+    expYear varchar(255),
+    account varchar(255),
+    bankname varchar(255),
+    swift varchar(255),
+    primary key (id)
+)
+</pre>
+<p>可见一共生成了8个属性外加一个TYPE列, 用于保存属性名称. 持久化的时候, 两个具体类全部都是写入这个表格, 一行中不属于某个类的属性都是null.</p>
+<p>查询的时候可以使用多态查询. 如果查询具体类型, Hibernate会很聪明的只查询这个类型对应的列. 使用多态查询的时候, 就是直接查出全部列, 然后根据类型来映射.</p>
+<p>详细的来看看Hibernate是如何控制的:</p>
+<ol>
+    <li>实现类上的<code>@DiscriminatorValue("CC")</code>最好要写, 不写的话, Hibernate会采用默认值, 但是JPA标准是不能存在没有指定名称的子类, 与其依靠具体实现,
+        不如严格按照JPA标准做.
+    </li>
+    <li>在这种映射方式中, 不能通过@Column限定某些列为not null, 这是因为写入一行的时候, 不属于那行对应的类的列全部都是null. 当然, @NotNull还是可以加,因为这是在写入前的验证.</li>
+    <li>根据JPA标准, 必须将TYPE列持久化, 但是Hibernate还支持生成这一列, 使用@DiscriminatorFormula标签, 以免数据库中不允许额外插入一列TYPE. 这个用到再看吧.</li>
+</ol>
+<p>这个映射的缺点主要就是非规范化, 用久了是一个负担, 一般DBA也不太会允许这种操作. 我们还有最后一种方式, 可以避免非规范化问题.</p>
+
+<h2 style="text-align: center;" id="con5">每个类使用一张表, 使用JOIN方式</h2>
+<p>注意这里是每个类, 即抽象类也要实体化. 包括抽象类和所有具体类, 每个类一张表, 每个表只保存那个属于那个类的属性. 子类通过外键关联到父类, 等于将子类的属性拆分到了父类对应的表中. 在查询的时候, 通过JOIN来获取需要的字段.</p>
+<p>这种方法相当符合数据库规范化的要求. 配置起来也不难, 只需要调整一下<code>@Inheritance</code>注解:</p>
+<pre>
+@Entity
+@Inheritance(strategy = InheritanceType.JOINED)
+public abstract class BillingDetails
+</pre>
+<p>另外两个具体类仅仅用一个@Entity就可以了. 建表语句如下:</p>
+<pre>
+Hibernate:
+    create table BankAccount (
+        account varchar(255),
+        bankname varchar(255),
+        swift varchar(255),
+        id int8 not null,
+        primary key (id)
+    )
+
+Hibernate:
+    create table BillingDetails (
+        id int8 not null,
+        "owner" varchar(255),
+        primary key (id)
+    )
+
+Hibernate:
+    create table CreditCard (
+        cardNumber varchar(255),
+        expMonth varchar(255),
+        expYear varchar(255),
+        id int8 not null,
+        primary key (id)
+    )
+Hibernate:
+    alter table if exists BankAccount
+       add constraint FKcuq00ydxwbbq1oi96e47j3l4h
+       foreign key (id)
+       references BillingDetails
+
+Hibernate:
+    alter table if exists CreditCard
+       add constraint FKlk2sbjxhbquek2fbnsuxrd14x
+       foreign key (id)
+       references BillingDetails
+</pre>
+<p>看到自动把BankAccount和CreditCard的ID设成了外键关联到BillingDetails, 这样很显然, 等于将子类的属性存放在父类表中, 然后设置好关联, 过去找就可以了. 这其实就是一对一的关系. BillingDetails表中的行数, 等于所有子类的数量之和.</p>
+<p>写入的时候也分两步, 先插入BillingDetails, 再插入子类:</p>
+<pre>
+insert
+    into
+        BillingDetails
+        ("owner", id)
+    values
+        (?, ?)
+insert
+    into
+        CreditCard
+        (cardNumber, expMonth, expYear, id)
+    values
+        (?, ?, ?, ?)
+</pre>
+<p>查具体类的语句如下:</p>
+<pre>
+SELECT
+    cc
+FROM
+    CreditCard cc */ select
+        creditcard0_.id as id1_1_,
+        creditcard0_1_."owner" as owner2_1_,
+        creditcard0_.cardNumber as cardNumb1_2_,
+        creditcard0_.expMonth as expMonth2_2_,
+        creditcard0_.expYear as expYear3_2_
+    from
+        CreditCard creditcard0_
+    inner join
+        BillingDetails creditcard0_1_
+            on creditcard0_.id=creditcard0_1_.id
+</pre>
+<p>可以看到就是连表查询. 多态查询也OK的, 看语句:</p>
+<pre>
+select
+        billingdet0_.id as id1_1_,
+        billingdet0_."owner" as owner2_1_,
+        billingdet0_1_.cardNumber as cardNumb1_2_,
+        billingdet0_1_.expMonth as expMonth2_2_,
+        billingdet0_1_.expYear as expYear3_2_,
+        billingdet0_2_.account as account1_0_,
+        billingdet0_2_.bankname as bankname2_0_,
+        billingdet0_2_.swift as swift3_0_,
+        case
+            when billingdet0_1_.id is not null then 1
+            when billingdet0_2_.id is not null then 2
+            when billingdet0_.id is not null then 0
+        end as clazz_
+    from
+        BillingDetails billingdet0_
+    left outer join
+        CreditCard billingdet0_1_
+            on billingdet0_.id=billingdet0_1_.id
+    left outer join
+        BankAccount billingdet0_2_
+            on billingdet0_.id=billingdet0_2_.id
+</pre>
+<p>这个查询是让BillingDetails进行连表查询, 查询中多了一个clazz_列, 根据类型的不同, 将其设置为不同的数值, 以此来区分查到的结果应该映射到哪个类型上.</p>
+<p>在子类里如果主键是继承自父类, 或者主键的名称与父类相同, 就无需指定连表的列, Hibernate会自动检测. 如果想要自己指定主键列的名称, 需要采用注解<code>@PrimaryKeyJoinColumn(name = "NAME")</code>来指定.</p>
+<p>这个查询的缺点是, 使用外键和连表, 在复杂继承体系时候的效率低下.</p>
+
+<h2 style="text-align: center;" id="con6">四种方式对比</h2>
+<p>为了方便, 这里快速对比一下四种方式, 本质就是一个@MappedSuperclass与@Inheritance的三种策略:</p>
+<table>
+    <caption>继承映射</caption>
+    <thead>
+    <tr>
+        <th>类别</th>
+        <th>注解</th>
+        <th>说明</th>
+        <th>特点</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>每个具体类一张表,默认多态方式</td>
+        <td><code>@MappedSuperclass</code></td>
+        <td>抽象类不使用@Entity, 每个表包含实现类全部属性</td>
+        <td>无法多态查询, 无法体现连接关系, 查询单独类最快</td>
+    </tr>
+    <tr>
+        <td>每个具体类一张表, UNION方式</td>
+        <td><code>@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)</code></td>
+        <td>需要在抽象类上使用@Entity, 每个表包含实现类全部属性</td>
+        <td>查询单独类也很快, 使用UNION进行多态查询, </td>
+    </tr>
+    <tr>
+        <td>每个继承体系一张表</td>
+        <td><code>@Inheritance(strategy = InheritanceType.SINGLE_TABLE)</code></td>
+        <td>需要在抽象类上使用@Entity, 只有一个表,包含全部属性和标明类型的列</td>
+        <td>非规范化, 支持多态查询, 速度快</td>
+    </tr>
+    <tr>
+        <td>每个类使用一张表, 外键关联</td>
+        <td><code>@Inheritance(strategy = InheritanceType.JOINED)</code></td>
+        <td>需要在抽象类上使用@Entity, 每个表只包含自己的属性. 通过外键关联子类与父类</td>
+        <td>规范化, 使用连表支持多态查询, 开销大</td>
+    </tr>
+    </tbody>
+</table>
+<p>这里的特殊的混合策略就暂时不看了, 如果以后能用到就记录下来.</p>
+
+<h2 style="text-align: center;" id="con7">Embedded类的继承</h2>
+<p>前边都是Entity类的继承, 从注解也能看出来, 使用的都是JPA的标准注解. 这里的Embedded类的继承, 是Hibernate特有的功能, 不是JPA的Entity继承体系映射的标准.</p>
+<p>这个问题就是我前边自己瞎折腾Address时候遇到的问题, 即从一个类里有两个一样的Embedded类型, 导致弄出来有重复的列, 其实Embedded类继承和Entity最大的区别就是必须得覆盖名称, 否则会使用同样的名称.</p>
+<p>继承体系如下, 先是一个作为抽象类的Measurement:</p>
+<pre>
+@MappedSuperclass
+public abstract class  Measurement {
+
+    @NotNull
+    protected String name;
+
+    @NotNull
+    protected String symbol;
+}
+</pre>
+<p>只有两个属性 name 和symbol, 然后是第一个实现类:</p>
+<pre>
+@Embeddable
+@AttributeOverrides({
+        @AttributeOverride(name = "name",
+                column = @Column(name = "WEIGHT_NAME")),
+        @AttributeOverride(name = "symbol",
+                column = @Column(name = "WEIGHT_SYMBOL"))
+})
+public class Weight extends Measurement {
+
+    @NotNull
+    @Column(name = "WEIGHT")
+    protected BigDecimal value;
+
+}
+</pre>
+<p>这个实现类扩展了一个属性, 即重量, 这里注意, <span style="color: red">一定要将抽象类中的名称全部覆盖掉</span>, 否则会造成冲突.</p>
+<p>然后是另外一个实现类, 重点依然是覆盖名称:</p>
+<pre>
+@Embeddable
+@AttributeOverrides({
+        @AttributeOverride(name = "name",
+                column = @Column(name = "DIMENSIONS_NAME")),
+        @AttributeOverride(name = "symbol",
+                column = @Column(name = "DIMENSIONS_SYMBOL"))
+})
+public class Dimensions extends Measurement {
+
+    @NotNull
+    protected BigDecimal depth;
+
+    @NotNull
+    protected BigDecimal height;
+
+    @NotNull
+    protected BigDecimal width;
+
+}
+</pre>
+<p>两个实现类都是@Embedded注解, 然后创建一个Item类, 让其中同时包含这两个实现类的属性:</p>
+<pre>
+@Entity
+public class Item {
+
+    @Id
+    @GeneratedValue
+    private long id;
+
+    private Dimensions dimensions;
+
+    private Weight weight;
+
+}
+</pre>
+<p>可见要复用@Embeddable继承体系的类, 每一个实现类关键要覆盖列名, 然后写一个测试:</p>
+<pre>
+@Test
+public void testEmb() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    //组装Item对象
+    Item item = new Item();
+    Dimensions dimensions = new Dimensions("3D", "###", new BigDecimal("10.3"), new BigDecimal("13.3"), new BigDecimal("6.0"));
+    Weight weight = new Weight("2D", "FLAT", new BigDecimal("10"));
+    item.setDimensions(dimensions);
+    item.setWeight(weight);
+
+    //持久化
+    em.persist(item);
+    tx.commit();
+
+    tx.begin();
+    //查询
+    Item item1 = em.createQuery("SELECT i FROM Item i", Item.class).getSingleResult();
+    Dimensions dimensions1 = item1.getDimensions();
+    Weight weight1 = item1.getWeight();
+
+    System.out.println(item1);
+    System.out.println(dimensions1);
+    System.out.println(weight1);
+
+    tx.commit();
+}
+</pre>
+<p>建表语句:</p>
+<pre>
+Hibernate:
+    create table Item (
+        id int8 not null,
+        depth numeric(19, 2),
+        height numeric(19, 2),
+        width numeric(19, 2),
+        DIMENSIONS_NAME varchar(255),
+        DIMENSIONS_SYMBOL varchar(255),
+        WEIGHT numeric(19, 2),
+        WEIGHT_NAME varchar(255),
+        WEIGHT_SYMBOL varchar(255),
+        primary key (id)
+    )
+</pre>
+<p>可以看到, DIMENSIONS_NAME,DIMENSIONS_SYMBOL,WEIGHT_NAME,WEIGHT_SYMBOL这四列其实都继承自Measurement类, 但是均已经命名了新名称, 所以不会有冲突. 查询的时候也能够正确的写入到Java类中.</p>
+
+<h2 style="text-align: center;" id="con8">如何选择继承映射策略</h2>
+<p>选用何种继承体系的映射, 实际上取决于Java代码中进行多态操作的多少, 也就是像例子中, <code>"SELECT bd FROM BillingDetails.java"</code>这种操作是否频繁.</p>
+<p>多态查询用的不多也不需要多态关联关系(指抽象类与其他类有关联关系, 导致运行时所有子类都有关联关系,下同), 则选用InheritanceType.TABLE_PER_CLASS比较好. </p>
+<p>需要多态+关联关系, 父类和子类的属性都比较少, 则可以考虑InheritanceType.SINGLE_TABLE,仅仅只对简单的问题使用InheritanceType.SINGLE_TABLE.</p>
+<p>多态+关联关系的情况下, 如果子类扩展父类的程度比较深, 也考虑InheritanceType.TABLE_PER_CLASS</p>
+<p>如果强调Not Null等规范化, 而且不是非常复杂, 才考虑nheritanceType.JOINED, 考虑到执行效率, 这不是一个好的选择.</p>
+
+
+<h2 style="text-align: center;" id="con9">抽象类与其他类的关联关系</h2>
+<p>最后来解决这个问题, 也就是BillingDetails与User类在UML类图上的关系.</p>
+<h3>一对一的关系</h3>
+<p>即一个User包含一个BillingDetails类(注意这和UML类图上的关系不符, 只是为了说明).</p>
+<p>在User类上添加BillingDetails类型的成员属性:</p>
+<pre>
+@Entity
+@Table(name = "USERS")
+public class User implements Serializable {
+
+    @Id
+    @GeneratedValue()
+    protected Long id;
+
+<span style="color: #FF6600">    @ManyToOne(fetch = FetchType.LAZY)</span>
+    protected BillingDetails defaultBilling;
+}
+</pre>
+<p>这里也可以用@OneToOne注解. 然后来看看怎么操作:</p>
+<pre>
+public static void main(String[] args) {
+
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    //这一串都是组装User对象和两个内嵌属性
+    City city = new City();
+    city.setCityName("shanghai");
+    city.setZipcode("66666");
+    Address address = new Address();
+    address.setStreet("kiwiroad");
+    address.setCity(city);
+    User user = new User();
+    user.setUsername("cony");
+    user.setHomeAddress(address);
+
+    //组装并且设置defaultBilling
+    CreditCard creditCard = new CreditCard("conyli", "00000000", "7", "2038");
+    user.setDefaultBilling(creditCard);
+
+    em.persist(creditCard);
+    em.persist(user);
+
+    tx.commit();
+
+    tx.begin();
+
+    List&lt;User> users = em.createQuery("SELECT u FROM User u", User.class).getResultList();
+
+    System.out.println(users);
+
+    for (User u : users) {
+        BillingDetails billingDetails = u.getDefaultBilling();
+        System.out.println(billingDetails);
+        System.out.println(billingDetails.getOwner());
+        System.out.println(((CreditCard)billingDetails).getCardNumber());
+    }
+
+    tx.commit();
+}
+</pre>
+<p>现在的继承策略是@Inheritance(strategy = InheritanceType.JOINED), 创建继承体系的语句就不看了. 关键是User类:</p>
+<pre>
+Hibernate:
+
+    create table USERS (
+        id int8 not null,
+        addname varchar(255),
+        addzip varchar(10),
+        street varchar(255) not null,
+        username varchar(255),
+        defaultBilling_id int8,
+        primary key (id)
+    )
+
+    alter table if exists USERS
+       add constraint FK5dg3kyfsfueaw5m68akisc0vc
+       foreign key (defaultBilling_id)
+       references BillingDetails
+</pre>
+<p>可以看到使用了一个外键, 关联到BillingDetails, BillingDetails这张表也确实存在, 因为是InheritanceType.JOINED.</p>
+<p>后边的新增的时候, 可以看到, 多态新增了CreditCard类, 写入CreditCard对象的时候, Hibernate会根据继承体系来写入, 查询的时候会根据外键最终指向具体的哪个表, 来将User的defaultBilling类型用具体的实现类来替代, 这里可以转型成为CreditCard, 说明是正确的实际类型.</p>
+<p>这里要注意, defaultBilling上标注了延迟加载, 所以不能在加载之前随意转型:</p>
+<pre>
+User user1 = em.find(User.class, 2L);
+
+BillingDetails bd = user.getDefaultBilling();
+assertFalse(bd instanceof CreditCard);
+</pre>
+<p>因为没有加载数据库, 这时候只是一个占位符, 要等到加载以后(比如上边测试中打印对象, 强制取出其中的数据)才能按照上边的测试那样来使用. 去掉延迟加载就可以避免这种情况, 根据实际需要选用.</p>
+<p>TABLE_PER_CLASS, SINGLE_TABLE, 和 JOINED都支持多态关联关系, Hibernate会自动生成对应的语句.</p>
+<h3>一对多的关系</h3>
+<p>按照UML类图, User应该对应0-多个BillingDetails对象, 因此要使用@OneToMany才行. 按照集合的要求, 此时应该创建一个默认的空集合:</p>
+<pre>
+@Entity
+@Table(name = "USERS")
+public class User implements Serializable {
+    @OneToMany(mappedBy = "user")
+    protected Set&lt;BillingDetails> billingDetails = new HashSet&lt;>();
+
+    public void addBillingDetails(BillingDetails billingDetails) {
+        if (billingDetails == null) {
+            throw new RuntimeException("billingDetails is NULL");
+        }
+
+        this.billingDetails.add(billingDetails);
+    }
+}
+</pre>
+<p>@OneToMany的外键在另外一张表, 等于BillingDetails有个外键关联到User主键, 所以必须创建一个对应的@ManyToOne关系才行.</p>
+<pre>
+@Entity
+@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
+public abstract class BillingDetails {
+    @ManyToOne(fetch = FetchType.LAZY)
+    protected User user;
+}
+</pre>
+<p>这次把继承关系映射策略换成了TABLE_PER_CLASS, 之后也来运行测试:</p>
+<pre>
+public static void main(String[] args) {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    //创建User对象过程省略
+
+    //创建一个CreditCard和一个BankAccount
+    CreditCard creditCard = new CreditCard("conyli", "00000000", "7", "2038");
+    BankAccount bankAccount = new BankAccount("conyli", "0120009", "BankOfEarth", "809190388");
+
+    //多态添加
+    creditCard.setUser(user);
+    bankAccount.setUser(user);
+    user.addBillingDetails(creditCard);
+    user.addBillingDetails(bankAccount);
+
+    //先持久化外键所在的, 最后持久化user
+    em.persist(creditCard);
+    em.persist(bankAccount);
+    em.persist(user);
+
+    tx.commit();
+
+    tx.begin();
+    List&lt;User> users = em.createQuery("SELECT u FROM User u", User.class).getResultList();
+    for(User u : users){
+       System.out.println(u.getBillingDetails());
+    };
+    tx.commit();
+}
+</pre>
+<p>Hibernate果然智能, 由于策略改变, 这次没有了BillingDetails表, Hibernate建表的时候, 给CreditCard类和BankAccount类分别设置了关联User的外键:</p>
+<pre>
+Hibernate:
+
+    alter table if exists BankAccount
+       add constraint FK_6tiiofqqcr85urf2dh3xp27ku
+       foreign key (user_id)
+       references USERS
+
+    alter table if exists CreditCard
+       add constraint FK_2h62gb07aah6rtc8hgu3jgm94
+       foreign key (user_id)
+       references USERS
+</pre>
+<p>后边自然是写入然后把外键也写入,这里还能看出, 设置了LAZY之后, 遍历打印的时候, 是明显会遍历一个查询一次.</p>
+<p>所以对于多态关联关系, 很简单, 先将继承体系设置成支持关联关系, 然后按照正常的一对多, 多对多关系将抽象类和需要关联的类设置好即可, Hibernate会自动根据所选的策略关系生成外键和查询.</p>
 
 
 
@@ -46,14 +821,24 @@
 
 
 
-<h2 style="text-align: center;" id="con2"></h2>
 
-<h2 style="text-align: center;" id="con3"></h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
