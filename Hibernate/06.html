@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 06 映射集合</title>
+    <title>Hibernate 06 映射集合与关系</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,17 +15,38 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>之前映射了单个类, 映射了内嵌类, 还有类中间的各种属性. 现在要映射两个新东西, 一个是集合, 一个是类之间的关系, 有了这些就完整的映射知识了.</p>
+<p>集合的映射又是类之间关系映射的基础, ORM的核心就是管理类之间的关系, 也是最为复杂的一部分, 这章估计会经常回来看.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
+    <li><a href="#con1">映射集合的好处</a></li>
     <li><a href="#con2"></a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">映射集合的基础概念</h2>
+<p>可以映射集合, 有如下好处:</p>
+<ol>
+    <li><code>someItem.getImages()</code>这种方法, 可以自动被转换成<code>SELECT * from IMAGE where ITEM_ID = ?</code>,
+        而且如果持久化类处于managed的状态下, 只要执行这个, 就可以得到关联的所有对象, 而不用使用EntityManager去加载数据.</li>
+    <li>不用一个一个去持久化集合中的所有对象, 只要将其添加到集合中, 然后持久化集合即可. 这种方便级联的操作极大的提高了操作效率.</li>
+    <li>可以设置Entity之间的级联关系, 比如删除一个Item之后自动删除其所属的所有Image.</li>
+</ol>
+<p>知道了能够映射集合的好处, 接下来的首要问题就是选择何种集合接口</p>
+<p>如果不提供泛型, 则可以使用<code>@ElementCollection(targetClass=String.class)</code>或者<code>@MapKeyClass</code>来提供泛型信息. 但最好还是使用泛型.</p>
+<p>Hibernate支持所有的Java collection类型, 对于每种类型都有一个对应的默认映射方法, 并且在映射时保留这些类型的语义. 在不扩展Hibernate的类型的情况下, 可以选择如下集合类型:</p>
+<ol>
+    <li><code>java.util.Set</code>接口,实际类型是<code>java.util.HashSet</code>. 顺序不重要, 不允许重复元素, 是JPA标准支持的.</li>
+</ol>
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con2"></h2>
 
