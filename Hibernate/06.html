@@ -341,7 +341,7 @@ public class Item {
 
 }
 </pre>
-<p>这里的SortNatural意思就是用对应类型的compareTo方法去比较. 由于Tree都是在内存中比较的,所以可以用此注解. 但是我这里没有生效, 不知道为什么.</p>
+<p>这里的SortNatural意思就是用对应类型的compareTo方法去比较. 由于Tree都是在内存中比较的,所以可以用此注解. 但是我这里没有生效, 不知道为什么, 这个是装载集合的时候排序, 还不是直接用ORDER BY, 真没搞清楚.</p>
 <p>对于本身有序的集合,比如 List 系列, 则可以使用@OrderBy让Hibernate按照ORDER BY来加载内容.</p>
 
 
