@@ -20,9 +20,9 @@
 
 <ol>
     <li><a href="#con1">映射集合的好处</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con2">映射SET</a></li>
+    <li><a href="#con3">映射Bag类型</a></li>
+    <li><a href="#con4">映射List类型</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
@@ -39,7 +39,309 @@
 <p>Hibernate支持所有的Java collection类型, 对于每种类型都有一个对应的默认映射方法, 并且在映射时保留这些类型的语义. 在不扩展Hibernate的类型的情况下, 可以选择如下集合类型:</p>
 <ol>
     <li><code>java.util.Set</code>接口,实际类型是<code>java.util.HashSet</code>. 顺序不重要, 不允许重复元素, 是JPA标准支持的.</li>
+    <li><code>java.util.SortedSet</code>接口,实际类型是<code>java.util.Treeset</code>. 不是JPA标准, Hibernate支持, 会在Hibernate取出值之后在内存中进行排序.</li>
+    <li><code>java.util.List</code>接口,实际类型是<code>java.util.ArrayList</code>. 会将其中的内容和对应的元素(额外一列)都持久化, 是JPA标准.</li>
+    <li><code>java.util.Collection</code>接口,实际类型是<code>java.util.ArrayList.</code>. 这个的语义是Bag类型, 即允许重复元素, 顺序无所谓. 也是JPA标准.</li>
+    <li><code>java.util.Map</code>接口,实际类型是<code>java.util.HashMap</code>. 键和值都存在数据库中, 也是JPA标准.</li>
+    <li><code>java.util.SortedMap</code>接口,实际类型是<code>java.util.TreeMap</code>. 支持排序的Map, 也是内存中排序, 不是JPA标准, 是Hibernate支持.</li>
+    <li>数组也是集合, JPA标准不支持集合, Hibernate支持. 但是很少使用.</li>
 </ol>
+<p>这里有个小知识点, 就是Image中只存储文件名称, 但是Java的文件读写并不支持事务, 无法回滚. 现在也有一些支持事务的文件操作库, 比如<a href="https://xadisk.java.net">XADisk</a>.</p>
+<p>注意这些集合映射, 现在说的都是value type的集合映射, 如果映射的是一批其他Entity, 那就不是单纯的集合映射, 而是表关系.</p>
+
+<h2 style="text-align: center;" id="con2">映射SET</h2>
+<p>下边使用的一个Item对应多个Image, 还没有使用Image类, 一个Image就是一个String文件名, 所以Item对应一个文件名的集合, 由于文件名相等代表是同一个文件, 因此应该使用Set:</p>
+<pre>
+@Entity
+public class Item {
+
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "IMAGE",
+            joinColumns = @JoinColumn(name = "ITEM_ID")
+    )
+    @Column(name = "FILENAME")
+    protected Set&lt;String> images = new HashSet&lt;>();
+}
+</pre>
+<p>解释如下:</p>
+<ol>
+    <li><code>@ElementCollection</code>用在一个value type的集合上, 这里要注意, 是value type的集合哦.</li>
+    <li><code>@CollectionTable</code>用来覆盖默认的ITEM类型对应的表名, 默认是ITEM_IMAGES. 其中的@JoinColumn控制的是IMAGE表的外键列名称.</li>
+    <li>通过集合生成的表, 主键是联合主键, 由String类型和外键列共同组成, 这意味对于同一个ITEM无法插入重复的图片文件名.</li>
+</ol>
+<p>写个小测试运行一下看看实际生成的代码吧:</p>
+<pre>
+    tx.begin();
+
+    Item item = new Item();
+    item.addImage("image1");
+    item.addImage("image2");
+    item.addImage("image3");
+    item.addImage("image4");
+    item.addImage("image5");
+
+    Item item2 = new Item();
+    item2.addImage("image10");
+    item2.addImage("image11");
+    item2.addImage("image12");
+
+    em.persist(item);
+    em.persist(item2);
+
+    tx.commit();
+</pre>
+<p>实际创建了两个表:</p>
+<pre>
+Hibernate:
+
+    create table Item (
+        id int8 not null,
+        primary key (id)
+    )
+
+    create table IMAGE (
+        ITEM_ID int8 not null,
+        FILENAME varchar(255)
+    )
+
+    alter table if exists IMAGE
+       add constraint FK81w867q86d41yp2romymdpbvi
+       foreign key (ITEM_ID)
+       references Item
+</pre>
+<p>就是一个外键关系, 这里放上<code>@CollectionTable</code>不带任何参数的生成语句, 可以方便的看到注解中控制了哪些内容:</p>
+<pre>
+Hibernate:
+
+    create table Item (
+       id int8 not null,
+        primary key (id)
+    )
+
+    create table Item_images (
+       Item_id int8 not null,
+        FILENAME varchar(255)
+    )
+
+    alter table if exists Item_images
+       add constraint FKnt0u91fi0efuy5ug9qq9ua2jt
+       foreign key (Item_id)
+       references Item
+</pre>
+<p>看到这里觉得真是妙, 原来可以value type类型的集合也能够持久化, 以前用Hibernate, 上来就是持久化类之间的关系, 却没意识到这值类型的集合也能够持久化成一个表. 对于TresSet也是完全相同的操作.</p>
+
+<h2 style="text-align: center;" id="con3">映射Bag类型</h2>
+<p>Java的集合类型并没有一个Bag类型, 但是算法中经常有背包一说, 在Hibernate中, 只要使用Collection多态, 具体实现类是ArrayList, 就会被解析映射成一个背包类型, 背包类型是无序, 允许重复的集合类型.</p>
+<p>映射背包的方式如下:</p>
+<pre>
+@Entity
+@org.hibernate.annotations.GenericGenerator(
+        name = "ID_GENERATOR",
+        strategy = "enhanced-sequence",
+        parameters = {
+                @org.hibernate.annotations.Parameter(
+                        name = "sequence_name",
+                        value = "cony_sequence"
+                ),
+                @org.hibernate.annotations.Parameter(
+                        name = "initial_value",
+                        value = "1000"
+                )
+        })
+public class Item {
+
+    @Id
+    @GeneratedValue
+
+    protected Long id;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "IMAGE"
+    )
+    @Column(name = "FILENAME")
+    @org.hibernate.annotations.CollectionId(
+            columns = @Column(name = "IMAGE_ID"),
+            type = @org.hibernate.annotations.Type(type = "long"),
+            generator = "ID_GENERATOR"
+    )
+    protected Collection&lt;String> images = new ArrayList<>();
+}
+</pre>
+<p>类上边定义了一个GenericGenerator, 是为了后边用. 这里依然使用了<code>@ElementCollection</code>和<code>@CollectionTable</code>两个注解. 为什么不能像上边的SET一样在@CollectionTable内使用column属性, 是因为这么做会生成id和文件名的联合主键, 导致无法放入重复元素.</p>
+<p>所以在下边加了一个Hibernate的注解, 专门用来注解集合表中的Id, 其中指定了IMAGE表的主键名称是IMAGE_ID, 类型是long, 生成器是刚刚注解出来的生成器, 三个属性缺一不可.</p>
+<p>有意思的是生成的表:</p>
+<pre>
+Hibernate:
+
+    create table IMAGE (
+         Item_id int8 not null,
+        FILENAME varchar(255),
+        IMAGE_ID int8 not null,
+        primary key (IMAGE_ID)
+    )
+
+    create table Item (
+       id int8 not null,
+        primary key (id)
+    )
+
+    alter table if exists IMAGE
+       add constraint FKfmjenilsjv7utxi4500ytgc5j
+       foreign key (Item_id)
+       references Item
+</pre>
+<p>可以发现, IMAGE类变成了三列, ITEM_ID关联到ITEM类, 此外主键是IMAGE_ID, 这样即使相同的FILENAME都可以关联到同一个ITEM_ID上, 也就是同一个ITEM上.</p>
+
+<h2 style="text-align: center;" id="con4">映射List类型</h2>
+<p>前边已经看过了两种情况, 都是无序的,一个允许重复, 一个不允许重复. 现在来看看有序的List, 同时List集合语义上也是允许重复的.</p>
+<p>关于List, 一个最大的诱惑就是有序, 究竟有序怎么处理, 看映射:</p>
+<pre>
+@Entity
+public class Item {
+
+    @Id
+    @GeneratedValue
+
+    protected Long id;
+
+    @ElementCollection
+    @CollectionTable(name = "IMAGE")
+    @Column(name = "FILENAME")
+    @OrderColumn
+    protected List&lt;String> images = new ArrayList<>();
+}
+</pre>
+<p>看上去似乎简单了不少, 前边已经知道, 只要使用了前两个注解, 生成的IMAGE有主键和FILENAME两列, BAG会额外添加一列, List既然是有序, 也通过<code>@OrderColumn</code>添加了一列. 生成的语句是:</p>
+<pre>
+Hibernate:
+
+    create table IMAGE (
+        Item_id int8 not null,
+        FILENAME varchar(255),
+        images_ORDER int4 not null,
+        <span style="color: red">primary key (Item_id, images_ORDER)</span>
+    )
+
+    create table Item (
+        id int8 not null,
+        primary key (id)
+    )
+
+    alter table if exists IMAGE
+       add constraint FKfmjenilsjv7utxi4500ytgc5j
+       foreign key (Item_id)
+       references Item
+</pre>
+<p>一看语句就一目了然了, 不会有属于同一个ITEM并且序号重复的内容, 但是FILENAME可以重复. 查询其实也是如此, 比较不智能的是删除, 如果删除一个序号是2的元素, Hibernate会从3开始直到末尾挨个UPDATE序号为当前序号减1.</p>
+
+<h2 style="text-align: center;" id="con5">映射MAP类型</h2>
+<p>有了前边的经验, MAP映射其实心里也应该有数了, 就是一列KEY, 一列VALUE, 外加一个ID:</p>
+<pre>
+@Entity
+public class Item {
+
+    @Id
+    @GeneratedValue
+
+    protected Long id;
+
+    @ElementCollection
+    @CollectionTable(name = "IMAGE")
+    @Column(name = "FILENAME")
+    @MapKeyColumn(name = "IMAGENAME")
+    protected Map&lt;String,String> images = new HashMap<>();
+}
+</pre>
+<p>新东西是<code>@MapKeyColumn</code>, 存放文件名的列相当于value, 现在要加上一个KEY列, 就用这个注解来指定, 其他都不变, value列名依然是FILENAME, 表名叫IMAGE, 跑一下测试看语句:</p>
+<pre>
+tx.begin();
+
+Item item = new Item();
+
+item.getImages().put("cony", "d:\\cony.jpg");
+item.getImages().put("saner", "c:\\owl.jpg");
+item.getImages().put("kiki", "e:\\kiwi.jpg");
+
+em.persist(item);
+
+tx.commit();
+</pre>
+<p>建表语句是:</p>
+<pre>
+Hibernate:
+
+    create table IMAGE (
+        Item_id int8 not null,
+        FILENAME varchar(255),
+        IMAGENAME varchar(255) not null,
+        primary key (Item_id, IMAGENAME)
+    )
+
+    create table Item (
+        id int8 not null,
+        primary key (id)
+    )
+
+    alter table if exists IMAGE
+       add constraint FKfmjenilsjv7utxi4500ytgc5j
+       foreign key (Item_id)
+       references Item
+</pre>
+<p>可以看到, 联合主键是Item_id和IMAGENAME, 对应一个ITEM就不会有重复的key, 也符合MAP的语义.</p>
+<p>这里有一点要注意的是,如果键是基本类型或者BigDecimal这种, 无需额外注解,如果键是一个枚举类型, 需要使用<code>@MapKeyEnumerated</code>注解, 如果是时间类型, 则需要<code>@MapKeyTemporal</code>.</p>
+<p>MAP实际上是不允许重复的, 是无序的.</p>
+
+<h2 style="text-align: center;" id="con6">映射排序的集合</h2>
+<p>这个是Hibernate特有的功能, 不是JPA标准.</p>
+<p>说到排序, 有两个词, 一个是sorted, 一个是ordered, sorted表示在内存中使用Java的排序, 而ordered表示Hibernate存取时候使用ORDER BY的排序.</p>
+<p>排序功能目前能用于之前提到的两个支持类型:TreeMap和TreeSet. 先来看TreeMap:</p>
+<pre>
+@Entity
+public class Item {
+
+    @Id
+    @GeneratedValue
+
+    protected Long id;
+
+    @ElementCollection
+    @CollectionTable(name = "IMAGE")
+    @Column(name = "FILENAME")
+    @MapKeyColumn(name = "IMAGENAME")
+    @org.hibernate.annotations.SortComparator(ReverseStringComparator.class)
+    protected SortedMap&lt;String, String> images = new TreeMap&lt;>();
+
+    public Map&lt;String, String> getImages() {
+        return images;
+    }
+
+    public static class ReverseStringComparator implements Comparator&lt;String> {
+        @Override
+        public int compare(String a, String b) {
+            return b.compareTo(a);
+        }
+    }
+}
+</pre>
+<p>SortComparator注解需要传入一个实现了Comparator接口的类. SortedSet的配置很类似:</p>
+<pre>
+@Entity
+public class Item {
+    @ElementCollection
+    @CollectionTable(name = "IMAGE")
+    @Column(name = "FILENAME")
+    @org.hibernate.annotations.SortNatural
+    protected SortedSet&lt;String> images = new TreeSet&lt;String>();
+
+}
+</pre>
+<p>这里的SortNatural意思就是用对应类型的compareTo方法去比较.</p>
 
 
 
@@ -48,14 +350,30 @@
 
 
 
-<h2 style="text-align: center;" id="con2"></h2>
 
-<h2 style="text-align: center;" id="con3"></h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
