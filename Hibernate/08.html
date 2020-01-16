@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Hibernate 08 映射关系 - 高级内容</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>上一篇里看了一个单向的多对一, 然后转成双向的多对一关系, 然后使用了级联操作. 现在就来详细的看看这三种关系的映射, 以及其中的细节. </p>
+
+<ol>
+    <li><a href="#con1">一对一关系</a></li>
+    <li><a href="#con2">一对多关系</a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">一对一关系</h2>
+<p>对于一对一关系来说, 两个Entity实际上可以认为是同一张表, 只是分别保存不同的字段. 像之前Embedded类的时候, User与Address类, 实际生成的表, Address的属性就直接扩充在User表中.</p>
+<p>如果将Address保存成一个Entity, 会怎样呢. 好处是可以复用Address对象, 不同的User都可以对应一个Address.比如如果有一个Shipment对象, 也需要使用Address, 就不用在Shipment对象中也内嵌一个Address对象, 同时还要再输入一遍数据.</p>
+<p>从User和Shipment的角度来说, User和Shipment 与 Address的关系是一对一关系. 即一个User或Shipment中, 就一个Address对象的引用.</p>
+<p>映射一对一关系有很多方法, 看一下常用的映射方法.</p>
+
+<h3>共享主键方式</h3>
+<p>共享主键方式, 指的是不同的表上的两个有一对一关系的行, 主键的值相等, 用例子来说, 就是要确保 user.id = address.id</p>
+<p>这种方式的问题稍微一想就可以知道, 难点在于一定要保持两个主键相同. 先来映射一下看看, 现在的User和Address都是独立的Entity类了. Address类没有什么稀奇的:</p>
+<pre>
+@Entity
+public class Address {
+    @Id
+    @GeneratedValue
+    protected Long id;
+    @NotNull
+    protected String street;
+    @NotNull
+    protected String zipcode;
+    @NotNull
+    protected String city;
+    .....
+}
+</pre>
+<p>关键是User类, 如何体现一个User与Address是一对一关系:</p>
+<pre>
+@Entity
+@Table(name = "USERS")
+public class User {
+    @Id
+    protected Long id;
+
+    @OneToOne(
+            fetch = FetchType.LAZY,
+            optional = false
+            cascade = CascadeType.PERSIST
+    )
+    @PrimaryKeyJoinColumn
+    protected Address shippingAddress;
+
+    ......
+}
+</pre>
+<p>这个User类有如下几个特点:</p>
+<ol>
+    <li> <span style="color: red">@Id之后没有主键生成策略,这是为数不多的使用应用(Hibernate)来控制主键的方式</span>. 当然, 构造器也可以是一个带有id属性的构造器, 不过既然直接存取字段, 构造器也不是必须的.</li>
+    <li><code>@OneToOne</code>注解要加在Address属性上, 一对一关系的默认加载方式是<strong>EAGER</strong></li>
+    <li><code>@OneToOne</code>中的optional = false, 表示一个User必须有一个Address, 不能为null. </li>
+    <li><code>@PrimaryKeyJoinColumn</code>注解也加在Address属性上, 这说明了User主键, 要采用Address类中生成的主键, 这实际上是User->Address单向的一对一关系.</li>
+</ol>
+<p>来写一个测试看看究竟如何操作, 以及生成的表:</p>
+<pre>
+@Test
+public void test() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    Address address = new Address();
+    address.setCity("shanghai");
+    address.setStreet("zhroad");
+    address.setZipcode("100000");
+
+    User user = new User();
+    user.setUsername("cony");
+    user.setShippingAddress(address);
+
+    em.persist(user);
+
+    tx.commit();
+}
+</pre>
+<p>看上去应该没问题, 但是一运行, 就报错了, 提示如下:</p>
+<p>ids for this class must be manually assigned before calling save(): cc.conyli.model.chapter8.onetoone.User</p>
+<p>这说明, 不能这么想当然的持久化, 因为没有设置主键生成策略, 必须自己手工指定, 这就需要先持久化address对象, 从其中获取id之后, 再设置给user对象才行:</p>
+<pre>
+tx.begin();
+
+<span style="color: red">em.persist(address);</span>
+
+<span style="color: red">user.setId(address.getId());</span>
+
+<span style="color: red">em.persist(user);</span>
+//这一行可以忽略
+user.setShippingAddress(address);
+
+tx.commit();
+</pre>
+<p>实际上, 在上边三条执行完之后, <code>user.setShippingAddress(address);</code>执行不执行都不影响Hibernate写入, 因为底层已经写完了外键的数值. 只是影响Java代码能不能获取关联的对象.</p>
+<p>共享主键有如下几个问题:</p>
+<ol>
+    <li>Address类必须有一个在插入前生成主键的生成器, 而且必须先持久化, 否则无法获取主键.</li>
+    <li>只有值不是null的时候, 是否选择延迟加载才有意义.一对一关系的默认加载方式是<strong>EAGER</strong>, 但是如果值是null, 还是会去数据库里查Address看是不是null. 所以设置成optional=true就无法启用延迟加载.</li>
+    <li>这种onetoone是单向关系, 但很多时候需要双向关系</li>
+</ol>
+<p>这三个问题,第一个是无法解决的; JPA规范对于一个null值无法启用加载代理, 所以也无法解决. 唯一能解决的就是第三个问题, 可以使用一个特殊的生成器, 来让关系变成双向.</p>
+
+<h3>外键生成器方式 - Hibernate特有</h3>
+<p>只要是双向关系, 必定有一方要有一个mappedBy属性去指定另外一方的属性名称.</p>
+<p>这里将两个类修改如下, 先看User类:</p>
+<pre>
+@Entity
+@Table(name = "USERS")
+public class User {
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    @OneToOne(
+            mappedBy = "user", optional = false,
+            cascade = CascadeType.PERSIST
+    )
+    protected Address shippingAddress;
+}
+</pre>
+<p>User类去掉了<code>@PrimaryKeyJoinColumn</code>注解, 在id上加上了<code>@GeneratedValue</code>, 表示User的主键自动生成. Address类的主键如何对应User的主键呢:</p>
+<pre>
+@Entity
+public class Address {
+    @Id
+    @GeneratedValue(generator = "addressKeyGenerator")
+    @org.hibernate.annotations.GenericGenerator(
+            name = "addressKeyGenerator",
+            strategy = "foreign",
+            parameters =
+            @org.hibernate.annotations.Parameter(
+                    name = "property", value = "user"
+            )
+    )
+    protected Long id;
+
+    @OneToOne(optional = false)
+    @PrimaryKeyJoinColumn
+    private User user;
+
+}
+</pre>
+<p>由于是双向关系, 所以Address类中也有了一个user属性, 这个属性被User类的address给 mappedBy了, 还都带着@OneToOne, 所以二者对应上了.</p>
+<p>上边使用了一个id生成器, id的策略是"foreign", 这个策略仅仅用在双向一对一的生成关系中.下班的@Parameters表示对应的属性名称是User user. 也就是说, address 每一次生成id, 实际上是从user对象中取id过来当成自己的id.</p>
+<p>现在的user属性被加上了<code>@PrimaryKeyJoinColumn</code>, 表明这一列就是外键列了, 同时还是not null, 说明了User和Address生命周期的一致性.</p>
+<p>由于User还有级联删除, 现在只需要给user设置好address属性, 然后进行保存即可, user的id会自动写入到address对象的id上去. 写一个测试看看:</p>
+<pre>
+tx.begin();
+
+address.setUser(user);
+user.setShippingAddress(address);
+em.persist(user);
+
+tx.commit();
+</pre>
+<p>只要先将user和address关联起来, 然后再持久化, 就OK了, address的id会根据user的主键来确定. 在实际插入的时候, 先插入user对象, 然后根据user的id再插入address对象.</p>
+<p>相比之下, 推荐使用Hibernate的主键通过外键生成的方式, 比较容易操作和理解.</p>
+
+<h3>额外的外键关联列</h3>
+<p>上边的两种方法, 虽然也是外键关联, 但是两个表的主键都参与了关联. 如果不共享主键, 第一种方法的三个问题中的第一个就解除了. 实际做法也很简单, 让address的主键关联到user的一列非主键, 然后将user这一列设置为unique.</p>
+<p>这样就保证不会有相同的address对应到同一个user上. 由于主键也是unique, 其实这种方法的本质和前两种也没有太大区别.</p>
+<p>先来看User类, 不使用<code>@PrimaryKeyJoinColumn</code>来定义一个被外键关联的列, 而是使用普通的@JoinColumn来定义, 其他基本类似:</p>
+<pre>
+@Entity
+@Table(name = "USERS")
+public class User {
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    @OneToOne(
+            mappedBy = "user", optional = false,
+            cascade = CascadeType.PERSIST,
+            fetch = FetchType.LAZY
+    )
+    @JoinColumn(unique = true)
+    protected Address shippingAddress;
+}
+</pre>
+<p><code>@JoinColumn</code>的意思就是表示这是一个外键列(foreign key). 可以使用LAZY加载, 因为不会为null.</p>
+<p>而Address就没有任何要求, 是一个普通的Entity类:</p>
+<pre>
+@Entity
+public class Address {
+
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    @NotNull
+    protected String street;
+
+    @NotNull
+    protected String zipcode;
+
+    @NotNull
+    protected String city;
+}
+</pre>
+<p>测试代码也简单了很多, 只需要设置User的address:</p>
+<pre>
+tx.begin();
+user.setShippingAddress(address);
+em.persist(user);
+
+tx.commit();
+</pre>
+<p>由于之前是address的主键关联user的主键, 现在@OnetoOne写在User里而且没有mappedBy, 则外键列就是shippingAddress属性.</p>
+<p>建表的语句是:</p>
+<pre>
+Hibernate:
+
+    create table Address (
+        id int8 not null,
+        city varchar(255),
+        street varchar(255),
+        zipcode varchar(255),
+        primary key (id)
+    )
+
+    create table USERS (
+        id int8 not null,
+        username varchar(255),
+        shippingAddress_id int8 not null,
+        primary key (id)
+    )
+
+    alter table if exists USERS
+       add constraint UK_ob48mbnfmufd417fo9swuhfbv unique (shippingAddress_id)
+
+    alter table if exists USERS
+       add constraint FK8b81owquby3hwghtf9oyccwpm
+       foreign key (shippingAddress_id)
+       references Address
+</pre>
+<p>可以看到User的外键关联到Address的主键,同时外键列又是unique的, 所以本质和第二种方法没有区别, 只是不用主键直接关联, 自然就要多一列了. 这种方式配置注解比较简单, 也易于理解, 同时不操作主键, 减少了很多问题.</p>
+<h3>使用关系表</h3>
+<p>一对一关系, 如果某一边是一个null, 就会很麻烦, 而且关联在一起. 更好的解决方案是通过一个中间表, 其中的一行表示一个对应关系, 没有则表示没有关系.</p>
+<p>使用了中间表之后, 就不一定要把两个对象这么紧密的捆绑在一起了. 但是这里的意义有变化, 即两个对象的关系可能是可选的一对一关系, 即要么没有对应, 要么一对一.</p>
+<p>这个意义就和之前强行约束的一对一关系有区别了.</p>
+<p>看代码吧, 假如现在有一个User和Address的关系是: User要么有一个Address, 要么没有, 则一对一通常设置在UML关系中的0..1的1的那一边, 即箭头出发, 而不是指向的那一边, 也就是User类中. 再次强调注意此处<span style="color: red">一对一意义的变更</span>.</p>
+<pre>
+@Entity
+@Table(name = "USERS")
+public class User {
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
+    @JoinTable(
+            name = "USER_ADDRESS",
+            joinColumns = @JoinColumn(name = "USER_ID"),
+            inverseJoinColumns =
+            @JoinColumn(name = "ADDRESS_ID", nullable = false, unique = true)
+    )
+    protected Address shippingAddress;
+}
+</pre>
+<p>这里的一对一关系依然设置在shippingAddress上, 但是这里不再使用主键关联或者@JoinColumn, 而是使用了@JoinTable注解.</p>
+<p>这样shippingAddress其实不会出现在User类上, 而是Hibernate会根据@JoinTable来创建一个中间表.</p>
+<p>其中的joinColumns表示关联到当前类也就是User类的外键列的属性, inverseJoinColumns则表示关联到另外一个表(也就是Address)的外键列的属性. 这里还给其设置了unique, 说明要么没有, 要么就对应一个,不能重复.</p>
+<p>测试代码其实和上一个一样, 都只需要设置user的address属性就可以了.</p>
+<p>看一下创建的SQL语句:</p>
+<pre>
+Hibernate:
+
+    create table Address (
+        id int8 not null,
+        city varchar(255),
+        street varchar(255),
+        zipcode varchar(255),
+        primary key (id)
+    )
+
+    create table USER_ADDRESS (
+        ADDRESS_ID int8 not null,
+        USER_ID int8 not null,
+        primary key (USER_ID)
+    )
+
+    create table USERS (
+        id int8 not null,
+        username varchar(255),
+        primary key (id)
+    )
+Hibernate:
+
+    alter table if exists USER_ADDRESS
+       add constraint UK_6v1dwl45nt34pce4p648i1gtx unique (ADDRESS_ID)
+
+    alter table if exists USER_ADDRESS
+       add constraint FKocjk8pkyyoeqytsjegryu4ldl
+       foreign key (ADDRESS_ID)
+       references Address
+
+    alter table if exists USER_ADDRESS
+       add constraint FKqqeoct76ir4xbb8lvyycxus2s
+       foreign key (USER_ID)
+       references USERS
+</pre>
+<p>可见创建了中间表. 插入的时候也完全OK. 如果一个关系在表里查不到, 就说明User对象没有对应的Address对象.</p>
+
+<h2 style="text-align: center;" id="con2">一对多关系</h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

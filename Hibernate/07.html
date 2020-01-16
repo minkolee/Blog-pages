@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 07 映射关系</title>
+    <title>Hibernate 07 映射关系 - 基础</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -17,22 +17,255 @@
 <body>
 <p>value type的集合就是集合映射, 如果集合中的元素是Entity类型, 那就不是简单的集合映射, 而是类的关系了. 如果Image是一个Entity对象, 这个映射代表的就是不是一系列值. 而是Item和Image这两个类之间的关系.</p>
 <p>实际上通过UML类图也可以知道, 集合映射的还是类内部的那些东西以及要组合的其他类型; 而关系映射, 就是要映射UML类图之间的关系线, 也是比较核心的映射.</p>
+<p>逐渐接触到ORM的核心内容了, 昨天年会开完, 今天还没有怎么醒酒, 先更新一篇短的, 复杂的关系映射慢慢整理.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">关系映射</a></li>
+    <li><a href="#con2">单向多对一关系</a></li>
+    <li><a href="#con3">把单向多对一关系转变成双向</a></li>
+    <li><a href="#con4">级联关系</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">关系映射</h2>
+<p>在刚才的集合中, 实际上是一种父子或者说组合关系, 集合中的值类型都依赖所属类的生命周期.</p>
+<p>在关系映射中, 就不一样了, 映射的是两个Entity之间的关系, 通过Entity定义我们可以知道, Entity之间不会有互相依赖的生命周期, 都可以独立操作. 一个Entity对象可以独立的增删改查.</p>
+<p>因此对于Entity,就没有父子关系, 而是要用新的术语来定义Entity之间的关系. 整体上来说一共有三种关系:</p>
+<ol>
+    <li>多对一, 站在Bid类的角度, 描述Bid类与Item类的关系, 就是多对一, 即存在多个(0到任意)Bid对象对应一个Item. 从Java角度来说, 每个Bid类中只有一个Item属性.</li>
+    <li>一对多, 站在Item类的角度描述Bid类与Item的关系, 一个Item对象, 会包含多个(0到任意)的Bid对象, 这叫做一对多关系. 从Java角度来说, 一个Item中有一个Bid集合.</li>
+    <li>多对多, 比如学生选课, Student类可以选择多个Lecture对象, Lecture对象也对应多个Student对象. 从Java角度来说, Student类中有一个Lecture集合, Lecture类中有一个Student集合.</li>
+</ol>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">单向多对一关系</h2>
+<p>单向多对一关系是最简单的一种关系, Bid#Item的关系中, 如果仅仅只有Bid类有一个外键关联到Item, 只映射这个外键关系, 就是最基础的单向多对一关系.</p>
+<p>看一下如何映射这个外键关系:</p>
+<pre>
+@Entity
+public class Bid {
 
-<h2 style="text-align: center;" id="con3"></h2>
+    @Id
+    @GeneratedValue
+    protected Long id;
 
-<h2 style="text-align: center;" id="con4"></h2>
+    <span style="color: red">@ManyToOne(optional = false, fetch = FetchType.LAZY)</span>
+    <span style="color: red">@JoinColumn(name = "ITEM_ID")</span>
+    protected Item item;
+
+    public Item getItem() {
+        return item;
+    }
+
+    public void setItem(Item item) {
+        this.item = item;
+    }
+    ......
+}
+</pre>
+<p><code>@ManyToOne</code>注解一个属性, 让这个属性会成为一个关系映射, 而且这个属性也变成必须提供的属性. <code>@ManyToOne</code>还能控制细节, optional=false表示not null约束. 默认的策略是FetchType.EAGER, 可以更改成LAZY.</p>
+<p>标记为<code>@ManyToOne</code>的属性在数据库中会被转换成一个外键列, 在JPA标准中, 外键列被称为join column. 对于外键列, 必须要使用<code>@JoinColumn</code>注解来控制名称和其他属性. 外键列默认的名称是外键关联到的表名_id, 这里的ITEM_ID其实就是默认名称.</p>
+<p>在<code>@JoinColumn</code>中也可以使用nullable来控制是不是可以允许为null. 这不允许为null实际上带有一种生命周期的依赖, 即不允许Bid脱离Item存在.</p>
+<p>对于外键列, 唯一需要的是<code>@ManyToOne</code>注解, 其他注解可以不添加.</p>
+<p>写个小测试来试试:</p>
+<pre>
+@Test
+public void test() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+
+    Item item = new Item();
+    item.getImages().add("home");
+    item.getImages().add("kindergarden");
+    item.getImages().add("games");
+
+    Bid bid = new Bid();
+    bid.setAmount(new BigDecimal("3.93"));
+    bid.setItem(item);
+
+    tx.begin();
+
+<span style="color: #FF6600">    em.persist(item);
+    em.persist(bid);</span>
+    tx.commit();
+}
+</pre>
+<p>代码好懂,这里红色的部分要注意, 一定要先持久化item, 才能持久化bid, 否则会看到如下错误:</p>
+<pre>
+Attempting to save one or more entities that have a non-nullable association with an unsaved transient entity.
+The unsaved transient entity must be saved in an operation prior to saving these dependent entities.
+</pre>
+<p>意思就是如果有不能为null的关联关系, 关联到一个尚未持久化的Entity, 一定要把尚未持久化的Entity先于外键所在类给持久化了才行.</p>
+<p>创建表的语句如下:</p>
+<pre>
+Hibernate:
+
+    create table Bid (
+        id int8 not null,
+        amount numeric(19, 2),
+        ITEM_ID int8 not null,
+        primary key (id)
+    )
+
+    alter table if exists Bid
+        add constraint FK884gyguvo3jcbca0v78w95l3k
+        foreign key (ITEM_ID)
+        references Item
+</pre>
+<p>可见添加了一个外键.还要来看看查询怎么操作:</p>
+<pre>
+List&lt;Bid> bids = em.createQuery(<span style="color: red">"SELECT b FROM Bid b WHERE b.item = item"</span>, Bid.class).getResultList();
+</pre>
+<p>可以看到, 不是使用SQL语句中的用id来查, 而是先要获得一个Item对象, 然后查出哪个bid对象等于这个item, 这样就把数据库里实际的外键是否相等, 转换成了比较Java对象是否相等.</p>
+
+<h2 style="text-align: center;" id="con3">把单向多对一关系转变成双向</h2>
+<p>变成双向, 在Java角度就意味这我们是不是会经常使用<code>item.getBids()</code>这种方法来获取一个Item对象对应的全部Bid.</p>
+<p>所以很显然, 需要在Item中设置一个Bid集合属性, 当然肯定少不了标记:</p>
+<pre>
+@OneToMany(mappedBy = "item", fetch = FetchType.LAZY)
+private Set&lt;Bid> bids = new HashSet<>();
+</pre>
+<p>其实可以发现, 从Item角度来说, 就是一对多关系, 所以需要使用<code>@OneToMany</code>这个注解. 这个注解对应的集合, 注意可不是值类型的集合了, 而是一个Entity的集合, 这个bids属性是不会保存在数据库中的, 只是一个关系映射.</p>
+<p><code>@OneToMany</code>的<code>mappedBy</code>属性很重要, 不能缺少, 表示"对方类中的属性", 对于Item来说, 就是Bid类中的表示Item类的属性名称, 也就是小写的item. 这个一定不能错.</p>
+<p>对于集合类型, 默认的FetchType就是LAZY. 所以这里也可以不用设置. 一般都会使用LAZY, 因为不太想一下就将对应的全部Bids都载入内存.</p>
+<p>同时, 既然有了双向关系, Item中也应该添加一个向bids中新增Bid对象的方法:</p>
+<pre>
+public void addBid(Bid bid) {
+    // Be defensive
+    if (bid == null)
+        throw new NullPointerException("Can't add null Bid");
+    if (bid.getItem() != null)
+        throw new IllegalStateException("Bid is already assigned to an Item");
+
+    getBids().add(bid);
+    bid.setItem(this);
+}
+</pre>
+<p>这样在将Item与Bid关联的时候, 只要执行这个方法就可以了. 新的测试如下:</p>
+<pre>
+public void test() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+
+    //创建一个Item和两个Bid对象
+    Item item = new Item();
+    item.getImages().add("home");
+    item.getImages().add("kindergarden");
+    item.getImages().add("games");
+
+    Bid bid = new Bid();
+    bid.setAmount(new BigDecimal("3.93"));
+    item.addBid(bid);
+
+    Bid bid1 = new Bid();
+    bid1.setAmount(new BigDecimal("4.01"));
+    item.addBid(bid1);
+
+    tx.begin();
+    em.persist(item);
+    em.persist(bid);
+    em.persist(bid1);
+    tx.commit();
+}
+</pre>
+<p>测试其实很容易, 和之前类似, 也是要先持久化item对象, 再持久化bid对象, 否则bid会找不到外键.</p>
+<p>在最后.commit()之前, Hibernate会执行dirty checking. 最后会以最新的状态写入.</p>
+
+<h2 style="text-align: center;" id="con4">级联关系</h2>
+<p>Item和Bid类的关系, 在数据库中是外键, 在Java代码中, 使用了<code>getBids().add(bid); bid.setItem(this);</code>, 这是为了保持数据的完整性. 这样无论在数据库层面, 还是Java层面, 关系都是一致的.</p>
+<p>但是在上边的例子中, 必须要先持久化item, 再持久化bid, 这是因为插入bid的时候, 外键必须关联到一个已经存在的对象上, 不先持久化item, 外键就是null, 不符合约束条件.</p>
+<p>但是仔细一想, 既然已经有了关系, 外键关系反应到Java上, 也是一种依赖关系, 是不是可以设置一下关联关系会自动的反映在如何操作上.</p>
+<p>这就是为两个类的关系定义级联操作, 即遇到一些特定的操作, 该如何具体的从两个类的关系中生成相应的操作.</p>
+<h3>CascadeType.PERSIST&nbsp;级联保存</h3>
+<p>先看一下级联操作的第一个种类, CascadeType.PERSIST, 表示级联保存. 注意看前边的例子,需要先保存一对多关系中的那个"一", 剩下的"多"才有对应关系. 将CascadeType.PERSIST加在一对多的"一"那边:</p>
+<pre>
+@OneToMany(mappedBy = "item", fetch = FetchType.LAZY, <span style="color: red">cascade = CascadeType.PERSIST</span>)
+private Set&lt;Bid> bids = new HashSet&lt;>();
+</pre>
+<p>如此设置之后, 就可以只持久化item, 其中的bid集合中的所有对象, 会跟着一起持久化:</p>
+<pre>
+item.addBid(bid);
+item.addBid(bid1);
+tx.begin();
+em.persist(item);
+tx.commit();
+</pre>
+<p><code>@ManyToOne</code>也可以设置级联保存, 但是一般不会使用.</p>
+<h3>CascadeType.REMOVE&nbsp;级联删除</h3>
+<p>先来看看, 在数据库的层面要删除一个Item对象如何操作呢, 很显然分为两步, 第一步是先删除这个Item的所有Bid表中的关联内容(不能先删除Item表,否则外键为空), 然后删除Item表.</p>
+<p>如果换成Hibernate操作, 要这么写:</p>
+<pre>
+@Test
+public void test2() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+
+    tx.begin();
+
+    List&lt;Item> items = em.createQuery("SELECT i FROM Item i", Item.class).getResultList();
+
+    //对于每个item
+    for (Item i : items) {
+        //删除item对应的所有bid
+        for (Bid b : i.getBids()) {
+            em.remove(b);
+        }
+        //删除bid对应的item
+        em.remove(i);
+    }
+
+    tx.commit();
+}
+</pre>
+<p>设置了级联删除之后, 只需要删除item, 就会自动完成这个过程:</p>
+<pre>
+@OneToMany(mappedBy = "item", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, <span style="color: red">CascadeType.REMOVE</span>})
+private Set&lt;Bid> bids = new HashSet&lt;>();
+</pre>
+<p>级联删除有一个比较重大的问题, 就是Hibernate会认为其中的bid仅仅只有和item关联, 实际上未必, 如果bid还和其他类有关联关系, 未必可以如此简单的将其删除.</p>
+<p>因此在级联删除的时候需要小心, 尤其是UML类图的映射, 如果只是单向关系, 就没有必要将单向关系映射为双向, 这样就可以避免不必要的级联操作. 此外级联删除是一条条查询后再删除, 效率会比较低下.</p>
+<p>Hibernate提供了特殊的<code>@org.hibernate.annotations.OnDelete</code>用于控制行为, 可以具体指定行为方式, 使用Hibernate的特性改写的级联删除如下:</p>
+<pre>
+@Entity
+public class Item {
+    @OneToMany(mappedBy = "item", cascade = CascadeType.PERSIST)
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
+    protected Set&lt;Bid> bids = new HashSet<>();
+    ......
+}
+</pre>
+<p>这种简单的@OneToMany和@ManyToOne算是比较简单的, 后边再逐渐看这三种关系的深入剖析. 这级联操作也还有很多种类要看.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
