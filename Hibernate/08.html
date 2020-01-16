@@ -281,7 +281,7 @@ public class User {
     protected Address shippingAddress;
 }
 </pre>
-<p>这里的一对一关系依然设置在shippingAddress上, 但是这里不再使用主键关联或者@JoinColumn, 而是使用了@JoinTable注解.</p>
+<p>这里的一对一关系依然设置在shippingAddress上, 但是这里不再使用主键关联或者@JoinColumn, 而是使用了@JoinTable注解. 这个注解隐藏了中间表, 并没有中间表对应的类, 但是必须设置中间表的名称.</p>
 <p>这样shippingAddress其实不会出现在User类上, 而是Hibernate会根据@JoinTable来创建一个中间表.</p>
 <p>其中的joinColumns表示关联到当前类也就是User类的外键列的属性, inverseJoinColumns则表示关联到另外一个表(也就是Address)的外键列的属性. 这里还给其设置了unique, 说明要么没有, 要么就对应一个,不能重复.</p>
 <p>测试代码其实和上一个一样, 都只需要设置user的address属性就可以了.</p>
@@ -326,6 +326,157 @@ Hibernate:
 <p>可见创建了中间表. 插入的时候也完全OK. 如果一个关系在表里查不到, 就说明User对象没有对应的Address对象.</p>
 
 <h2 style="text-align: center;" id="con2">一对多关系</h2>
+<p>多元Entity关联, 指的就是一个类中有一个实体引用的集合. 之前看过了基于Set的双向一对多关联, 实际上在能够用简单单双向一对多的情况下能够完成的事情, 没有必要使用更加复杂的映射. 因为如果不愿意通过Java代码来操作,完全可以编写一个查询, 直接查出结果.</p>
+<p>所以基于Set的一对多关联具有普遍的意义. 现在看一些更复杂的场景.</p>
+
+<h3>一对多包</h3>
+<p>在一些情况下, 可以考虑使用包来进行一对多映射, 包在集合中效能最高, 不用进行重复检查, 也不保存顺序. 所以将新元素添加到包里, 不会立刻触发加载.</p>
+<p>所以如果要给一个元素映射成@OneToMany(mappedBy = "xxx")</p>,包是最佳的选择.
+<p>在代码上很简单, 只需要把之前基于Set的映射变成特殊语义的Collection与ArrayList即可, 这里直接写一个测试:</p>
+<pre>
+@Test
+public void testAdd() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+
+    Item item = new Item();
+    item.setName("cony");
+
+    Bid bid1 = new Bid();
+    bid1.setAmount(new BigDecimal("3.04"));
+    bid1.setItem(item);
+    Bid bid2 = new Bid();
+    bid2.setAmount(new BigDecimal("9.83"));
+    bid2.setItem(item);
+
+    tx.begin();
+    em.persist(item);
+    em.persist(bid1);
+    em.persist(bid2);
+    em.persist(bid1); //这一行没有持久化效果
+
+    tx.commit();
+}
+</pre>
+<p>Bag中的重复, 指的是值的重复, 而不是引用对象的重复. 虽然Bag叫做重复, 但反复添加同一个对象的引用, 会被Hibernate知道, 从而不会持久化进去.</p>
+<p>实际上这里查看代码的时候, 会发现如果从数据库中取出item, 调用 item.getBids().add(Bid b), 由于之前说的不会检查顺序和重复, 也就不会触发SELECT, 因此比较高效.</p>
+
+<h3>单双向列表映射</h3>
+<p>这里的列表指的是保存加载顺序的List = ArrayList, 注意与可排序的List不是一个概念,之前已经知道, 使用这种语义会让Hibernate把顺序也一并保存. 这里就是要持久化带有顺序的列表.</p>
+<p>首先来看单向映射, 即使用List来映射Item与Bid之间的关系, 由于上一段说的, 需要定义一个存储顺序的列, 因此这里要使用一个新注解 <code>@OrderColumn</code> 来给顺序列提供信息:</p>
+<pre>
+@Entity
+public class Item {
+
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    @NotNull
+    protected String name;
+
+<span style="color: red">    @OneToMany
+    @JoinColumn(
+            name = "ITEM_ID",
+            nullable = false
+    )
+    @OrderColumn(
+            name = "BIDS_long", // Defaults to BIDS_ORDER
+            nullable = false
+    )</span>
+    public List&lt;Bid> bids = new ArrayList&lt;>();
+}
+</pre>
+<p>这个映射要注意, 只要不是双向映射, 一对多的情况下, 不管映射在哪一边, 外键可是肯定在一对多的多的那一侧, 这里虽然是把@OneToMany标注在Item类上, 但是实际上会在Bid中创建一个外键.</p>
+<p>此后的@JoinColumn注解就是在定义这个外键列的名称,叫做ITEM_ID. 之后还定义了一个OrderColumn, 也是定义在Bid中的. 可见上边注解如果加在一个集合引用上, 实际上是对另外一个类起作用, 而不是当前类.</p>
+<p>这么映射好之后, Bid类什么都不需要做, 是最干净的Bid类, 连Item引用都没有:</p>
+<pre>
+@Entity
+public class Bid {
+
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    @NotNull
+    protected BigDecimal amount;
+    ......
+}
+</pre>
+<p>看生成的SQL语句, 就会知道外键, 额外的排序列都全部加到看上去一清二白的Bid表中:</p>
+<pre>
+Hibernate:
+
+    create table Bid (
+        id int8 not null,
+        amount numeric(19, 2),
+        ITEM_ID int8 not null,
+        BIDS_long int4 not null,
+        primary key (id)
+    )
+
+    alter table if exists Bid
+        add constraint FK884gyguvo3jcbca0v78w95l3k
+        foreign key (ITEM_ID)
+        references Item
+</pre>
+<p>可见创建了一个表示列表中顺序的列, 还有一个外键关联到Item. 这样就在Bid表中存储了关联到一个集合中的带顺序的所有Bid. 看来想要用好这个映射注解, 真的要很了解才行, 加在对方的关系和自己的关系上真的很不同.</p>
+<p>实际上通过写入可以发现, 外键和顺序列都是Hibernate自己控制的, 我们要做的只是Java代码中将bid添加进Item的集合中即可.</p>
+<p>目前Bid中没有任何Item的引用, 添加Item引用也就意味着要将关系改成双向的, 只需要添加一个Item属性即可. 但是要注意, 这个Item属性其实也是一个外键, 之前已经添加过了一个外键, 所以这个Item属性其实就是在Item中通过@OneToMany和@JoinColumn弄出来的外键列:</p>
+<pre>
+@ManyToOne
+@JoinColumn(name = "ITEM_ID", updatable = false, insertable = false)
+private Item item;
+</pre>
+<p>这里要注意的是, 上来似乎会想到用<code>@ManyToOne(mappedBy = ...)</code>, 但实际上是不行的, 不能mappedBy一个集合对象. 而且因为外键是存在于Bid类中, 所以Bid是外键的所有类, 不能使用mappedBy, 只有不存在外键的类上才能使用mappedBy.</p>
+<p>在原来的一对多关系中, 就是如此, 要在没有外键的类中使用mappedBy.</p>
+<p>这里还有一个特殊的地方, 就是对ITEM_ID定义了两次, 所以在Bid类中,需要将其设置为不能更新也不能插入. 实际上, Hibernate依赖于在@ManyToOne上定义的JoinColumn, 如果同时存在@OneToMany和@ManyToOne关系, Hibernate会优先使用@ManyToOne上的JoinColumn定义, 而会忽略@OneToMany上的.</p>
+<p>这个List的映射看上去像一个hack而不是正常的映射. 实际上在现实开发中, 保存Java的ArrayList的顺序几乎不可能遇到, 因为本身就不是一个好主意, 顺序应该按照意义来排序, 而不是简单的强制顺序.</p>
+
+<h3>中间表映射</h3>
+<p>采用中间表映射, 暗示可以有不对应的关系. UML类图中的 0..* 就是一种optional关系. 使用这种一对多关系的时候要注意.例如一个User可能不会买Item, 也可能买多个Item, 中间表有两个外键, 一个关联到多方Item, 一个关联到一方User, 要让多方的外键是unique. 这样就不会出现Item有重复的情况, 即Item只要出现, 只能对应一个多方. 如果不出现, 表名该Item和User之间没有对应关系. User方的外键无需unique, 因为一个user可以买多个item.</p>
+<p>还记得吗, 表间关系先从多的那方做起, @ManyToOne是没有mappedBy的, 因此就从Many的这一方做起, 也就是Item类中去定义中间表:</p>
+<pre>
+@Entity
+public class Item {
+
+    @Id
+    @GeneratedValue
+    private long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
+    @JoinTable(
+            name = "ITEM_BUYER",
+            joinColumns = @JoinColumn(name="ITEM_ID",nullable = false),
+            inverseJoinColumns = @JoinColumn(name="USER_ID",nullable = false)
+    )
+    private User user;
+}
+</pre>
+<p>User类则是一个mappedBy对应过来, 再弄一个级联保存, 已经熟悉了:</p>
+<pre>
+@Entity
+@Table(name = "USERS")
+public class User {
+
+    @Id
+    @GeneratedValue()
+    protected Long id;
+
+    protected String username;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.PERSIST)
+    private Set&lt;Item> items = new HashSet&lt;Item>();
+</pre>
+<p>其实细心的话, 可以发现这个与@OneToOne没有本质区别, 都是仅会让中间表的某一个外键列变成unique. 这是因为本质上, 单向的一对一和多对一在对应关系上, 在多的那一方是看不出来的,都是一对一的关系.</p>
+<h3>Embedded类型的一对多关系</h3>
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con3"></h2>
 
