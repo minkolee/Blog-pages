@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 08 映射关系 - 高级内容</title>
+    <title>Hibernate 08 映射关系 - 进阶内容</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -18,20 +18,26 @@
 <p>上一篇里看了一个单向的多对一, 然后转成双向的多对一关系, 然后使用了级联操作. 现在就来详细的看看这三种关系的映射, 以及其中的细节. </p>
 
 <ol>
-    <li><a href="#con1">一对一关系</a></li>
-    <li><a href="#con2">一对多关系</a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">一对一关系 - 共享主键方式</a></li>
+    <li><a href="#con2">一对一关系 - 外键生成器方式 - Hibernate特有</a></li>
+    <li><a href="#con3">一对一关系 - 额外的外键关联列</a></li>
+    <li><a href="#con4">一对一关系 - 使用关系表</a></li>
+    <li><a href="#con5">一对多关系 - 一对多包</a></li>
+    <li><a href="#con6">一对多关系 - 单双向列表映射</a></li>
+    <li><a href="#con7">一对多关系 - 中间表映射</a></li>
+    <li><a href="#con8">一对多关系 - Embedded类型的一对多关系</a></li>
+    <li><a href="#con9">多对多关系 - 单双向多对多关系</a></li>
+    <li><a href="#con10">多对多关系 - 使用中间Entity - Embedded是一个组件</a></li>
+    <li><a href="#con11">多对多关系 - 三元关系</a></li>
+    <li><a href="#con12">使用Map映射关系 - 一对多关系</a></li>
+    <li><a href="#con13">使用Map映射关系 - 键/值表示的三元关系</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1">一对一关系</h2>
+<h2 style="text-align: center;" id="con1">一对一关系 - 共享主键方式</h2>
 <p>对于一对一关系来说, 两个Entity实际上可以认为是同一张表, 只是分别保存不同的字段. 像之前Embedded类的时候, User与Address类, 实际生成的表, Address的属性就直接扩充在User表中.</p>
 <p>如果将Address保存成一个Entity, 会怎样呢. 好处是可以复用Address对象, 不同的User都可以对应一个Address.比如如果有一个Shipment对象, 也需要使用Address, 就不用在Shipment对象中也内嵌一个Address对象, 同时还要再输入一遍数据.</p>
 <p>从User和Shipment的角度来说, User和Shipment 与 Address的关系是一对一关系. 即一个User或Shipment中, 就一个Address对象的引用.</p>
 <p>映射一对一关系有很多方法, 看一下常用的映射方法.</p>
 
-<h3>共享主键方式</h3>
 <p>共享主键方式, 指的是不同的表上的两个有一对一关系的行, 主键的值相等, 用例子来说, 就是要确保 user.id = address.id</p>
 <p>这种方式的问题稍微一想就可以知道, 难点在于一定要保持两个主键相同. 先来映射一下看看, 现在的User和Address都是独立的Entity类了. Address类没有什么稀奇的:</p>
 <pre>
@@ -124,7 +130,7 @@ tx.commit();
 </ol>
 <p>这三个问题,第一个是无法解决的; JPA规范对于一个null值无法启用加载代理, 所以也无法解决. 唯一能解决的就是第三个问题, 可以使用一个特殊的生成器, 来让关系变成双向.</p>
 
-<h3>外键生成器方式 - Hibernate特有</h3>
+<h2 style="text-align: center;" id="con2">一对一关系 - 外键生成器方式 - Hibernate特有</h2>
 <p>只要是双向关系, 必定有一方要有一个mappedBy属性去指定另外一方的属性名称.</p>
 <p>这里将两个类修改如下, 先看User类:</p>
 <pre>
@@ -180,7 +186,7 @@ tx.commit();
 <p>只要先将user和address关联起来, 然后再持久化, 就OK了, address的id会根据user的主键来确定. 在实际插入的时候, 先插入user对象, 然后根据user的id再插入address对象.</p>
 <p>相比之下, 推荐使用Hibernate的主键通过外键生成的方式, 比较容易操作和理解.</p>
 
-<h3>额外的外键关联列</h3>
+<h2 style="text-align: center;" id="con3">一对一关系 - 额外的外键关联列</h2>
 <p>上边的两种方法, 虽然也是外键关联, 但是两个表的主键都参与了关联. 如果不共享主键, 第一种方法的三个问题中的第一个就解除了. 实际做法也很简单, 让address的主键关联到user的一列非主键, 然后将user这一列设置为unique.</p>
 <p>这样就保证不会有相同的address对应到同一个user上. 由于主键也是unique, 其实这种方法的本质和前两种也没有太大区别.</p>
 <p>先来看User类, 不使用<code>@PrimaryKeyJoinColumn</code>来定义一个被外键关联的列, 而是使用普通的@JoinColumn来定义, 其他基本类似:</p>
@@ -258,7 +264,8 @@ Hibernate:
        references Address
 </pre>
 <p>可以看到User的外键关联到Address的主键,同时外键列又是unique的, 所以本质和第二种方法没有区别, 只是不用主键直接关联, 自然就要多一列了. 这种方式配置注解比较简单, 也易于理解, 同时不操作主键, 减少了很多问题.</p>
-<h3>使用关系表</h3>
+
+<h2 style="text-align: center;" id="con4">一对一关系 - 使用关系表</h2>
 <p>一对一关系, 如果某一边是一个null, 就会很麻烦, 而且关联在一起. 更好的解决方案是通过一个中间表, 其中的一行表示一个对应关系, 没有则表示没有关系.</p>
 <p>使用了中间表之后, 就不一定要把两个对象这么紧密的捆绑在一起了. 但是这里的意义有变化, 即两个对象的关系可能是可选的一对一关系, 即要么没有对应, 要么一对一.</p>
 <p>这个意义就和之前强行约束的一对一关系有区别了.</p>
@@ -325,11 +332,11 @@ Hibernate:
 </pre>
 <p>可见创建了中间表. 插入的时候也完全OK. 如果一个关系在表里查不到, 就说明User对象没有对应的Address对象.</p>
 
-<h2 style="text-align: center;" id="con2">一对多关系</h2>
+<h2 style="text-align: center;" id="con5">一对多关系 - 一对多包</h2>
 <p>多元Entity关联, 指的就是一个类中有一个实体引用的集合. 之前看过了基于Set的双向一对多关联, 实际上在能够用简单单双向一对多的情况下能够完成的事情, 没有必要使用更加复杂的映射. 因为如果不愿意通过Java代码来操作,完全可以编写一个查询, 直接查出结果.</p>
 <p>所以基于Set的一对多关联具有普遍的意义. 现在看一些更复杂的场景.</p>
 
-<h3>一对多包</h3>
+<h3></h3>
 <p>在一些情况下, 可以考虑使用包来进行一对多映射, 包在集合中效能最高, 不用进行重复检查, 也不保存顺序. 所以将新元素添加到包里, 不会立刻触发加载.</p>
 <p>所以如果要给一个元素映射成@OneToMany(mappedBy = "xxx")</p>,包是最佳的选择.
 <p>在代码上很简单, 只需要把之前基于Set的映射变成特殊语义的Collection与ArrayList即可, 这里直接写一个测试:</p>
@@ -363,7 +370,8 @@ public void testAdd() {
 <p>Bag中的重复, 指的是值的重复, 而不是引用对象的重复. 虽然Bag叫做重复, 但反复添加同一个对象的引用, 会被Hibernate知道, 从而不会持久化进去.</p>
 <p>实际上这里查看代码的时候, 会发现如果从数据库中取出item, 调用 item.getBids().add(Bid b), 由于之前说的不会检查顺序和重复, 也就不会触发SELECT, 因此比较高效.</p>
 
-<h3>单双向列表映射</h3>
+<h2 style="text-align: center;" id="con6">一对多关系 - 单双向列表映射</h2>
+
 <p>这里的列表指的是保存加载顺序的List = ArrayList, 注意与可排序的List不是一个概念,之前已经知道, 使用这种语义会让Hibernate把顺序也一并保存. 这里就是要持久化带有顺序的列表.</p>
 <p>首先来看单向映射, 即使用List来映射Item与Bid之间的关系, 由于上一段说的, 需要定义一个存储顺序的列, 因此这里要使用一个新注解 <code>@OrderColumn</code> 来给顺序列提供信息:</p>
 <pre>
@@ -435,7 +443,7 @@ private Item item;
 <p>这里还有一个特殊的地方, 就是对ITEM_ID定义了两次, 所以在Bid类中,需要将其设置为不能更新也不能插入. 实际上, Hibernate依赖于在@ManyToOne上定义的JoinColumn, 如果同时存在@OneToMany和@ManyToOne关系, Hibernate会优先使用@ManyToOne上的JoinColumn定义, 而会忽略@OneToMany上的.</p>
 <p>这个List的映射看上去像一个hack而不是正常的映射. 实际上在现实开发中, 保存Java的ArrayList的顺序几乎不可能遇到, 因为本身就不是一个好主意, 顺序应该按照意义来排序, 而不是简单的强制顺序.</p>
 
-<h3>中间表映射</h3>
+<h2 style="text-align: center;" id="con7">一对多关系 - 中间表映射</h2>
 <p>采用中间表映射, 暗示可以有不对应的关系. UML类图中的 0..* 就是一种optional关系. 使用这种一对多关系的时候要注意.例如一个User可能不会买Item, 也可能买多个Item, 中间表有两个外键, 一个关联到多方Item, 一个关联到一方User, 要让多方的外键是unique. 这样就不会出现Item有重复的情况, 即Item只要出现, 只能对应一个多方. 如果不出现, 表名该Item和User之间没有对应关系. User方的外键无需unique, 因为一个user可以买多个item.</p>
 <p>还记得吗, 表间关系先从多的那方做起, @ManyToOne是没有mappedBy的, 因此就从Many的这一方做起, 也就是Item类中去定义中间表:</p>
 <pre>
@@ -471,19 +479,375 @@ public class User {
     private Set&lt;Item> items = new HashSet&lt;Item>();
 </pre>
 <p>其实细心的话, 可以发现这个与@OneToOne没有本质区别, 都是仅会让中间表的某一个外键列变成unique. 这是因为本质上, 单向的一对一和多对一在对应关系上, 在多的那一方是看不出来的,都是一对一的关系.</p>
-<h3>Embedded类型的一对多关系</h3>
+
+<h2 style="text-align: center;" id="con8">一对多关系 - Embedded类型的一对多关系</h2>
+
+<p>回到之前的例子, 即Address作为一个Embedded类型嵌入到User中, 如果Address有一个一对多关系, 关联到多个Shipment Entity. 这种情况下就是在Embedded类型其中再放入一个一对多关系, 由于Embedded作为值类型的本质, 会被拆解到User中, 所以存在于Embedded类中的一对多关系, 就是<strong>将这个一对多关系移植到对应的被嵌入类型</strong>也是User中.</p>
+<p>User嵌入Embedded的套路很方便了, 没有特殊的要求, User都不用做任何设置, Address也是一个普通的Embedded类型, 唯一就是要看Address中的一对多关系:</p>
+<pre>
+@Embeddable
+public class Address {
+
+    @NotNull
+    @Column(nullable = false)
+    private String street;
+
+    @NotNull
+    @Column(nullable = false)
+    private String city;
+
+
+    @OneToMany
+    @JoinColumn(name = "ADDRESS_ID")
+    private Set&lt;Shipment> shipments = new HashSet<>();
+}
+</pre>
+<p>这里要注意的是, <code>@OneToMany</code>只能从设置在Address类中, 根据定义, Shipment不能关联到是Embedded类的Address.</p>
+<p>这么操作之后, 由于Address内嵌到User类, 所以这个名称为"ADDRESS_ID"的外键, 实际上是关联到User的ID, 可以看如下的建表语句:</p>
+<pre>
+Hibernate:
+
+    create table Shipment (
+        id int8 not null,
+        destination varchar(255) not null,
+        ADDRESS_ID int8,
+        primary key (id)
+    )
+
+    alter table if exists Shipment
+       add constraint FKn585ithky2bgm43ct0v90c3yu
+       foreign key (ADDRESS_ID)
+       <span style="color: red">references "User"</span>
+</pre>
+<p>既然是在@OneToMany这边规定映射关系和外键, 自然也可以用中间表, 套路还是一样的, 这里的中间表, 实际上是代表User和Shipment的中间表:</p>
+<pre>
+@OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
+@JoinTable(
+        name = "USER_SHIPMENT",
+        joinColumns = @JoinColumn(name = "USER_ID", nullable = false),
+        inverseJoinColumns = @JoinColumn(name = "SHIPMENT_ID", nullable = false)
+)
+private Set&lt;Shipment> shipments = new HashSet<>();
+</pre>
+
+<h2 style="text-align: center;" id="con9">多对多关系 - 单双向多对多关系</h2>
+<p>多对多关系, 就两个Java类来说, 就是互相持有另外一个类的集合, 映射成数据库的话, 通常方法都是使用一个中间表. JPA使用@ManyToMany来映射这个关系, 同时需要指定@JoinTable.</p>
+<p>与之前的关系一样, 一个是映射, 一个是反映射, 即使用(mappedBy), 一般来说多对多关系的两个类是平等的, 所以在哪边设置都无所谓, 只要另外一边写好mappedBy就可以.</p>
+<p>先来看单向的映射, 其实套路和之前使用中间表没有任何区别:</p>
+<pre>
+@Entity
+public class Item {
+
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    protected String name;
+
+    @ManyToMany(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "CATE_ITEM",
+            joinColumns = @JoinColumn(name ="ITEM_ID",nullable = false),
+            inverseJoinColumns = @JoinColumn(name = "CATE_ID", nullable =false)
+    )
+    private Set&lt;Category> categories = new HashSet&lt;>();
+}
+</pre>
+<p>生成中间表的细节都知道了, 由于多对多关系只用来表示有没有关系, 所以Set非常适合表示多对多关系, 正常操作也不会让中间表产生重复列, 不过之前学习SQL的时候, 知道这里可能会将中间表的两个外键进行联合unique约束, 以确保唯一性. 这里使用了级联删除, 对于多对多关系, 级联中的ALL, REMOVE和JPA的orphan deletion没有任何意义.</p>
+<p>改成双向的也很简单, 只要在Category上mappedBy一下就可以了:</p>
+<pre>
+@Entity
+public class Category {
+
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    private String categoryName;
+
+    @ManyToMany(mappedBy = "categories")
+    private Set&lt;Item> items = new HashSet<>();
+}
+</pre>
+<p>不过在保存的时候要注意, 还是要从另外一侧保存, 即没有mappedBy的一方, mappedBy的一方是只读的, 即:</p>
+<pre>
+//这些代码只会保存item和category, 无法保存关系
+category1.getItems().add(item1);
+category2.getItems().add(item1);
+category2.getItems().add(item2);
+category3.getItems().add(item1);
+category3.getItems().add(item2);
+
+tx.begin();
+
+em.persist(category1);
+em.persist(category2);
+em.persist(category3);
+
+tx.commit();
+</pre>
+<p>要在Item一侧保存:</p>
+<pre>
+item1.getCategories().add(category1);
+item1.getCategories().add(category2);
+item1.getCategories().add(category3);
+item2.getCategories().add(category2);
+item2.getCategories().add(category3);
+
+
+tx.begin();
+
+em.persist(item1);
+em.persist(item2);
+
+tx.commit();
+</pre>
+<p>这样级联保存才能生效, 还会把中间表信息自动写入.</p>
+
+<h2 style="text-align: center;" id="con10">多对多关系 - 使用中间Entity - Embedded是一个组件</h2>
+<p><code>@JoinTable</code>本质上变成一个表存在了数据库中, 只不过Hibernate替我们隐藏了这个中间表, 没有直接对应的Java类, 而且这个中间表仔细观察可以发现, 竟然没有主键列. 但如果要在中间表上添加额外的信息, 比如创建时间, 和其他要素, 这个时候可能要使用一个中间实体, 才能更好的管理这个中间表的细节.</p>
+<p>现在需要在中间表中, 额外保存两个字段, 一个是addBy, 字符串, 表示由哪个用户添加, 一个是addedOn, 表示新增的时间. 这个中间表给起一个名称叫做CategorizedItem.</p>
+<p>能想到的最直接的办法, 就是创建一个CategorizedItem类, 里边两个字段设置外键关联, 然后再添加两个字段. 且慢, 但是要如何更新和自动控制写入呢. 这里有一个崭新的思路, 就是刚才说的, 原始的中间表没有主键列, 这意味着中间表可以作为一个Embedded类型, 这个时候其实就是一个组件的概念.</p>
+<p>在CategorizedItem中创建一个由两个外键组成的组件, 而且将这个组件当成联合主键, 这样就生成了关系, 之后再添加额外的字段就可以了. 由于是一个全新的概念, 来看看怎么配置:</p>
+<pre>
+@Entity
+@Table(name = "CATEGORY_ITEM")
+@org.hibernate.annotations.Immutable
+public class CategorizedItem {
+
+    @Embeddable
+    public static class Id implements Serializable {
+
+        //关联到category的外键列
+        @Column(name = "CATEGORY_ID")
+        private long categoryId;
+
+        //关联到item的外键列
+        @Column(name = "ITEM_ID")
+        private long itemId;
+
+        //值类型一定要编写hashcode和equals
+        public boolean equals(Object o) {
+            if (o instanceof Id) {
+                Id that = (Id) o;
+                return this.categoryId == that.categoryId
+                        && this.itemId == that.itemId;
+            }
+            return false;
+        }
+
+        public int hashCode() {
+            return (int) (categoryId * 2198 + itemId * 7988);
+        }
+
+        public Id() {
+
+        }
+
+        public long getCategoryId() {
+            return categoryId;
+        }
+
+        public void setCategoryId(long categoryId) {
+            this.categoryId = categoryId;
+        }
+
+        public long getItemId() {
+            return itemId;
+        }
+
+        public void setItemId(long itemId) {
+            this.itemId = itemId;
+        }
+    }
+
+    //两个列组成的组件当成联合主键
+    @EmbeddedId
+    public Id id = new Id();
+
+    //给刚才组件中的两个列添加外键关联, 关联关系注意是ManyToOne, 因为是一个外键
+    @ManyToOne(cascade = CascadeType.PERSIST)
+    @JoinColumn(name = "CATEGORY_ID", insertable = false, updatable = false)
+    private Category category;
+
+    @ManyToOne(cascade =CascadeType.PERSIST)
+    @JoinColumn(name = "ITEM_ID", insertable = false, updatable = false)
+    private Item item;
+
+    @Column(updatable = false)
+    @NotNull
+    protected String addedBy;
+
+    @Column(updatable = false)
+    @NotNull
+    protected Date addedOn = new Date();
+
+    public static CategorizedItem createLink(Category category, Item item, String addedBy) {
+        CategorizedItem result = new CategorizedItem();
+        result.addedBy = addedBy;
+        result.item = item;
+        result.category = category;
+        result.id.categoryId = category.getId();
+        result.id.itemId = item.getId();
+        return result;
+    }
+}
+</pre>
+<p>上边只保留了关键的列. 这里很多东西, 一个一个解释:</p>
+<ol>
+    <li><code>@Embeddable</code>注解的内部类, 这里将其看成一个组件, 由于内嵌类最后就是定义列, 所以这里一次性定义了两个列. 注意value type一定要编写hashCode和equals方法. 目前这两个列还是普通的列.</li>
+    <li><code>@EmbeddedId</code>表示使用这个组件当成主键, 就是一个联合主键, 生成的语句中会有<kbd>primary key (CATEGORY_ID, ITEM_ID)</kbd></li>
+    <li>然后是两个<code>@ManyToOne</code>定义中间表与两个实体类的多对一关系(实体对应中间表则是一对多, 这和普通中间表本质上没区别), 由于中间表的外键都是一对多, 而且不是新创建外键, 所以重复使用组件内的两个列名添加外键约束. 这里注意要设置成不能更新和插入, 因为在组件中已经映射过名称叫做"CATEGORY_ID"和"ITEM_ID"的列, 只要重复映射, 一定只能有一个地方读写, 其他地方都要设置成只读, 否则会报重复映射错误.</li>
+    <li>由于设置了只读, 所以必须要手工每次创建关系的时候, 将两个Id都给指定掉, 所以编写了一个<code>createLink</code>工厂方法用于创建关联.</li>
+</ol>
+<p>看到这里, 其实对Hibernate的这些注解理解更深了, 有如下感触:</p>
+<ol>
+    <li>映射类的时候, 首先需要映射好全部的基础属性列. 映射列, 其实指的是将一个属性映射到一个列名, 无论写不写@Column(name = "xxx), 脑子里都要想到,在这个类的映射空间中, 已经有一个名称被占用了, 对应数据库一个列. 如果其他地方再在注解中映射这个名称, 就是重复映射, 一定要注意配置是否可读来解决映射问题</li>
+    <li>映射关系, 相当于添加约束, 可以用新的列来添加约束, 只要指定一个新的名称即可. 也可以给已经存在的列(也就是名称)来添加约束, 这个时候就是重复映射, 一定要注意解决.</li>
+    <li>所有的注解, 都采取先映射好基础类型的各个列, 再添加关系, 再映射关系所代表的列这样一个途径, 就不会错了. 本质一定要抓住.</li>
+</ol>
+<p>Item和Category的类都要修改成外键反映射到中间实体上:</p>
+<pre>
+@Entity
+public class Item {
+
+    @OneToMany(mappedBy = "category")
+    private Set&lt;CategorizedItem> categories = new HashSet&lt;>();
+}
+
+@Entity
+public class Category {
+
+    @OneToMany(mappedBy = "item")
+    private Set&lt;CategorizedItem> items = new HashSet&lt;>();
+}
+</pre>
+<p>在编写这个测试的时候, 很显然, 不像之前一定要直接将Item和Category对应起来然后一起保存, 有了中间实体类, Item和Category可以独立存在, 需要的时候创建一条关系再持久化即可.</p>
+<p>这里注意由于外键列如果不先持久化, 就不知道id, 而且中间类同时关联两个列, 一定要手工设置好id, 也就是利用<code>createLink</code>方法:</p>
+<pre>
+tx.begin();
+//先持久化各个Item和Category对象
+em.persist(category1);
+em.persist(category2);
+em.persist(category3);
+em.persist(item1);
+em.persist(item2);
+em.persist(item3);
+
+//创建CategorizedItem对象, 其中的id要手工设置
+CategorizedItem link1 = CategorizedItem.createLink(category1, item2,"owl");
+CategorizedItem link2 = CategorizedItem.createLink(category2, item3,"kiwi");
+CategorizedItem link3 = CategorizedItem.createLink(category3, item1, "cony");
+
+em.persist(link1);
+em.persist(link2);
+em.persist(link3);
+
+tx.commit();
+</pre>
+<p>建表语句还是需要看一下, 才明白这映射的关系:</p>
+<pre>
+Hibernate:
+
+    create table CATEGORY_ITEM (
+        CATEGORY_ID int8 not null,
+        ITEM_ID int8 not null,
+        addedBy varchar(255),
+        addedOn timestamp,
+        <span style="color: red">primary key (CATEGORY_ID, ITEM_ID)</span>
+    )
+
+    alter table if exists CATEGORY_ITEM
+        add constraint FKjip0or3vemixccl6vx0kluj03
+        foreign key (CATEGORY_ID)
+        references Category
+
+    alter table if exists CATEGORY_ITEM
+        add constraint FKf1uerpnmn49vl1spbbplgxaun
+        foreign key (ITEM_ID)
+        references Item
+</pre>
+<p>联合主键加两个外键. 这里多说一下, 如果设置不是主键外的联合unique的话, 使用<code>@Table(uniqueConstraints = {列名})</code>即可. 如果是联合主键, 则可以考虑使用组件.</p>
+
+<h2 style="text-align: center;" id="con11">多对多关系 - 三元关系</h2>
+<p>刚才的CategorizedItem的User属性是一个基本类型, 如果User也是一个外键, 代表User用户会怎么样.</p>
+<p>其实映射方法有很多, 但是比起映射更重要的是, 要确实搞清楚三元关系更加重要.</p>
+<p>在这里的User用户, 表示的是"创建某一个具体item-category关系"的人. 因此很简单, user是可以重复的. 似乎一个普通的外键就可以做到</p>
+<p>item-category是联合主键, 这意味者每一行item-category关系都是不可能重复的, 即item-category是候选码. 候选码的超集依然是候选码. 因此, 将user外键, item外键, category外键三个组成一个联合组件映射似乎也不错.</p>
+<p>两相比较之下, 还是将User也映射成一个多对一的主键比较好, 因为相比三联主键, 性能要更好一些. 代码也会更简单明了一些.</p>
+<p>这里代码就不具体放了. 三元关系加以了解就可以.</p>
+
+<h2 style="text-align: center;" id="con12">使用Map映射关系 - 一对多关系</h2>
+<p>用Map来映射一对多关系的理论是, 如果一个Map的键是基本类型, 而值是一个Entity的引用, 这就是一个一对多关系.</p>
+<p>还是以Item和Bid关系为例, Item有一个Map属性, 里边的键是Bid类的id, 值是对象的引用. 那么这就是一个一对多关系. 因为本来的一对多关系, 也是通过id关联起来的.</p>
+<p>现在还是假设Bid已经配置好了@ManyToOne, 关键是Item要用Map来映射:</p>
+<pre>
+@Entity
+public class Item {
+
+    @Id
+    @GeneratedValue
+    protected Long id;
+
+    protected String name;
+
+    <span style="color: red">@MapKey(name = "id")</span>
+    @OneToMany(mappedBy = "item", cascade = CascadeType.PERSIST)
+    public Map&lt;Long, Bid> bids = new HashMap<>();
+}
+</pre>
+<p>红色的是新注解, 只用在Map类型上, name表示Map的值对应的Entity的主键属性名称(java类的属性名称), 如果不指定name, 会自动匹配Entity的主键属性. 如果指定的不是主键属性, Hibernate不会检查该列是否为unique, 需要自己来从其他地方确保键唯一.</p>
+<p>看一下实际建表的语句:</p>
+<pre>
+Hibernate:
+
+    create table Bid (
+        id int8 not null,
+        amount numeric(19, 2),
+        item_id int8,
+        primary key (id)
+    )
+
+    create table Item (
+        id int8 not null,
+        name varchar(255),
+        primary key (id)
+    )
+
+    alter table if exists Bid
+       add constraint FKofartcioobwpek3qex4cmturt
+       foreign key (item_id)
+       references Item
+</pre>
+<p>结果惊奇的发现, 建表方面没有任何变化. 所以使用Map映射一对多关系, 其实只是Hibernate将查询到的数据包装成的类型不同, 对于底层表, 既然能简化成一个外键搞定, 自然不需要任何变化.</p>
+
+<h2 style="text-align: center;" id="con13">使用Map映射关系 - 键/值表示的三元关系</h2>
+<p>这个玩意我琢磨了一会终于明白了. Map本身就是两个对象的关系, Map所在的对象与Map之间 又是一层对应关系. 在一对多中, 键使用了基本类型, 关系就变成了两个, 即Map宿主类与Map中多个数据的关系.</p>
+<p>前边定义了Category-Item的关系, 可以由一个User来添加. 可见是三个对象的关系, 现在有了三个东西的关系, 只需要再往前一步, 将Map的key, 也设置成为一个实体对象.</p>
+<p>于是Category-Item的关系, 其实可以写成Category含有一个以Item为键的关系. 仔细想一想, 二者整体是多对多关系, 就单独的一个category对象来说, 还是一对多, 因为其他持有一个item的集合.</p>
+<p>然后只要将Map的值改成User, 这就描述出了三元关系.</p>
+<p>相比刚才的映射是基本类型的情况下, 不是基本类型就相当于一个关联, 因此不能使用@MapKey(name = "id"), 而要使用@MapKeyJoinColumn(name = "ITEM_ID"), 来让这个也生成关联, 映射方式如下:</p>
+<pre>
+@Entity
+public class Category {
+    @ManyToMany(cascade = CascadeType.PERSIST)
+    @MapKeyJoinColumn(name = "ITEM_ID")
+    @JoinTable(
+        name = "CATEGORY_ITEM",
+        joinColumns = @JoinColumn(name = "CATEGORY_ID"),
+        inverseJoinColumns = @JoinColumn(name = "USER_ID")
+    )
+    protected Map&lt;Item, User> itemAddedBy = new HashMap<>();
+}
+</pre>
+<p><code>@MapKeyJoinColumn(name = "ITEM_ID")</code>指定的是Item表的主键列, 因为键不是基本类型了, 所以相当于一个外键关联过去. 这里可以省略@MapKeyJoinColumn的name属性, 会生成一个默认的外键列关联到Item表.</p>
+<p>这里其实可以想到的是, 创建的中间表会有三个外键, 和刚才的三元关系表没有任何区别. 只是Hibernate会根据Item和User的id, 将结果组装成map的形式.</p>
+<p>用Map去映射总的来说还是比较搞的,感觉组装时间应该也比普通映射会长.</p>
+<p>这漫长的一章终于结束了, 对Hibernate的认识尤其是各种注解背后的意味了解更深了, 中间在碰到重复注解的时候又理解了一些新东西.</p>
+<p>现在拿着UML类图总算心里有谱知道如何映射了.</p>
 
 
 
-
-
-
-<h2 style="text-align: center;" id="con3"></h2>
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
