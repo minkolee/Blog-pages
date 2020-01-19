@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 00</title>
+    <title>Hibernate 09 持久化对象的生命周期</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,26 +15,227 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>看到这里, 我就知道当年看Hibernate肯定是不懂的, 这是因为水平和心智都还没有到理解生命周期层次.</p>
+<p>在后来不断的学习中, 终于知道了生命周期其实就是一些状态的转换, 本质就是一些特定方法的调用, 让整个程序或者说一些内容在不同的状态之间转换, 这就是生命周期管理.</p>
+<p>生命周期管理并不是什么特殊的地方, 对于写的每一个程序, 只要跑起来, 都有东西管理生命周期, 比如Java代码就会有JVM管理生命周期, 而JVM的生命周期又是由操作系统管理的. 操作系统的某一个模块的生命周期可能又是由内核管理的. 总之就是这样一点一滴搭建出现代计算机系统.</p>
+<p>现在就来看看JPA中持久化对象的生命周期, 也是以前学的时候最没有搞清楚的内容.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">生命周期概述</a></li>
+    <li><a href="#con2">EntityManager的工作单元与基础API</a></li>
+    <li><a href="#con3">让数据持久化 - persistent状态</a></li>
+    <li><a href="#con4">让数据变成瞬时 - Transient状态</a></li>
+    <li><a href="#con5">让数据变成瞬时 - Transient状态</a></li>
+    <li><a href="#con6">处理分离状态 - detach</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">生命周期概述</h2>
+<p>在之前知道, 要启动JPA, 先要启动一个EntityManagerFactory, 这个是重型对象, 代表着一个数据源或者抽象数据库.</p>
+<p>之后需要从中获取EntityManager对象, 这个是轻量级的对象, 相当于一次数据库会话. 更重要的是, 在Java应用程序中, 获取一个EntityManager就意味着启动了一个持久化上下文.</p>
+<p>关于上下文现在不陌生了, EntityManager不像Spring和Web容器是全局套在外边的上下文, 而是一个被我们的应用启动的上下文, 因此还可以关闭这个上下文.</p>
+<p>持久化框架对于应用程序是透明的, 这意味着操作数据的时候, 应用程序不知道这个类是否持久化, 这也说明, 持久化框架管理的不是这个Java对象的全生命周期, 而是这个Java对象作为持久化类的生命周期.</p>
+<p>不同的ORM框架可能会定义不同的持久化生命周期, JPA标准定义了如下四种, 先看一个图:</p>
+<p><img src="http://img.conyli.cc/entitylifecycle.jpg" alt="持久化对象生命周期"></p>
+<p>这个图很好的说明了一个持久化类在持久化方面的生命周期. 来看一下这四个生命周期:</p>
+<ol>
+    <li><strong>Transient</strong>, 瞬时状态, 一个新new出来的对象就是瞬时状态, 从未进行过持久化. 持久化上下文没有保存任何对其的引用和相关资料. 仅能和Persisitent状态进行转换.</li>
+    <li><strong>Persistent</strong>, 对一个瞬时对象进行persist()操作, 就会将其持久化, 更准确的说, 是让该对象与持久化上下文也进行关联.</li>
+    <li><strong>Removed</strong>, 将一个持久化对象断开与持久化上下文的关联, 这个等同于会将其删除, 在上下文正常关闭并提交操作的时候, 该对象就会消失. 仅能和Persisitent状态进行转换.</li>
+    <li><strong>Detached</strong>, 分离状态, 这个与removed的区别是调用的方法不同, removed带有删除的语义, 这个分离状态仅仅是将持久化类与持久化上下文分离, 分离之后对该数据对象的任何操作, 都不会再受到持久化上下文的管理. 仅能和Persisitent状态进行转换. 分离之后的实体还可以重新合并merge()回去, 此时框架又会进行一系列操作以确定合并回去之后的结果.</li>
+</ol>
+<p>持久化上下文的具体管理者就是EntityManager对象, 在创建这个对象的时候, 当前应用程序就具备了一个托管的持久化上下文. 之后使用EntityManager的任何操作, 都会影响这个持久化上下文.</p>
+<p>EM对象的功能主要在于管理所有持久化类, 并提供一级缓存. 后边就要来看看这个EntityManager对象.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">EntityManager的工作单元与基础API</h2>
+<p>一个术语:工作单元,表示一个通常是源自的一组状态操作变更, 其实可以将其理解为就是一个事务. 一个或者多个工作单元在一个线程里就需要使用一个EntityManager对象来执行具体工作. 典型的工作单元代码如下:</p>
+<pre>
+//启动事务
+EntityTransaction transaction = em.getTransaction();
+transaction.begin();
 
-<h2 style="text-align: center;" id="con3"></h2>
+try {
+    //工作单元的代码
+    em.persist(message1);
+    em.persist(message2);
+    em.persist(message3);
+    //最后提交事务
+    transaction.commit();
+} catch (Exception ex) {
+    //有任何异常, 回滚事务
+    System.out.println("发生了错误: " + ex);
+    transaction.rollback();
+} finally {
+    //关闭持久化上下文, 谁创建, 谁关闭
+    em.close();
+}
+</pre>
+<p>来看一下相关的操作.</p>
+<h3>获取基础对象</h3>
+<p>EntityManager是JPA标准的接口, 底层实现当然要看Provider的了, 有一些API可用于获取这些基础对象:</p>
+<ul>
+    <li><code>emf.unwrap(SessionFactory.class);</code>, 从EntityManagerFactory中获取实际供应商提供的变体.</li>
+    <li><code>emf.getPersistenceUnitUtil()</code>, 获取一个辅助的工具, 可以用来检测一个持久化对象的生命周期和其他特性.</li>
+    <li><code>em.getEntityManagerFactory()</code>, 从EntityManager中获取EntityManagerFactory对象.</li>
+</ul>
 
-<h2 style="text-align: center;" id="con4"></h2>
+<h2 style="text-align: center;" id="con3">让数据持久化 - persistent状态</h2>
+<p>从上边可以看到, 将一个持久化对象转变成persistent状态, 可以调用.persist()方法. 此外通过JPA查询出来的数据, 默认也是persist()状态, 即查询过程中会自动将引用交给持久化上下文来管理.</p>
+<pre>
+@Test
+public void searchAndUpdate() {
+    EntityManagerFactory emf =
+            CaveatEmptorUtil.getEntityManagerFactory();
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction transaction = em.getTransaction();
+    transaction.begin();
+
+    Message message = em.find(Message.class, 1L);
+    System.out.println(message);
+    message.setText("ff12 download completed");
+
+    transaction.commit();
+    em.close();
+}
+</pre>
+<p>查询出来的结果, 自动成为Persistent状态, 对其的更改会在提交事务的时候反映到数据库中. 此外, 一定要实现数据库对象的相等性方法.</p>
+<p>可以重复读取, 只要一级缓存中有这个对象, 读出来的依然是这个对象:</p>
+<pre>
+transaction.begin();
+
+Message message = em.find(Message.class, 1L);
+Message message1 = em.find(Message.class, 1L);
+Message message2 = em.find(Message.class, 1L);
+
+System.out.println(message);
+System.out.println(message1);
+System.out.println(message2);
+
+message.setText(String.valueOf(System.currentTimeMillis()));
+message1.setText(String.valueOf(System.currentTimeMillis()+10000L));
+message2.setText(String.valueOf(System.currentTimeMillis()+20000L));
+
+System.out.println(message);
+System.out.println(message1);
+System.out.println(message2);
+
+transaction.commit();
+</pre>
+<p>Hibernate并不会写入三个对象, 因为这三个引用实际上指向的是数据库的同一行. 最后写入的, 是最新的数据.</p>
+<p>这里有一个变体, 就是查询数据的时候, 一开始不希望Hibernate直接加载进来, 而是先得到一个占位符, 可以采用如下代码:</p>
+<pre>
+Message message = em<span style="color: #FF6600">.getReference</span>(Message.class, 1L);
+PersistenceUnitUtil persistenceUtil = emf.getPersistenceUnitUtil();
+
+assertFalse(persistenceUtil.isLoaded(message));
+
+//  System.out.println(message);
+
+//  Hibernate.initialize(message);
+</pre>
+<p><code>getReference</code>方法就是只获得一个代理, 未加载任何数据, 如果仅执行这条, 可以发现整个事务内Hibernate都没有读取数据. 只要放开注释的两条任何一条, 一旦加载数据, 就会去读取数据库.</p>
+<p>可以使用PersistenceUnitUtil来检测是否加载, 这里能够通过测试, 说明还没有加载message中的数据, 仅仅是一个占位符(代理对象). 之后只要使用到数据就会加载.</p>
+<p>如果在不使用数据的情况下需要加载, 就可以使用<code>Hibernate.initialize(message)</code>这个静态方法来加载数据.</p>
+
+<h2 style="text-align: center;" id="con4">持久化状态下的其他操作</h2>
+<p>现在已经知道了一个对象处于持久化了, 在不改变其生命周期状态的情况下, 还有如下操作可以做:</p>
+<ol>
+    <li><code>em.refresh(target)</code>, 让EM去刷新这个持久化对象, 尤其是已经知道数据库可能被修改过, 调用这个方法会让Hibernate去查询数据库, 如果那一行已经不存在, 会报一个EntityNotFoundException异常.</li>
+    <li>Hibernate特有的<code>session.replicate(item, ReplcationMode)</code>, 如果有多个EntityManagerFactory, 即多个数据库, 复制数据的时候, 先要查询出A的数据, 然后调用这个方法复制到B中.
+        其中的模式有四个可以选择. IGNORE为如果重复就忽略, OVERWRITE为强制覆盖, EXCEPTION表示如果发现重复就抛异常, LATEST_VERSION表示让新版本覆盖旧版本, 需要启用乐观锁.</li>
+    <li><code>em.flush()</code>,会强制刷新数据库. 默认情况是在事务提交的时候才将结果同步到数据库中. 也可以强制调用.flush()来刷新. 可以使用em.setFlushMode(FlushModeType.xxx)来设置刷新. 默认是AUTO, 如果设置成COMMIT,则在提交事务之前不会刷新数据库.</li>
+</ol>
+<p>上边的这些操作, 都不会改变持久化类的持久化生命周期, 而且都必须处于persistent状态才能够使用.</p>
+
+
+
+<h2 style="text-align: center;" id="con5">让数据变成瞬时 - Transient状态</h2>
+<p>让一个对象变成瞬时的,从生命周期图可以很方便的看出来, 就是执行em.remove()操作, 这个执行的本质是从持久化上下文中去掉某一个对象的引用, 进而在提交事务的时候, 将其从数据库中删除.</p>
+<p>被删除的对象从数据库中删除后, 并不一定从JVM中清除, 这个对象此时与持久化上下文没有任何关联, 可以自由的修改. 默认的情况下, Hibernate仅仅会断开连接, 不会修改这个对象中的标识符.</p>
+<p>在persistent.xml中可以设置一个属性叫做<code>hibernate.use_identifier_rollback=true</code>的设置, 设置之后, 如果标识符是对象, 会在remove之后被Hibernate改成null. 如果是基本类型, 会被重写成0.</p>
+<p>这样可以有效的标识被转换成瞬时状态的对象, 而且可以再次调用persist方法进行保存.</p>
+
+
+<h2 style="text-align: center;" id="con6">处理分离状态 - detach</h2>
+<p>分离状态是最需要专门解释的. 所谓分离状态, 就是该对象对应的内容在数据库中仍然存在, 但是将其从持久化上下文中去掉. 而remove状态代表的是(将要)从数据库中要删除对象对应的数据, 虽然两个状态都不再与持久化上下文关联, 但是意义区分还是很明显的.</p>
+<p>这一般用于取出一批数据对象进行处理, 处理的结果与数据库操作没有关系的情况下.</p>
+<p>让一个persistent状态的对象变成分离的基础方法有三种:</p>
+<ol>
+    <li><code>em.close()</code></li>
+    <li><code>em.clear()</code></li>
+    <li><code>em.detach(target)</code></li>
+</ol>
+<p>第一个方法其实是直接干掉了持久化上下文, 此时尚在其中的所有对象, 如果持久化上下文之外还有引用, 那就都会变成detach状态.</p>
+<p>第二个方法是不关掉持久化上下文, 但是会将持久化上下文中保存的所有数据对象的引用全部清除, 就像一个新建的em对象一样, 所以本质上和上一种没有区别.</p>
+<p>最后一个方法就是人工的操作, 可以将某个具体对象断开与持久化上下文的连接, 进行处理之后, 按照需要再决定是否将其再持久化, 也就是更新.</p>
+<pre>
+@Test
+public void testDetach() {
+    EntityManagerFactory emf =
+            CaveatEmptorUtil.getEntityManagerFactory();
+
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction transaction = em.getTransaction();
+    transaction.begin();
+
+    Message message = em.find(Message.class, 1L);
+
+    em.detach(message);
+    message.setText("gugugugu");
+    transaction.commit();
+
+    System.out.println("未改变");
+    transaction.begin();
+    em.merge(message);
+    transaction.commit();
+}
+</pre>
+<p>第一个事务仅仅查询了一次, 直到提交, 由于detach, 改变没有写入.</p>
+<p>第二个事务将message合并回去, 可以看到先执行了一个查询, 然后再写入. 其实就是先去用标识符找到数据行, 然后再更新.</p>
+<p>由此可见, 一定要注意编写好所有持久化类的.equals()和.hashCode()方法, 否则在合并的时候很有可能出错.</p>
+<h3><code>merge</code>方法</h3>
+<p>这里要特别提一下<code>merge</code>方法.
+    在刚才可以看到, merge先执行了一次SELECT, 然后是UPDATE, 实际上, merge方法复制了已经被断开连接的对象的所有属性到一个新加载的持久化对象上. 但是最关键的是,message对象此时依然与持久化上下文没有任何关联, 想要取得新的持久化对象怎么办, 答案是merge就会返回这个新的持久化对象的引用.</p>
+<p>扩展一下上边的代码就非常清晰了:</p>
+<pre>
+transaction.begin();
+
+Message message = em.find(Message.class, 1L);
+
+em.detach(message);
+
+message.setText("1st change");
+
+transaction.commit();
+
+transaction.begin();
+em.merge(message);
+
+message.setText("2nd change");
+
+transaction.commit();
+</pre>
+<p>到底会写入"1st change"还是"2nd change"呢, 答案是"1st change", message对象一旦被分离之后, 就不再与持久化上下文有关系, merge()合并的是数据, 而不是引用.</p>
+<p>如果想要获得关联后的引用, 改成如下代码:</p>
+<pre>
+transaction.begin();
+<span style="color: red">message = em.merge(message);</span>
+
+message.setText("2nd change");
+
+transaction.commit();
+</pre>
+<p>此时就丢弃了原来的对象, 获取了新的持久化对象的引用, 修改就生效了. 这就是merge()方法一定要了解的本质.</p>
+<p>如果要删除一个分离的实例, 需要的操作依然需要先merge之后取得新引用, 然后再调用remove()方法.</p>
+<p>Hibernate的Session对应merge()原生的方法是<code>saveOrUpdate()</code>, 但是这个方法不返回任何内容, 而是直接将引用挂载回持久化上下文中, 因此不用切换成新的引用, 同时也可以直接用于瞬时对象, 这是与JPA非常不同的特点. 与merge()相同的原生方法是<code>saveOrUpdateCopy()</code></p>
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Hibernate 10 事务管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>事务管理一直都比较复杂, 经过仔细研读, 现在基本上看明白了原理, 也知道一般都是基于读已提交这个隔离级别, 然后使用乐观锁来上升到Repeatable Read可重复读级别, 最后使用悲观锁来继续上升到Serializable串行化级别.</p>
+<p>不过每次遇到事务都是一堆理论. 事务这东西估计要看个几次才能看懂.</p>
+
+<ol>
+    <li><a href="#con1"></a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1"></h2>
+
+<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
