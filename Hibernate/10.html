@@ -15,53 +15,306 @@
     </style>
 </head>
 <body>
-<p>事务管理一直都比较复杂, 经过仔细研读, 现在基本上看明白了原理, 也知道一般都是基于读已提交这个隔离级别, 然后使用乐观锁来上升到Repeatable Read可重复读级别, 最后使用悲观锁来继续上升到Serializable串行化级别.</p>
+<p>事务管理一直都比较复杂, 经过仔细研读, 现在基本上看明白了原理, 也知道一般都是基于读已提交这个隔离级别, 然后使用乐观锁来上升到Repeatable Read可重复读级别,
+    最后使用悲观锁来继续上升到Serializable串行化级别.</p>
 <p>不过每次遇到事务都是一堆理论. 事务这东西估计要看个几次才能看懂.</p>
 
 <ol>
     <li><a href="#con1">事务的四种隔离级别</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con2">解决更新丢失 - 乐观并发控制</a></li>
+    <li><a href="#con3">悲观锁 - 锁行</a></li>
+    <li><a href="#con4">在事务外读取数据</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">事务的四种隔离级别</h2>
-<p>事务主要就是为了解决并发下的ACID问题. 数据库系统概念这本书将事务定义为访问并可能更新各种数据项的一个程序执行单元.</p>
+<p>既然允许一个事务要么全部完成, 要么全部不完成, 最大的问题就是并发, 如果串行操作, 则事务不会有任何问题.</p>
+<p>正常的操作, 哪怕是并发, 只要先后顺序能够保证而且不回滚, 那么就正常. 关键就在于回滚的时候的并发问题, 以及并不是完整的将事务隔离成串行操作.</p>
+<p>串行操作主要带来如下几种问题:</p>
+<ol>
+    <li><strong>丢失更新</strong>如果完全没有并发控制, 那么可能A事务先更新, B事务再更新, 然后A事务或者B事务回滚, 另外一个事务的更新就会丢失, 即事务提交成功, 但一致性没有得到保证.</li>
+    <li><strong>脏读</strong>事务A读到事务B的未提交数据, B之后回滚, A读到的就是一个脏数据</li>
+    <li><strong>不可重复读</strong>事务A两次读取到不同的结果, 因为中间被另外一个事务给更新了, 此外两个事务先后提交, 如何保证一致性, 让后提交覆盖之前的提交会出问题.</li>
+    <li><strong>幻象读</strong>, 指第二次查询中包含了第一次没有见到的数据或者更少的数据, 这个很显然是查询多个元素的时候会碰到.</li>
+</ol>
+<p>其实上边这些问题的根源, 不外乎是多线程操作下的冲突问题. 而且不像简单的多线程, 同时操作一个共享变量, 一个事务中会涉及多个共享变量. 对于竞争, 当然是要加锁. 但是锁加在哪里,如何加, 就很关键了.</p>
+<p>ANSI SQL规定了四种事务隔离级别:</p>
+<ol>
+    <li><code>Serializable</code>（串行化）:避免上述所有问题</li>
+    <li><code>Repeatable read</code>（可重复读）：避免脏读和不可重复读</li>
+    <li><code>Read committed</code>（读已提交）：避免脏读</li>
+    <li><code>Read uncommitted</code>（读未提交）：避免不了上述任何问题</li>
+</ol>
+<p>JPA的标准默认是read committed, 一般数据库的默认级别也是读已提交, 即避免脏读, 读未提交隔离级别几乎无法保证一致性, 所以很少使用. 也就是A不会读到一个未提交数据. 现在来看看Hibernate如何在这个基础上, 继续通过不同的手段来提升隔离级别.</p>
+<h2 style="text-align: center;" id="con2">解决更新丢失 - 乐观并发控制</h2>
+<p>所谓乐观, 就是假设在最后写入之前, 没人来更改过数据, 所以读取的时候并不加锁, 而是在写入的时候去判断一下写入的是否是最新的数据, 如果遇到了更新的数据, 就报异常并回退.</p>
+<p>可见, 这个操作不会对写入加锁, 但是要对读取加锁, 需要使用额外的东西来控制判断是不是最新的. 由于Hibernate的一级缓存机制, 实际上有效的隔离了可重复读的问题.</p>
+<h3>写入版本控制</h3>
+<p>乐观的方案就是加上一个版本控制, 如下:</p>
+<pre>
+@Entity
+@Table
+public class MessageVersion {
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    private Long id;
+
+<span style="color: red">    @Version
+    private long version;</span>
+}
+</pre>
+<p>加上了这个注解之后, Hibernate会在数据表中存储额外的一列, 然后会自动管理版本, 只要每次更新, 就会对比版本, 如果版本不是比当前对象的版本多1的话, 就会拒绝写入.</p>
+<p>这个值其实就相当于一个并发控制器, 如果到了数字的尽头, Hibernate会自动重新开始, 一开始默认是0. 来写点测试看看:</p>
+<pre>
+//一个写入的10个带版本的Message的测试:
+@Test
+public void testVersion() throws InterruptedException {
+    EntityManagerFactory emf =
+            CaveatEmptorUtil.getEntityManagerFactory();
+
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction transaction = em.getTransaction();
+    transaction.begin();
+
+    for (int i = 0; i < 10; i++) {
+        MessageVersion messageVersion = new MessageVersion();
+        messageVersion.setText( String.valueOf(System.currentTimeMillis())+"Good");
+        Thread.sleep(1200);
+        em.persist(messageVersion);
+    }
+    transaction.commit();
+}
+</pre>
+<p>可以发现message多了一列叫做version. 然后取出的时候看一下:</p>
+<pre>
+@Test
+public void testWrite() throws InterruptedException {
+    EntityManagerFactory emf =
+            CaveatEmptorUtil.getEntityManagerFactory();
+
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction transaction = em.getTransaction();
+    transaction.begin();
+
+    MessageVersion messageVersion = em.find(MessageVersion.class, 5L);
+
+    long version = messageVersion.getVersion();
+
+    //先查询当前的版本
+    System.out.println("当前版本是: " + version);
+
+    //睡眠10秒, 手工修改当前版本, 模拟被其他事务修改
+    System.out.println("请手工修改版本为: " + (version + 1));
+    Thread.sleep(10000);
+
+    messageVersion.setText("尝试写入版本: " + version + 1);
+    //尝试持久化的时候报错
+    em.persist(messageVersion);
+
+    transaction.commit();
+}
+</pre>
+<p>如果版本管理全部交给Hibernate, 在版本不一致的时候, 就会提示:</p>
+<pre>
+OptimisticLockException: Row was updated or deleted by another transaction (or unsaved-value mapping was incorrect)
+</pre>
+<p>可以看到这是一个乐观锁. 可以捕捉这个异常, 在回滚当前事务的时候, 其实可以提示用户重新进行操作.</p>
+<pre>
+public static void main(String[] args) throws InterruptedException {
+
+    boolean goOn = true;
+
+    EntityManagerFactory emf =
+            CaveatEmptorUtil.getEntityManagerFactory();
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction transaction = em.getTransaction();
+    while (goOn) {
+        Scanner in = new Scanner(System.in);
+        System.out.print("请输入id=5的数据要更新成的内容: ");
+        String input = in.nextLine();
+        if (input.equals("!!!quit!!!")) {
+            goOn = false;
+            System.out.println("输入了退出密码, 退出, 不更新");
+            continue;
+        }
+        try {
+            transaction.begin();
+            MessageVersion messageVersion = em.find(MessageVersion.class, 5L);
+            long version = messageVersion.getVersion();
+            System.out.println("当前版本是: " + version);
+            Thread.sleep(6000);
+            System.out.println("尝试写入版本: " + (version + 1));
+            messageVersion.setText(input);
+            em.persist(messageVersion);
+            transaction.commit();
+        } catch (Exception ex) {
+            System.out.println("最新数据已经被别人修改, 请重试");
+            transaction.rollback();
+        }
+    }
+    em.close();
+}
+</pre>
+<p>这里编写了一个简单的程序, 提示用户输入一段文字, 然后将id=5的Message更新成这段文字, 中间睡眠了6秒钟. 这6秒钟的时候可以去更新一下数据库中的版本, 只要版本出现问题, 就可以提示用户数据已经被别人修改, 让其重新输入.</p>
+<p>除了使用数值, 还可以使用时间作为版本控制,但是不太推荐.</p>
+<p>除了在字段上标明@Version, 还可以不用显式指定, 而是在类上加注解:</p>
+<pre>
+@Entity
+@Table
+@org.hibernate.annotations.OptimisticLocking(type = OptimisticLockType.ALL)
+@org.hibernate.annotations.DynamicUpdate
+public class MessageV {
+}
+</pre>
+<p>注意使用了乐观锁之后, 必须搭配使用<code>DynamicUpdate</code>. OptimisticLockType一般就使用ALL, 不推荐使用DIRTY, DIRTY仅仅检查改变的字段, 即可以并发改一个数据库不同字段, 这不是很推荐.</p>
+<p>如果希望纯手动版本检查, 则应该在每次查询的时候设置乐观锁, 这样每次刷新.flush()的时候, 都会再查一次, 如果两次对比不一致, 就会抛异常.</p>
+<p>手动设置版本检查的方式是 em.createQuery()<code>.setLockMode(LockModeType.OPTMISTIC)</code> .</p>
+<h3>读取版本控制</h3>
+<p>由于写入版本控制仅仅只在写入的时候对比, 然后只知道数据不是自己当时读的情况. 但如果事务A在读取到写入之间都是同一版本, 但是这个过程中被另外一个事务B读取, 这个事务B的业务逻辑发现必须阻止事务A, 就需要强制版本递增.</p>
+<p>相比写, 这实际上连读也锁了, 如果一个事务读的时候就发现了版本变更, 说明有其他东西控制了这个数据, 必须再回头去读, 而不用等到写.</p>
+<p>使用强制版本变更的方式是:</p>
+<pre>
+@Test
+public void force() {
+    EntityManagerFactory emf =
+            CaveatEmptorUtil.getEntityManagerFactory();
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction transaction = em.getTransaction();
+
+    transaction.begin();
+    MessageVersion messageVersion =
+            em.find(MessageVersion.class, 6L, <span style="color: #FF6600">LockModeType.OPTIMISTIC_FORCE_INCREMENT</span>);
+
+    messageVersion.setText("当前id是:" + messageVersion.getVersion());
+    transaction.commit();
+}
+</pre>
+<p>橙色的部分用于控制强制版本变更, 在读出来的时候会更新一次, 写入的时候再根据读出来的版本进行控制, 一次会递增两个版本.</p>
+<p>有了强制版本变更, 等于就锁了一整行. 不过版本控制其实并不是在数据库层面加锁, 而是Hibernate提供的机制.</p>
+<p>如果并发修改很多, 而且不能延后判断, 就要使用悲观锁, 悲观锁就类似于普通多线程上的锁, 必须获得锁之后才能读写. 这会锁住数据库的一行.</p>
 
 
+<h2 style="text-align: center;" id="con3">悲观锁 - 锁行</h2>
+<p>先来看看悲观锁的配置:</p>
+<pre>
+MessageVersion messageVersion =
+        em.find(MessageVersion.class, 6L, <span style="color: #FF6600">LockModeType.PESSIMISTIC_READ</span>);
+</pre>
+<p>生成的SQL语句是:</p>
+<pre>
+Hibernate:
+    select
+        messagever0_.id as id1_0_0_,
+        messagever0_.currentDate as currentD2_0_0_,
+        messagever0_."text" as text3_0_0_,
+        messagever0_."version" as version4_0_0_
+    from
+        MessageVersion messagever0_
+    where
+        messagever0_.id=? <span style="color: red">for share</span>
+</pre>
+<p>为何刚才没有展示SQL语句, 是因为乐观锁本来就没有在数据库层面加锁. 而悲观锁就是在读取的时候直接加了锁.</p>
+<p>这里的语句FOR SHARE是针对PgSQL的, 其获取的是一个ROW SHARE锁, 是一个行级锁, 只锁数据. PESSIMISTIC_WRITE则对应FOR UPDATE子句.</p>
+<p>既然是一个行级锁, 所以锁住一个数据对象(以及其关联的其他行). 从读取的时候加锁, 到事务提交的时候,才会释放锁.</p>
+<p>相比乐观锁, 悲观锁只要能够读取, 这个事务里就可以放心操作了, 在无法获取锁的时候抛异常. 而乐观锁要等到最后写入的那一刻, 也就是提交事务的时候才知道.</p>
+<p>如果并发非常多, 而且不能发生冲突, 就必须要放置悲观锁.</p>
+<p>JPA对于悲观锁的规范是:</p>
+<ol>
+    <li><code>PESSIMISTIC_READ</code>模式需要确保不出现可重复读</li>
+    <li><code>PESSIMISTIC_WRITE</code>模式不出现可重复读问题, 和幻象读, 也就是最高级的隔离级别.</li>
+</ol>
+<p>注意, 有一些旧规范的锁LockModeType.READ和LockModeType.WRITE不要再使用. 这些其实对应乐观锁, 就采用乐观锁专门的类即可.</p>
+<h3>总结</h3>
+<p>总结一下就是, 数据库默认是读已提交级别.</p>
+<p>使用乐观锁可以在不对数据库加锁的情况下用于较少的并发读写.</p>
+<p>使用悲观锁中的PESSIMISTIC_READ可以将事务隔离级别提高到不可重复读级别.</p>
+<p>使用悲观锁中的PESSIMISTIC_WRITE可以将事务隔离级别提高到串行化级别.</p>
 
+<h2 style="text-align: center;" id="con4">无事务情况的操作</h2>
+<p>在使用Hibernate自动建表的时候, Hibernate会有如下提示:</p>
+<pre>
+INFO: HHH10001501:
+    Connection obtained from JdbcConnectionAccess [org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator$ConnectionProviderJdbcConnectionAccess@53c99b09]
+    for (non-JTA) DDL execution was not in auto-commit mode;
+    the Connection 'local transaction' will be committed and the Connection will be set into auto-commit mode.
+</pre>
+<p>这是因为JDBC Connection默认是auto-commit模式. 在这个模式下, 每一条SQL语句就是一个事务.在自动提交模式下的效率也很高, 因为没有原子性和事务隔离的影响(只要每一条SQL语句是原子的).</p>
+<p>看一个例子:</p>
+<pre>
+@Test
+public void testNoTX() {
+    EntityManagerFactory emf =
+            CaveatEmptorUtil.getEntityManagerFactory();
+    EntityManager em = emf.createEntityManager();
 
-<p>JPA的标准默认是read committed</p>
-<h2 style="text-align: center;" id="con2"></h2>
+    MessageVersion messageVersion = em.find(MessageVersion.class, 6L);
+    System.out.println(messageVersion);
+    messageVersion.setText(String.valueOf(System.currentTimeMillis()) + "Good");
 
-<h2 style="text-align: center;" id="con3"></h2>
+    //抛异常
+    em.flush();
+}
+</pre>
+<p>创建的em对象处于非同步模式, 没有开启事务. 一直执行到em.flush()就会报javax.persistence.TransactionRequiredException异常, 因为无法回滚. </p>
+<p>在没有事务的情况下, 可以手工回滚:</p>
+<pre>
+MessageVersion messageVersion = em.find(MessageVersion.class, 6L);
+System.out.println(messageVersion);
+messageVersion.setText(String.valueOf(System.currentTimeMillis()) + "Good");
+System.out.println(messageVersion);
+em.refresh(messageVersion);
+System.out.println(messageVersion);
+</pre>
+<p>执行refresh()之后, 会将messageVersion重新变回原来未更新的样子, 这是通过再执行一个SELECT语句做到的.</p>
+<p>根据JPA的限制, 在无事务环境中可以进行查询, 使用find(), getReference()和.refresh(). 想刷新持久化上下文写入数据库是不允许的.</p>
+<p>由于无事务环境下的操作特点, 不手动刷新不会去刷新, 所以无事务的情况下的操作主要用于一系列不需要回滚的操作排队, 最后一起提交给某个事务. 比如例子:</p>
+<pre>
+@Test
+public void joinTX() throws InterruptedException {
+    EntityManagerFactory emf =
+            CaveatEmptorUtil.getEntityManagerFactory();
+    EntityManager em = emf.createEntityManager();
 
-<h2 style="text-align: center;" id="con4"></h2>
+    //连续创建10个对象
+    for (int i = 0; i < 10; i++) {
+        MessageVersion messageVersion = new MessageVersion();
+        messageVersion.setText(String.valueOf(System.currentTimeMillis()) + "Good");
+        Thread.sleep(100);
+        em.persist(messageVersion);
+    }
 
-<h2 style="text-align: center;" id="con5"></h2>
+    //detach一批对象用于处理
+    List&lt;MessageVersion> messages = em.createQuery("select m FROM MessageVersion m", MessageVersion.class).getResultList();
 
+    MessageVersion message16 = messages.get(15);
 
+    em.detach(message16);
+    message16.setText("其实是第16行");
+    //合并的时候会触发一个SELECT
+    em.merge(message16);
 
+    //删除几个数据
+    em.remove(messages.get(18));
+    em.remove(messages.get(19));
 
+    //上边的所有操作, 都没有影响到数据库, 因为没有同步
 
+    //直到这里才开启一个事务
+    em.getTransaction().begin();
 
+    //如果em没有被连结到事务, 就连接
+    if (!em.isJoinedToTransaction()) {
+        em.joinTransaction();
+    }
 
-
-
-
-<h2 style="text-align: center;" id="con6"></h2>
-
-
-
-
-
-
-
-
-
-
-
+    //此时提交事务, 会把上边的一系列全部都写入
+    em.getTransaction().commit();
+}
+</pre>
+<p>上边到开启和提交事务之前, 大量操作可以在之前先做掉, 尤其是查询和处理数据, 效率会比较高. 如果仅仅查询, 有的时候使用不同步的模式更方便.</p>
+<p>所有需要的操作执行过之后, 相当于给这些操作排了队, 最后开启事务, 保证当前线程的em在一个事务模式中, 然后提交, 上边的批量操作就全部执行了.</p>
+<p>事务这玩意看的多了终于明白了一些. 后边先跳过抓取数据和过滤, 来看如何编写查询. 目前映射, 事务管理都了解了, 然后就是查询了. 这三部分弄完, Hibernate就算会用了.</p>
+<p>后边再补其他内容.</p>
 
 
 
