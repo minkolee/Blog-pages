@@ -16,22 +16,133 @@
 </head>
 <body>
 <p>这里就是就是FetchType.LAZY和EAGER的区别, 看看一看这两个属性的背后机制. 现在感觉一个好的Java框架就像Spring一样, 一个一个注解的看过来,最后也就明白了.</p>
-
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con1">LAZY和EAGER加载</a></li>
+    <li><a href="#con2">代理的秘密</a></li>
+    <li><a href="#con3">LAZY 集合</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">LAZY和EAGER加载</h2>
+<p>Hibernate从数据库中取出数据并且装载到内存中, 有如下方式:</p>
+<ol>
+    <li>最通常的方式就是根据一个唯一标识符来取出数据, 比如常用的<code>em.find</code>方法</li>
+    <li>通过调用已经取出来的Entity的某些方法来获取与该Entity有关联的内容, 比如getSeller()等, 关系映射和值类型的集合也是采取此种方式加载. 只要上下文还开启, 就可以加载尚未加载的数据.</li>
+    <li>使用Java持久化查询语言(JPQL)来进行查询.</li>
+    <li>使用<code>CriteriaQuery</code>接口来进行查询</li>
+    <li>原生SQL语言</li>
+</ol>
+<p>在一个JPA程序中, 一般都会使用上述技术的组合来达成最终目的. 不过这里先不看查询, 而是关心Hibernate的加载策略, 也就是<code>FetchType.LAZY</code>和<code>EAGER</code>背后的真相.</p>
+<p>这两个东西在类的关联中经常用到, 其背后到底有什么秘密, 就来看看吧. 感觉Java框架到最后, 也就是一个一个注解详细研究过来, 毕竟Spring MVC到现在还没有开始看呢.</p>
+<p><code>FetchType.LAZY</code>和<code>EAGER</code>是加载策略, 在映射的时候指定, 仅仅用于关系和集合. 推荐是使用LAZY方式. 将关系映射和集合的加载策略设定为LAZY时, Hibernate仅仅在必要的时候才加载.</p>
+<p>Hibernate如何实现LAZY呢, 其实能猜到这些框架的技术, 就是运行时代理, 想到了Spring 的AOP. 也是使用代理. 设计模式中的代理模式也学过, 用一个代理可以实现延迟加载. 看来Hibernate就是综合了这些技术.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">代理的秘密</h2>
+<p>之前学过一个套路, 就是不想直接加载对象的时候, 改用getReference方法. 现在用反射来看一看这个对象究竟是什么: </p>
+<pre>
+public static void main(String[] args) {
+    EntityManagerFactory emf =
+            CaveatEmptorUtil.getEntityManagerFactory();
 
-<h2 style="text-align: center;" id="con3"></h2>
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction transaction = em.getTransaction();
+    transaction.begin();
 
-<h2 style="text-align: center;" id="con4"></h2>
+    MessageVersion message = em.getReference(MessageVersion.class, 1L);
+    PersistenceUnitUtil persistenceUtil = emf.getPersistenceUnitUtil();
+
+    assertFalse(persistenceUtil.isLoaded(message));
+
+    Class clz = message.getClass();
+    System.out.println("父类是: "+clz.getGenericSuperclass());
+    System.out.println("类名是: " + clz.getName());
+    System.out.println("以下是接口: ");
+    for (Class c : clz.getInterfaces()) {
+        System.out.println(c);
+    }
+
+
+    System.out.println(message);
+
+    transaction.commit();
+}
+</pre>
+<p>打印出的结果是:</p>
+<pre>
+父类是: class cc.conyli.model.chapter11.MessageVersion
+类名是: cc.conyli.model.chapter11.MessageVersion$HibernateProxy$jUkY3ci5
+以下是接口:
+interface org.hibernate.proxy.HibernateProxy
+interface org.hibernate.proxy.ProxyConfiguration
+</pre>
+<p>这里的MessageVersion对象实际上就被延迟加载, 仅仅只有一行getReference()语句的话, 运行程序可以发现, Hibernate没有执行任何SQL语句. 顺便一提, 如果用find方法, 结果是:</p>
+<pre>
+父类是: class java.lang.Object
+类名是: cc.conyli.model.chapter11.MessageVersion
+没有接口
+</pre>
+<p>很明显可以看出来, 使用了getReference之后, 得到的是一个代理对象. 只要在代理对象上调用除了获得唯一标识符之外的方法,就会触发代理对象加载数据.(不过在我实验的时候, 使用了getId()也会触发加载).如果使用find, 则根本没有代理对象, Hibernate直接取出结果然后给对象设置上数据.</p>
+<p>JPA提供的PersistenceUtil工具, 可以检查一个代理的状态:</p>
+<pre>
+assertFalse(persistenceUtil.isLoaded(message,"text"));
+assertFalse(persistenceUtil.isLoaded(message,"currentDate"));
+assertFalse(Hibernate.isInitialized(message));
+assertFalse(persistenceUtil.isLoaded(message,"id"));
+</pre>
+<p>实际上, 不仅仅是自定义的映射类被代理, 被关系映射的Set等集合类型, 运行时候的实际类型也是Hibernate生成的代理, 只不过行为和原来的集合完全相同, 所以是透明的. 只要是涉及到需要延迟加载的地方, 背后实际上都是代理.</p>
+
+<h2 style="text-align: center;" id="con3">LAZY 集合</h2>
+<p>先来看看LAZY集合如何使用. 这里的集合, 依然值的是值类型的集合, 即<code>@ElementCollection</code>注解的集合.</p>
+<p>对于所有的集合, Hibernate默认就使用LAZY策略, 无需具体指定策略, 而且比较有趣的是, 执行get方法获取集合的引用, 依然是一个代理对象, 不访问具体对象, 不会加载数据.</p>
+<pre>
+public void testLazy() {
+    EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("HelloWorldPU");
+    EntityManager em = emf.createEntityManager();
+    EntityTransaction tx = em.getTransaction();
+    tx.begin();
+
+    LinkedHashSetItem item = em.find(LinkedHashSetItem.class, 1L);
+
+    Set&lt;String> images = item.getImages();
+    System.out.println("images是否在执行了get方法后被加载: " + Persistence.getPersistenceUtil().isLoaded(item, "images"));
+    System.out.println(images.getClass());
+
+    System.out.println(images.iterator().next());
+    System.out.println(images.size());
+    System.out.println("images是否在读取具体数据后被加载: " + Persistence.getPersistenceUtil().isLoaded(item, "images"));
+
+    tx.commit();
+
+}
+</pre>
+<p>在<code>item.getImages()</code>之后, 依然没有加载数据, 直到开始遍历Set才开始加载数据, size()方法也会触发加载.</p>
+<p>Hibernate有一个特有的功能, 就是一个<code>@org.hibernate.annotations.LazyCollection</code>注解, 可以让集合支持一些无需加载数据的操作, 来修改一下:</p>
+<pre>
+@ElementCollection
+@CollectionTable(name = "LINK_IMAGE")
+@Column(name = "IMAGE_NAME")
+@org.hibernate.annotations.OrderBy(clause = "IMAGE_NAME")
+<span style="color: red">@org.hibernate.annotations.LazyCollection(LazyCollectionOption.EXTRA)</span>
+protected Set&lt;String> images = new LinkedHashSet<>();
+</pre>
+<p>这个时候, 再执行测试:</p>
+<pre>
+Set&lt;String> images = item.getImages();
+System.out.println("images是否在执行了get方法后被加载: " + Persistence.getPersistenceUtil().isLoaded(item, "images"));
+System.out.println(images.size());
+System.out.println(images.isEmpty());
+System.out.println(images.contains("saner"));
+System.out.println("images是否在这些操作后被加载: " + Persistence.getPersistenceUtil().isLoaded(item, "images"));
+</pre>
+<p>这个操作支持上述的三个方法, 都不会引起加载数据, 对于Map集合来说, 还支持<code>containsKey()</code>和<code>containsValue()</code>两个方法.</p>
+
+<h2 style="text-align: center;" id="con4">不使用代理</h2>
+
+
+
+
 
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
