@@ -139,6 +139,69 @@ System.out.println("images是否在这些操作后被加载: " + Persistence.get
 <p>这个操作支持上述的三个方法, 都不会引起加载数据, 对于Map集合来说, 还支持<code>containsKey()</code>和<code>containsValue()</code>两个方法.</p>
 
 <h2 style="text-align: center;" id="con4">不使用代理</h2>
+<p>刚才可以知道, 正常情况下</p>
+<p>默认使用代理, 也有不使用代理的方法. 在持久化类上上加上一个特殊的注解, 就可以让这个类不使用代理,即关闭了拦截器, 这个注解的优先级别要比加在域上的注解优先级要高, 只要关闭了代理, 那些延迟加载的功能就全部失效了.</p>
+<pre>
+@Entity
+<span style="color: red">@org.hibernate.annotations.Proxy(lazy = false)</span>
+public class User {
+    ......
+}
+</pre>
+<p>加上了这个注解之后, 使用<code>User user = em.getReference(User.class, USER_ID);</code>,就会触发一个SELECT.</p>
+<p>User类对于关系映射也一样不会使用代理, 因此会导致类似<code>@ManyToOne(fetch = FetchType.LAZY)</code>这样的语句失效, 实际执行依然是急加载.</p>
+<p>这里还是用之前的MessageVersion加上自己写的一个类来测试:</p>
+<pre>
+@Entity
+<span style="color: red">@org.hibernate.annotations.Proxy(lazy = false)</span>
+public class MessageVersion {
+    ......
+}
+</pre>
+<p>一个Sender类, 其中有一个到MessageVersion的多对一关系:</p>
+<pre>
+@Entity
+public class Sender {
+
+    @Id
+    @GeneratedValue
+    private Long id;
+
+    private String name;
+
+    <span style="color: red">@ManyToOne(fetch = FetchType.LAZY)</span>
+    private MessageVersion messageVersion;
+}
+</pre>
+<p>注意现在已经关闭了MessageVersion的代理, 看下列测试代码:</p>
+<pre>
+Sender sender = em.find(Sender.class, 25L);
+
+System.out.println("messageVersion是否在find之后被加载: " + Persistence.getPersistenceUtil().isLoaded(sender, "messageVersion"));
+</pre>
+<p>这个结果打印的是true, 因为关闭了MessageVersion类的代理, 即使在多对一注解上标记了LAZY也没有用. 如果把MessageVersion类上边的关闭代理代码去掉, 则这个测试打印的是false.</p>
+<p>现在想在关闭MessageVersion类的代理的情况下,依然要使用LAZY加载, 就要如此写:</p>
+<pre>
+@ManyToOne(fetch = FetchType.LAZY)
+
+<span style="color: red">@org.hibernate.annotations.LazyToOne(
+org.hibernate.annotations.LazyToOneOption.NO_PROXY
+)</span>
+private MessageVersion messageVersion;
+</pre>
+<p><code>LazyToOneOption.NO_PROXY</code>告诉Hibernate需要在这里使用字节码增强来拦截调用. 此时再运行, 就会发现依然是LAZY加载了.</p>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
