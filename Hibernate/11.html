@@ -20,8 +20,8 @@
     <li><a href="#con1">LAZY和EAGER加载</a></li>
     <li><a href="#con2">代理的秘密</a></li>
     <li><a href="#con3">LAZY 集合</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
+    <li><a href="#con4">不使用代理</a></li>
+    <li><a href="#con5">关系的LAZY加载</a></li>
     <li><a href="#con6"></a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">LAZY和EAGER加载</h2>
@@ -189,26 +189,25 @@ org.hibernate.annotations.LazyToOneOption.NO_PROXY
 )</span>
 private MessageVersion messageVersion;
 </pre>
-<p><code>LazyToOneOption.NO_PROXY</code>告诉Hibernate需要在这里使用字节码增强来拦截调用. 此时再运行, 就会发现依然是LAZY加载了.</p>
+<p><code>LazyToOneOption.NO_PROXY</code>告诉Hibernate需要在这里使用字节码增强来拦截调用. 此时再运行, 就会发现依然是LAZY加载了. 不过这里运行结果依然是true, 应该是字节码增强器没有起作用. 原书中说未必适用Hibernate5的字节码增强器.</p>
+
+
+<h2 style="text-align: center;" id="con5">关系的LAZY加载</h2>
+<p>把集合中的值类型换成Entity就是关系, 所以可以猜到, Hibernate对于关系应该也是默认使用LAZY加载. 实际上并不是, <strong>关系的加载默认策略是EAGER</strong>.</p>
+<p>这里要注意一个问题, 就是LAZY加载的关系和集合, 如果在加载之前就将其分离(detach), 那么之后再调用getXXX方法, 就会报错. 因此分离的时机要掌握好.</p>
+
+
+<h2 style="text-align: center;" id="con6">其他的一些问题</h2>
+<p>这里列出以下其他的一些问题:</p>
+<ol>
+    <li>n+1查询问题, 这指的是如果使用了LAZY加载, 查出了结果集之后, 对于结果集中的每个LAZY加载的部分进行处理, 则会导致每次处理都再执行一条SQL语句, 导致有n个结果, 最后就总共执行n+1条查询, 而实际上可以用1条JOIN语句一次性全部查出来. 使用EAGER策略会避免这个问题, 然而又会遇到另外一个问题: 笛卡尔积</li>
+    <li>笛卡尔积问题, 如果一个映射的持久化类中有多个集合或者关系, 如果全部是EAGER查询</li>
+</ol>
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
