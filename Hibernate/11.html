@@ -15,6 +15,7 @@
     </style>
 </head>
 <body>
+<p>武汉冠状病毒还在肆虐, 不过也有了一个超长的假期, 今天已经是1月31日了, 大部分人的新年计划应该还没有完成十二分之一吧, 在自学编程的路上一刻也不能放松.</p>
 <p>这里就是就是FetchType.LAZY和EAGER的区别, 看看一看这两个属性的背后机制. 现在感觉一个好的Java框架就像Spring一样, 一个一个注解的看过来,最后也就明白了.</p>
 <ol>
     <li><a href="#con1">LAZY和EAGER加载</a></li>
@@ -22,7 +23,7 @@
     <li><a href="#con3">LAZY 集合</a></li>
     <li><a href="#con4">不使用代理</a></li>
     <li><a href="#con5">关系的LAZY加载</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con6">其他的一些问题</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">LAZY和EAGER加载</h2>
 <p>Hibernate从数据库中取出数据并且装载到内存中, 有如下方式:</p>
@@ -207,10 +208,95 @@ private MessageVersion messageVersion;
 <ol>
     <li>批量创建代理类: 在类上设置每次加载这个类的代理时, 加载的数量, 相当于一次性读取的数量, 注解为: <code>@org.hibernate.annotations.BatchSize(size=n)</code>, 当每次加载这个映射类对应的代理类的时候, 会一次性读入n个. 这用来解决n+1问题</li>
     <li>批量加载集合: 上边这个注解也可以设置在集合上, 每次只要一读取这个集合, 就会立刻加载等于n的数量, 当读取超过n的时候, 下一次查询又会立刻加载n的数量, 这样就将n+1问题变成了 (n+1)/n </li>
-    <li>使用子查询预抓取集合: </li>
+    <li>使用子查询预抓取集合: 在集合(关系)上添加一个注解<code>@org.hibernate.annotations.Fetch(FetchMode.SUBSELECT)</code>, 在加载的时候, 就会直接查出来集合. 这背后使用一个子查询, 所以语句会比较少. 这个注解仅仅可以作用于延迟加载的集合, 而不能用于Entity的代理, 所以对于单个的关系是没有效果的.</li>
+    <li>使用SELECT避免笛卡尔积: 与上边的注解类似, 只不过<code>FetchMode</code>改成<code>SELECT</code>, 就会使用额外的多个SELECT去加载, 以避免笛卡尔积. 可见FetchMode就是用来控制具体加载类型, FetchMode的默认是什么呢, 其实就是JOIN.</li>
+    <li>动态急加载, 这是最方便的方法, 即在集合上依然设置LAZY, 但是在JPQL查询语句中使用特殊的<code>join fetch</code>来指定使用急加载.</li>
 </ol>
+<p>看一个例子, 依然是上边的Sender 和 MessageVersion 类, 但是在MessageVersion中添加一个反向映射 @OneToMany:</p>
+<pre>
+@Entity
+public class MessageVersion {
+    @OneToMany(mappedBy = "messageVersion")
+    private Set&lt;Sender> senders = new HashSet&lt;>();
+}
+</pre>
+<p>编写如下的查询:</p>
+<pre>
+List&lt;MessageVersion> messageVersions = em.createQuery("SELECT m FROM MessageVersion m", MessageVersion.class).getResultList();
 
-
+for (MessageVersion m : messageVersions) {
+    System.out.println(m.getSenders());
+}
+</pre>
+<p>这个查询先查出所有的MessageVersion, 然后对每个MessageVersion查其对应的Senders. 注意看控制台的顺序, 在每次循环的时候, 都是先去查询, 然后打印结果.</p>
+<p>执行这个查询之后, 目前MessageVersion一共有5条数据, 然后发现执行了6个SQL语句, 第一个查出所有的MessageVersion, 然后5个, 就是每次循环的时候, 再去查对应的Senders.</p>
+<p>现在加上注解:</p>
+<pre>
+@OneToMany(mappedBy = "messageVersion")
+<span style="color: red">@org.hibernate.annotations.Fetch(FetchMode.SUBSELECT)</span>
+private Set&lt;Sender> senders = new HashSet&lt;>();
+</pre>
+<p>此时Hibernate在先查出来MessageVersion之后, 就会使用一条SQL语句:</p>
+<pre>
+Hibernate:
+    /* load one-to-many cc.conyli.model.chapter11.MessageVersion.senders */ select
+        senders0_.messageVersion_id as messageV3_1_1_,
+        senders0_.id as id1_1_1_,
+        senders0_.id as id1_1_0_,
+        senders0_.messageVersion_id as messageV3_1_0_,
+        senders0_.name as name2_1_0_
+    from
+        Sender senders0_
+    where
+        senders0_.messageVersion_id in (
+            select
+                messagever0_.id
+            from
+                MessageVersion messagever0_
+        )
+</pre>
+<p>可以看到, 用in子句来急加载了MessageVersion结果集中全部对象的senders. 这样一共就两条SQL语句. </p>
+<p>修改成如下:</p>
+<pre>
+@OneToMany(mappedBy = "messageVersion", <span style="color: red">fetch = FetchType.EAGER</span>)
+@org.hibernate.annotations.Fetch(<span style="color: red">FetchMode.SELECT</span>)
+private Set&lt;Sender> senders = new HashSet&lt;>();
+</pre>
+<p>这样运行的结果, 总SQL条数不变, 但是控制台顺序会有变化. 最开始什么都不加的时候, 遇到遍历的时候才会去查询. 现在搭配使用之后, 会直接先查出全部数据, 在循环打印的时候, 并不会执行SQL语句.</p>
+<p>最后看一下动态急加载, 仅仅指定LAZY加载, 此时已经知道, 循环一次会查一次再打印, 因为是LAZY加载:</p>
+<pre>
+@OneToMany(mappedBy = "messageVersion", fetch = FetchType.LAZY)
+private Set&lt;Sender> senders = new HashSet<>();
+</pre>
+<p>现在在JPQL中指定急加载:</p>
+<pre>
+List&lt;MessageVersion> messageVersions = em.createQuery("SELECT m FROM MessageVersion m <span style="color: red">join fetch m.senders</span>", MessageVersion.class).getResultList();
+</pre>
+<p>可以发现Hibernate用一条 JOIN 语句直接加载:</p>
+<pre>
+Hibernate:
+    /* SELECT
+        m
+    FROM
+        MessageVersion m
+    join
+        fetch m.senders */ select
+            messagever0_.id as id1_0_0_,
+            senders1_.id as id1_1_1_,
+            messagever0_.currentDate as currentD2_0_0_,
+            messagever0_."text" as text3_0_0_,
+            messagever0_."version" as version4_0_0_,
+            senders1_.messageVersion_id as messageV3_1_1_,
+            senders1_.name as name2_1_1_,
+            senders1_.messageVersion_id as messageV3_1_0__,
+            senders1_.id as id1_1_0__
+        from
+            MessageVersion messagever0_
+        inner join
+            Sender senders1_
+                on messagever0_.id=senders1_.messageVersion_id
+</pre>
+<p>从上边可以看出, 这四种方法, 本质都是为了解决n+1或者笛卡尔积这两个问题, 而解决的方法只能同时聚焦于解决某一个问题, 所以要根据情况灵活使用.</p>
 
 
 
