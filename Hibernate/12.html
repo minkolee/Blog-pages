@@ -15,19 +15,38 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>映射看完了, 抓取策略也看完了, 剩下就是最核心的查询了. 查询永远是数据库操作的核心, 相比其他的UPDATE DELETE优先度高很多. </p>
+<p>今天已经二月了, 开始继续看吧. 今年的任务就是再搞一遍Spring框架之后, 还是回头老老实实学数据结构和算法, 然后来刷点题目, 提升基本功了. 女儿也快到了可以学编程的年纪了, 当爹的我可不能落下了.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
+    <li><a href="#con1">JPA查询接口</a></li>
     <li><a href="#con2"></a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">查询基础理论</h2>
+<p>在JPA中使用查询有三个步骤:</p>
+<ol>
+    <li>创建查询</li>
+    <li>准备该查询, 包括传递参数, 设置提示和分页选项等</li>
+    <li>运行查询获取结果</li>
+</ol>
+<p>针对这三个步骤, JPA都提供了标准的接口, Hibernate也有属于自己独特的接口, 这里先来看标准的接口, 也就是基于EntityManager的使用.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">创建查询 - Query 和 TypedQuery</h2>
+<p>JPA提供了两个创建查询的接口, 一个是Query, 另外一个是TypedQuery. 两个接口都支持直接的JPQL语句, 以及带有条件参数的查询.</p>
+
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con3"></h2>
 
