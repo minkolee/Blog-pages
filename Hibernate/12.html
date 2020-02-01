@@ -19,11 +19,11 @@
 <p>今天已经二月了, 开始继续看吧. 今年的任务就是再搞一遍Spring框架之后, 还是回头老老实实学数据结构和算法, 然后来刷点题目, 提升基本功了. 女儿也快到了可以学编程的年纪了, 当爹的我可不能落下了.</p>
 
 <ol>
-    <li><a href="#con1">JPA查询接口</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
+    <li><a href="#con1">查询基础理论</a></li>
+    <li><a href="#con2">创建查询 - Query 和 TypedQuery</a></li>
+    <li><a href="#con3">创建查询 - CriteriaQuery</a></li>
+    <li><a href="#con4">创建查询 - Hibernate的查询接口</a></li>
+    <li><a href="#con5">准备查询</a></li>
     <li><a href="#con6"></a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">查询基础理论</h2>
@@ -36,7 +36,154 @@
 <p>针对这三个步骤, JPA都提供了标准的接口, Hibernate也有属于自己独特的接口, 这里先来看标准的接口, 也就是基于EntityManager的使用.</p>
 
 <h2 style="text-align: center;" id="con2">创建查询 - Query 和 TypedQuery</h2>
-<p>JPA提供了两个创建查询的接口, 一个是Query, 另外一个是TypedQuery. 两个接口都支持直接的JPQL语句, 以及带有条件参数的查询.</p>
+<p>JPA提供了两大类查询接口, 一类是直接通过JPQL创建查询, 一类是通过类来创建类型安全的查询. 第一类的接口是Query和TypedQuery, 第二类的接口是CriteriaQuery, 包括带与不带泛型的两个版本,
+    对应第一类中的两个接口. 这两大类都支持条件查询和直接查询.</p>
+<p>在之前的各种例子中一直使用的<code>em.createQuery("SELECT m FROM MessageVersion m")</code>方法返回的就是一个Query对象:</p>
+<pre>
+Query query = em.createQuery("SELECT m FROM MessageVersion m");
+</pre>
+<p>当然, 我们都知道这里还可以传入第二个参数, 也就是实体类的class, 这可以让结果类型安全, 其实这恰好返回的就是一个TypedQuery对象:</p>
+<pre>
+TypedQuery&lt;MessageVersion> query = em.createQuery("SELECT m FROM MessageVersion m", MessageVersion.class);
+List&lt;MessageVersion> messageVersionList = query.getResultList();
+</pre>
+<p>这时候就类型安全了. Query和TypedQuery都支持条件查询, 也就是像JDBC一样, 避免SQL注入的占位符查询:</p>
+<pre>
+TypedQuery&lt;MessageVersion> query = em.createQuery("SELECT m FROM MessageVersion m WHERE m.id = :id", MessageVersion.class).setParameter("id", 4L);
+
+MessageVersion messageVersion = query.getSingleResult();
+</pre>
+<p>这就是Query和TypedQuery接口的简单介绍. 相比之下, 如果要使用这一类接口, 最好还是使用类型相对安全的TypedQuery.</p>
+
+<h2 style="text-align: center;" id="con3">创建查询 - CriteriaQuery</h2>
+<p>CriteriaQuery是用类的方式将JPQL转换成一系列类的操作, 从而避免了类型不安全. CriteriaQuery可以不使用泛型, 也可以使用,看一个不用泛型的例子如下:</p>
+<pre>
+public class BasicSearchInterfaces {
+
+    public static EntityManager getEM() {
+        EntityManagerFactory emf =
+                CaveatEmptorUtil.getEntityManagerFactory();
+        return emf.createEntityManager();
+    }
+
+    public static EntityManagerFactory getEMF() {
+        return CaveatEmptorUtil.getEntityManagerFactory();
+    }
+
+    @Test
+    public void testBasicInterfaces() {
+        EntityManager em = getEM();
+        em.getTransaction().begin();
+
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+
+        //也可以从EMF中获取
+        //CriteriaBuilder cb2 = getEMF().getCriteriaBuilder();
+
+        //创建一个CriteriaQuery对象
+        CriteriaQuery criteriaQuery = cb.createQuery();
+
+        //.select表示查询, 然后传入.from()函数的结果, 这行语句从左向右念, 就很像SQL语句的 SELECT FROM 顺序
+        criteriaQuery.select(criteriaQuery.from(MessageVersion.class));
+
+        //依然使用em.createQuery重载方法来创建查询
+        Query query = em.createQuery(criteriaQuery);
+
+        //使用查询获取结果
+        List&lt;MessageVersion> messageVersionList = query.getResultList();
+
+        System.out.println(messageVersionList);
+
+        em.getTransaction().commit();
+    }
+}
+</pre>
+<p>当然, 在这么写的过程中, IDE就会提示CriteriaQuery是泛型类, 这里直接使用不带泛型的版本不好, 不带参数的<code>cb.createQuery()</code>实际返回的是<code>CriteriaQuery&lt;Object></code>,
+    所以还是赶快来看一下带泛型的版本:</p>
+<pre>
+CriteriaQuery&lt;MessageVersion> criteriaQuery = cb.createQuery(MessageVersion.class);
+criteriaQuery.select(criteriaQuery.from(MessageVersion.class));
+
+//查看源码可以知道, 这个重载方法是: &lt;T> TypedQuery&lt;T> createQuery(CriteriaQuery&lt;T> var1);
+TypedQuery&lt;MessageVersion> query = em.createQuery(criteriaQuery);
+
+List&lt;MessageVersion> messageVersionList = query.getResultList();
+</pre>
+<p>CriteriaQuery同样也支持条件查询, 不过写起来稍微有点绕:</p>
+<pre>
+CriteriaBuilder cb = em.getCriteriaBuilder();
+CriteriaQuery&lt;MessageVersion> criteriaQuery = cb.createQuery(MessageVersion.class);
+
+//相当于单独抽出了.from()函数的结果, 可以将其认为是查到的那个结果
+Root&lt;MessageVersion> m = criteriaQuery.from(MessageVersion.class);
+
+//这里要注意的是, 使用CriteriaBuilder创建一个WHERE条件, 这里用的是equal()方法, 第一个参数是属性名称, 第二个是值
+//这行语句念起来也很像 SELECT ... FROM ... WHERE id = 4
+criteriaQuery.select(m).where(<span style="color: red">cb.equal(m.get("id"), 4L)</span>);
+
+TypedQuery&lt;MessageVersion> query = em.createQuery(criteriaQuery);
+
+MessageVersion messageVersion = query.getSingleResult();
+
+System.out.println(messageVersion);
+</pre>
+<p>注意其中红色的部分, 生成WHERE条件用的是CriteriaBuilder对象的方法. 当然这里的属性名称("id")还是用字符串表示的, 想完全类型安全, 就要用元模型, 这个以后再研究.</p>
+
+
+<h2 style="text-align: center;" id="con4">创建查询 - Hibernate的查询接口</h2>
+<p>老套路, 看完了JPA标准, 自然要来看看Hibernate的查询接口, Hibernate的查询接口实际上比JPA标准还要早, 毕竟Hibernate引领了JPA诞生. Hibernate的查询接口是:</p>
+<ol>
+    <li><code>org.hibernate.Query</code>, 已过时, 被<code>org.hibernate.query.Query</code>替代</li>
+    <li><code>org.hibernate.SQLQuery</code>, 已过时, 被<code>org.hibernate.query.NativeQuery</code>替代</li>
+    <li><code>org.hibernate.Criteria</code></li>
+</ol>
+<p>第一个接口的使用方法和JPA标准很类似, 直接就用类型安全的查询:</p>
+<pre>
+Query&lt;MessageVersion> query = session.createQuery("SELECT m FROM MessageVersion m", MessageVersion.class);
+Query&lt;MessageVersion> query1 = session.createQuery("SELECT m FROM MessageVersion m WHERE m.id = :id", MessageVersion.class).setParameter("id", 4L);
+</pre>
+<p>SQLQuery相比之下比较刺激一些, 用原生的SQL夹杂面向对象:</p>
+<pre>
+NativeQuery query = session.createSQLQuery("SELECT {m.*} FROM messageversion {m}").addEntity("m", MessageVersion.class);
+System.out.println(query.getResultList());
+</pre>
+<p>NativeQuery其实是带有泛型, 但是IDE提示说由于createSQLQuery方法返回的就是不带泛型的NativeQuery对象, 所以无需使用泛型.</p>
+<p>对于最后一个Criteria, 我看书上说这是一个古老的API, 结果写起来发现session.createCriteria()方法也已经过时, 这里就不再看了.
+
+
+<h2 style="text-align: center;" id="con5">准备查询 - 绑定命名参数 和 绑定顺序参数</h2>
+<p>准备查询主要有如下工作:</p>
+<ol>
+    <li>绑定命名参数</li>
+    <li>绑定顺序参数</li>
+    <li>分页</li>
+</ol>
+<p>先来看JPA标准的准备查询. 刚才在前边的创建查询中, 使用的JPQL语句: <code>SELECT m FROM MessageVersion m WHERE m.id = :id</code>中的<code>:id</code>就是命名参数, 用一个冒号加上参数名称来表示.</p>
+<p>有了命名参数之后, 就要在查询中进行绑定. 绑定的方法是<code>setParameter()</code>方法.</p>
+<p>在上边可以看到, <code>setParameter()</code>方法有两个参数,第一个是参数名称, 第二个是要绑定参数的值.</p>
+<p><code>setParameter()</code>方法还有一个重载, 专门用于时间类型, 前两个参数不变, 最后一个参数指定具体的类型, 使用TemporalType中的三个类型来指定具体时间类型.</p>
+<p>注意, 除了基本类型值以外, 绑定命名参数(包括其他参数), 用于关系对象的时候, 在绑定的时候可以直接传入具体的实体类对象的引用, 比如:</p>
+<pre>
+Query&lt;Sender> senderQuery = em.createQuery("SELECT s FROM Sender s WHERE s.messageVersion = :mv order by s.id", Sender.class);
+MessageVersion messageVersion = em.find(MessageVersion.class, 4L);
+senderQuery.setParameter("mv", messageVersion);
+System.out.println(senderQuery.getResultList());
+</pre>
+<p>这个例子会查出来Sender中所有MessageVersion的id为4的结果, 这是JPQL/HQL面向对象的优点, 实际生成的语句是比较id, 但是这里看上去像直接比较两个对象是否相等.</p>
+<p>使用CriteriaQuery绑定参数的方法如下:</p>
+<pre>
+CriteriaBuilder cb = em.getCriteriaBuilder();
+CriteriaQuery&lt;MessageVersion> criteriaQuery = cb.createQuery(MessageVersion.class);
+Root&lt;MessageVersion> m = criteriaQuery.from(MessageVersion.class);
+
+//注意红色部分, 实际上相当于将原来equal方法第二个参数, 从一个具体值替换成了一个 cb.parameter() 方法的结果, 这个方法第一个参数是参数类型, 第二个参数是参数的名称
+criteriaQuery.select(m).where(cb.equal(m.get("id"), <span style="color: red">cb.parameter(Long.class, "number")</span>));
+
+//在准备查询的时候, 设置参数的名称时, 就需要使用cb.parameter()中指定的方法
+TypedQuery&lt;MessageVersion> query = em.createQuery(criteriaQuery).setParameter("number", 4L);
+</pre>
+<p>其实上边这个绑定参数的方法, 写成JPQL就是 <code>SELECT m FROM MessageVersion m WHERE m.id = :number</code>, 这么看就明白多了.</p>
+<p>绑定顺序参数不太常用, 而且也不类型安全:</p>
 
 
 
@@ -48,15 +195,11 @@
 
 
 
-<h2 style="text-align: center;" id="con3"></h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
 
-<h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
-
 </body>
 </html>
