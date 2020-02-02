@@ -25,6 +25,8 @@
     <li><a href="#con4">创建查询 - Hibernate的查询接口</a></li>
     <li><a href="#con5">准备查询</a></li>
     <li><a href="#con6">执行查询</a></li>
+    <li><a href="#con7">命名查询</a></li>
+    <li><a href="#con8">查询提示 - hints</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">查询基础理论</h2>
 <p>在JPA中使用查询有三个步骤:</p>
@@ -157,7 +159,8 @@ System.out.println(query.getResultList());
     <li>分页</li>
     <li>Hibernate特有的游标查询</li>
 </ol>
-<p>先来看JPA标准的准备查询. 刚才在前边的创建查询中, 使用的JPQL语句: <code>SELECT m FROM MessageVersion m WHERE m.id = :id</code>中的<code>:id</code>就是命名参数, 用一个冒号加上参数名称来表示.</p>
+<p>先来看JPA标准的准备查询. 刚才在前边的创建查询中, 使用的JPQL语句: <code>SELECT m FROM MessageVersion m WHERE m.id = :id</code>中的<code>:id</code>就是命名参数,
+    用一个冒号加上参数名称来表示.</p>
 <p>有了命名参数之后, 就要在查询中进行绑定. 绑定的方法是<code>setParameter()</code>方法.</p>
 <p>在上边可以看到, <code>setParameter()</code>方法有两个参数,第一个是参数名称, 第二个是要绑定参数的值.</p>
 <p><code>setParameter()</code>方法还有一个重载, 专门用于时间类型, 前两个参数不变, 最后一个参数指定具体的类型, 使用TemporalType中的三个类型来指定具体时间类型.</p>
@@ -184,7 +187,8 @@ TypedQuery&lt;MessageVersion> query = em.createQuery(criteriaQuery).setParameter
 <p>其实上边这个绑定参数的方法, 写成JPQL就是 <code>SELECT m FROM MessageVersion m WHERE m.id = :number</code>, 这么看就明白多了.</p>
 <p>绑定顺序参数不太常用, 而且也不类型安全:</p>
 <pre>
-Query query = em.createQuery("SELECT m FROM MessageVersion m WHERE m.id> <span style="color: red">?1</span> and m.id < <span style="color: red">?2</span> order by m.id", MessageVersion.class);
+Query query = em.createQuery("SELECT m FROM MessageVersion m WHERE m.id> <span
+        style="color: red">?1</span> and m.id < <span style="color: red">?2</span> order by m.id", MessageVersion.class);
 
 query.setParameter(1, 4L);
 query.setParameter(2, 6L);
@@ -202,7 +206,8 @@ query.setFirstResult(10).setMaxResults(5);
 
 System.out.println(query.getResultList());
 </pre>
-<p>这里的<code>setFirstResult(10)</code>相当于<code>OFFSET 10</code>, 跳过前10个结果; <code>setMaxResults(5)</code>相当于<code>LIMIT 5</code>, 所以这个查询就是按5个为一页, 从第三页开始的结果.</p>
+<p>这里的<code>setFirstResult(10)</code>相当于<code>OFFSET 10</code>, 跳过前10个结果; <code>setMaxResults(5)</code>相当于<code>LIMIT
+    5</code>, 所以这个查询就是按5个为一页, 从第三页开始的结果.</p>
 <p>这个分页方式除了JPA标准的Query之外, 也能用于TypedQuery, 以及Hibernate自己的Query和NativeQuery. 使用这种方式, 就是采用编程式的获取页数, 要比编辑SQL语句方便的多.</p>
 <p>还有一个Hibernate特有的游标查询, 实际上也是全部查出来数据, 然后可以自由的来反复查询结果.</p>
 <pre>
@@ -246,7 +251,8 @@ public void testCursor() {
 
 
 <h2 style="text-align: center;" id="con6">执行查询</h2>
-<p>创建和准备查询并不会导致任何SQL语句被执行, 只有实际执行查询的时候, 才会触发SQL语句执行. 所谓执行查询, 就是在Query对象上调用各种方法来获取结果, 结果会由Hibernate自动按照映射来组装成对象, 如果查询结果是标量, Hibernate不会托管标量结果.</p>
+<p>创建和准备查询并不会导致任何SQL语句被执行, 只有实际执行查询的时候, 才会触发SQL语句执行. 所谓执行查询, 就是在Query对象上调用各种方法来获取结果, 结果会由Hibernate自动按照映射来组装成对象,
+    如果查询结果是标量, Hibernate不会托管标量结果.</p>
 <p>最常用的是将这个查询的全部结果包装进一个List中, 也就是前边用了无数次的<code>getResultList()</code>方法, 对于泛型的查询, 也需要用对应泛型类型的List来接着, 看一个标量的例子:</p>
 <pre>
 TypedQuery&lt;String> query = em.createQuery("SELECT s.name FROM Sender s ORDER BY s.id", <span style="color: red">String.class</span>);
@@ -255,45 +261,168 @@ List&lt;String> names = query.getResultList();
 
 System.out.println(names);
 </pre>
-<p>这里查询的是s.name, 即每个Sender对象的name属性, 是一个字符串, 所以TypedQuery的泛型是String, 查询的结果集自然也需要用对应的List&lt;String>来接着这个结果. 这个查出来的List&lt;String>并不会被Hibernate托管, 即如果查出来之后修改names中的任意元素, 不会影响数据库. 如果查出来的是Sender的集合, 就会被托管.</p>
-<p>很多时候知道结果必定是单一的, 比如根据唯一标识符查询对象, 或者查询一个明知道是标量的结果, 这个时候就可以改用<code>getSingleResult()</code>方法, 如果结果不唯一, 则会报<code>javax.persistence.NonUniqueResultException</code>异常; 如果没有结果, 则会报<code>javax.persistence.NoResultException</code>.</p>
-<p>所以使用<code>getSingleResult()</code>一定要注意处理异常, 而不像<code>getResultList()</code>即使没有结果, 也会返回一个空的List. 所以视情况灵活而定, 看一个查询标量的例子:</p>
+<p>这里查询的是s.name, 即每个Sender对象的name属性, 是一个字符串, 所以TypedQuery的泛型是String, 查询的结果集自然也需要用对应的List&lt;String>来接着这个结果. 这个查出来的List&lt;String>并不会被Hibernate托管,
+    即如果查出来之后修改names中的任意元素, 不会影响数据库. 如果查出来的是Sender的集合, 就会被托管.</p>
+<p>很多时候知道结果必定是单一的, 比如根据唯一标识符查询对象, 或者查询一个明知道是标量的结果, 这个时候就可以改用<code>getSingleResult()</code>方法, 如果结果不唯一, 则会报<code>javax.persistence.NonUniqueResultException</code>异常;
+    如果没有结果, 则会报<code>javax.persistence.NoResultException</code>.</p>
+<p>所以使用<code>getSingleResult()</code>一定要注意处理异常, 而不像<code>getResultList()</code>即使没有结果, 也会返回一个空的List. 所以视情况灵活而定,
+    看一个查询标量的例子, 使用了聚合函数:</p>
 <pre>
 TypedQuery&lt;Long> query = em.createQuery("SELECT count(s) FROM Sender s", Long.class);
 
 Long numbers = query.getSingleResult();
 </pre>
+<p>上边是JPA的内容, 下边都是Hibernate特有的内容了. 先看Hibernate特有的游标查询, 除了上边的游标查询实例, 还可以具体操纵游标来移动位置:</p>
+<pre>
+org.hibernate.query.Query&lt;Sender> query = session.createQuery("SELECT s FROM Sender s order by s.id", Sender.class);
+
+org.hibernate.ScrollableResults resultsWithCursor = query.scroll(ScrollMode.SCROLL_INSENSITIVE);
+
+//移动到第六行
+resultsWithCursor.setRowNumber(5);
+
+//取出第六行的数据, 这里需要强制转换类型, 这是固定写法, 只能get(0), 不能get(1)
+Sender sender = (Sender) resultsWithCursor.get(0);
+
+resultsWithCursor.close();
+</pre>
+<p>这里可以来看一下游标的三种模式了:</p>
+<ol>
+    <li><code>ScrollMode.SCROLL_INSENSITIVE</code>, 游标对于数据库的变化不敏感, 即查出来的结果集不会再变动(没关闭游标的情况下), 这样就没有脏读也没有不可重复读, 幻读的问题.</li>
+    <li><code>ScrollMode.SCROLL_SENSITIVE</code>, 没关闭游标的情况下, 如果有新提交数据, 结果集也会有变化. 不过由于Hibernate的一级缓存本身就提供了不可重复读的隔离, 即不会加载新数据, 所以这个情况仅仅会影响查询结果是标量集的情况.</li>
+    <li><code>ScrollMode.FORWARD_ONLY</code>, 不能像上边的例子一样自由的在不同的行号间跳跃.</li>
+</ol>
+<p>不过游标模式不是对所有数据库都可用, 知道如何操作游标基本也够用了, 尤其是取出一片数据进行处理的时候, 还是比较方便的. 来看一下Hibernate特有的在结果集中迭代.</p>
+<pre>
+org.hibernate.query.Query&lt;Sender> query = session.createQuery("SELECT s FROM Sender s", Sender.class);
+
+Iterator&lt;Sender> senderIterator = query.iterate();
+
+while (senderIterator.hasNext()) {
+    System.out.print(senderIterator.next());
+}
+
+//必须要手工关闭
+Hibernate.close(senderIterator);
+</pre>
+<p>在执行query.iterate()的时候, Hibernate会读取一次所有Sender对象的唯一标识符. 之后在每次迭代的时候, 才会去读取具体的每一个Sender对象.</p>
+<p>在执行完之后, 必须使用<code>Hibernate.close()</code>方法来关闭迭代器, 这个一定要注意.</p>
+<p>查询的基本套路就是上边说的这样, JPA的标准查询和处理已经能够满足基本上99%的情况, 而且提供了JPQL和类型安全等各种方法.</p>
+<p>对于比较简单的查询, 可以编写JPQL语句进行查询, 对于复杂的查询, 建议使用CriteriaQuery, 使用编程的方式来进行操作. 分页则采用编程的方式, 很好处理.</p>
+
+<h2 style="text-align: center;" id="con7">命名查询</h2>
+<p>其实还有外部查询, 外部查询有三种, 一种是通过注解定义, 一种是将查询写在XML文件中, 一种是编程的方式.</p>
+<p>这三种方式里, 编程的方式就是注解定义的后台操作, 一般写在XML文件里的不太用了, 来看看注解方式就行了, 编程方式知道有这个情况就行了.</p>
+<p>首先需要知道的是, 给一个查询命名, 意味着Hibernate内部肯定维护了一个查询的命名空间, 给一个查询命名的时候, 就会将名称放在这个命名空间中.</p>
+<p>JPA提供了<code>@NamedQueries</code>和<code>@NamedQuery</code>注解, 放在一个Entity类前边, 定义一系列的命名查询. 看如下例子:</p>
+<pre>
+@NamedQueries(
+        {
+
+                @NamedQuery(
+                        name = "query1",
+                        query = "SELECT s FROM Sender s order by s.id"
+                ),
+                @NamedQuery(
+                        name = "query2",
+                        query = "SELECT s FROM Sender s order by s.id desc"
+                )
+
+        }
+)
+
+@Entity
+public class Sender {
+
+}
+</pre>
+<p>注解中的两个名称query1和query2, 在Hibernate读取注解的时候, 就会添加到查询命名空间中, 之后使用<code>em.createNamedQuery()</code>就可以创建这些预先命名的查询:</p>
+<pre>
+TypedQuery&lt;Sender> firstQuery = em.createNamedQuery("query1", Sender.class);
+TypedQuery&lt;Sender> secondQuery = em.createNamedQuery("query2", Sender.class);
+</pre>
+<p>方法的第一个参数是命名查询的名称, 也就是写在注解中的查询名称, 第二个依然是类型, 这样就可以创建一个TypedQuery.</p>
+<p>如果一个Entity在写的时候, 就会知道常用的查询, 那么就可以使用注解方式来提前写好外部查询, 这样使用起来就非常方便.</p>
+
+<h2 style="text-align: center;" id="con8">查询提示 - hints</h2>
+<p>查询提示应该算是准备查询的过程, 方法和其他准备查询一样, 都是调用query的某些方法. 查询提示调用的是<code>query.setHint()</code>.</p>
+<p><code>query.setHint()</code>的第一个参数是提示的名称, 类型是字符串, 第二个参数是提示的值. 有如下提示可以用:</p>
+<table>
+    <caption>Hints</caption>
+    <thead>
+    <tr>
+        <th>类型</th>
+        <th>提示名</th>
+        <th>可选值</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td rowspan="3">JPA标准</td>
+        <td>javax.persistence.query.timeout</td>
+        <td>int类型, 以毫秒表示的过期时间, 和JDBC的setQueryTimeout()是相同的作用.</td>
+    </tr>
+    <tr>
+        <td>javax.persistence.cache.retrieveMode</td>
+        <td>USE | BYPASS, 字符串类型. USE表示使用二级缓存, BYPASS表示不使用二级缓存</td>
+    </tr>
+    <tr>
+        <td>javax.persistence.cache.storeMode</td>
+        <td>USE | BYPASS | REFRESH, 字符串类型. 是否将查询结果存放在二级缓存中. USE表示保存, BYPASS表示不保存, REFRESH表示每次都更新二级缓存.</td>
+    </tr>
+    <tr>
+        <td rowspan="4">Hibernate原生</td>
+        <td>org.hibernate.flushMode</td>
+        <td>org.hibernate.FlushMod中的几个枚举类型. 控制持久化上下文在执行查询的何时进行更新. 看下边详细解释.</td>
+    </tr>
+    <tr>
+        <td>org.hibernate.readOnly</td>
+        <td>true | false, 布尔值, 表示是否执行脏检查, 设置成true就表示只读, 不会再进行脏检查.</td>
+    </tr>
+    <tr>
+        <td>org.hibernate.fetchSize</td>
+        <td>int类型, 设置一个查询获取的结果数量, 默认是10, 相当于在查询之前先执行PreparedStatement.setFetchSize()</td>
+    </tr>
+    <tr>
+        <td>org.hibernate.comment</td>
+        <td>字符串, 设置一个SQL注释, 一般用于日志.</td>
+    </tr>
+    </tbody>
+</table>
+<p>这些提示中唯一一个需要详细解释的就是<code>org.hibernate.flushMode</code>, 有三种:</p>
+<ol>
+    <li><code>AUTO</code>, 在每次执行查询前, 都会刷新持久化上下文. 比如查出一个结果集, 修改结果集, 再进行查询. 第二次查询之前, 会先刷新持久化上下文, 也就是写入. 默认就是AUTO.</li>
+    <li><code>COMMIT</code>, 将某一个查询设置为COMMIT的时候, 在执行这个查询之前, 就不会刷新上下文.</li>
+    <li><code>ALWAYS</code>, 这个一般不用, 即每次都会更新.</li>
+</ol>
+<p>对于AUTO和COMMIT, JPA也有对应的标准, 就是setFlushMode(), 可以用于EntityManager和Query对象, 参数是JPA标准的AUTO和COMMIT.</p>
+<pre>
+@Test
+public void testNamedQuery() {
+    EntityManager em = getEM();
+    em.getTransaction().begin();
+
+    //设置query2查询的FlushMode为COMMIT
+    TypedQuery&lt;Sender> query = em.createNamedQuery("query2", Sender.class);
+
+    query.setHint("org.hibernate.flushMode", FlushMode.COMMIT);
 
 
+    System.out.println("开始第一次查询");
+    List&lt;Sender> senders = em.createQuery("SELECT s FROM Sender s ORDER BY s.id", Sender.class).getResultList();
+
+    System.out.println("修改一个结果");
+    senders.get(0).setName(String.valueOf(System.currentTimeMillis()));
+
+    System.out.println("第二次查询");
+    System.out.println(query.getResultList());
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    em.getTransaction().commit();
+    em.close();
+}
+</pre>
+<p>这段代码设置成两种方式, 运行一下就可以看出来UPDATE语句的次序有变化.</p>
 
 
 
