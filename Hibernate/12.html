@@ -24,7 +24,7 @@
     <li><a href="#con3">创建查询 - CriteriaQuery</a></li>
     <li><a href="#con4">创建查询 - Hibernate的查询接口</a></li>
     <li><a href="#con5">准备查询</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con6">执行查询</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">查询基础理论</h2>
 <p>在JPA中使用查询有三个步骤:</p>
@@ -129,7 +129,6 @@ System.out.println(messageVersion);
 </pre>
 <p>注意其中红色的部分, 生成WHERE条件用的是CriteriaBuilder对象的方法. 当然这里的属性名称("id")还是用字符串表示的, 想完全类型安全, 就要用元模型, 这个以后再研究.</p>
 
-
 <h2 style="text-align: center;" id="con4">创建查询 - Hibernate的查询接口</h2>
 <p>老套路, 看完了JPA标准, 自然要来看看Hibernate的查询接口, Hibernate的查询接口实际上比JPA标准还要早, 毕竟Hibernate引领了JPA诞生. Hibernate的查询接口是:</p>
 <ol>
@@ -150,13 +149,13 @@ System.out.println(query.getResultList());
 <p>NativeQuery其实是带有泛型, 但是IDE提示说由于createSQLQuery方法返回的就是不带泛型的NativeQuery对象, 所以无需使用泛型.</p>
 <p>对于最后一个Criteria, 我看书上说这是一个古老的API, 结果写起来发现session.createCriteria()方法也已经过时, 这里就不再看了.
 
-
 <h2 style="text-align: center;" id="con5">准备查询 - 绑定命名参数 和 绑定顺序参数</h2>
 <p>准备查询主要有如下工作:</p>
 <ol>
     <li>绑定命名参数</li>
     <li>绑定顺序参数</li>
     <li>分页</li>
+    <li>Hibernate特有的游标查询</li>
 </ol>
 <p>先来看JPA标准的准备查询. 刚才在前边的创建查询中, 使用的JPQL语句: <code>SELECT m FROM MessageVersion m WHERE m.id = :id</code>中的<code>:id</code>就是命名参数, 用一个冒号加上参数名称来表示.</p>
 <p>有了命名参数之后, 就要在查询中进行绑定. 绑定的方法是<code>setParameter()</code>方法.</p>
@@ -184,6 +183,86 @@ TypedQuery&lt;MessageVersion> query = em.createQuery(criteriaQuery).setParameter
 </pre>
 <p>其实上边这个绑定参数的方法, 写成JPQL就是 <code>SELECT m FROM MessageVersion m WHERE m.id = :number</code>, 这么看就明白多了.</p>
 <p>绑定顺序参数不太常用, 而且也不类型安全:</p>
+<pre>
+Query query = em.createQuery("SELECT m FROM MessageVersion m WHERE m.id> <span style="color: red">?1</span> and m.id < <span style="color: red">?2</span> order by m.id", MessageVersion.class);
+
+query.setParameter(1, 4L);
+query.setParameter(2, 6L);
+
+System.out.println(query.getResultList());
+</pre>
+<p>其中的两个红色部分, 就是顺序参数, 这个顺序从1开始, 不是从0开始. 顺序参数设置的时候, 依然使用.setParameter()重载方法, 第一个参数是位置序号, int类型, 第二个就是参数绑定的值.</p>
+<p>这个有点类似JDBC的占位符, 但要注意, Hibernate要求一定要带序号, 否则会警告这是一个易损查询.</p>
+<p>不能同时使用绑定命名参数和绑定顺序参数. 如果要在二者之间选择其一, 推荐使用绑定命名参数的CriteriaQuery方式.</p>
+<p>还有一个常用的功能是分页. 你可能会想在JPQL中使用LIMIT和OFFSET即可, 但实际尝试一番发现JPQL中不能使用LIMIT, Query实际上有两个专门的设置用来分页:</p>
+<pre>
+Query query = em.createQuery("SELECT s FROM Sender s ORDER BY s.id", Sender.class);
+
+query.setFirstResult(10).setMaxResults(5);
+
+System.out.println(query.getResultList());
+</pre>
+<p>这里的<code>setFirstResult(10)</code>相当于<code>OFFSET 10</code>, 跳过前10个结果; <code>setMaxResults(5)</code>相当于<code>LIMIT 5</code>, 所以这个查询就是按5个为一页, 从第三页开始的结果.</p>
+<p>这个分页方式除了JPA标准的Query之外, 也能用于TypedQuery, 以及Hibernate自己的Query和NativeQuery. 使用这种方式, 就是采用编程式的获取页数, 要比编辑SQL语句方便的多.</p>
+<p>还有一个Hibernate特有的游标查询, 实际上也是全部查出来数据, 然后可以自由的来反复查询结果.</p>
+<pre>
+@Test
+public void testCursor() {
+    SessionFactory sessionFactory = getSessionFactory();
+    Session session = sessionFactory.getCurrentSession();
+
+    session.getTransaction().begin();
+
+    org.hibernate.query.Query&lt;Sender> query = session.createQuery("SELECT s FROM Sender s order by s.id", Sender.class);
+
+    //指定某种游标模式, 然后从Query中创建一个游标对象
+    org.hibernate.ScrollableResults resultsWithCursor = query.scroll(ScrollMode.SCROLL_INSENSITIVE);
+
+    //游标移动到最后
+    resultsWithCursor.last();
+
+    //当前的总数就是游标的位置+1, 可见游标是从位置0开始移动的, 这个索引像数组的索引.
+    int total = resultsWithCursor.getRowNumber() + 1;
+    System.out.println("总数量是: " + total);
+
+    //可以关闭游标了, 其实此时所有数据都已经被查询出来
+    resultsWithCursor.close();
+
+    //可以反复多次执行查询
+    query.setFirstResult(10).setMaxResults(5);
+    System.out.println(query.getResultList());
+    System.out.println("改变查询的分页");
+
+    query.setFirstResult(5).setMaxResults(10);
+    System.out.println(query.getResultList());
+
+    session.getTransaction().commit();
+    session.close();
+    sessionFactory.close();
+
+}
+</pre>
+<p>PostgreSQL是支持这种游标操作的. 同时也可以看出来面向对象的好处, 即可以查询可以先创建好, 之后通过不同的准备查询设置好参数, 然后可以复用.</p>
+
+
+<h2 style="text-align: center;" id="con6">执行查询</h2>
+<p>创建和准备查询并不会导致任何SQL语句被执行, 只有实际执行查询的时候, 才会触发SQL语句执行. 所谓执行查询, 就是在Query对象上调用各种方法来获取结果, 结果会由Hibernate自动按照映射来组装成对象, 如果查询结果是标量, Hibernate不会托管标量结果.</p>
+<p>最常用的是将这个查询的全部结果包装进一个List中, 也就是前边用了无数次的<code>getResultList()</code>方法, 对于泛型的查询, 也需要用对应泛型类型的List来接着, 看一个标量的例子:</p>
+<pre>
+TypedQuery&lt;String> query = em.createQuery("SELECT s.name FROM Sender s ORDER BY s.id", <span style="color: red">String.class</span>);
+
+List&lt;String> names = query.getResultList();
+
+System.out.println(names);
+</pre>
+<p>这里查询的是s.name, 即每个Sender对象的name属性, 是一个字符串, 所以TypedQuery的泛型是String, 查询的结果集自然也需要用对应的List&lt;String>来接着这个结果. 这个查出来的List&lt;String>并不会被Hibernate托管, 即如果查出来之后修改names中的任意元素, 不会影响数据库. 如果查出来的是Sender的集合, 就会被托管.</p>
+<p>很多时候知道结果必定是单一的, 比如根据唯一标识符查询对象, 或者查询一个明知道是标量的结果, 这个时候就可以改用<code>getSingleResult()</code>方法, 如果结果不唯一, 则会报<code>javax.persistence.NonUniqueResultException</code>异常; 如果没有结果, 则会报<code>javax.persistence.NoResultException</code>.</p>
+<p>所以使用<code>getSingleResult()</code>一定要注意处理异常, 而不像<code>getResultList()</code>即使没有结果, 也会返回一个空的List. 所以视情况灵活而定, 看一个查询标量的例子:</p>
+<pre>
+TypedQuery&lt;Long> query = em.createQuery("SELECT count(s) FROM Sender s", Long.class);
+
+Long numbers = query.getSingleResult();
+</pre>
 
 
 
@@ -197,7 +276,26 @@ TypedQuery&lt;MessageVersion> query = em.createQuery(criteriaQuery).setParameter
 
 
 
-<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
