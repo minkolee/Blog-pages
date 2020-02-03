@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Hibernate 13 编写查询</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>看完了查询接口, 知道是怎么一回事之后, 就要来看看除了映射之外的核心, 就是如何编写查询.</p>
+<p>在JPA中编写查询, 可以通过两种方式, 一种是编写JPQL/HQL语言, 另外一种是编程方式. 这两种方式中, <strong>可以移植的是编程方式</strong></p>
+<p>说白了, 就是如何将SQL语句转换成JPQL语句和编程方式. 这里先聚焦于查询, 也就是SELECT开头的SQL语句</p>
+
+<ol>
+    <li><a href="#con1">SQL语句转换成JPQL和编程方式的方法</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">SQL语句转换成JPQL和编程方式的方法</h2>
+<p>想要知道如何编写查询, 首先就要知道的是SQL语句如何转换成JPQL和编程方式.</p>
+<p>一个没有带有子查询的SQL语句如下:</p>
+<pre>
+SELECT sender.id, sender.name FROM sender WHERE sender.id between 30 and 60 ORDER BY sender.id desc;
+</pre>
+<p>将一个SQL转换成JPQL的核心, 就是用对象名替代关系名称, 用"对象.属性名"替代"关系.列名".</p>
+<p>所以转换后的结果是:</p>
+<pre>
+SELECT s.id, s.name FROM Sender as s WHERE s.id between 30 and 60 ORDER BY s.id desc
+</pre>
+<p>不过这里要注意的是, 查询多列的时候, 结果集中的每一个数据对象并不是一个Sender对象, 而是一个<code>Object[]</code>类型. 上边这一条查询在实际执行的时候, 是这样的:</p>
+<pre>
+TypedQuery&lt;<span style="color: red">Object[]</span>> query =
+            em.createQuery("SELECT s.id, s.name FROM Sender as s WHERE s.id between 30 and 60 ORDER BY s.id desc", Object[].class);
+
+List&lt;<span style="color: red">Object[]</span>> results = query.getResultList();
+
+for (<span style="color: red">Object[]</span> s : results) {
+    System.out.println(s[0] + " | " + s[1]);
+}
+</pre>
+<p>这是因为Hibernate会将查到的每一个id和name组装成一个数组, 当成一行返回的结果.</p>
+<p>可以看到, JPQL和SQL在实际的写法上非常相似, 只是要注意, <strong>JPQL要求一定要使用别名</strong>. 注意, JPQL是不可移植的, 所以接下来, 要看看将SQL/JPQL转换成JPA标准的编程方式.</p>
+<p>这里先要引入几个概念:</p>
+<ol>
+    <li>查询根, 所谓查询根, 就是FROM子句, 即东西到底从哪里来. 这个在之前已经使用过, 就是使用<code>Root&lt;Sender> root = query1.from(Sender.class);</code></li>
+    <li>约束, 即WHERE, 这个通过调用 CriteriaQuery对象的<code>.where()</code>方法来实现, 方法中的参数是JPA的一些条件API.</li>
+    <li>排序, 即ORDER BY, 这个需要链式调用JPA的排序API</li>
+</ol>
+<p>虽然现在还没有具体学, 但是先直接将上边这句翻译成编程方式的例子来看看:</p>
+<pre>
+//CriteriaBuilder是创建查询和查询条件的对象
+CriteriaBuilder cb = em.getCriteriaBuilder();
+//创建编程方式的查询对象, 注意泛型, 这个泛型类型就是最后结果的类型
+CriteriaQuery&lt;Object[]> criteriaQuery = cb.createQuery(Object[].class);
+//创建查询根, 这里单独创建, 是为了后边需要使用这个对象, 这行语句很像起一个别名
+Root&lt;Sender> root = criteriaQuery.from(Sender.class);
+//这一行虽然还没学, 但是看过去的顺序和JPQL/SQL相同, 每个关键字函数的内部的所有API都使用CriteriaBuilder或者查询根来创建.
+criteriaQuery.multiselect(root.get("id"), root.get("name")).where(cb.between(root.&lt;Long>get("id"), 30L, 60L)).orderBy(cb.desc(root.get("id")));
+//用同样的泛型来创建查询
+TypedQuery&lt;Object[]> query = em.createQuery(criteriaQuery);
+
+List&lt;Object[]> result = query.getResultList();
+
+for (Object[] s : result) {
+    System.out.println(s[0] + " | " + s[1]);
+}
+</pre>
+<p>虽然还没学,但基本的东西看了一遍应该就了解了, 其实编程方式的关键就是一创建查询根, 二使用JPA的API来进行各种条件和其他设置. 基本上与JPQL和SQL是对应的.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
