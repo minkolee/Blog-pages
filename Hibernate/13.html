@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 13 编写查询</title>
+    <title>Hibernate 13 编写查询 - 单体查询与集合查询</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -17,15 +17,14 @@
 <body>
 <p>看完了查询接口, 知道是怎么一回事之后, 就要来看看除了映射之外的核心, 就是如何编写查询.</p>
 <p>在JPA中编写查询, 可以通过两种方式, 一种是编写JPQL/HQL语言, 另外一种是编程方式. 这两种方式中, <strong>可以移植的是编程方式</strong></p>
-<p>说白了, 就是如何将SQL语句转换成JPQL语句和编程方式. 这里先聚焦于查询, 也就是SELECT开头的SQL语句</p>
+<p>说白了, 就是如何将SQL语句转换成JPQL语句和编程方式. 这里先聚焦于查询, 也就是SELECT开头的SQL语句.</p>
 
 <ol>
     <li><a href="#con1">SQL语句转换成JPQL和编程方式的方法</a></li>
     <li><a href="#con2">CriteriaBuilder的条件API</a></li>
     <li><a href="#con3">CriteriaBuilder的集合和函数</a></li>
     <li><a href="#con4">Hibernate特有的函数和操作非JPA标准的函数的方法</a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">排序</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">SQL语句转换成JPQL和编程方式的方法</h2>
 <p>想要知道如何编写查询, 首先就要知道的是SQL语句如何转换成JPQL和编程方式.</p>
@@ -368,30 +367,42 @@ System.out.println(query1.getResultList());
     </tbody>
 </table>
 <p>对于除了JPA标准和Hibernate这些原生的函数之外, 想要使用不属于这些函数中的函数, 任何在JPQL语句中, Hibernate无法识别的函数, 都会原样传递给数据库, 让数据库判断是不是支持该函数.</p>
-<p>比如PostgreSQL有一个函数叫做CHR(number), 用来将数字转换成字符:</p>
+<p>比如PostgreSQL有一个函数叫做INITCAP, 用来将每个单词开头第一个字母设置为大写:</p>
 <pre>
-TypedQuery&lt;Character> query = em.createQuery("SELECT CHR(65) FROM Sender", Character.class);
+TypedQuery&lt;String> query = em.createQuery("SELECT INITCAP(s.name) FROM Sender s", String.class);
 </pre>
 <p>将上边这个改写成编程方式如下:</p>
 <pre>
+TypedQuery&lt;String> query = em.createQuery("SELECT INITCAP(s.name) FROM Sender s", String.class);
 
+System.out.println(query.getResultList());
+
+CriteriaBuilder cb = em.getCriteriaBuilder();
+CriteriaQuery&lt;String> criteriaQuery = cb.createQuery(String.class);
+Root&lt;Sender> root = criteriaQuery.from(Sender.class);
+
+criteriaQuery.select(<span style="color: red">cb.function("INITCAP", String.class, root.&lt;String>get("name"))</span>);
+
+TypedQuery&lt;String> query1 = em.createQuery(criteriaQuery);
+System.out.println(query1.getResultList());
 </pre>
+<p><code>cb.function()</code>用于执行JPA标准和Hibernate支持之外的函数, 第一个字符串是函数的名称, 第二个是这个函数的返回类型, 之后是这个函数的各个参数. 这里用编程的方式执行了PostgreSQL的函数INITCAP.</p>
+
+<h2 style="text-align: center;" id="con5">排序</h2>
+<p>排序在最开始的例子已经展示过了, orderBy方法内部使用<code>cb.desc()</code>和<code>cb.asc()</code>来排序.</p>
+<p>这里值得一提的就是根据多个列排序, 只要按照顺序在orderBy方法内列出多个列即可:</p>
+<pre>
+Root&lt;User> u = criteria.from(User.class);
+    criteria.select(u).orderBy(
+        cb.desc(u.get("activated")),
+        cb.asc(u.get("username"))
+);
+</pre>
+<p>注意对于null的排序, 可以通过<code>hibernate.order_by.default_null_ordering</code>在配置文件中设置, 可选的值有NONE, FIRST, LAST, 和很多数据库的标准一致.</p>
+<p>编写单个查询基本上弄明白了, 剩下就是再看一下, 选择多列以及关系的查询.</p>
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
