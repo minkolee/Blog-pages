@@ -21,9 +21,9 @@
 
 <ol>
     <li><a href="#con1">SQL语句转换成JPQL和编程方式的方法</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con2">CriteriaBuilder的条件API</a></li>
+    <li><a href="#con3">CriteriaBuilder的集合和函数</a></li>
+    <li><a href="#con4">Hibernate特有的函数和操作非JPA标准的函数的方法</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
@@ -77,6 +77,305 @@ for (Object[] s : result) {
 }
 </pre>
 <p>虽然还没学,但基本的东西看了一遍应该就了解了, 其实编程方式的关键就是一创建查询根, 二使用JPA的API来进行各种条件和其他设置. 基本上与JPQL和SQL是对应的.</p>
+<p>CriteriaBuilder是核心的类, 通过其创建CriteriaQuery对象以及所有的子句中的表达式, SQL子句关键式则是CriteriaQuery的同名方法. 此外CriteriaQuery方法还需要创建根, 所有的SQL列名都是使用根的.get("columnName"). </p>
+<p>还有一大特点是类似<code>root.&lt;Long>get("id")</code>这样的代码, 泛型写在get()方法之前, 表面这列的数据类型, 这一点要注意. 知道了这些对应关系之后, 剩下的就是来看看一下API已经一些特别的东西.</p>
+
+<h2 style="text-align: center;" id="con2">CriteriaBuilder的条件API</h2>
+<p>CriteriaBuilder的条件API非常重要, JPQL所有的条件查询都可以转换成CriteriaBuilder的API.</p>
+<table>
+    <caption>CriteriaBuilder的条件API</caption>
+    <thead>
+    <tr>
+        <th>JPQL操作符</th>
+        <th>条件查询API</th>
+        <th>说明</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>.</td>
+        <td>没有对应的API</td>
+        <td>这表示导航路径, 即对象名.属性名, 可以连用.</td>
+    </tr>
+    <tr>
+        <td>取反</td>
+        <td>nge()</td>
+        <td>参数是数值</td>
+    </tr>
+    <tr>
+        <td>+,-</td>
+        <td>sum(),diff()</td>
+        <td>参数为两个参数</td>
+    </tr>
+    <tr>
+        <td>*,/</td>
+        <td>prod(),quot()</td>
+        <td>两个数值乘除</td>
+    </tr>
+    <tr>
+        <td>=, <>, <, >, >=, <=</td>
+        <td>equal(), notEqual(), lessThan()=lt(), greaterThan()=gt(), greaterThanOrEqualTo()=ge(), lessThanOrEqualTo()=le()</td>
+        <td>二元比较运算符, 比较运算方法和上边的加减乘除方法仅能接受Number类型的参数, 包括Java的基本类型, 以及BigDecimal和其他SQL类型中对应的Java的数值类型.</td>
+    </tr>
+    <tr>
+        <td>BETWEEN,LIKE,IN,IS(NOT)NULL</td>
+        <td>between(),like(),in(),isNull(), isNotNull</td>
+        <td>具有SQL语义的二元比较操作符, 注意, NOT运算可以在条件之后写上一个.not()</td>
+    </tr>
+    <tr>
+        <td>IS(NOT)EMPTY, MEMBER</td>
+        <td>isEmtpy(), isNotEmpty(), isMember, isNotMember</td>
+        <td>用于持久化集合的二元操作符</td>
+    </tr>
+    <tr>
+        <td>NOT, AND, OR</td>
+        <td>not(), and(), or()</td>
+        <td>逻辑运算符, 逻辑运算符可以单独编写Predicate对象, 来应对复杂逻辑.</td>
+    </tr>
+    </tbody>
+</table>
+<p>然后看一些比较特别的查询. </p>
+<h3>多态</h3>
+<p>首先是多态查询,JPQL中的多态类, 不一定非要是映射的类, 也可以是这些类的基类或者共同的接口类. 比如:</p>
+<pre>
+TypedQuery&lt;Object> query = em.createQuery("SELECT s FROM java.lang.Object as s", Object.class);
+</pre>
+<p>这条语句会查出数据库中所有的内容. JPA没有多态查询对应的标准接口. 条件查询的API的.from()函数中, 参数只能是映射的类, 不能是随便的类比如Object, 所以下边的代码会报错:</p>
+<pre>
+CriteriaQuery&lt;Object> criteriaQuery = cb.createQuery(Object.class);
+Root&lt;Object> root = criteriaQuery.from(<span style="color: red">Object.class</span>);
+TypedQuery&lt;Object> query1 = em.createQuery(criteriaQuery);
+</pre>
+<p>运行这段代码会在from()函数的地方报错: <code>IllegalArgumentException: Not an entity: class java.lang.Object</code>.</p>
+<p>所以不能一次性查出所有类. 对于多态映射, 可行的操作办法是在.from()中指定父类或者抽象类的映射类, 然后使用IN和 Root对象的.type()来进行查询.</p>
+<p>比如之前使用的BillingDetails抽象类和两个实现类BankAccount及CreditCard. 可以将根设置为BillingDetails, 然后通过in或者equal来选择类型. 比如查询某一个具体类型的类:</p>
+<pre>
+CriteriaBuilder cb = em.getCriteriaBuilder();
+
+//在创建查询和根的时候, 都可以用抽象类
+CriteriaQuery&lt;BillingDetails> billingDetailsCriteriaQuery = cb.createQuery(BillingDetails.class);
+Root&lt;BillingDetails> root = billingDetailsCriteriaQuery.from(BillingDetails.class);
+
+//在查询实际类型的时候, 通过equal()函数和type()函数,指定查询BankAccount类
+billingDetailsCriteriaQuery.select(root).where(cb<span style="color: red">.equal(root.type(), BankAccount.class)</span>);
+
+//所有的泛型依然是抽象类的类型
+TypedQuery&lt;BillingDetails> query = em.createQuery(billingDetailsCriteriaQuery);
+
+System.out.println(query.getResultList());
+</pre>
+<p>查询多个具体类型的类的时候, 需要用到root对象的type()的in()函数, 注意并不是CriteriaBuilder的IN函数, 所以说这是比较特别的地方:</p>
+<pre>
+CriteriaBuilder cb = em.getCriteriaBuilder();
+
+CriteriaQuery&lt;BillingDetails> billingDetailsCriteriaQuery = cb.createQuery(BillingDetails.class);
+Root&lt;BillingDetails> root = billingDetailsCriteriaQuery.from(BillingDetails.class);
+
+//准备一个类型列表
+List&lt;Class&lt;?>> types = new ArrayList&lt;>();
+types.add(BankAccount.class);
+types.add(CreditCard.class);
+
+//这里比较特殊, 类型的IN函数可不是CriteriaBuilder的IN函数.
+billingDetailsCriteriaQuery.select(root).where(<span style="color: red">root.type().in(types)</span>);
+
+//其他所有地方和上边一样, 依然是使用抽象类作为泛型类型
+TypedQuery&lt;BillingDetails> query = em.createQuery(billingDetailsCriteriaQuery);
+System.out.println(query.getResultList());
+</pre>
+<p>这个例子的运行结果就是查出来了BankAccount和CreditCard两个具体实现类对应的数据表的内容.</p>
+<h3>CriteriaBuilder的IN函数</h3>
+<p>马上来一下CriteriaBuilder的IN函数. 这个函数的使用方法是先获取列, 然后in的每一个数字, 使用.value()来加在后边, 看一个例子:</p>
+<pre>
+//JPQL查询语句是: SELECT s FROM Sender as s WHERE s.name in ('gugugu27','gugugu28')
+
+CriteriaQuery&lt;Sender> criteriaQuery = cb.createQuery(Sender.class);
+
+Root&lt;Sender> root = criteriaQuery.from(Sender.class);
+
+criteriaQuery.select(root).where(
+        cb.in(root.&lt;String>get("name"))
+                .value("gugugu27").value("gugugu28")
+);
+
+TypedQuery&lt;Sender> = query = em.createQuery(criteriaQuery);
+</pre>
+<h3>枚举</h3>
+<p>对于枚举映射, 在JPQL查询语句中, 必须使用限定全程才行, 转换到编程方式中, 在取列的时候传入枚举类的类型, 参数则使用具体的枚举:</p>
+<pre>
+// SELECT a FROM Animal as a WHERE a.animalType = cc.conyli.model.AnimalType.OWL
+
+Root&lt;Animal> root = criteriaQuery.from(Animal.class);
+criteriaQuery.select(root).where(cb.equal(root.&lt;AnimalType>get("animalType"),AnimalType.OWL);
+</pre>
+<h3>逻辑表达式</h3>
+<p>逻辑表达式的返回值都是一个<code>javax.persistence.criteria.Predicate</code>对象, 可以作为另外一个逻辑表达式的参数. 所以很复杂的逻辑表达式, 可以拆分成简单一些的. 看一个例子:</p>
+<pre>
+CriteriaBuilder cb = em.getCriteriaBuilder();
+
+//JPQL查询
+System.out.println(em.createQuery("SELECT s FROM Sender as s WHERE (s.id>55L and s.id&lt;60L) or s.id>130L", Sender.class).getResultList());
+
+CriteriaQuery&lt;Sender> criteriaQuery = cb.createQuery(Sender.class);
+Root&lt;Sender> root = criteriaQuery.from(Sender.class);
+
+//第一个判断是AND
+Predicate predicate1 = cb.and(cb.gt(root.&lt;Long>get("id"), 55L), cb.lt(root.&lt;Long>get("id"), 60L));
+
+//用上边AND的结果, 再进行OR判断
+Predicate predicate2 = cb.or(predicate1, cb.gt(root.&lt;Long>get("id"), 130L));
+
+criteriaQuery.select(root).where(predicate2);
+TypedQuery&lt;Sender> query = em.createQuery(criteriaQuery);
+System.out.println(query.getResultList());
+</pre>
+<p>很复杂的逻辑就可以像例子里一样逐步组装.</p>
+<p>其他函数的操作和SQL都一样, like()函数的字符串依然也可以用_和&来匹配单个和多个字符, 该转义就转义.</p>
+
+<h2 style="text-align: center;" id="con3">CriteriaBuilder的集合和函数</h2>
+<p>这里的集合指的是值类型的集合, 不是关系. 关系的操作其实和集合也很相似, 但是放到后边的连表来学习. 此外cb还有一些方法对应了SQL中的常见函数.</p>
+<p>首先要解决的问题其实很简单, 就是从Root对象取集合的时候, 泛型类型用什么, 以之前用过的LinkedHashSetItem为例, 其中包含一个Set&lt;String>集合. LinkedHashSetItem表里现在有三个记录, 其中一个的images是0个, 查找所有集合不是0的LinkedHashSetItem对象的写法如下:</p>
+<pre>
+//JPQL 查询
+System.out.println(em.createQuery("SELECT l FROM LinkedHashSetItem as l where size(l.images)>=1 order by l.id").getResultList());
+
+CriteriaBuilder cb = em.getCriteriaBuilder();
+CriteriaQuery&lt;LinkedHashSetItem> criteriaQuery = cb.createQuery(LinkedHashSetItem.class);
+Root&lt;LinkedHashSetItem> root = criteriaQuery.from(LinkedHashSetItem.class);
+//注意泛型, 要是对应的集合类型才可以
+criteriaQuery.select(root).where(cb.ge(cb.size(root.<span style="color: red">&lt;LinkedHashSet&lt;String>></span>get("images")), 1L));
+
+TypedQuery&lt;LinkedHashSetItem> query = em.createQuery(criteriaQuery);
+System.out.println(query.getResultList());
+</pre>
+<p>这里使用了<code>cb.size()</code>函数外加取集合时候的泛型. 还可以搭配参数等等来使用, 比如:</p>
+<pre>
+//JPQL查询, 先用参数, 再设置参数
+TypedQuery&lt;LinkedHashSetItem> query1 =
+        em.createQuery("SELECT l FROM LinkedHashSetItem as l where :image MEMBER OF l.images order by l.id", LinkedHashSetItem.class);
+query1.setParameter("image", "home1");
+
+//先创建好查询, 最后设置参数, 套路就是之前的, 所以可以看到编程的方式还是很灵活的
+CriteriaBuilder cb = em.getCriteriaBuilder();
+CriteriaQuery&lt;LinkedHashSetItem> criteriaQuery = cb.createQuery(LinkedHashSetItem.class);
+Root&lt;LinkedHashSetItem> root = criteriaQuery.from(LinkedHashSetItem.class);
+criteriaQuery.select(root).where(cb.isMember(cb.parameter(String.class, "item"), root.&lt;LinkedHashSet&lt;String>>get("images")));
+TypedQuery&lt;LinkedHashSetItem> query = em.createQuery(criteriaQuery);
+query.setParameter("item", "home1");
+</pre>
+<p>上边使用了.size()函数, 函数也是CriteriaBuilder的API, JPA提供的标准API如下:</p>
+<table>
+    <caption>JPA 函数 API</caption>
+    <thead>
+    <tr>
+        <th>函数</th>
+        <th>说明</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>upper(s), lower(s)</td>
+        <td>转换字符串到大写或者小写</td>
+    </tr>
+    <tr>
+        <td>concat(s1,s2)</td>
+        <td>拼接字符串</td>
+    </tr>
+    <tr>
+        <td>currentDate(), currentTime(), currentTimestamp()</td>
+        <td>返回时间</td>
+    </tr>
+    <tr>
+        <td>substring(s, offset, length)</td>
+        <td>从字符串s中取offset开始位置的,长度为length的子串, offset是偏移, 偏移是从1开始计算的. </td>
+    </tr>
+    <tr>
+        <td>trim(TrimSpec.BOTH/LEADING/TRAILING, s)</td>
+        <td>对字符串s去空白, 还有重载方法, 可以去掉两端指定的字符和字符串.</td>
+    </tr>
+    <tr>
+        <td>length(s)</td>
+        <td>s是字符串, 返回字符串的长度.</td>
+    </tr>
+    <tr>
+        <td>locate(search, s, offset)</td>
+        <td>search为要查找的字符串, s为所在的字符串, offset表示从偏移几开始搜索, 返回找到的偏移量</td>
+    </tr>
+    <tr>
+        <td>abs(n), sqrt(n), mod(divident, divisor)</td>
+        <td>参数都是数值, 取绝对值, 平方根, 模(余数)</td>
+    </tr>
+    <tr>
+        <td>treat(X as Type)</td>
+        <td>向下类型转换. 比如如果一个属性是多态的, 可以用此参数. 该函数不是必须的, Hibernate会自动进行向下转换.</td>
+    </tr>
+    <tr>
+        <td>size(c)</td>
+        <td>c是一个集合, 返回集合中元素的数量. 如果为空返回0</td>
+    </tr>
+    <tr>
+        <td>index(orderedCollection)</td>
+        <td>参数是一个集合, 用于指定@OrderedCollection中元素的位置, 比如查询: SELECT i.name FROM Category c JOIN c.items i WHERE index(i)=0, 这个查询会返回每个Category对象的items集合中的第一个item的名称.</td>
+    </tr>
+    </tbody>
+</table>
+<p>直接把函数计算的结果作为查询结果的例子如下:</p>
+<pre>
+//JPQL查询
+TypedQuery&lt;String> query = em.createQuery("SELECT concat(s.name,s.name) FROM Sender as s", String.class);
+
+CriteriaBuilder cb = em.getCriteriaBuilder();
+CriteriaQuery&lt;String> criteriaQuery = cb.createQuery(String.class);
+Root&lt;Sender> root = criteriaQuery.from(Sender.class);
+//select可以直接使用函数之后的结果
+criteriaQuery.select(cb.concat(root.&lt;String>get("name"), root.&lt;String>get("name")));
+
+TypedQuery&lt;String> query1 = em.createQuery(criteriaQuery);
+
+System.out.println(query1.getResultList());
+</pre>
+<p>SELECT可以直接选择函数的结果, 这里还没有使用多列, 其实select()函数可以接受多个参数, 表示多列. 这个会在后边详述.</p>
+<p>上边都是JPA标准的函数, 接下来看看Hibernate对于函数的特有功能</p>
+
+<h2 style="text-align: center;" id="con4">Hibernate特有的函数和操作非JPA标准的函数的方法</h2>
+<p>在JPA标准之外, Hibernate还提供了一些函数:</p>
+<table>
+    <caption>Hibernate查询函数API</caption>
+    <thead>
+    <tr>
+        <th>函数</th>
+        <th>说明</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    <tr>
+        <td>bit_length(s)</td>
+        <td>返回s的二进制位数</td>
+    </tr>
+    <tr>
+        <td>second(d), minute(d), hour(d),day(d),month(d),year(d)</td>
+        <td>d是时间类型的参数, 用于提取时间和日期</td>
+    </tr>
+    <tr>
+        <td>minelement(c), maxelement(c),minindex(c),maxindex(c),elements(c),indices(c)</td>
+        <td>返回一个集合的最大/小元素,索引以及所有的元素或者索引, 需要集合支持索引</td>
+    </tr>
+    <tr>
+        <td>str(x)</td>
+        <td>尝试将参数转换成字符串</td>
+    </tr>
+    </tbody>
+</table>
+<p>对于除了JPA标准和Hibernate这些原生的函数之外, 想要使用不属于这些函数中的函数, 任何在JPQL语句中, Hibernate无法识别的函数, 都会原样传递给数据库, 让数据库判断是不是支持该函数.</p>
+<p>比如PostgreSQL有一个函数叫做CHR(number), 用来将数字转换成字符:</p>
+<pre>
+TypedQuery&lt;Character> query = em.createQuery("SELECT CHR(65) FROM Sender", Character.class);
+</pre>
+<p>将上边这个改写成编程方式如下:</p>
+<pre>
+
+</pre>
 
 
 
@@ -90,15 +389,6 @@ for (Object[] s : result) {
 
 
 
-
-
-
-
-<h2 style="text-align: center;" id="con2"></h2>
-
-<h2 style="text-align: center;" id="con3"></h2>
-
-<h2 style="text-align: center;" id="con4"></h2>
 
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
