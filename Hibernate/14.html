@@ -15,17 +15,179 @@
     </style>
 </head>
 <body>
-<p>同样, 也是看JPQL编写查询, 以及如何用编程的方式将查询变得可以移植.</p>
+<p>同样, 也是看JPQL编写查询, 以及如何用编程的方式将查询变得可以移植. 这次需要几个更高阶一点的问题.</p>
+<p>连表查询</p>
+<p>子查询</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con1">多列查询</a></li>
+    <li><a href="#con2">连表查询</a></li>
+    <li><a href="#con3">子查询</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">多列查询</h2>
+<p>多列查询, 书里的技术术语管这个叫做投影. 其本质来说, 就不是直接按照对象, 而是选出多个列, 而列可能跨表也可能不跨表.</p>
+<h3>笛卡尔积</h3>
+<p>首先看如果从多个表中选择对象, 即创建两个表的笛卡尔积, 考虑这个笛卡尔积, 实际上相当于两个表中的所有对象互相组合一遍, JPA对于这种组合, 返回的依然是一个列表, 只不过这个列表的每一个元素都是一个数组, 放着两个元素. 这种查询使用多个Root对象, 以及特殊的写法. 有两种写法.</p>
+<pre>
+//写法一, 使用 cb.tuple()方法,传入多个Root对象,泛型是一个javax.persistence.Tuple对象
+CriteriaBuilder cb = em.getCriteriaBuilder();
+CriteriaQuery&lt;Tuple> criteriaQuery1 = cb.createQuery(Tuple.class);
+Root&lt;Sender> root1 = criteriaQuery1.from(Sender.class);
+Root&lt;MessageVersion> root2 = criteriaQuery1.from(MessageVersion.class);
+
+criteriaQuery1.select(cb.tuple(root1, root2));
+
+TypedQuery&lt;Tuple> query1 = em.createQuery(criteriaQuery1);
+for (Tuple t : query1.getResultList()) {
+    System.out.println(t.get(0) + "|" + t.get(1));
+}
+
+//写法二, 使用multiSelect(), 传入多个root对象, 泛型是Object[]类型
+CriteriaQuery&lt;Object[]> criteriaQuery2 = cb.createQuery(Object[].class);
+Root&lt;Sender> root3 = criteriaQuery2.from(Sender.class);
+Root&lt;MessageVersion> root4 = criteriaQuery2.from(MessageVersion.class);
+criteriaQuery2.multiselect(root3, root4);
+
+TypedQuery&lt;Object[]> query2 = em.createQuery(criteriaQuery2);
+for (Object[] t : query2.getResultList()) {
+    System.out.println(t[0] + "|" + t[1]);
+}
+</pre>
+<p>例子中是两个, 实际上可以传更多的root对象, tuple和数组也很类似, 通过索引拿结果. 这里依然要注意CriteriaQuery的泛型, 要与使用的select/multiSelect方法中的参数返回的类型一致.</p>
+<p>这里是取笛卡尔积, 实际上还可以取其中的列组成笛卡尔积, 取列的时候, 使用multiSelect比较方便:</p>
+<pre>
+//JPQL查询, 查Sender和MessageVersion的笛卡尔积, SQL语句就是 SELECT * FROM sender, messageversion;
+TypedQuery&lt;Object[]> JPQLQuery = em.createQuery("SELECT s.name,m.currentDate FROM Sender s, MessageVersion m", Object[].class);
+
+CriteriaBuilder cb = em.getCriteriaBuilder();
+CriteriaQuery&lt;Object[]> criteriaQuery = cb.createQuery(Object[].class);
+Root&lt;Sender> root1 = criteriaQuery.from(Sender.class);
+Root&lt;MessageVersion> root2 = criteriaQuery.from(MessageVersion.class);
+//可以选择多个不同类型的列, 来自相同或者不同的Root对象都可以
+criteriaQuery.multiselect(
+        root1.&lt;String>get("name"),
+        root2.&lt;Date>get("currentDate")
+);
+
+TypedQuery&lt;Object[]> query = em.createQuery(criteriaQuery);
+for (Object[] t : query.getResultList()) {
+    System.out.println(t[0] + "|" + t[1]);
+}
+</pre>
+<p>有了上边的方法, 就可以随意选择不同的列了, 不管是来自于同一个表, 还是跨表组成笛卡尔积, 都没有问题了.</p>
+<h3>直接组装未映射的对象</h3>
+<p>在实际开发中, 很多时候需要DTO, 在Controller层和DAO层传递数据的时候, 很多时候使用DTO. JPA支持直接将查询出的结果组装到一个类中, 这个类不需要是Entity或者其他的映射类.</p>
+<p>比如我们从MessageVersion类中取出currentDate和text两个字段, 然后组装到一个包含这两个字段的对象中. 首先创建一个DTO类:</p>
+<pre>
+import java.util.Date;
+
+public class MessageSummary {
+
+    private Date date;
+
+    private String text;
+
+    public MessageSummary(Date date, String text) {
+        this.date = date;
+        this.text = text;
+    }
+
+    @Override
+    public String toString() {
+        return "MessageSummary{" +
+                "date=" + date +
+                ", text='" + text + '\'' +
+                '}';
+    }
+}
+</pre>
+<p>如果要自行组装的话, 需要先查出MessageVersion的两个字段, 然后遍历结果集, 创建MessageSummary的对象. JPA可以替代我们完成这个工作:</p>
+<pre>
+CriteriaBuilder cb = em.getCriteriaBuilder();
+//注意查询的泛型, 这个泛型直接就是最终结果, 最终结果是要直接得到DTO类
+CriteriaQuery&lt;<span style="color: red">MessageSummary</span>> criteriaQuery = cb.createQuery(MessageSummary.class);
+Root&lt;MessageVersion> root = criteriaQuery.from(MessageVersion.class);
+
+//cb.construct函数, 第一个参数是DTO类, 之后的参数是查询的列, 顺序需要和DTO类的构造器一致
+criteriaQuery.select(cb.construct(MessageSummary.class, root.&lt;Date>get("currentDate"), root.&lt;String>get("text")));
+
+//最后直接查询得到DTO类
+TypedQuery&lt;MessageSummary> query = em.createQuery(criteriaQuery);
+
+for (MessageSummary ms : query.getResultList()) {
+    System.out.println(ms);
+}
+</pre>
+<h3>使用DISTINCT</h3>
+<p>在没有使用多列和多个表的笛卡尔积之前, 只是查询对象, 由于对象中包含唯一标识符, 所以不用担心重复问题. 在多列查询之后, 就有可能碰到某一列重复的问题, SQL语句的DISTINCT就是此时派上用场, 看一下JPA中如何使用DISTINCT.</p>
+<p>MessageVersion的Text字段中存在重复项, 现在只需要查出Text字段中的不重复项, 需要如下编写代码:</p>
+<pre>
+CriteriaQuery&lt;String> criteriaQuery = cb.createQuery(String.class);
+Root&lt;MessageVersion> root = criteriaQuery.from(MessageVersion.class);
+
+criteriaQuery.select(root.&lt;String>get("text"));
+
+<span style="color: red">criteriaQuery.distinct(true);</span>
+
+TypedQuery&lt;String> query = em.createQuery(criteriaQuery);
+
+for (String ms : query.getResultList()) {
+    System.out.println(ms);
+}
+</pre>
+<p>这个控制相比SQL的DISTINCT, 粒度要稍微差了一些, 不过在查询值组成的列表的时候, 还是比较方便的.</p>
+<h3>分组</h3>
+<p>分组是肯定需要使用聚合函数的. 关于函数的使用在上一节使用函数的时候, 就说明过了, select中可以加上函数的调用结果, WHERE子句中也可以使用函数. 最后查询结果的泛型类型要与函数的返回类型相匹配. 而不属于JPA标准的函数, 都通过<code>cb.function()</code>来使用.</p>
+<p>这里写几个聚合函数的示例, 为了看分组:</p>
+<pre>
+CriteriaBuilder cb = em.getCriteriaBuilder();
+
+CriteriaQuery&lt;Long> criteriaQuery = cb.createQuery(Long.class);
+Root&lt;MessageVersion> root = criteriaQuery.from(MessageVersion.class);
+
+//count与count去重, 任选其一
+criteriaQuery.select(cb.count(root.&lt;String>get("text")));
+criteriaQuery.select(cb.countDistinct(root.&lt;String>get("text")));
+
+TypedQuery&lt;Long> query = em.createQuery(criteriaQuery);
+//如果取单个结果, 就是泛型类型
+System.out.println(query.getSingleResult());
+//虽然是一个结果, 也可以取List, 只包含一个元素
+System.out.println(query.getResultList());
+</pre>
+<p>单独使用聚合函数, 就会将结果聚集为一行, 等于将所有元素看做一个组. 根据分组的原则, 即SELECT之后出现在聚集函数之外的列, 必须是GROUP BY之后出现的列, 所以要么单独使用, 要么就需要进行分组.</p>
+<p>分组就是编写GROUP BY 子句和HAVING子句. 先在multiSelect中选择要分组的列或者聚合函数, 然后再单独调用CriteriaQuery.groupBy()函数. 这里先看一个不涉及关系的查询, 即同一个表内的分组:</p>
+<pre>
+//统计MessageVersion表中按照text字段分组的数量:
+
+//JPQL查询
+List&lt;Object[]> result = em.createQuery("SELECT count(s.text), s.text FROM MessageVersion as s GROUP BY s.text ORDER BY s.text desc ", Object[].class).getResultList();
+
+CaveatEmptorUtil.printObjectArray(result);
+
+CriteriaBuilder cb = em.getCriteriaBuilder();
+CriteriaQuery&lt;Object[]> criteriaQuery = cb.createQuery(Object[].class);
+Root&lt;MessageVersion> root = criteriaQuery.from(MessageVersion.class);
+
+criteriaQuery.multiselect(cb.count(root.&lt;String>get("text")), root.&lt;String>get("text"));
+criteriaQuery.groupBy(<span style="color: red">root.&lt;String>get("text")</span>);
+criteriaQuery.orderBy(cb.desc(root.&lt;String>get("text")));
+
+TypedQuery&lt;Object[]> query = em.createQuery(criteriaQuery);
+</pre>
+<p>和SQL的要求一样, SELECT后边除了被聚集的列之外, 必须出现在GROUP BY后边, 这里没有被聚集的列就是root.&lt;String>get("text").</p>
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con2"></h2>
 
