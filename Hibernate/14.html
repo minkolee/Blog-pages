@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 13 编写查询 - 查询多列和关系查询</title>
+    <title>Hibernate 14 编写查询 - 查询多列和关系查询</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,17 +15,18 @@
     </style>
 </head>
 <body>
-<p>同样, 也是看JPQL编写查询, 以及如何用编程的方式将查询变得可以移植. 这次需要几个更高阶一点的问题.</p>
-<p>连表查询</p>
-<p>子查询</p>
+<p>继续将JPQL转换成编程方式的查询, 这次是几个更高阶一点的问题. 搞完这部分, 日常编写查询应该是没有什么问题了.</p>
 
 <ol>
     <li><a href="#con1">多列查询 - 笛卡尔积</a></li>
     <li><a href="#con2">多列查询 - 组装DTO和使用DISTINCT</a></li>
     <li><a href="#con3">多列查询 - 分组</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">连表查询 - 隐式连接</a></li>
+    <li><a href="#con5">连表查询 - 显式连接</a></li>
+    <li><a href="#con6">连表查询 - 控制Fetch策略</a></li>
+    <li><a href="#con7">连表查询 - 无关系映射的连表查询</a></li>
+    <li><a href="#con8">Hibernate标识符比较的特殊之处</a></li>
+    <li><a href="#con9">子查询</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">多列查询 - 笛卡尔积</h2>
 <p>多列查询, 书里的技术术语管这个叫做投影. 其本质来说, 就不是直接按照对象, 而是选出多个列, 而列可能跨表也可能不跨表.</p>
@@ -388,13 +389,170 @@ criteriaQuery.orderBy(criteriaBuilder.asc(messageVersionRoot.&lt;Long>get("id"))
 <p>在JPA编程方式的查询中, 也有对应的控制语句, 专门用来详细控制Fetch策略.</p>
 <p>比如我们通过MessageVersion来急抓取所有对应的Senders:</p>
 <pre>
+//JPQL查询
+em.createQuery("SELECT m FROM MessageVersion as m <span style="color: red">left join fetch</span> m.senders").getResultList();
+
+
+CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
+
+CriteriaQuery&lt;MessageVersion> criteriaQuery = criteriaBuilder.createQuery(MessageVersion.class);
+Root&lt;MessageVersion> root = criteriaQuery.from(MessageVersion.class);
+
+//Root对象的fetch, 这种fetch由于是直接查找关系对象, 所以第二个参数传入JoinType.LEFT
+root.fetch("senders", JoinType.LEFT);
+criteriaQuery.select(root);
+
+CaveatEmptorUtil.printList(em.createQuery(criteriaQuery).getResultList());
+</pre>
+<p>这个查询实际上会返回一个MessageVersion的列表, 每个MessageVersion对象中的senders属性都已经初始化. 这里还使用了左连接的方式, MessageVersion的senders属性即使为空也会查出来结果.</p>
+<p>如果不这么查询, 仅仅使用 <code>Select m FROM MessageVersion m</code>, 则其中的LAZY加载的部分并不会被初始化. 所以使用Join Fetch连接自己的关系对象是一个常见的JPA编程方式的套路.</p>
+<p>不过要注意的是, 在这种查询中, JPA/Hibernate可以像之前学习的那样使用DISTINCT函数, 但是实际上SQL中并不会包含DISTINCT, 去重是在内存中进行的.</p>
+<p>这里使用的是LEFT JOIN FETCH, 还有RIGHT JOIN FETCH, 这两种都是外连接. 如果使用 JOIN FETCH, 就是内连接. 如果将上边的<code>root.fetch("senders", JoinType.LEFT);</code>改成内连接, 则不会查询出senders数量是0的MessageVersion对象. 注意这里的细微区别.</p>
+<p>还需要注意的一点是, 如果一个表有多个关联关系, 对一个Root对象反复调用<code>.fetch</code>来加载不同的关系, 会造成笛卡尔积, 所以需要根据实际情况选用.</p>
+<p>如果急抓取一个集合, 则不能在数据库层面进行分页, 因为每个对象的关系对象的数量未知, 所以不能简单的使用分页. 比如有B对象多对一关联A对象, 不能在A连B查询的时候使用LIMIT, 因为不知道A能连到多少B. 正确的做法应该是先查出来每个A对应几个B, 然后再通过程序处理来显示.</p>
+<p>这里还需要注意的是, 一般关系映射可能仅仅映射多对一的那一方面, 映射在那边, 就只能Root.get()对应的名称来获取, 没有映射的部分, 则不能直接连表. 这和SQL只有单方向外键就可以两方向连表是不同的.</p>
+
+<h2 style="text-align: center;" id="con7">连表查询 - 无关系映射的连表查询</h2>
+<p>之前的隐式和显式连表查询, 都来自于有关联关系映射的类. 如果两个不相关的类, 但是有字段相同, 这个时候就可以使用multiselect直接从这两个Root对象中进行选择, 然后搭配ON函数指定条件. 这实际上是内连接查询.</p>
+<p>User类中有username列, sender中有name列, 现在需要查询所有User中username与sender的name相等的对象, 只要二者的对应列相等, 就连接成为一行.</p>
+<pre>
+//SQL查询: SELECT * FROM sender, users WHERE sender.name = users.username ORDER BY sender.id
+//或者写成: SELECT * FROM sender JOIN users on sender.name = users.username ORDER BY sender.id
+
+//JPQL查询, 一个使用连表, 一个使用从笛卡尔积中使用WHERE, 本质相同
+em.createQuery("SELECT s,u FROM Sender AS s JOIN User AS u ON s.name = u.username ORDER BY s.id", Object[].class);
+em.createQuery("SELECT s,u FROM Sender AS s, User AS u WHERE s.name = u.username ORDER BY s.id", Object[].class);
+
+//编程方式就无须使用连表, 直接按照WHERE条件来查询即可
+CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
+
+CriteriaQuery&lt;Object[]> criteriaQuery = criteriaBuilder.createQuery(Object[].class);
+
+Root&lt;Sender> senderRoot = criteriaQuery.from(Sender.class);
+Root&lt;User> userRoot = criteriaQuery.from(User.class);
+
+//直接进行投影然后使用WHERE即可, 无须使用连表API
+criteriaQuery
+        .multiselect(senderRoot, userRoot)
+        .where(
+                criteriaBuilder.equal(
+                        senderRoot.&lt;String>get("name"),
+                        userRoot.&lt;String>get("username")
+                )
+        )
+        .orderBy(criteriaBuilder.asc(senderRoot.&lt;Long>get("id")));
 
 </pre>
 
+<h2 style="text-align: center;" id="con8">Hibernate标识符比较的特殊之处</h2>
+<p>在之前的查询中是否还记得, JPQL中可以直接比较两个对象, 也可以比较两个具体的字段.</p>
+<p>像上边例子中的:</p>
+<pre>
+em.createQuery("SELECT s,u FROM Sender AS s, User AS u WHERE <span style="color: red">s.name = u.username</span> ORDER BY s.id", Object[].class);
+</pre>
+<p>红色部分就是在比较两个具体的字段. 如果.操作符后边的路径指向一个具体对象, 那么比较具体对象也是可以的, 此时引擎会比较两个对象的唯一标识符.</p>
+<p>Hibernate有一个特殊之处就是, 用<code>@Id</code>注解的成员变量, 无论其名称叫什么, 在JPQL中, 固定就叫做<code>.id</code>属性. 所以最好将Entity类的唯一标识符属性, 就起名称叫做id. 这个不是JPA的标准.</p>
 
+<h2 style="text-align: center;" id="con9">子查询</h2>
+<p>子查询是SQL的一大功能, 由于查询的结果是一个关系, 所以这个关系又可以用在其他需要关系的地方, SQL可以在SELECT, FROM和WHERE子句中使用子查询, 非常灵活.</p>
+<p>JPA仅仅支持WHERE子句中的子查询, 不支持其他位置的子查询, 这是因为无法传递闭包. ORM将结果映射到一个数据结构上, 其实就完成了一个子查询, 可以用业务来处理这些结果. 子查询可以与查询的其他位置相关, 也可以不相关</p>
+<p>来编写一个子查询, 查出 MessageVersion的Senders大于1的所有MessageVersion对象.</p>
+<p>用SQL可以很快的写出一个将聚合函数的结果当做标量的子查询:</p>
+<pre>
+SELECT * FROM messageversion WHERE (Select count(*) FROM sender WHERE sender.messageversion_id = messageversion.id) >1 ORDER BY messageversion.id;
+</pre>
+<p>对于messageversion表中每个记录, 去聚合计算对应的sender的数量,大于1的选出来.</p>
+<p>JPQL查询也很容易写出来,这里就用了之前提到的标识符比较可以直接比较对象的方式:</p>
+<pre>
+em.createQuery("SELECT m FROM MessageVersion as m WHERE <span style="color: red">(SELECT count(s) FROM Sender as s WHERE s.messageVersion = m)</span> >1 ORDER BY m.id", MessageVersion.class);
+</pre>
+<p>用编程的方式, 需要解决的就是红色部分的子查询如何编写. 需要创建一个外层查询对象和一个内层查询对象, 根对象也需要由不同的查询对象进行创建, 这比原来的无脑用criteriaQuery对象要复杂一些:</p>
+<pre>
+CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
 
+//创建外层查询对象
+CriteriaQuery&lt;MessageVersion> criteriaQuery = criteriaBuilder.createQuery(MessageVersion.class);
 
+//MessageVersion的根, 用于外层查询
+Root&lt;MessageVersion> messageVersionRoot = criteriaQuery.from(MessageVersion.class);
 
+//通过criteriaQuery创建一个子查询对象, 泛型类型是查询的结果类型
+<span style="color: red">Subquery&lt;Long> subquery = criteriaQuery.subquery(Long.class);</span>
+
+//创建子查询的根, 注意是用子查询对象的from, 而不是criteriaQuery
+Root&lt;Sender> senderRoot = <span style="color: red">subquery</span>.from(Sender.class);
+
+//子查询的根是senderRoot, 先设置子查询对象
+//这里注意WHERE子句中 s.messageVersion = m 转换成编程方式的写法, 根对象可以直接认为就是那一个类的具体对象
+subquery.select(criteriaBuilder.count(senderRoot)).where(
+        criteriaBuilder.equal(
+                senderRoot.&lt;MessageVersion>get("messageVersion"),
+                messageVersionRoot
+        )
+);
+
+//再进行外层查询的设置, 注意subquery的泛型是Long, 其实就相当于一个Long类型, 用gt函数可以比较大小.
+criteriaQuery.select(messageVersionRoot).where(
+        criteriaBuilder.gt(subquery, 1L)
+).orderBy(criteriaBuilder.asc(messageVersionRoot.get("id")));
+</pre>
+<p>注意这里实际上编写了两个查询, 先创建了外层查询对象, 然后通过外层查询对象的subquery方法创建了属于这个外层对象的子查询对象.</p>
+<p>然后外层查询的根使用外层查询对象创建, 子查询的根则使用子查询对象来创建, 这里一定要注意红色部分, 不要写错了.</p>
+<p>之后像普通查询一样设置子查询的各个查询条件, 设置完成之后, 再设置外层查询. 在外层查询中, 可以直接将子查询对象当成其结果类型(泛型类型)来使用.</p>
+<p>代码虽然有点绕, 但整体还是比较清晰的.</p>
+<p>这里还要注意的是, 这是一个相关子查询, 因为在设置子查询的时候, 使用到了外层的Root对象, 从SQL语句里也能看出来, 子查询使用了外层的MessageVersion的别名.</p>
+<p>相关子查询不能拆分成完全独立的查询, 所以相关子查询在数据库中的实际运行类似于连表的开销. 不相关的子查询在编写之前, 应该考虑将其拆分成两个查询或者简单条件, 因为不会彼此引用. </p>
+<p>SQL中还有 ALL, ANY, SOME这几个限定比较, 可用于比较一个标量与一个向量. JPA也有对应的操作, 也是criteriaBuilder对象的方法.</p>
+<p>上一个例子了查询了所有Sender数量大于1的MessageVersion的结果. 这里需要查出, MessageVersion对应的Sender中name长度全部小于5的MessageVersion对象.</p>
+<p>先编写SQL, 这里需要使用到ALL限定符号:</p>
+<pre>
+SELECT *
+FROM messageversion
+WHERE 5 > all (SELECT length(sender.name) FROM sender WHERE sender.messageversion_id = messageversion.id)
+ORDER BY messageversion.id;
+</pre>
+<p>可以看到子查询是查出一个向量, Sender表的name列的长度, 然后使用 5 > all 限定比较, 表示向量中的所有长度都必须小于5. JPQL的查询也很简单, 将SQL翻译一下即可:</p>
+<pre>
+em.createQuery("SELECT m FROM MessageVersion as m WHERE 5 > all (SELECT length(s.name) FROM Sender as s WHERE s.messageVersion = m) ORDER BY m.id", MessageVersion.class);
+</pre>
+<p>按照上边的套路, 来编写一个JPA查询:</p>
+<pre>
+CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
+
+//外层查询对象
+CriteriaQuery&lt;MessageVersion> criteriaQuery = criteriaBuilder.createQuery(MessageVersion.class);
+//使用外层查询对象创建外层Root
+Root&lt;MessageVersion> messageVersionRoot = criteriaQuery.from(MessageVersion.class);
+
+//创建子查询, 子查询查的是length的结果,就是long类型
+Subquery&lt;Integer> subquery = criteriaQuery.subquery(Integer.class);
+//使用子查询创建子查询的Root对象
+Root&lt;Sender> senderRoot = subquery.from(Sender.class);
+
+//先设置子查询
+subquery
+        .select(criteriaBuilder.length(senderRoot.&lt;String>get("name")))
+        .where(criteriaBuilder.equal(
+                senderRoot.&lt;MessageVersion>get("messageVersion"),
+                messageVersionRoot
+                )
+        );
+
+//再设置外层查询
+criteriaQuery.select(messageVersionRoot)
+        .where(
+                criteriaBuilder.gt(
+                        //这里一定要用literal,来转换, 否则不能直接和all进行比较
+                        criteriaBuilder<span style="color: red">.literal(5)</span>,
+                        criteriaBuilder<span style="color: red">.all(subquery)</span>
+                )
+        )
+        .orderBy(criteriaBuilder.asc(messageVersionRoot.get("id")));
+</pre>
+<p>这里有两个要注意的地方, 就是红色的部分, 一个是因为5是基本类型, 不能和后边的all方法返回的结果比较, 这里需要使用literal函数将字面量转换成一个Expression&lt?>. 还有就是all方法, 可以看到其接受的参数就是一个SubQuery对象.</p>
+<p>这是all方法, 其他的方法是<code>criteriaBuilder.any(SubQuery)</code>和<code>criteriaBuilder.exists(SubQuery)</code>方法.</p>
+<p>到这里就把各种编写查询都看完了, 由于ORM的限制, 在连表操作方面, 不如SQL那么自如, 不过这也是因为ORM严格映射的关系, 只要遵循映射, 所有的查询还是都有办法编写出来的.</p>
+<p>剩下的部分都是Hibernate中更高阶的内容, 以及一些设计DAO方面的东西了, 一鼓作气继续看吧.</p>
 
 
 
