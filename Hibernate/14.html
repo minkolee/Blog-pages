@@ -252,9 +252,144 @@ criteriaQuery.orderBy(cb.asc(rootMV.&lt;String>get("text")));
 </pre>
 <p>通过观察实际生成的SQL语句, 可以发现两种查询实际生成的SQL几乎相同.</p>
 
-<h2 style="text-align: center;" id="con4">连表查询 - 基础</h2>
+<h2 style="text-align: center;" id="con4">连表查询 - 隐式连接</h2>
 <p>应该说之前的查询, 还都是比较简单的. 当然也涉及到了一些关系查询的内容, 知道了一定要引用到具体字段, 而不是关系对象.</p>
 <p>现在继续来看看比较复杂的内容, 就是连表查询.</p>
+<p>首先看的是隐式连接, 也就是内连接, 因为在映射的过程中指定了关系映射的属性, 所以在查询的时候, 会自然的使用连接.</p>
+<pre>
+//SQL语句 SELECT sender.* FROM sender INNER JOIN messageversion m on sender.messageversion_id = m.id WHERE m.text = 'cony'
+
+//查询Sender对应的MessageVersion类的text=cony的查询
+TypedQuery&lt;Sender> joinSender = em.createQuery("SELECT s FROM Sender as s WHERE s.messageVersion.text = 'cony'", Sender.class);
+
+//生成的SQL语句是:
+Hibernate:
+    select
+        sender0_.id as id1_6_,
+        sender0_.messageVersion_id as messageV3_6_,
+        sender0_.name as name2_6_
+    from
+        Sender sender0_ cross
+    <span style="color: red">join
+        MessageVersion messagever1_
+    where
+        sender0_.messageVersion_id=messagever1_.id</span>
+        and messagever1_."text"='cony'
+</pre>
+<p>可以看到这里就使用了连接, 实际上是一个隐式的内连接. 编写对应的JPA查询, 也不需要使用特别的连接API, 只需要连续选择属性即可:</p>
+<pre>
+CriteriaBuilder cb = em.getCriteriaBuilder();
+CriteriaQuery&lt;Sender> criteriaQuery = cb.createQuery(Sender.class);
+Root&lt;Sender> root = criteriaQuery.from(Sender.class);
+
+criteriaQuery.select(root).where(
+        cb.equal(
+                <span style="color: red">root.&lt;MessageVersion>get("messageVersion").&lt;String>get("text")</span>, "cony"
+        )
+);
+
+TypedQuery&lt;Sender> query = em.createQuery(criteriaQuery);
+</pre>
+<p>这里如果仔细查看生成的SQL语句, 生成的是cross join. 只不过由于使用了id相等的条件, 从CROSS JOIN中去掉了不应该有的结果, 最后和内连接是一样的. 因为内连接就是相当于id相等, 然后不相等的列根本就不存在.</p>
+<p>如果是多个关系, 可以继续使用多个get来获取, 每使用一个, 就会多一层连表.</p>
+
+<h2 style="text-align: center;" id="con5">连表查询 - 显式连接</h2>
+<p>相比隐式连接, 显式需要使用一个特别的类Join, 和Root对象的API协同来使用. 比如显式编写上边的内连接:</p>
+<pre>
+CriteriaBuilder cb = em.getCriteriaBuilder();
+
+CriteriaQuery&lt;Sender> criteriaQuery = cb.createQuery(Sender.class);
+
+Root&lt;Sender> root = criteriaQuery.from(Sender.class);
+
+//Join对象, 也是一个根, 表示将Sender和MessageVersion进行内连接的对象
+//这里的join函数表示Sender通过Sender的属性messageVersion指向的表进行连表. join函数有很多重载, 第二个参数可以传入Join类型. 这里仅使用单参数表示内连接.
+Join&lt;Sender, MessageVersion> join = root.join("messageVersion");
+
+criteriaQuery.select(root).where(
+        cb.equal(
+                <span style="color: red">join.&lt;String>get("text")</span>, "cony"
+        )
+);
+</pre>
+<p>仔细观察上边的显式连接与隐式连接的区别, 很显然多了一个Join对象, 但是在取列的时候, 少了一个连续的get, Join对象可以认为是一个连了表之后的结果,其中包含了text字段, 所以直接引用即可.</p>
+<p>如果使用外连接来查询, 就需要在.join()方法中传入连接类型. 比如我们知道, 左连接中, 即使右侧不符合条件的, 也会显示出来. 不过外连接通常用于动态抓取, 而不是普通查询.</p>
+<p>看一个内外连接的区别:</p>
+<pre>
+//SQL 查询SELECT * FROM messageversion inner join sender s on messageversion.id = s.messageversion_id ORDER BY messageversion.id
+
+//JPA查询, 内连接无需显式编写连接语句
+CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
+
+CriteriaQuery&lt;Object[]> criteriaQuery = criteriaBuilder.createQuery(Object[].class);
+Root&lt;MessageVersion> messageVersionRoot = criteriaQuery.from(MessageVersion.class);
+Root&lt;Sender> senderRoot = criteriaQuery.from(Sender.class);
+
+criteriaQuery.multiselect(messageVersionRoot, senderRoot).where(
+        criteriaBuilder.equal(messageVersionRoot.get("id"),senderRoot.get("messageVersion"))
+);
+
+criteriaQuery.orderBy(criteriaBuilder.asc(messageVersionRoot.&lt;Long>get("id")));
+</pre>
+<p>现在将连接方式修改一下, 看看结果:</p>
+<pre>
+// SQL查询 SELECT * FROM messageversion <span style="color: red">LEFT JOIN</span> sender s on messageversion.id = s.messageversion_id ORDER BY messageversion.id
+
+//JPQL查询
+em.createQuery("SELECT m,s FROM MessageVersion as m LEFT JOIN Sender s on m = s.messageVersion ORDER BY m.id", Object[].class);
+
+CaveatEmptorUtil.printObjectArray(em.createQuery("SELECT m,s FROM MessageVersion as m LEFT JOIN Sender s on m = s.messageVersion ORDER BY m.id", Object[].class).getResultList());
+
+CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
+
+CriteriaQuery&lt;Object[]> criteriaQuery = criteriaBuilder.createQuery(Object[].class);
+Root&lt;MessageVersion> messageVersionRoot = criteriaQuery.from(MessageVersion.class);
+Join&lt;MessageVersion, Sender> join = messageVersionRoot.join("senders", JoinType.LEFT);
+criteriaQuery.multiselect(messageVersionRoot, join);
+
+CaveatEmptorUtil.printObjectArray(em.createQuery(criteriaQuery).getResultList());
+</pre>
+<p>对比之后可以发现结果的不同. 这里有如下几点值得注意:</p>
+<ol>
+    <li><code>join()</code>方法由于是在FROM子句中JOIN, 所以这个方法是Root对象的方法.</li>
+    <li>哪个Root对象调用join方法, 这个Root对象就是FROM之后的表, join参数中的对象, 则相当于XXX JOIN之后的表.</li>
+    <li>只要使用了JOIN, 默认会自带 ON roo1.id = root2.relation_id 这个条件, 因为Hiberante知道具体的关系映射, 所以无需再写其他条件.</li>
+    <li>如果还需要额外的ON条件, 需要使用Join对象的.on方法, 其中参数是一个Predicate表达式.</li>
+    <li>FROM A XXX JOIN B, Join的泛型需要先写A,再写B, 然后从A的关系映射中获取B. 之后传入JoinType来创建Join对象</li>
+    <li>查询的时候, 如果需要查询多个表, multiselect中必须先传入A, 在传入Join&lt;A,B>, 这样才表示连表查询.</li>
+</ol>
+<p>再来写一个带额外的ON条件, ON中的条件是连接条件:</p>
+<pre>
+// s.name小于等于8的项目不参加连接
+// SQL查询 SELECT * FROM messageversion LEFT JOIN sender s on messageversion.id = s.messageversion_id and length(s.name) > 8 ORDER BY messageversion.id;
+
+//JPA查询, 相比原来的多了红色部分
+CaveatEmptorUtil.printObjectArray(em.createQuery("SELECT m,s FROM MessageVersion as m LEFT JOIN Sender s on (m = s.messageVersion) <span style="color: red">and length(s.name) > 8</span> ORDER BY m.id", Object[].class).getResultList());
+
+CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
+CriteriaQuery&lt;Object[]> criteriaQuery = criteriaBuilder.createQuery(Object[].class);
+Root&lt;MessageVersion> messageVersionRoot = criteriaQuery.from(MessageVersion.class);
+Join&lt;MessageVersion, Sender> join = messageVersionRoot.join("senders", JoinType.LEFT);
+
+//Join对象的ON方法, 注意只需要编写上边红色的条件, 而不需要编写m = s.messageVersion对应的语句,因为这是隐含的.
+join.on(criteriaBuilder.gt(
+        criteriaBuilder.length(join.&lt;String>get("name")), 8
+        )
+);
+criteriaQuery.multiselect(messageVersionRoot, join);
+criteriaQuery.orderBy(criteriaBuilder.asc(messageVersionRoot.&lt;Long>get("id")));
+</pre>
+<p>知道了这个隐含的ON条件, 就可以来看连表操作的原则: <strong>对于外连接, JPA和Hibernate都不支持没有关系映射的类. 也就是说想使用外连接连接两个类的话, 这两个类一定都要是Entity或者集合, 然后有关系映射或者集合映射, 否则无法连表. 因为通过关系id令其相等这个ON条件是内置的, 无法改变. 额外的ON条件, 只是附加于这个内置条件之上;
+    对于内连接, 不需要使用Join对象, 只要编写WHERE条件搭配multiselect使用或者通过<code>.</code>操作符引用到关系的具体属性即可</strong>.</p>
+
+
+<h2 style="text-align: center;" id="con6">连表查询 - 控制Fetch策略</h2>
+<p>外连接表我们知道是通过关系映射来实现的. 在之前的关系映射中, 我们知道最好都将FetchType设置为LAZY, 然后根据需要可以具体使用急抓取的查询, 即JPQL中的fetch join关键字.</p>
+<p>在JPA编程方式的查询中, 也有对应的控制语句, 专门用来详细控制Fetch策略.</p>
+<p>比如我们通过MessageVersion来急抓取所有对应的Senders:</p>
+<pre>
+
+</pre>
 
 
 
@@ -272,8 +407,6 @@ criteriaQuery.orderBy(cb.asc(rootMV.&lt;String>get("text")));
 
 
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
