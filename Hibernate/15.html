@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Hibernate 15</title>
+    <title>Hibernate 15 编写DAO类</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,26 +15,281 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>DAO就是持久化层, 源自很久之前Java对于EJB的设计蓝图, 如今完整的EJB很少有人使用, 但是DAO的理念流传了下来, 在现在的Web开发中, 分层中依然包含DAO层.</p>
+<p>JPA和Hibernate单独使用的时候还是暴露了太多的工具属性, 在实际开发中, 针对一种类型就可以创建一个持久化类,通过这个类进行存取数据的操作, 而不是编写具体的函数.</p>
+<p>编写DAO类也是有套路的, 虽然Spring提供了JPA中的一些魔法方法, 但是自己编写特定的DAO类还是非常必要的.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">基本设计</a></li>
+    <li><a href="#con2">接口与抽象类</a></li>
+    <li><a href="#con3">编写实现类</a></li>
+    <li><a href="#con4">测试DAO类</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">基本设计</h2>
+<p>DAO的基本设计是平行的层次结构, 一侧是接口, 一侧是实现.</p>
+<p>由于DAO的目标是操作Entity类, 而所有Entity类必定有唯一标识符, 所以最基础的接口应该具有一个Entity类和唯一标识符类型的泛型. 一个推荐的DAO接口如下:</p>
+<ol>
+    <code>GenericDAO&lt;T,ID></code>
+    <li><code>findById(ID id): T</code>, 根据id查找单个对象</li>
+    <li><code>findById(Id id, LockModeType lock): T</code>, 根据id和锁类型查找单个对象</li>
+    <li><code>findReferenceById(ID id): T</code>, 返回不是立刻加载的代理对象</li>
+    <li><code>findAll(): List&lt;T></code>, 返回所有对象</li>
+    <li><code>getCount(): Long</code>, 返回数量</li>
+    <li><code>makePersistent(T entity): T</code>, 持久化一个类</li>
+    <li><code>makeTransient(T entity)</code>, 将一个类设置为瞬时状态</li>
+    <li><code>checkVersion(T entity, boolean forceUpdate)</code>, 检查版本</li>
+</ol>
+<p>这些方法基本上覆盖了最通用的操作, 在这个基础上, 就可以根据传入的具体类型来创建实现. 由于使用了JPA, 所以我们可以使用DAO层来让这些内容变得可以移植, 如果直接使用JDBC, 几乎是不可能移植的.</p>
+<p>所谓一侧是接口, 一侧是实现, 详细如下:</p>
+<ol>
+    <li>接口侧, 指的是一个接口GenericDAO&lt;T,ID>与其对应的抽象类</li>
+    <li>实现侧, 指的是一个具体的泛型接口, 继承GenericDAO&lt;T,ID>, 然后一个具体的实现类, 继承这个具体的泛型接口.</li>
+</ol>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">接口与抽象类</h2>
+<p>具体的实现当然不是简单的使用接口和直接实现类, 还可能需要创建抽象类, 最终创建一个体系.</p>
+<p>针对MessageVersion来编写一个接口和一个实现类, 先来创建接口:</p>
+<pre>
+import javax.persistence.LockModeType;
+import java.util.List;
 
-<h2 style="text-align: center;" id="con3"></h2>
+public interface GenericDao&lt;T, ID> {
 
-<h2 style="text-align: center;" id="con4"></h2>
+    T findById(ID id);
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+    T findById(ID id, LockModeType lockModeType);
+
+    T findReferenceById(ID id);
+
+    List&lt;T> findAll();
+
+    Long getCount();
+
+    T makePersistent(T entity);
+
+    void makeTransient(T entity);
+
+    void checkVersion(T entity, boolean forceUpdate);
+}
+</pre>
+<p>接下来好的做法是先创建一个抽象类, 因为DAO的工作需要一个EntityManager, 还需要一个Entity.class对象来完成工作, 所以很显然, 先用一个抽象类来完成这些功能:</p>
+<pre>
+public abstract class GenericDaoAbstract&lt;T, ID extends Serializable>  implements GenericDao&lt;T, ID>{
+
+    <span style="color: red">@PersistenceContext</span>
+    protected EntityManager em;
+
+    public void setEm(EntityManager em) {
+        this.em = em;
+    }
+
+    protected final Class&lt;T> entityClass;
+
+    protected GenericDaoAbstract(Class&lt;T> entityClass) {
+        this.entityClass = entityClass;
+    }
+
+}
+</pre>
+<p>这个<code>@PersistenceContext</code>注解是告诉EJB容器用的, 也可以手动用set方法来注入一个EntityManager. 这里使用构造器来传入实体类的对象. 而ID则可以通过泛型来指定.</p>
+<p>然后就可以继续编写其他的方法, 完整的抽象类如下:</p>
+<pre>
+import javax.persistence.EntityManager;
+import javax.persistence.LockModeType;
+import javax.persistence.PersistenceContext;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import java.io.Serializable;
+import java.util.List;
+
+public abstract class GenericDaoAbstract&lt;T, ID extends Serializable>  implements GenericDao&lt;T, ID>{
+
+    @PersistenceContext
+    protected EntityManager em;
+
+    public void setEm(EntityManager em) {
+        this.em = em;
+    }
+
+    protected final Class&lt;T> entityClass;
+
+    protected GenericDaoAbstract(Class&lt;T> entityClass) {
+        this.entityClass = entityClass;
+    }
+
+    //这个查找直接返回不带锁的另外一个重载方法
+    @Override
+    public T findById(ID id) {
+        return findById(id, LockModeType.NONE);
+    }
+
+    //这个是实际查找单个对象的方法
+    @Override
+    public T findById(ID id, LockModeType lockModeType) {
+        return em.find(entityClass, id, lockModeType);
+    }
+
+    //返回一个暂时未加载的代理对象
+    @Override
+    public T findReferenceById(ID id) {
+        return em.getReference(entityClass, id);
+    }
+
+    //findAll方法采用JPA可移植的方式编写
+    @Override
+    public List&lt;T> findAll() {
+        CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
+        CriteriaQuery&lt;T> criteriaQuery = criteriaBuilder.createQuery(entityClass);
+        criteriaQuery.select(criteriaQuery.from(entityClass));
+        return em.createQuery(criteriaQuery).getResultList();
+    }
+
+    //也采用JPA可移植方式编写, 查询总数量
+    @Override
+    public Long getCount() {
+        CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
+        CriteriaQuery&lt;Long> criteriaQuery = criteriaBuilder.createQuery(Long.class);
+        criteriaQuery.select(criteriaBuilder.count(criteriaQuery.from(entityClass)));
+        return em.createQuery(criteriaQuery).getSingleResult();
+    }
+
+    //还记得merge方法吗, 返回一个合并后的新引用, 原来的引用可以丢弃
+    @Override
+    public T makePersistent(T entity) {
+        return em.merge(entity);
+    }
+
+    @Override
+    public void makeTransient(T entity) {
+        em.remove(entity);
+    }
+
+    @Override
+    public void checkVersion(T entity, boolean forceUpdate) {
+        em.lock(
+                entity,
+                forceUpdate ? LockModeType.OPTIMISTIC_FORCE_INCREMENT : LockModeType.OPTIMISTIC
+        );
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con3">编写实现类</h2>
+<p>很显然, 实现类也需要两个类, 一个是继承GenericDAO&lt;T,ID>的接口, 一个是真正的实现类, 不再是抽象类.</p>
+<p>现在就以Sender类为例, 由于Sender类的唯一标识符类型是Long, 所以接口是<code>SenderDAO&lt;Sender, Long></code>.</p>
+<p>注意我们的Sender, 除了上边的通用方法, 也就是按照ID来查找之外, Sender有name列, 还有关联关系映射到MessageVersion类, 因此需要扩展一些新的方法:</p>
+<pre>
+public interface SenderDAO extends GenericDao&lt;Sender, Long> {
+    
+    //根据name字段来查找结果
+    List&lt;Sender> findByName(String n);
+
+    //根据一个MessageVersion对象查找对应的Sender    
+    List&lt;Sender> findByMessageVersion(MessageVersion messageVersion);
+    
+}
+</pre>
+<p>这只是最简单的例子, 实际上这两个方法也应该像上边一样有带锁和不带锁模式, 此外还可能有更多其他的查询方法.</p>
+<p>准备好了接口之后, 就要来编写实现类<code>SenderDAOImpl</code>, 这个类会实现<code>SenderDAO</code>接口, 同时继承已经编写好了一部分实现的<code>GenericDaoAbstract&lt;Sender, Long></code>类型. 在其中编写属于<code>SenderDAO</code>接口的特有方法的实现:</p>
+<pre>
+import cc.conyli.model.chapter11.MessageVersion;
+import cc.conyli.model.chapter12.Sender;
+
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
+import java.util.List;
+
+public class SenderDAOImpl extends GenericDaoAbstract&lt;Sender, Long> implements SenderDAO {
+
+    //构造器, 由于有了泛型类型, 因此使用无参构造器直接就可以获取类型
+    public SenderDAOImpl() {
+        super(Sender.class);
+    }
+
+    //根据名称字符串查找对象, JPA编程方式已经很熟练了
+    @Override
+    public List&lt;Sender> findByName(String n) {
+        CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
+        CriteriaQuery&lt;Sender> criteriaQuery = criteriaBuilder.createQuery(entityClass);
+        Root&lt;Sender> root = criteriaQuery.from(entityClass);
+
+        criteriaQuery.select(root).where(criteriaBuilder.equal(
+                root.&lt;String>get("name"), n
+        ));
+        return em.createQuery(criteriaQuery).getResultList();
+    }
+    
+    //和上边基本一样
+    @Override
+    public List&lt;Sender> findByMessageVersion(MessageVersion messageVersion) {
+        CriteriaBuilder criteriaBuilder = em.getCriteriaBuilder();
+        CriteriaQuery&lt;Sender> criteriaQuery = criteriaBuilder.createQuery(entityClass);
+        Root&lt;Sender> root = criteriaQuery.from(entityClass);
+
+        criteriaQuery.select(root).where(criteriaBuilder.equal(
+                root.&lt;MessageVersion>get("messageVersion"), messageVersion
+        ));
+        return em.createQuery(criteriaQuery).getResultList();
+    }
+}
+</pre>
+<p>可以看到, 一边继承抽象类, 一边继承接口, 这样就创建了平行的体系对体系, 接口对接口, 抽象类对实现类的DAO层次.</p>
+
+<h2 style="text-align: center;" id="con4">测试DAO类</h2>
+<p>按照上边的编写, 应该所有的方法现在都有了正确的泛型类型, 可以来进行查询了, 编写一系列方法来试验一下.</p>
+<pre>
+import cc.conyli.model.chapter11.MessageVersion;
+import cc.conyli.model.util.CaveatEmptorUtil;
+import org.junit.Test;
+
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+
+public class DaoSample {
+    @Test
+    public void testSenderDAO() {
+        EntityManagerFactory emf = CaveatEmptorUtil.getEntityManagerFactory();
+        EntityManager em = emf.createEntityManager();
+        em.getTransaction().begin();
+        //创建DAO对象, 然后设置上em
+        SenderDAOImpl senderDAO = new SenderDAOImpl();
+        senderDAO.setEm(em);
+
+
+        System.out.println(senderDAO.findById(30L));
+        System.out.println(senderDAO.findReferenceById(30L));
+        CaveatEmptorUtil.printList(senderDAO.findAll());
+        System.out.println(senderDAO.getCount());
+
+        MessageVersion messageVersion = em.find(MessageVersion.class, 3L);
+
+        System.out.println(senderDAO.findByName("owl"));
+        System.out.println(senderDAO.findByMessageVersion(messageVersion));
+
+        em.getTransaction().commit();
+        em.close();
+        emf.close();
+    }
+}
+</pre>
+<p>都可以顺利运行, 这就完成了编写DAO类. 这里采取手工注入em对象的方法, 在很多框架中, 实际上是框架注入em对象和开启事务管理的.</p>
+<p>这里事务是在外层控制的, 如果想写到每个具体的方法里也是可以的.</p>
+<p>所以像我们这种测试代码, 实际上就是业务层的代码. 只不过一些框架会将em和对应的事务管理器包装的更好, 来直接注入到实现类中. 像Spring在编写DAO类的时候, 只需要进行依赖注入, 然后在方法级别加上事务控制即可.</p>
+<p>编写的时候可能会想, 是不是也要编写一个通过Sender查找Sender对应的MessageVersion类呢, 这个方法由于返回的是MessageVersion类, 实际上应该写到MessageVersion的DAO类中. 即每个DAO类, 应该都是返回和操作对应的Entity类的对象, 这样就比较清晰了.</p>
+<p>到这里, Hibernate的所有核心内容基本上就看完了, 搭配着之前的数据库知识, PostgreSQL的详细使用, 编写持久化方面的程序功力大增了, 算是补上了之前Web开发中存取数据这一块的短板.</p>
+<p>下边再回头继续补一下PostgreSQL的一些操作, 之后就可以回头再看Spring啦.</p>
+
+
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>PostgreSQL 09 SCHEMA操作与条件表达式和操作</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>已经知道了Schema的含义, 现在就来看一下详细操作. 还有就是一些条件表达式和操作, 这些其实就是一种函数. 也是为后边函数来先行铺垫一下.</p>
+
+<ol>
+    <li><a href="#con1">SCHEMA与Search_path</a></li>
+    <li><a href="#con2">CREATE SCHEMA</a></li>
+    <li><a href="#con3">ALTER SCHEMA</a></li>
+    <li><a href="#con4">DROP SCHEMA</a></li>
+    <li><a href="#con5">CASE条件语句</a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">SCHEMA与Search_path</h2>
+<p>SCHEMA在PgSQL里, 是一个数据库里包含所有数据库对象的命名空间. PgSQL的每一个DATABASE之下, 第一层对象就是schema对象.</p>
+<p>在标准的查询中, 给定一个数据库, 想要取得这个数据库中的对象, 标准的方法就是使用schema.object这种形式的引用.</p>
+<p>如果不给出当前的schema, 而且也没有设置search path中默认的schema, 那么PgSQL将会使用每个数据库默认的schema, 名称叫做public.</p>
+<p>在每次创建数据库的时候, PgSQL就会自动创建这个名叫public的schema.</p>
+<h3>search_path</h3>
+<p>如果经常操作一个数据库中的某个固定的schema, 可以设置search_path, 来看两个例子.</p>
+<pre>
+//进入一个默认的数据库后, 查找当前使用的schema, 由于到现在为止都还没有创建过schema, 所以就是默认的public.
+SELECT current_schema();
+
+current_schema
+----------------
+public
+(1 row)
+</pre>
+<p>然后看一下search_path变量:</p>
+<pre>
+SHOW search_path;
+-----------------
+"$user", public
+(1 row)
+</pre>
+<p>可以看到显示了两个结果, 解释如下:</p>
+<ol>
+    <li>这里显示出来的结果, 是PgSQL用于搜索数据库对象所用的所有schema的顺序, 也就是说先搜索$user, 再搜索public.</li>
+    <li>$user表示与当前同名的用户的变量, 是PgSQL首先搜索的名称, 比如现在都是用postgres用户登录的, 则PgSQL最先搜索的schema名称就是postgres</li>
+    <li>public就是指的每个数据库默认的public schema</li>
+</ol>
+<p>首先是创建SCHEMA, 使用CREATE SCHEMA.</p>
+<p>来创建一个schema叫做cony:</p>
+<pre>
+CREATE schema cony;
+</pre>
+<p>创建之后, 可以在PgAdmin和IDEA里都看到这个新的schema.</p>
+<p>然后可以将search_path修改一下:</p>
+<pre>
+SET search_path TO cony,public;
+
+show search_path;
+</pre>
+<p>之后可以看到修改成功. 注意现在cony排在了public的前边, 表明如果不显式使用schema名称, 则会优先操作cony. 尝试创建一个表:</p>
+<pre>
+CREATE TABLE staff(
+    staff_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(45) NOT NULL,
+    last_name VARCHAR(45) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE
+);
+</pre>
+<p>这个表会创建在哪个schema下边了, 答案就是cony, 就是因为search_path的设置.</p>
+<p>注意, 虽然public schema是默认创建的, 但并不是一个特殊的schema, 可以使用DROP来去掉.</p>
+<p>另外schema也是有权限的, 我们对于自己创建的schema默认有权限, 如果要授权给别人:</p>
+<pre>
+//允许USAGE
+GRANT USAGE ON SCHEMA schema_name TO user_name;
+//允许在Schema中执行CREATE的权限, 即创建对象(并不一定是表)
+GRANT CREATE ON SCHEMA schema_name TO user_name;
+</pre>
+<p>默认情况下, 所有用户对于public schema都有CREATE和USAGE权限, 这个要注意, 一般都会删除public schema或者收回对于public schema的权限.</p>
+
+<h2 style="text-align: center;" id="con2">CREATE SCHEMA</h2>
+<p>标准的创建语句是:</p>
+<pre>CREATE SCHEMA [IF NOT EXISTS] schema_name;</pre>
+<p>和创建很多其他对象都是一样的.</p>
+<p>还可以针对某个用户创建schema:</p>
+<pre>CREATE SCHEMA [IF NOT EXISTS] AUTHORIZATION user_name;</pre>
+<p>PgSQL还允许一次性创建schema和schema下边所属的对象:</p>
+<pre>
+CREATE SCHEMA schema_name
+    CREATE TABLE table_name1 (...)
+    CREATE TABLE table_name2 (...)
+    CREATE VIEW view_name1
+        SELECT select_list FROM table_name1;
+</pre>
+<p>这可以一次性创建上述的两个表和一个视图.</p>
+<p>创建之后如果想要查询所有schema的名称, 使用如下语句:</p>
+<pre>
+SELECT
+    *
+FROM
+    pg_catalog.pg_namespace
+ORDER BY
+    nspname;
+</pre>
+<p>这条语句可以查找当前数据库中的所有命名空间, 其中就包括自己创建的schema.</p>
+
+<h2 style="text-align: center;" id="con3">ALTER SCHEMA</h2>
+<p>可以像修改其他对象名称一样来修改schema的名称:</p>
+<pre>
+ALTER SCHEMA schema_name RENAME TO new_name;
+</pre>
+<p>注意在修改了名称之后, 需要重新设置search_path, search_path不会自动跟着一起修改名称.</p>
+<p>还可以修改所属的用户:</p>
+<pre>ALTER SCHEMA schema_name OWNER TO { new_owner | CURRENT_USER | SESSION_USER};</pre>
+<p>不过一般确定了schema后,不要轻易修改, 否则会导致显式使用schema名称的查询等全部失效.</p>
+
+<h2 style="text-align: center;" id="con4">DROP SCHEMA</h2>
+<p>删除一个schema, 会将其下所有的数据库对象一并删除. 标准的删除命令是:</p>
+<pre>DROP SCHEMA [IF EXISTS] schema_name [ CASCADE | RESTRICT ];</pre>
+<p>其中需要解释的就是CASCADE, 如果使用这个, 就会删除其下的所有对象. 如果仅仅想在schema为空才删除, 可以使用RESTRICT.</p>
+<p>如果想一次性删除多个schema, 可以使用如下语句:</p>
+<pre>
+DROP SCHEMA [IF EXISTS] schema_name1 [,schema_name2,...] [CASCADE | RESTRICT];
+</pre>
+<p>SCHEMA的操作整体来说还是很简单的, 接下来是一些条件操作和一些函数.</p>
+
+<h2 style="text-align: center;" id="con5">CASE 条件语句</h2>
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
