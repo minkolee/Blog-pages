@@ -22,8 +22,10 @@
     <li><a href="#con2">CREATE SCHEMA</a></li>
     <li><a href="#con3">ALTER SCHEMA</a></li>
     <li><a href="#con4">DROP SCHEMA</a></li>
-    <li><a href="#con5">CASE条件语句</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">CASE 条件语句</a></li>
+    <li><a href="#con6">COALESCE 函数</a></li>
+    <li><a href="#con7">NULLIF 函数</a></li>
+    <li><a href="#con8">CAST 函数</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">SCHEMA与Search_path</h2>
 <p>SCHEMA在PgSQL里, 是一个数据库里包含所有数据库对象的命名空间. PgSQL的每一个DATABASE之下, 第一层对象就是schema对象.</p>
@@ -133,6 +135,112 @@ DROP SCHEMA [IF EXISTS] schema_name1 [,schema_name2,...] [CASCADE | RESTRICT];
 <p>SCHEMA的操作整体来说还是很简单的, 接下来是一些条件操作和一些函数.</p>
 
 <h2 style="text-align: center;" id="con5">CASE 条件语句</h2>
+<p>这个语句在之前的SQL语句中也看过, 相当于很多语言中的switch语句. 看到这里又想起了CSAPP, swtich是用跳转表来做的.</p>
+<p>PgSQL的switch语句语法是:</p>
+<pre>
+CASE
+      WHEN condition_1  THEN result_1
+      WHEN condition_2  THEN result_2
+      [WHEN ...]
+      [ELSE result_n]
+END
+</pre>
+<p>其中的每个condition都返回一个布尔值, 如果所有的布尔值都是false, 则会执行ELSE后边的语句. 这个对一个值进行处理的时候, 可以很方便的把一些值进行分组, 比如:</p>
+<pre>
+SELECT (CASE
+            WHEN
+                film.length <= 60 THEN 1
+            WHEN film.length <= 120 THEN 2
+            ELSE 3
+    END
+           ) as length,
+       film.title,
+       film.length
+FROM film
+
+ORDER BY film.film_id;
+</pre>
+<p>当电影的长度不超过一个小时的时候, 这个值是1, 一个小时到两个小时之间, 是2, 再长就是3. 这个执行之后, 就将film.length这列按照条件变成了1,2,3三个值</p>
+
+<h2 style="text-align: center;" id="con6">COALESCE 函数</h2>
+<p>这里开始接触到一些简单的函数了. 这个函数的作用是返回第一个不是null的参数, 其接受的参数可以是无限多个. 如果所有的参数都是null, COALESCE返回null.</p>
+<p>在SQL中, 记住不是二元操作true 和 false, 而是三元操作 true null false. 具体的关系之前说过了.</p>
+<p>看几个例子:</p>
+<pre>
+//返回1
+SELECT COALESCE(1, 2, 3);
+
+//返回3
+SELECT coalesce(null, null, 3);
+</pre>
+
+<h2 style="text-align: center;" id="con7">NULLIF 函数</h2>
+<p>这个函数是PgSQL中非常常用的条件函数, 接受两个参数. 如果第一个参数和第二个参数相等, 返回null, 否则返回第一个参数.</p>
+<pre>
+SELECT
+   NULLIF (1, 1); -- return NULL
+
+SELECT
+   NULLIF (1, 0); -- return 1
+
+SELECT
+   NULLIF ('A', 'B'); -- return A
+</pre>
+<p>NULLIF的作用有很大一部分是和COALESCE搭配使用.</p>
+<p>比如我们有一个简单的表, 有三个属性id, title, excerpt.</p>
+<p>其中title是一定有数据的, excerpt的情况就复杂一些, 可能是一个空串, 也可能是一个null.</p>
+<p>如果直接选, 无法区别空串还是不是空串, 现在想无论是空串还是null, 都想生成一个值, 这样就表示是空白, 可以编写如下查询:</p>
+<pre>
+SELECT
+    id,
+    title,
+    COALESCE (
+            NULLIF (excerpt, ''),
+            '$EMPTY$')
+        )
+FROM
+    posts;
+</pre>
+<p>看这里的套路, 首先NULLIF判断excerpt字段和空串<code>''</code>是否相同, 如果相等, 返回null, 然后导致COALESCE返回特定字符串.</p>
+<p>如果excerpt不等于空串, 就会返回excerpt. 此时COALESCE又会判断excerpt是不是null, 如果不是null, 则说明excerpt既不是空串也不是null ,是正常字符串, 就会返回excerpt. 如果excerpt是null, COALESCE就会返回特定的字符串.</p>
+<p>这个套路果然够深.</p>
+
+<h2 style="text-align: center;" id="con8">CAST 函数</h2>
+<p>这个函数也非常常用, 是类型转换函数.</p>
+<p>标准语法是:</p>
+<pre>CAST ( expression AS target_type );</pre>
+<p>其中的expression是一个表达式, 可以是一个常量, 一个关系的属性, 或者是一个生成一个值的任何表达式.</p>
+<p>target_type是要转换成的PgSQL的数据类型.</p>
+<p>针对CAST函数, PgSQL有特别的写法:</p>
+<pre>expression::type</pre>
+<p>也就是无需显式的写出CAST函数, 只需要将上边两部分用两个引号连接起来即可.</p>
+<pre>
+SELECT
+    '100'::SMALLINT,
+    '01-OCT-2015'::timestamp;
+</pre>
+<p>看几个常用的例子:</p>
+<ol>
+    <li>字符串转数字, 最常用, 比如<code>SELECT CAST ('100' AS INTEGER), CAST ('10.2' AS DOUBLE);</code></li>
+    <li>字符串转日期, 可以直接转换ISO标准格式的日期, 也可以美式写法, 比如<code>SELECT CAST ('2015-01-01' AS DATE), CAST ('01-OCT-2015' AS DATE);</code></li>
+    <li>字符串转TIMESTAMP, 也是ISO格式, 比如<code>SELECT '2019-06-15 14:30:20'::timestamp;</code></li>
+    <li>字符串转INTERVAL, 这个转换可以用X 加时间单位表示, 比如<code>SELECT '15 minute'::interval, '2 hour'::interval, '1 day'::interval, '2 week'::interval, '3 month'::interval;</code></li>
+    <li>字符串转布尔值, 这个有很多转换形式: <code>SELECT CAST('true' AS BOOLEAN), CAST('false' as BOOLEAN), CAST('T' as BOOLEAN), CAST('F' as BOOLEAN);</code></li>
+</ol>
+<p>可以结合很多其他的判断条件来进行类型转换, 非常方便, 比如很多时候可能存储了字符串形式的数字, 就可以用这个来转换, 时间转换也是非常方便的.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
