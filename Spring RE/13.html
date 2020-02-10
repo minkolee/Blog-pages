@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Spring RE 13 SpringMVC</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>时间过得真是飞快, 12月19号看完异步任务之后, 深感自己的持久化技术方面还是短板, 因此去看了SQL基础理论, PgSQL的操作以及Hibernate.</p>
+<p>功夫不负有心人, 今天2月10号, 50天的时间里把上边的内容都过了一遍, 总算是补上了数据库操作这块短板, 之后不管是SQL语句还是用JPA, 心里不会再有丝毫恐惧了, 这也说明, 害怕一个玩意逃避是没有用的, 唯有下决心堂堂正正面对, 彻底搞清楚才行.</p>
+<p>现在把持久化层的内容搞定, 终于又可以回头再来好好的看看Spring MVC了.</p>
+
+<ol>
+    <li><a href="#con1">什么是MVC</a></li>
+    <li><a href="#con2">DispatcherServlet的配置</a></li>
+    <li><a href="#con3">DispatcherServlet的工作原理</a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">什么是MVC</h2>
+<p>这个问题对于此时的我来说就简单多了, 不过这里还是有一些新内容.</p>
+<p>MVC是经典的Model, View, Control模型, 在Web中的MVC还不是原始的MVC, 而是MVC在Web应用中的变体, 这一变体被称为<a href="https://en.wikipedia.org/wiki/JSP_model_2_architecture" target="_blank">Model 2</a>.</p>
+<p>Java的工业开发历史悠久, 尤其是EJB, 所以很多玩意我都没有听说过. Model 1和Model 2都来自EJB历史上的开发模型, Model 1就是内嵌JSP的开发模型, JSP页面是独立的实体, 逻辑被包含在JSP页面中.</p>
+<p>1999年12月，JavaWorld发表了Govind Seshadri的文章，标题为“理解JavaServer Pages Model 2体系结构”, 将Model 2作为一种构建模式确定下来. 其实Model 1就是没有单独的控制器, 而Model 2有单独的控制器.</p>
+<p><a href="https://www.javatpoint.com/model-1-and-model-2-mvc-architecture" target="_blank">这里有一篇文章</a>描述了Model 1和Model 2的区别.</p>
+<p>Spring MVC就是基于Model 2构建的框架, 所以可以知道其很多技术, 都是集中在控制器层面.</p>
+<p>Spring MVC的工作流程是:</p>
+<ol>
+    <li>在Web容器初始化的时候插入一个DispatcherServlet, 用这个Servlet拦截符合要求的所有Web请求, 一般是拦截全部请求.</li>
+    <li>DispatcherServlet解析Http请求信息, 根据其中的内容和HandlerMapping类, 确定对应的Handler. 所谓Handler, 就是处理请求的对象, Spring MVC并没有一个Handler接口, 任意类只要符合要求, 都可以当成处理请求的对象</li>
+    <li>Spring采取反射技术, 使用一个HandlerAdapter接口来适配所有的Handler, 并且来调用相关的方法.</li>
+    <li>Handler完成处理请求之后, 会返回一个ModelAndView对象给DispatcherServlet, 即使你的Handler的代码中没有显式返回ModelAndView对象, 框架最后也会让你的Handler实际上返回ModelAndView对象.</li>
+    <li>DispatcherServlet拿到ModelAndView之后, 从里边获取逻辑视图名称, 然后使用ViewResolver将逻辑视图名称解析成真正的视图对象(文件)路径.</li>
+    <li>得到视图对象后, 使用Model中的数据, 渲染视图对象. 将渲染结果写入到Http响应中.</li>
+    <li>将Http响应发回给客户端, 根据渲染的结果, 客户端会得到不同的media-type对应的内容.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">DispatcherServlet</h2>
+<p>Spring 由于支持Servlet 3.0, 除了XML方式, 也可以使用编程的方式进行配置, 还是先来看看XML配置的方式.</p>
+<p>之前已经知道, Spring会有自己的容器, DispatcherServlet也会有IOC容器, 到底这些容器是怎么启动的呢, 看一个配置文件:</p>
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?>
+    &lt;web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+             version="4.0">
+
+    //第一部分
+    &lt;context-param>
+        &lt;param-name>contextConfigLocation&lt;/param-name>
+        &lt;param-value>classpath:/applicationContext.xml&lt;/param-value>
+    &lt;/context-param>
+
+    //第二部分
+    &lt;listener>
+        &lt;listener-class>org.springframework.web.context.ContextLoaderListener&lt;/listener-class>
+    &lt;/listener>
+
+    //第三部分
+    &lt;servlet>
+        &lt;servlet-name>dispatcher&lt;/servlet-name>
+        &lt;servlet-class>org.springframework.web.servlet.DispatcherServlet&lt;/servlet-class>
+
+        &lt;init-param>
+            &lt;param-name>contextConfigLocation&lt;/param-name>
+            &lt;param-value>WEB-INF/spring-mvc-crm.xml&lt;/param-value>
+        &lt;/init-param>
+
+        &lt;load-on-startup>1&lt;/load-on-startup>
+    &lt;/servlet>
+
+    &lt;servlet-mapping>
+        &lt;servlet-name>dispatcher&lt;/servlet-name>
+        &lt;url-pattern>/&lt;/url-pattern>
+    &lt;/servlet-mapping>
+&lt;/web-app>
+</pre>
+<p>详细的启动顺序如下:</p>
+<ol>
+    <li>首先这是一个web.xml, 所以最先启动的并不是Spring, 而是Web容器, 就像IDEA里如果创建Spring, 启动的是Tomcat, 而不是某个具体的Spring IOC容器. Web容器启动的时候最先干什么呢, 当然就是生成一个ServletContext, 即Web容器的上下文. 在这个时候Web容器还没有完全启动, 因为Servlet都还没有创建.</li>
+    <li>Web容器之后会继续启动, 来读取web.xml文件的第一部分, 可以知道, 这些是给Web容器看的, 实际上就是给Web容器配置上了一个属性和对应的值.</li>
+    <li>Web容器启动的是第二部分的配置, 也就是监听器, 还记得之前学JSP的时候, 监听器是比Servlet要早启动的. 这个监听器是Spring框架里的监听器, 既然是Spring框架的, 很显然就是要做点事情了.</li>
+    <li>ContextLoaderListener监听器启动的时候, 在JSP中可以知道, 监听器是可以获取ServletContext对象的, 这个监听器就获取了当前Web容器的上下文, 然后去找这个contextConfigLocation属性对应的配置文件的路径, 然后使用这个配置文件, 启动一个Spring IOC容器, 通过之前的学习, 知道这其实是一个XmlWebApplicationContext对象.</li>
+    <li>监听器创建了Spring 容器之后, 将这个容器以WebApplicationContext.ROOTWEBAPPLICATIONCONTEXTATTRIBUTE为key, 将其存储到ServletContext里, 这样Web容器就有了对这个Spring IOC容器的引用.</li>
+    <li>监听器工作完毕. 带有了Spring IOC容器引用的Web容器继续向下创建Servlet对象, 这里的Servlet对象是DispatcherServlet. </li>
+    <li>DispatcherServlet创建过程中, 会从ServletContext里获取刚刚的Spring IOC容器, 将其设置成为自己的父容器.</li>
+    <li>DispatcherServlet有了父容器对象后, 再初始化自己的上下文, 也是一个IOC容器. 这个上下文中就存放了视图解析, 映射等一系列所需要的服务Bean. 最后会将自己的这个子IOC容器, 也设置到ServletContext中.</li>
+    <li>全部的Servlet创建完毕之后, Web容器成功启动. 此时Web容器中有一个父IOC容器, 还有一个子IOC容器(也可能有多个). 父IOC容器中的Bean被所有的子IOC容器共享. 每个子IOC容器中的Bean是属于自己的.</li>
+</ol>
+<p>所以实际上我们编写的业务类和DAO层, 可以看到是放在父IOC容器中的, 被所有的子IOC容器共享. 而子IOC容器中的视图解析器, HandlerMapping等, 仅仅只为子IOC容器使用. 这个层次体系就非常合理.</p>
+<p>在创建DispathcerServlet过程中, 除了web.xml中对于servlet的标准写法, 还有一些额外的配置, 都写在<code>&lt;init-param></code>中:</p>
+<ol>
+    <li><code>contextConfigLocation</code>, 表示子IOC容器创建的时候对应的配置文件路径, 可以使用完整路径, classpath:等写法, 还可以使用逗号分割多个xml文件, 会一并使用这些配置文件来创建子IOC.</li>
+    <li><code>nameSpace</code>, 表示这个DispatcherServlet对应的命名空间, 如果显示配置了该属性, 配置文件就变成<code>WEB-INF/&lt;nameSpace>.xml</code>. 如果不配置, 默认配置文件是<code>WEB-INF/&lt;servlet-name>-servlet.xml</code>.</li>
+    <li><code>publishContext</code>, 布尔值, 表示是否将子IOC容器设置到Web容器的上下文里, 默认是true, 也就是上边的标准启动流程. 如果设置的话, key属性名是<code>.getServeltContextAttributeName()</code>的返回值.</li>
+    <li><code>publishEvents</code>, 布尔值, 默认为true. 表示每次DispatcherServlet处理完一个请求之后, 是否向Web容器内发布一个ServletRequestHandlerEvent事件. 如果不需要监听此事件, 可以将该属性设置为false.</li>
+</ol>
+<p>再来看一下编程方式配置DispatcherServlet. 支持Servlet 3.0的容器, 会在启动的时候, 在类路径下边查找一个实现了javax.servlet.ServletContainerInitializer的类, 调用这个类来配置Servlet容器. Spring也提供了一个org.springframework.web.SpringSerlvetContainerinitializer类, 实现了该接口.</p>
+<p>不过目前还是xml配置为主, 加上Spring Boot的流行, 编程方式用的不多.</p>
+
+<h2 style="text-align: center;" id="con3">DispatcherServlet的工作原理</h2>
+<p>DispatcherServlet会组装一个IOC容器, 那么这个容器中到底有什么玩意呢. 首先能想到的是, 会去组装指定的<code>spring-mvc-crm.xml</code>文件中的Bean. 确实如此. 不过还有很多上边提到的其他Bean, 都是怎么组装的呢, 这要看具体的工作:</p>
+<p>DispatcherServlet的源码中有这样一个方法(spring-webmvc 5.1.5版):</p>
+<pre>
+protected void initStrategies(ApplicationContext context) {
+        this.initMultipartResolver(context);
+        this.initLocaleResolver(context);
+        this.initThemeResolver(context);
+        this.initHandlerMappings(context);
+        this.initHandlerAdapters(context);
+        this.initHandlerExceptionResolvers(context);
+        this.initRequestToViewNameTranslator(context);
+        this.initViewResolvers(context);
+        this.initFlashMapManager(context);
+    }
+</pre>
+<p>每个方法其实都会初始化一个Bean, 随便看一个其中的源码:</p>
+<pre>
+private void initMultipartResolver(ApplicationContext context) {
+    try {
+        <span style="color: red">this.multipartResolver = (MultipartResolver)context.getBean("multipartResolver", MultipartResolver.class);</span>
+        if (this.logger.isTraceEnabled()) {
+            this.logger.trace("Detected " + this.multipartResolver);
+        } else if (this.logger.isDebugEnabled()) {
+            this.logger.debug("Detected " + this.multipartResolver.getClass().getSimpleName());
+        }
+    } catch (NoSuchBeanDefinitionException var3) {
+        this.multipartResolver = null;
+        if (this.logger.isTraceEnabled()) {
+            this.logger.trace("No MultipartResolver 'multipartResolver' declared");
+        }
+    }
+
+}
+</pre>
+<p>可以看到其实就会去获取一个Bean, 当然容器在这个过程中就会创建Bean. 但是在xml文件中没有定义这个Bean怎么办, 可以在</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
