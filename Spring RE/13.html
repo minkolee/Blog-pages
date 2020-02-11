@@ -23,7 +23,7 @@
     <li><a href="#con1">什么是MVC</a></li>
     <li><a href="#con2">DispatcherServlet的配置</a></li>
     <li><a href="#con3">DispatcherServlet的工作原理</a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con4">一个简单的GET和POST控制器的例子</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
@@ -143,30 +143,182 @@ private void initMultipartResolver(ApplicationContext context) {
 
 }
 </pre>
-<p>可以看到其实就会去获取一个Bean, 当然容器在这个过程中就会创建Bean. 但是在xml文件中没有定义这个Bean怎么办, 可以在</p>
+<p>可以看到其实就会去获取一个Bean, 当然容器在这个过程中就会创建Bean. 但是在xml文件中没有定义这个Bean怎么办, 在org.springframework.web.servlet目录下边有一个文件叫做<code>DispatcherServlet.properties</code>, 其中内容如下:</p>
+<pre>
+//默认的DispatcherServlet生成的实现类, 用于在没有子IOC容器中找到对应的Bean使用, 不要更改此文件
+# Default implementation classes for DispatcherServlet's strategy interfaces.
+# Used as fallback when no matching beans are found in the DispatcherServlet context.
+# Not meant to be customized by application developers.
 
+org.springframework.web.servlet.LocaleResolver=org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver
 
+org.springframework.web.servlet.ThemeResolver=org.springframework.web.servlet.theme.FixedThemeResolver
 
+org.springframework.web.servlet.HandlerMapping=org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping,\
+	org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
 
+org.springframework.web.servlet.HandlerAdapter=org.springframework.web.servlet.mvc.HttpRequestHandlerAdapter,\
+	org.springframework.web.servlet.mvc.SimpleControllerHandlerAdapter,\
+	org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter
 
+org.springframework.web.servlet.HandlerExceptionResolver=org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver,\
+	org.springframework.web.servlet.mvc.annotation.ResponseStatusExceptionResolver,\
+	org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolver
 
+org.springframework.web.servlet.RequestToViewNameTranslator=org.springframework.web.servlet.view.DefaultRequestToViewNameTranslator
 
+org.springframework.web.servlet.ViewResolver=org.springframework.web.servlet.view.InternalResourceViewResolver
 
+org.springframework.web.servlet.FlashMapManager=org.springframework.web.servlet.support.SessionFlashMapManager
+</pre>
+<p>这里边就是所有子IOC容器中必须具备的Bean,来看一下简介:</p>
+<ol>
+    <li><code>MultipartResolver</code>, 这个没有写在properties文件中, 是通过方法来定义的. 如果没有显式定义, 不会自行创建, 不存在该Bean</li>
+    <li><code>LocaleResolver</code>, 这个i18n之后的, 是本地化解析器. 如果没有显式定义, 不会自行创建, 不存在该Bean</li>
+    <li><code>ThemeResolver</code>, 主题解析器, 如果没有显式定义, 不会自行创建, 不存在该Bean</li>
+    <li><code>HandlerMapping</code>, 非常重要的请求处理器的映射, 如果没有显式定义, 会创建文件里的两个Bean</li>
+    <li><code>HandlerAdapter</code>, 也是非常重要的, 如果没有显式定义, 会创建三个适配器类, 添加到适配器列表中</li>
+    <li><code>HandlerExceptionResolver</code>, 异常处理器, 如果没有显式定义, 也会自行创建.</li>
+    <li><code>RequestToViewNameTranslator</code>, 视图名称翻译器, 查找名称为viewNameTranslator, 类型是RequestToViewNameTranslator的Bean, 如果找不到, 就会用上边的默认实现类创建Bean.</li>
+    <li><code>ViewResolver</code>, 非常重要的视图解析器, 不显式配置也会创建.</li>
+</ol>
+<p>这其中的1,2,3项可以不存在, 如果存在也就只有一个Bean. 第4,5,6,8项必须存在, 而且可以有多个相同的Bean. 第7项必须存在, 而且只有一个Bean.</p>
+<p>看到这里, 我就尝试了一下, 将原来写在\WEB-INF\spring-mvc-crm.xml中的数据库连接的内容, 放到了另外一个随便起的base.xml文件中, 然后在web.xml中指定监听器以及将父IOC容器的配置文件路径指向base.xml.</p>
+<p>之后再启动服务器, 发现完全OK, 这时候数据框相关的Bean从原来的子IOC容器中改成了在父IOC容器中, 而不是子IOC容器中, 但是对于依赖注入毫无影响, 确实方便.</p>
 
+<h2 style="text-align: center;" id="con4">一个简单的GET和POST控制器的例子</h2>
+<p>可以看到, Spring与Web容器发生直接关系, 其实就是通过DispatcherServlet, 其后容器只负责将请求送给DispatcherServlet, 再把响应拿回来发给客户, 也就是Web容器只认识DispatcherServlet.</p>
+<p>至于DispatcherServlet之后的容器里边怎么来, 就是要按照Spring的要求来了, Spring MVC最核心的其实也就是控制器.</p>
+<p>什么是控制器, 简单的说, 就是一个Bean, 使用特殊的标注, 让容器认出来这是一个用于处理请求的Bean. 现在基本上编写全是靠注解驱动的, 就来一个一个看注解吧.</p>
+<h3><code>@Controller</code>与<code>@RequestMapping</code></h3>
+<p>这个注解用于标识一个控制器, 标注之后, 这个类就可以接受Http请求, Spring MVC框架会检测到这个标准的类, 然后检测其中的方法, 将方法参数与Http请求和其他注解标记的类关联起来, 给方法传入适当的参数.</p>
+<p>Controller首先要解决的问题就是处理哪些Http请求, 这就需要搭配<code>@RequestMapping</code>注解来使用, 可以注解在类上和方法上, 表示两层逻辑关系.</p>
+<pre>
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
 
+@Controller
+@RequestMapping("/user")
+public class UserController {
 
+    @RequestMapping("/register")
+    public String register() {
+        return "user/register";
+    }
+}
+</pre>
+<p><code>@RequestMapping</code>的路径, 表示的是<strong>相对于web应用根路径的路径</strong>, 这点一定要记清楚, 前边要加上/, 不能不加. 因为会在这之前自动拼接一个根路径, 假如没有设置根路径, 还不会出问题. 如果设置了根路径, 没有加/,就会出问题.</p>
+<p>这就是一个最简单的控制器了, 整个控制器对应/user路径下的Http请求, 然后register()方法对应/user/register, 这就可以看出层级关系.</p>
+<p>不过这个返回字符串的方法是什么呢, 之前说过返回的是ModelAndView对象, 这里编写了返回字符串, 实际上这个字符串会被当做视图文件来解析.</p>
+<p>之前的spring配置文件里有一个bean:</p>
+<pre>
+&lt;bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+    &lt;property name="prefix" value="/WEB-INF/view/"/>
+    &lt;property name="suffix" value=".jsp"/>
+&lt;/bean>
+</pre>
+<p>这就是自定义的视图解析器, 会在这个<code>user/register</code>之前加上<code>/WEB-INF/view/</code>, 在之后加上<code>.jsp</code>. 最后实际的视图就是<code>/WEB-INF/view/user/register.jsp</code>.</p>
+<p>最前边的/表示web容器的根路径, 这个要注意, 所以在对应的地方编写一个jsp文件:</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" pageEncoding="UTF-8" %>
+&lt;%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+&lt;html>
+&lt;head>
+    &lt;title>用户注册&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;form method="post" action="&lt;c:url value="<span style="color: red">/user</span>"/>">
+    &lt;table>
+        &lt;tr>
+            &lt;td>用户名: &lt;/td>
+            &lt;td>&lt;input type="text" name="userName">&lt;/td>
+        &lt;/tr>
+        &lt;tr>
+            &lt;td>密码: &lt;/td>
+            &lt;td>&lt;input type="password" name="password">&lt;/td>
+        &lt;/tr>
+        &lt;tr>
+            &lt;td>姓名: &lt;/td>
+            &lt;td>&lt;input type="text" name="realName">&lt;/td>
+        &lt;/tr>
+        &lt;tr>
+            &lt;td colspan="2">&lt;input type="submit" name="提交">&lt;/td>
+        &lt;/tr>
+    &lt;/table>
+&lt;/form>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>JSP和JSTL已经知道是怎么回事了, 这里要注意, 表单提交到哪里呢, 很显然, 又是一个控制器需要获取表单的数据.</p>
+<p>实际上, 如果是一个静态页面的话, 我们现在就编写完了最简单的返回一个静态页面的Spring MVC控制器, ModelAndView以及实际渲染了页面,并返回了请求.</p>
+<h3>处理POST请求</h3>
+<p>很显然, 现在没有对应<code>/user</code>路径的控制器方法, 只有一个控制器类对应这个路径, 而且是POST方法, 很显然需要编写一个新的接受POST方法的控制器:</p>
+<pre>
+    @RequestMapping(path = "/user",method = RequestMethod.POST)
+    public ModelAndView createUser(User user) {
+        ModelAndView modelAndView = new ModelAndView();
+        modelAndView.setViewName("user/createSuccess");
+        modelAndView.addObject("user", user);
+        return modelAndView;
+    }
+</pre>
+<p><code>@RequestMapping</code>没有加路径, 则就是对应类上的<code>"/user"</code>路径, 然后设置了接受POST方法. 这里利用了JSP的一大特点, 就是自动组装Post的对象, 所以有一个User类可以对应到Post进来的属性的时候, 可以自动组装一个User对象.</p>
+<p>这里注意, 如果设置了@RequestMapping的consumes为x-www-form-urlencoded时需要去掉方法参数中的@RequestBody注解, 这是因为JSP自动组装, 而不使用JSON转换. 此外还发现POST中文数据是乱码.</p>
+<p>这是标准的返回了一个ModelAndView对象, 可以看到设置了视图名称, 然后添加了模型数据, 之后编写一个简单的createSuccess.jsp, 依然注意最终解析的路径.</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" pageEncoding="UTF-8" %>
+&lt;%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+&lt;html>
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>成功创建用户&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;p>${user.userName}创建成功.&lt;/p>
+&lt;p>详细信息是:&lt;/p>
+&lt;ol>
+    &lt;li>${user}&lt;/li>
+&lt;/ol>
 
+&lt;/body>
+&lt;/html>
+</pre>
+<p>注意, 这里POST进来发现是乱码, 这是由于Tomcat默认使用ISO-8859编码方式, Spring提供了过滤器来强制进行请求的转换,比较方便, 可以在web.xml中配置如下:</p>
+<pre>
+<!--    字符编码的过滤器-->
+&lt;filter>
+    &lt;description>字符编码过滤器&lt;/description>
+    &lt;filter-name>encodingFilter&lt;/filter-name>
+    &lt;filter-class>org.springframework.web.filter.CharacterEncodingFilter&lt;/filter-class>
+    &lt;init-param>
+        &lt;param-name>encoding&lt;/param-name>
+        &lt;param-value>UTF-8&lt;/param-value>
+    &lt;/init-param>
+    &lt;init-param>
+        &lt;param-name>forceEncoding&lt;/param-name>
+        &lt;param-value>true&lt;/param-value>
+    &lt;/init-param>
+&lt;/filter>
 
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con4"></h2>
+&lt;filter-mapping>
+    &lt;filter-name>encodingFilter&lt;/filter-name>
+    &lt;url-pattern>/*&lt;/url-pattern>
+&lt;/filter-mapping>
+</pre>
+<p>麻雀虽小, 五脏俱全, 经过这么费劲, 终于完成了一个最简单的GET和POST的页面编写, 包含了通过表单获取数据, 然后生成数据对象, 将数据对象设置到模型上, 然后用模型数据来渲染页面等过程.</p>
 
 <h2 style="text-align: center;" id="con5"></h2>
+
+
+
+
+
+
+
+
+
+
+
 <h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
