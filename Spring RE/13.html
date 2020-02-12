@@ -24,6 +24,8 @@
     <li><a href="#con2">DispatcherServlet的配置</a></li>
     <li><a href="#con3">DispatcherServlet的工作原理</a></li>
     <li><a href="#con4">一个简单的GET和POST控制器的例子</a></li>
+    <li><a href="#con5">Servlet 3.0方式配置DispatcherServlet</a></li>
+    <li><a href="#con6">其他一些配置</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">什么是MVC</h2>
 <p>这个问题对于此时的我来说就简单多了, 不过这里还是有一些新内容.</p>
@@ -103,8 +105,8 @@
     <li><code>publishContext</code>, 布尔值, 表示是否将子IOC容器设置到Web容器的上下文里, 默认是true, 也就是上边的标准启动流程. 如果设置的话, key属性名是<code>.getServeltContextAttributeName()</code>的返回值.</li>
     <li><code>publishEvents</code>, 布尔值, 默认为true. 表示每次DispatcherServlet处理完一个请求之后, 是否向Web容器内发布一个ServletRequestHandlerEvent事件. 如果不需要监听此事件, 可以将该属性设置为false.</li>
 </ol>
-<p>再来看一下编程方式配置DispatcherServlet. 支持Servlet 3.0的容器, 会在启动的时候, 在类路径下边查找一个实现了javax.servlet.ServletContainerInitializer的类, 调用这个类来配置Servlet容器. Spring也提供了一个org.springframework.web.SpringSerlvetContainerinitializer类, 实现了该接口.</p>
-<p>不过目前还是xml配置为主, 加上Spring Boot的流行, 编程方式用的不多.</p>
+<p>编程方式配置DispatcherServlet也很方便. 支持Servlet 3.0的容器(比如Tomcat 7.0之后的容器), 会在启动的时候, 在类路径下边查找一个实现了javax.servlet.ServletContainerInitializer的类, 调用这个类来配置Servlet容器. Spring也提供了一个org.springframework.web.SpringSerlvetContainerinitializer类, 实现了该接口.</p>
+<p>编程方式配置到最后看.</p>
 
 <h2 style="text-align: center;" id="con3">DispatcherServlet的工作原理</h2>
 <p>DispatcherServlet会组装一个IOC容器, 那么这个容器中到底有什么玩意呢. 首先能想到的是, 会去组装指定的<code>spring-mvc-crm.xml</code>文件中的Bean. 确实如此. 不过还有很多上边提到的其他Bean, 都是怎么组装的呢, 这要看具体的工作:</p>
@@ -188,7 +190,7 @@ org.springframework.web.servlet.FlashMapManager=org.springframework.web.servlet.
 <p>可以看到, Spring与Web容器发生直接关系, 其实就是通过DispatcherServlet, 其后容器只负责将请求送给DispatcherServlet, 再把响应拿回来发给客户, 也就是Web容器只认识DispatcherServlet.</p>
 <p>至于DispatcherServlet之后的容器里边怎么来, 就是要按照Spring的要求来了, Spring MVC最核心的其实也就是控制器.</p>
 <p>什么是控制器, 简单的说, 就是一个Bean, 使用特殊的标注, 让容器认出来这是一个用于处理请求的Bean. 现在基本上编写全是靠注解驱动的, 就来一个一个看注解吧.</p>
-<h3><code>@Controller</code>与<code>@RequestMapping</code></h3>
+<h3>@Controller与@RequestMapping</h3>
 <p>这个注解用于标识一个控制器, 标注之后, 这个类就可以接受Http请求, Spring MVC框架会检测到这个标准的类, 然后检测其中的方法, 将方法参数与Http请求和其他注解标记的类关联起来, 给方法传入适当的参数.</p>
 <p>Controller首先要解决的问题就是处理哪些Http请求, 这就需要搭配<code>@RequestMapping</code>注解来使用, 可以注解在类上和方法上, 表示两层逻辑关系.</p>
 <pre>
@@ -304,7 +306,6 @@ public class UserController {
 &lt;/filter-mapping>
 </pre>
 <p>麻雀虽小, 五脏俱全, 经过这么费劲, 终于完成了一个最简单的GET和POST的页面编写, 包含了通过表单获取数据, 然后生成数据对象, 将数据对象设置到模型上, 然后用模型数据来渲染页面等过程.</p>
-<p>下边就一个一个注解开始看过来.</p>
 
 
 
