@@ -25,7 +25,7 @@
     <li><a href="#con3">DispatcherServlet的工作原理</a></li>
     <li><a href="#con4">一个简单的GET和POST控制器的例子</a></li>
     <li><a href="#con5">Servlet 3.0方式配置DispatcherServlet</a></li>
-    <li><a href="#con6">其他一些配置</a></li>
+    <li><a href="#con6">Spring MVC简单的类配置</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">什么是MVC</h2>
 <p>这个问题对于此时的我来说就简单多了, 不过这里还是有一些新内容.</p>
@@ -307,6 +307,106 @@ public class UserController {
 </pre>
 <p>麻雀虽小, 五脏俱全, 经过这么费劲, 终于完成了一个最简单的GET和POST的页面编写, 包含了通过表单获取数据, 然后生成数据对象, 将数据对象设置到模型上, 然后用模型数据来渲染页面等过程.</p>
 
+<h2 style="text-align: center;" id="con5">Servlet 3.0方式配置DispatcherServlet</h2>
+<p>在Servlet 3.0容器启动的时候, 比如Tomcat, Tomcat会在类路径之下查找javax.servlet.ServletContainerInitializer接口类. 如果找到, 就用这个类来配置容器, 找不到, 就会去寻找web.xml文件.</p>
+<p>似乎我们只需要编写一个这个接口类就可以来配置, 不过Spring已经提供了该接口的实现类, 叫做SpringServletContainerInitializer接口类, 这个类会查找WebApplicationInitializer类的实现并用其进行配置任务.</p>
+<p>Spring对WebApplicationInitializer又提供了一个实现, 就是AbstractAnnotationConfigDispatcherServletInitializer.</p>
+<p>简单的说, 如果在Spring框架下, 不想使用web.xml文件, 就需要编写一个类来继承AbstractAnnotationConfigDispatcherServletInitializer.</p>
+<p>继承之后, 有三个方法需要实现, 编写一个看看:</p>
+<pre>
+package cc.conyli.config;
+
+import org.springframework.web.servlet.support.AbstractAnnotationConfigDispatcherServletInitializer;
+
+public class MyDispatcherServletInitializer extends AbstractAnnotationConfigDispatcherServletInitializer {
+
+    //这个方法指定配置父IOC容器的类, 返回配置类的class列表
+    @Override
+    protected Class&lt;?>[] getRootConfigClasses() {
+        return new Class[]{RootConfig.class};
+    }
+
+    //这个方法指定配置子IOC容器的配置类, 返回配置类的class列表
+    @Override
+    protected Class&lt;?>[] getServletConfigClasses() {
+        return new Class[]{WebConfig.class};
+    }
+
+    //ServletMapping, 也就是DispatcherServlet对应的路径, 一般设置成"/". 因为是一个列表, 实际上可以设置多个.
+    protected String[] getServletMappings() {
+        return new String[]{"/"};
+    }
+}
+</pre>
+<p>显然, 这里我们需要编写两个配置类, RootConfig用来配置业务端的类, 是父容器对应的配置类. 而WebConfig用来配置那些Spring MVC的Bean, 是子容器对应的配置类.</p>
+<p>这里将两个配置类先留空. 这个项目只有这三个类, 然后运行Tomcat, 然后看日志:</p>
+<pre>
+//Web容器启动完毕, 在部署项目
+[2020-02-12 03:40:37,450] Artifact securitydemo:war: Artifact is being deployed, please wait...
+//容器在扫描ServletContainerInitializer接口类
+12-Feb-2020 15:40:42.350 淇℃伅 [RMI TCP Connection(3)-127.0.0.1] org.apache.jasper.servlet.TldScanner.scanJars
+//配置父容器
+12-Feb-2020 15:40:42.443 淇℃伅 [RMI TCP Connection(3)-127.0.0.1] org.springframework.web.context.ContextLoader.initWebApplicationContext Root WebApplicationContext: initialization started
+12-Feb-2020 15:40:42.976 淇℃伅 [RMI TCP Connection(3)-127.0.0.1] org.springframework.web.context.ContextLoader.initWebApplicationContext Root WebApplicationContext initialized in 533 ms
+//创建DispatcherServlet, 同时会创建子容器
+12-Feb-2020 15:40:43.593 淇℃伅 [RMI TCP Connection(3)-127.0.0.1] org.springframework.web.servlet.FrameworkServlet.initServletBean Initializing Servlet 'dispatcher'
+12-Feb-2020 15:40:44.040 淇℃伅 [RMI TCP Connection(3)-127.0.0.1] org.springframework.web.servlet.FrameworkServlet.initServletBean Completed initialization in 446 ms
+</pre>
+<p>可见用这类配置, 比如web.xml文件要方便很多.</p>
+
+<h2 style="text-align: center;" id="con6">Spring MVC简单的类配置</h2>
+<p>除了XML配置之外, 可以用类来配置, 搭配不需要使用web.xml的方式, 非常方便.</p>
+<p>此时我们还没有什么东西打算放在RootConfig中, 都是配置子容器, 所以先来编写WebConfig:</p>
+<pre>
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+
+@Configuration
+@EnableWebMvc
+public class WebConfig {
+}
+</pre>
+<p>所有的Spring配置类, 都必须加上<code>@Configuration</code>注解</p>, 然后<code>@EnableWebMvc</code>表示启用Spring MVC,这两个都必须要加上.
+<p>虽然这可以启动了, 但是相比web.xml, 我们知道还有很多东西没有配置, 比如开启组件扫描, 配置视图解析器, 此外还有一个功能, 就是静态文件需要转交给Web容器本身的处理. 所以来编写一个今后常常用到的配置类:</p>
+<pre>
+package cc.conyli.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.ViewResolver;
+import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
+import org.springframework.web.servlet.view.InternalResourceViewResolver;
+
+@Configuration
+@EnableWebMvc
+//启用组件扫描并配置扫描的目录. 准备将所有Web相关的内容放置到web包内
+<span style="color: red">@ComponentScan("cc.conyli.web")</span>
+public class WebConfig extends WebMvcConfigurationSupport {
+
+    //配置视图解析器, 是一个Bean. 实现类使用了InternalResourceViewResolver
+    @Bean
+    @Override
+    public ViewResolver mvcViewResolver() {
+        InternalResourceViewResolver resourceViewResolver = new InternalResourceViewResolver();
+        resourceViewResolver.setPrefix("*/WEB-INF/views");
+        resourceViewResolver.setSuffix(".jsp");
+        resourceViewResolver.setExposeContextBeansAsAttributes(true);
+        return resourceViewResolver;
+    }
+
+    //这个很有意思, 注入的应该是Web容器默认的Servlet, 用于提供静态资源, 虽然还不知道具体详情, 不过确实就是这么做的.
+    @Override
+    protected void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
+        configurer.enable();
+    }
+}
+</pre>
+<p>再次启动项目, 也没有问题. 剩下就要来看一下控制器的详细编写了.</p>
+<p>说白了,控制器本身最大的作用, 就是要将请求携带的所有数据都要能拿到, 组装和合理的对象, 然后交给业务单元去使用, 然后获取处理后的数据, 返回ModelAndView对象.</p>
+<p>一个请求不外乎请求行, 请求头, 请求体. 在之前JSP中我们知道可以直接使用请求对象来获取详细数据, 接下来就要看看在Spring MVC中如何将这其中的所有内容都方便快捷的获取到.</p>
 
 
 
@@ -315,7 +415,29 @@ public class UserController {
 
 
 
-<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
