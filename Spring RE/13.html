@@ -384,28 +384,27 @@ import org.springframework.web.servlet.view.InternalResourceViewResolver;
 @EnableWebMvc
 //启用组件扫描并配置扫描的目录. 准备将所有Web相关的内容放置到web包内
 <span style="color: red">@ComponentScan("cc.conyli.web")</span>
-public class WebConfig extends WebMvcConfigurationSupport {
+public class WebConfig extends <span style="color: red">WebMvcConfigurationSupport</span> {
 
-    //配置视图解析器, 是一个Bean. 实现类使用了InternalResourceViewResolver
     @Bean
     @Override
     public ViewResolver mvcViewResolver() {
+        System.out.println("执行了解析器");
         InternalResourceViewResolver resourceViewResolver = new InternalResourceViewResolver();
-        resourceViewResolver.setPrefix("*/WEB-INF/views");
+        resourceViewResolver.setPrefix("WEB-INF/views/");
         resourceViewResolver.setSuffix(".jsp");
         resourceViewResolver.setExposeContextBeansAsAttributes(true);
         return resourceViewResolver;
     }
 
-    //这个很有意思, 注入的应该是Web容器默认的Servlet, 用于提供静态资源, 虽然还不知道具体详情, 不过确实就是这么做的.
     @Override
     protected void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
         configurer.enable();
     }
 }
 </pre>
-<p>再次启动项目, 也没有问题. 剩下就要来看一下控制器的详细编写了.</p>
-<p>说白了,控制器本身最大的作用, 就是要将请求携带的所有数据都要能拿到, 组装和合理的对象, 然后交给业务单元去使用, 然后获取处理后的数据, 返回ModelAndView对象.</p>
+<p>Spring实战4这本书里, 继承的配置类是<code>WebMvcConfigurerAdapater</code>类, 在现在的Spring 5中, 这个类已经过期. 现在的新类就是例子中的<code>WebMvcConfigurationSupport</code>.再次启动项目, 也没有问题. 剩下就要来看一下控制器的详细编写了.</p>
+<p>说白了,控制器本身最大的作用, 就是要将请求携带的所有数据都要能拿到, 组装和合理的对象, 然后交给业务单元去使用, 然后获取处理后的数据, 返回<code>ModelAndView</code>对象.</p>
 <p>一个请求不外乎请求行, 请求头, 请求体. 在之前JSP中我们知道可以直接使用请求对象来获取详细数据, 接下来就要看看在Spring MVC中如何将这其中的所有内容都方便快捷的获取到.</p>
 
 

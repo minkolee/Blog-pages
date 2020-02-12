@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 14 Spring MVC - 映射请求@RequestMapping</title>
+    <title>Spring RE 14 Spring MVC - 映射请求</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,10 +15,11 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>控制器的作用, 就是将Http请求附带的数据转换成应用需要处理的对象. 再转交给业务Bean进行处理.</p>
+<p>一个Http请求就那些数据, 下边就来看看, 在Spring MVC中, 如何获取请求中所有的数据.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
+    <li><a href="#con1">控制器</a></li>
     <li><a href="#con2"></a></li>
     <li><a href="#con3"></a></li>
     <li><a href="#con4"></a></li>
@@ -26,6 +27,10 @@
     <li><a href="#con6"></a></li>
 </ol>
 <h2 style="text-align: center;" id="con1"></h2>
+@Controller注解
+@RequestMapping
+@PathVariable
+
 
 <h2 style="text-align: center;" id="con2"></h2>
 
