@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 14 Spring MVC - 映射请求</title>
+    <title>Spring RE 14 Spring MVC - 从请求中获取数据</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,31 +15,250 @@
     </style>
 </head>
 <body>
-<p>控制器的作用, 就是将Http请求附带的数据转换成应用需要处理的对象. 再转交给业务Bean进行处理.</p>
-<p>一个Http请求就那些数据, 下边就来看看, 在Spring MVC中, 如何获取请求中所有的数据.</p>
+<p>从整体上来说, 一个Web应用的输入, 就是各种请求, 而输出就是响应. Web应用的本质就是不断接受输出, 返回响应.</p>
+<p>输入到达的第一站, 就是控制器. 很显然, 控制器必须能够将Http请求附带的数据转换成Web应用需要处理的各种数据对象, 否则便无法继续进行处理.</p>
+<p>一个Http请求已经都知道了包含哪些数据, 下边就来看看, 在Spring MVC中, 如何获取请求中所有的数据.</p>
 
 <ol>
-    <li><a href="#con1">控制器</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">@RequestMapping - 映射路径</a></li>
+    <li><a href="#con2">@RequestMapping - 映射请求方法、请求参数和请求头</a></li>
+    <li><a href="#con3">控制器方法的参数</a></li>
+    <li><a href="#con4">@RequestParam - 绑定URL参数和表单参数</a></li>
+    <li><a href="#con5">@CookieValue - 绑定Cookie中的数据</a></li>
+    <li><a href="#con6">@RequestHeader - 绑定请求头信息</a></li>
+    <li><a href="#con7">表单数据绑定数据对象</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
-@Controller注解
-@RequestMapping
-@PathVariable
+<h2 style="text-align: center;" id="con1">@RequestMapping - 映射路径</h2>
+<p>首先可以看到控制器上添加了<code>@Controller</code>注解, 这个注解的包是<code>org.springframework.stereotype</code>, 是一个构造型注解, 实际上, 这个注解基于<code>@Component</code>, 只是辅助扫描其中的@RequestMapping.</p>
+<p>单独使用@Controller和@Component没有区别, 只是表意更加好一些, 都会组装成一个Bean. 真正重要的, 是@RequestMapping注解.</p>
+<p><code>@RequestMapping</code>干的是最初的一件事情, 就是匹配Http请求的路径, 好让DispatcherServlet将请求交给对应的控制器.</p>
+<p><code>@RequestMapping</code>可以加在类上也可以加在方法上. 类上的注解指定的URL相对于Web应用的部署路径, 方法中注解的URL相对于类定义处指定的URL. 如果类定义出没有注解, 也是相对于Web应用的部署路径.</p>
+<p>注意, 如果单独使用<code>@RequestMapping("/")</code>, 控制器内其他方法都没有注解, 是不能将这个注解放在类上的, 由于对应根路径, 等于什么都没有对应, 不知道其中的哪个方法才能处理, 必须将其放在某个方法上.</p>
+<p><code>@RequestMapping</code>如果只支持固定的路径, 就太没有一意思了, 其核心就是支持通配符以及将路径绑定到一个名称上, 规则如下:</p>
+<ol>
+    <li><code>/user/*/createUser</code>, *匹配不为空的任意路径, 也就是无法匹配/user/createUser</li>
+    <li><code>/user/**/createUser</code>, **匹配可以为空的任意路径, 这个可以匹配/user/createUser</li>
+    <li><code>/user/createUser??</code>, ?匹配不为空的单个字符, 这个匹配/user/createUser之后再加两个不为空的任意字符, 不会匹配/user/createUser/, 也不会匹配/user/createUser123</li>
+    <li><code>/user/{userId}</code>, {userId}匹配不为空的URL, 并将其装进一个名称叫做userId的字符串中. 用于绑定路径</li>
+    <li>上边的可以连用, 比如 <code>/user/*/{category}/num??</code></li>
+</ol>
+<p>其中的<code>{userId}</code>匹配方式非常重要, 绑定到一个名称之后, 只需要搭配<code>@PathVariable</code>注解就可以在控制器的参数中获取该路径. 这就是@RequestMapping的核心功能之二, 除了路径匹配之后, 就是从路径中获取信息.</p>
+<pre>
+@RequestMapping("/query/{<span style="color: red">queryId</span>}")
+public String test4(<span style="color: red">@PathVariable("queryId")</span><span style="color: fuchsia"> String id</span>) {
+    System.out.println("@PathVariable 绑定的参数 queryId 是: " + id);
+    return "index";
+}
+</pre>
+<p>这里需要注意的是, 由于Java反射默认无法取得一个方法入参的名称, 只能取得值. 所以一定要在<code>@PathVariable("queryId")</code>中显式指定<code>@RequestMapping</code>中绑定的名称.</p>
+<p>至于控制器方法的参数的名称, 可以不和上边两个相同. 用上边的例子来说, 也就是红色部分的queryId这个名称需要相同, 而紫色部分的名称可以自行指定, 无需与红色部分相同.</p>
+<p>还有一种写法是写成如下:</p>
+<pre>
+@RequestMapping("/query/{<span style="color: red">queryId</span>}")
+public String test4(@PathVariable String <span style="color: red">queryId</span>) {
+    System.out.println("@PathVariable 绑定的参数 queryId 是: " + queryId);
+    return "index";
+}
+</pre>
+<p>即不在<code>@PathVariable</code>中指定绑定的名称, 而是使用同名的入参变量. 这种方法能够工作的前提是编译的时候打开debug, 才能获取入参的元数据信息, 但是会让类变大. 一定要注意, <strong>不推荐此种写法!</strong></p>
 
+<h2 style="text-align: center;" id="con2">@RequestMapping - 映射请求方法、请求参数和请求头</h2>
+<p>一个Http请求最开始的请求行就是携带者路径，我们遇到的也最先是路径，不过请求行中还有一个重要的内容，就是请求方法，也就是一个HTTP请求最开始的部分。</p>
+<p>此外，还有请求头和URL中携带的参数。这些都是在报文的正文数据之前的内容，@RequestMapping全部都可以映射。来看一下<code>@RequestMapping</code>的源代码吧:</p>
+<ol>
+public @interface RequestMapping {
 
-<h2 style="text-align: center;" id="con2"></h2>
+    //名称, 不用管
+    String name() default "";
 
-<h2 style="text-align: center;" id="con3"></h2>
+    //相当于刚才直接传入一个字符串, 可以看到实际上是对应的path, 表示匹配路径
+    @AliasFor("path")
+    String[] value() default {};
 
-<h2 style="text-align: center;" id="con4"></h2>
+    //和value一样
+    @AliasFor("value")
+    String[] path() default {};
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+    //匹配请求方法, 是一个列表, 类型为RequestMethod.XXXX
+    RequestMethod[] method() default {};
+
+    //请求参数, 这个比较复杂, 下边详述
+    String[] params() default {};
+
+    //请求头, 下边详述
+    String[] headers() default {};
+
+    //接受什么样的MediaType, 接受MediaType的单个字符串或者数组
+    String[] consumes() default {};
+
+    //指定这个控制器产生什么样的MediaType, 用于控制向响应中写入对应的格式
+    String[] produces() default {};
+
+}
+</ol>
+<p>详细解释如下:</p>
+<ol>
+    <li>这里设置的所有条件, 都是AND 与的关系, 也就说设置的条件越多, 匹配的范围越小.</li>
+    <li>path和value是主要映射手段, 一定要设置.</li>
+    <li>请求方法包括如下: RequestMethod.GET, POST, HEAD, OPTIONS, PUT, PATCH, DELETE, TRACE. 这个只能在方法上的注解内使用.</li>
+    <li>请求参数可以使用一些复杂的表达式, 比如"query"表示请求参数中必须有query属性. "!query"表示请求参数中不能有query属性. "query=123"表示请求参数中必须有query而且值必须等于123.
+        "{"query1", "query2=123}" 表示请求参数中必须有query1属性, 还必须有query2属性且值为123才行.</li>
+    <li>请求头的写法和请求参数是类似的.</li>
+    <li>consumes表示可以接受什么样的媒体类型, 可以用通配符比如{"text/plain", "application/*"}. 具体的媒体类型需要使用字符串形式或者org.springframework.http.MediaType类型. 也可以使用请求头和方法的!来表示not逻辑.</li>
+    <li>这个影响控制器实际写入的格式. 不过也有很多其他方式可以控制. 对于映射来说, 这个可以先不看.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con3">控制器方法的参数</h2>
+<p>当一个请求进来之后, 可以看到<code>@RequestMapping</code>使用了各种手段, 终于将符合要求的Http请求带到了控制器面前, 触发了控制器方法的运行.</p>
+<p>从前边可以看出, @RequestMapping可以通过请求方法, 请求路径, 请求头, 请求参数来判断是否符合要求. 同时也看到了, @PathVariable竟然可以将@RequestMapping传递的路径数据交给控制器方法.</p>
+<p>那么其他的数据信息也可以传递给方法吗, 答案是肯定的, 而且不只有一种方法. 要了解如何传递, 先要回头看看控制器方法.</p>
+<p>我们编写好了一个控制器类和方法之后, 在实际运行的时候, 已经知道了实际生成的Bean都是Spring基于我们编写的代码进行组装的Bean, 而不是我们原本的代码.</p>
+<p>在组装过程中, Spring会检查控制器方法的参数, 如果参数能够匹配一些框架已经知道的Web相关的类型, 就会在方法执行的时候, 将实际的符合那个类型的参数传递给方法.</p>
+<p>这和Web容器编写Servlet很相似, 我也不需要去管是谁给我传递的参数, 反正在编写Servlet类的时候, doGet()方法的两个参数就是HttpServletRequest req, HttpServletResponse resp, 然后我就等着容器把实际参数传进来就完事.</p>
+<p>Spring MVC的控制器也是类似的手段, 我只要在方法中编写好需要的对象, 然后针对对象进行处理就可以, 到时候自然就可以获取到对应的对象.</p>
+<p>能够作为控制器方法的参数的对象有如下这些:</p>
+<ul>
+    <li>
+        <code>ServletAPI</code>对象. 毕竟是在Web容器内, 只要是Web容器, 都遵守Servlet规范, 所以可以使用原生的ServletAPI对象. 虽然Spring MVC对请求进行了各种花式操作, 让你无需使用ServletAPI也可以完成请求和响应处理. 但是Spring依然支持将容器原生的对象传递给控制器方法, 某些时候使用原生的ServletAPI更容易理解. 常用的如下:
+    <ol>
+        <li><code>HttpServletRequest</code></li>
+        <li><code>HttpServletResponse</code>, 如果控制器方法自行使用原生API返回响应, 控制器方法的返回类型需要设置为void.</li>
+        <li><code>HttpSession</code></li>
+    </ol>
+    </li>
+    <li>
+        来自Servlet原生对象的一些对象. 还记得之前学JSP的时候, 可以直接获取请求的InputStream/Reader来读取, 用响应的OutputStream/Writer来写响应. 此外还可以从请求中通过getLocale()和getUserPrincipal()来获取对应的对象. 在控制器方法中可以直接使用如下对象:
+    <ol>
+        <li><code>InputStream</code>, 只要看到InputStream, 就会自动传入请求的InputStream</li>
+        <li><code>Reader</code>, 只要看到Reader, 就会自动传入请求的Reader</li>
+        <li><code>OutputStream</code>, 自动传入响应的OutputStream, 这个搭配Spring提供的Resource类和一些工具, 可以快速的写二进制文件给响应.</li>
+        <li><code>Writer</code>, 自动对应响应</li>
+        <li><code>java.util.Locale</code>, 这是从请求中获取的Locale对象</li>
+        <li><code>java.security.Principal</code>, 这是从请求中获取的Principal对象</li>
+    </ol>
+    </li>
+    <li>Spring注解<code>@RequestParam</code>, <code>@CookieValue</code>, <code>@RequestHeader</code>绑定的数据, 下边会详述.</li>
+    <li>使用数据对象直接绑定表单(MediaType为x-www-form-urlencoded)中的数据. 下边详述.</li>
+</ul>
+
+<h2 style="text-align: center;" id="con4">@RequestParam - 绑定URL参数和表单参数</h2>
+<p>有了前边绑定的经验, 我们就会知道, 这就是一个新的注解放在方法前边的参数上. 这个注解除了可以绑定URL中的参数, 还可以绑定请求体中的x-www-form-urlencoded类型的属性.</p>
+<p>如果同时存在URL参数和表单参数, 会尝试将两个参数组合起来, 如果是单个值, 则URL参数优先. 如果是字符串, 则得到以逗号分割的多个值.</p>
+<p>这个注解有几个设置如下:</p>
+<ol>
+    <li><code>value</code>, 参数名称</li>
+    <li><code>required</code>, 是否强制要求该参数, 默认为true, 再注意一遍, 默认为true. 如果请求中不附带该参数, 会抛出MissingServletRequestParameterException异常, 如果没有其他异常发生, 这个异常会导致一个400响应.</li>
+    <li><code>defaultValue</code>, 当参数不存在或者为null的时候, 自动给参数赋一个默认值, 如果设置了该项, 则<code>required</code>会强制为false. 这个一般不使用.</li>
+</ol>
+<p>简单的例子如下:</p>
+<pre>
+@RequestMapping("/testparam")
+public String testParam(@RequestParam(value = "name") String name,
+                        @RequestParam(value = "age", required = false) int age
+) {
+    System.out.println("绑定的name = " + name);
+    System.out.println("绑定的age = " + age);
+    return "index";
+}
+</pre>
+<p>稍微了解过应该知道, Http请求都是以字符串的形式发送的, 为什么这里还可以绑定age呢, 这是由于绑定参数的时候, Spring内置有类型转换器用于转换, 支持基本类型的互相转换. 我自己尝试了一下, 甚至可以直接绑定一个BigDecimal对象.</p>
+
+<h2 style="text-align: center;" id="con5">@CookieValue - 绑定Cookie中的数据</h2>
+<p>Cookie没什么特殊的,其实就是通过头部信息Set-Cookie和Cookie来操作一批键值对.</p>
+<p><code>@CookieValue</code>的三个属性和<code>@RequestParam</code>完全一样.</p>
+<p>扩展刚才的例子如下:</p>
+<pre>
+@RequestMapping("/testparam")
+public String testParam(@RequestParam(value = "name") String name,
+                        @RequestParam(value = "age", required = false) BigDecimal age,
+                        @CookieValue(value = "mycookie", required = false) String cookie
+) {
+
+    System.out.println("绑定的name = " + name);
+    System.out.println("绑定的age = " + age);
+    System.out.println(age.getClass());
+    System.out.println("cookie mycookie=" + cookie);
+    return "index";
+}
+</pre>
+
+<h2 style="text-align: center;" id="con6">@RequestHeader - 绑定请求头信息</h2>
+<p>这个注解和上边两个的三个属性完全一样. 就是用来绑定头部信息. 要注意的是请求头信息的键名一般都比较长, 不要写错了, 此外头部键是不分大小写的, 所以还比较容易:</p>
+<pre>
+@RequestMapping("/testparam")
+    public String testParam(@RequestParam(value = "name") String name,
+                            @RequestParam(value = "age", required = false) BigDecimal age,
+                            @CookieValue(value = "mycookie", required = false) String cookie,
+                            @RequestHeader(value = "Content-Type", required = true) String contentType,
+                            @RequestHeader(value = "content-type", required = true) String contentType2
+
+                            ) {
+
+        System.out.println("绑定的name = " + name);
+        System.out.println("绑定的age = " + age);
+        System.out.println(age.getClass());
+        System.out.println("cookie mycookie=" + cookie);
+        System.out.println("Content-Type=" + contentType);
+        System.out.println("content-type=" + contentType2);
+
+        return "index";
+    }
+</pre>
+
+<h2 style="text-align: center;" id="con7">表单数据绑定数据对象</h2>
+<p>最后一个也是非常关键的, 来自于JSP绑定的技术, 就是可以将表单数据直接组装到数据对象中. 数据对象只需要是符合要求的POJO就可以.</p>
+<p>不过不仅于此, 如果URL参数传递正确的话, 甚至可以级联设置.</p>
+<p>创建一个最简单的User类和Address类, 所有getter和setter方法都省略:</p>
+<pre>
+public class User {
+
+    private String userName;
+
+    private int age;
+
+    private Address address;
+
+    public User() {
+    }
+
+}
+</pre>
+<pre>
+public class Address {
+
+    private String detail;
+
+    public Address() {
+    }
+}
+</pre>
+<p>之后编写一个控制器:</p>
+<pre>
+@RequestMapping("/usercreate")
+public ModelAndView createUser(User user) {
+    System.out.println(user);
+    ModelAndView modelAndView = new ModelAndView();
+    modelAndView.setViewName("index");
+    modelAndView.addObject("user", user);
+    return modelAndView;
+}
+</pre>
+<p>关键要看怎么才能组装好这个User对象.</p>
+<p>来看看用不同方式访问这个API得到的结果:</p>
+<ol>
+    <li>GET方法访问<code>http://localhost:8080/usercreate</code>, 控制台打印出<kbd>User{userName='null', age=0, address=null}</kbd></li>
+    <li>GET方法访问<code>http://localhost:8080/usercreate?username=cony</code>, 控制台打印出<kbd>User{userName='null', age=0, address=null}</kbd></li>
+    <li>GET方法访问<code>http://localhost:8080/usercreate?userName=cony</code>, 控制台打印出<kbd>User{userName='cony', age=0, address=null}</kbd></li>
+    <li>GET方法访问<code>http://localhost:8080/usercreate?userName=cony&age=5</code>, 控制台打印出<kbd>User{userName='cony', age=5, address=null}</kbd></li>
+    <li>GET方法访问<code>http://localhost:8080/usercreate?userName=cony&age=5&address=zhr</code>, 得到400错误.</li>
+    <li>GET方法访问<code>http://localhost:8080/usercreate?userName=cony&age=5&address.detail=zhr</code>, 控制台打印出<kbd>User{userName='cony', age=5, address=Address{detail='zhr'}}</kbd></li>
+    <li>POST方法访问<code>http://localhost:8080/usercreate</code>, x-www-form-urlencode格式, 各个参数和第6项相同, 控制台打印出<kbd>User{userName='cony', age=5, address=Address{detail='zhr'}}</kbd></li>
+    <li>POST方法访问<code>http://localhost:8080/usercreate?userName=conyURL&age=6&address.detail=zhrURL</code>, x-www-form-urlencode格式, 各个参数和第6项相同, 控制台打印出<kbd>User{userName='conyURL,cony', age=6, address=Address{detail='zhrURL,zhr'}}</kbd></li>
+</ol>
+<p>可以发现, 会自动根据传入的参数或者表单数据, 匹配方法参数中的类的属性名称(大小写敏感), 来设置对应的值. 对于单独的值, URL参数附带的值优先级要高于POST请求的表单. 如果是可以拼接的值, 就会将多个取到传入的值进行拼接. 对于级联的对象, 可以使用点操作符继续向下级联设置.</p>
+<p>有了这个映射方法, 通过URL组装数据对象, 就变得简单多了.</p>
+
+<p>从请求中获取数据基本就是这样, 如果愿意的话, 可以在控制器获取一个请求中所有的信息, 以达到将Web应用的输入转换为后续需要处理的数据.</p>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
