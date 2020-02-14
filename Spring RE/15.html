@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 15 从请求中获取数据 - @RequestBody 以及 向请求中写入特定数据 - @ResponseBody</title>
+    <title>Spring RE 15 从请求中获取数据 - 从@RequestBody和@ResponseBody到Rest控制器</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -26,8 +26,6 @@
     <li><a href="#con2">@RequestBody和@ResponseBody的使用</a></li>
     <li><a href="#con3">注解的替代品: HttpEntity&lt;T>和ResponseEntity&lt;T></a></li>
     <li><a href="#con4">@RestController</a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">原理</h2>
 <p>如果我们将上一节的例子改成:</p>
@@ -212,14 +210,20 @@ public ResponseEntity&lt;byte[]> image() throws IOException {
 <p>Spring会自动检测控制器方法入参的类型以及返回的类, 如果是<code>HttpEntity&lt;T></code>和<code>ResponseEntity&lt;T></code>, 在内部依然是和注解一样都去调用转换器, 从而输出结果.</p>
 <p>唯一要注意的是, 内建的很多转换器都会写一个特定的媒体类型, 这是不受控制的.</p>
 
-<h2 style="text-align: center;" id="con4">JSON转换器</h2>
-<p>前边的类型转换对于日常开发来说最主要的用途是什么, 就是创建前后端分离的Web服务而不是应用. 那么就要求将一个类能够转换成JSON, JSON转换类.</p>
+<h2 style="text-align: center;" id="con4">JSON转换器与@RestController</h2>
+<p>前边的类型转换对于日常开发来说最主要的用途是什么, 就是创建前后端分离的Web服务. 那么就要求将一个类能够转换成JSON, 使用JSON转换类.</p>
 <p>Java中提供JSON服务的就是大名鼎鼎的Jackson包, 可以使用这个包, 搭配Spring提供的JSON转换, 来创建Rest风格的控制器.</p>
 <p>先添加Maven 依赖:</p>
 <pre>
 &lt;dependency>
     &lt;groupId>com.fasterxml.jackson.core&lt;/groupId>
     &lt;artifactId>jackson-core&lt;/artifactId>
+    &lt;version>2.10.2&lt;/version>
+&lt;/dependency>
+
+&lt;dependency>
+    &lt;groupId>com.fasterxml.jackson.core&lt;/groupId>
+    &lt;artifactId>jackson-databind&lt;/artifactId>
     &lt;version>2.10.2&lt;/version>
 &lt;/dependency>
 </pre>
@@ -232,22 +236,59 @@ protected void configureMessageConverters(List&lt;HttpMessageConverter&lt;?>> co
 </pre>
 <p>这个方法参数中的converters就是所有可用的转换类, 可以向其中添加Spring提供的MappingJackson2HttpMessageConverter对象即可.</p>
 <p>创建的时候, 要保证classpath下边有Jackson的包, 这样就可以成功启动, 在之后, 就可以来试着写一下了.</p>
+<pre>
+@ResponseBody
+@RequestMapping("/user")
+public User getUser() {
+    User user = new User();
+    Address address = new Address();
+    address.setDetail("zhr");
+    user.setAddress(address);
+    user.setAge(6);
+    user.setUserName("cony");
+    return user;
+}
+
+@ResponseBody
+@RequestMapping("/acceptuser")
+public String getUser(@RequestBody User user) {
+    System.out.println("接受到的JSON转换成的是: " + user);
+    return "index";
+}
+</pre>
+<p>然后用GET请求访问这个第一个控制器, 就可以得到一个JSON字符串如下:</p>
+<pre>
+{"userName":"cony","age":6,"address":{"detail":"zhr"}}
+</pre>
+<p>然后就用上边返回的字符串, 用Postman发一个POST请求, Content-type设置为application/json, 发送到/acceptuser路径, 之后就会看到, 这个JSON被自动转换成了一个User对象.</p>
+<p>Jackson转换器在接收数据的时候, 是通过Content-type来进行判断的, 如果将application/json改成比如text/plain, 就会报415错误, 不接受指定的媒体类型.</p>
+<p>这就是Rest风格的控制器. 从Spring 4.0开始, 如果一个控制器类中的方法接受和返回的响应都是JSON, 就提供了一个新的注解叫做<code>@RestController</code>可以加在类上,
+    其中的所有方法就无需再加<code>@ResponseBody</code>注解. 这个注解实际上就是<code>@ResponseBody</code>与<code>@Controller</code>的综合.</p>
+<p>上边的类可以改写如下:</p>
+<pre>
+@RestController
+public class BodyController {
 
 
+    @RequestMapping("/user")
+    public User getUser() {
+        User user = new User();
+        Address address = new Address();
+        address.setDetail("zhr");
+        user.setAddress(address);
+        user.setAge(6);
+        user.setUserName("cony");
+        return user;
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+    @RequestMapping("/acceptuser")
+    public String getUser(@RequestBody User user) {
+        System.out.println("接受到的JSON转换成的是: " + user);
+        return "index";
+    }
+}
+</pre>
+<p>Rest风格的控制器现在也搞清楚是怎么一回事了.</p>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
