@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 15</title>
+    <title>Spring RE 15 从请求中获取数据 - @RequestBody 以及 向请求中写入特定数据 - @ResponseBody</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,23 +15,236 @@
     </style>
 </head>
 <body>
-<p></p>
+<p>在之前, 基本上已经了解完了从请求中获取数据的方式. 不过可以注意到的是, 之前我们的请求体, 都是<code>x-www-form-urlencoded</code>这种媒体格式.</p>
+<p>这种媒体格式, 可以通过@RequestParam来处理, 可以直接绑定参数中的数据对象. 但是请求的媒体类型有很多中, 如果是其他类型, 这个时候就需要一种办法, 能够将请求体转换成所需要的数据类型.</p>
+<p>在Spring中, 将请求体映射为一个数据对象的注解就是<code>@RequestBody</code>, 不过可不是直接加上就可以使用, 而是先来看看其背后的原理.</p>
+<p>这里也会顺便看一下@ResponseBody, 因为原理是一样的, 只是结果不同.</p>
+
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con1">原理</a></li>
+    <li><a href="#con2">@RequestBody和@ResponseBody的使用</a></li>
+    <li><a href="#con3">注解的替代品: HttpEntity&lt;T>和ResponseEntity&lt;T></a></li>
+    <li><a href="#con4">@RestController</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">原理</h2>
+<p>如果我们将上一节的例子改成:</p>
+<pre>
+@RequestMapping("/usercreate")
+public ModelAndView createUser(<span style="color: red">@RequestBody</span> User user) {
+    System.out.println(user);
+    ModelAndView modelAndView = new ModelAndView();
+    modelAndView.setViewName("index");
+    modelAndView.addObject("user", user);
+    return modelAndView;
+}
+</pre>
+<p>再向这个地址发送POST请求, 可以得到415错误, 这是为什么呢, 是因为@RequestBody后台不是通过从JSP来的对象绑定技术, 而是使用<code>HttpMessageConverter&lt;T></code>接口的具体实现类来进行转换.</p>
+<p>这个转换还可以是双向的, 即将指定的媒体类型的数据转换成某个class对象, 也可以反过来. 所以也可以用于将控制器返回的信息进行转换后写入到响应中.</p>
+<p>这个接口的源码如下:</p>
+<pre>
+public interface HttpMessageConverter&lt;T> {
 
-<h2 style="text-align: center;" id="con2"></h2>
 
-<h2 style="text-align: center;" id="con3"></h2>
+    //这个方法表示是否可以读取指定的类和媒体类型.如果可以就返回true, 不行就返回false
+    //不给出具体的媒体类型, 就可以使用所有的媒体类型
+    //所谓可以读取的类型, 就是指要将请求体转换成的类型
+	boolean canRead(Class&lt;?> clazz, @Nullable MediaType mediaType);
 
-<h2 style="text-align: center;" id="con4"></h2>
+    //这个方法表示是否可以写指定的类和媒体类型
+    //所谓可以写, 就是能将指定的类, 转换成请求体和对应的媒体类型
+	boolean canWrite(Class&lt;?> clazz, @Nullable MediaType mediaType);
+
+    //返回所有受支持的媒体类型, 这个方法返回的结果就是该转换器支持的媒体类型
+	List&lt;MediaType> getSupportedMediaTypes();
+
+
+    //读取请求信息流, 将其转换成对象T, 这个方法很显然是在判断canRead之后, 就来调用这个方法, 将信息流组装成T对象
+	T read(Class&lt;? extends T> clazz, HttpInputMessage inputMessage)
+			throws IOException, HttpMessageNotReadableException;
+
+	//将一个T类型, 转换成信息流写入到响应中, 同时指定响应的媒体类型
+	void write(T t, @Nullable MediaType contentType, HttpOutputMessage outputMessage)
+			throws IOException, HttpMessageNotWritableException;
+}
+</pre>
+<p>这个时候应该就会理解为什么会报415错误了, 在方法里我们使用<span style="color: red">@RequestBody User user</span>, 然后POST过来数据, 对于@RequestBody来说, 就是要找到一个如下的转换器:</p>
+<pre>
+public class MyConverter implements HttpMessageConverter&lt;User> {
+
+    @Override
+    public boolean canRead(Class&lt;?> clazz, MediaType mediaType) {
+        if (clazz == User.class && mediaType == MediaType.APPLICATION_FORM_URLENCODED) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean canWrite(Class&lt;?> clazz, MediaType mediaType) {
+        return false;
+    }
+
+    @Override
+    public List&lt;MediaType> getSupportedMediaTypes() {
+        List&lt;MediaType> mediaTypes = new ArrayList&lt;>();
+        mediaTypes.add(MediaType.APPLICATION_FORM_URLENCODED);
+        return mediaTypes;
+    }
+
+    @Override
+    public User read(Class&lt;? extends User> clazz, HttpInputMessage inputMessage) throws IOException, HttpMessageNotReadableException {
+        ......
+        return aUser;
+    }
+
+    @Override
+    public void write(User user, MediaType contentType, HttpOutputMessage outputMessage) throws IOException, HttpMessageNotWritableException {
+
+    }
+}
+</pre>
+<p  >当然, 一般就不会自行编写这个转换器了. Spring提供了很多具体的实现, 不一一列出了, 默认情况下, 会装配并启动其中的四个:</p>
+<ol>
+    <li><code>StringHttpMessageConverter</code></li>
+    <li><code>ByteArrayHttpMessageConverter</code></li>
+    <li><code>SourceHttpMessageConverter</code></li>
+    <li><code>AllEncompassingFormHttpMessageConverter</code></li>
+</ol>
+<p>这几个转换类, 其实更多的是用于将类写入流, 而不是从中读取. 需要的话, 可以通过xml进行配置. 需要先覆盖默认的RequestMappingHandlerAdapter, 然后配置其中的messageConverters属性.</p>
+<p>看到这里, 就会知道, @ResponseBody的原理是一样的, 只不过工作在响应阶段, 将数据对象转换成可以写入响应的格式和对应的媒体类型.</p>
+<p>这些类型转换, 最重要的就是从特殊的请求中获取数据并组装, 很多时候都用在非人机界面的交互中, 最经典的例子就是Rest风格的控制器. 这个后边再说了.</p>
+<p>接下来先看看如何使用这两个东西.</p>
+
+<h2 style="text-align: center;" id="con2">@RequestBody和@ResponseBody的使用</h2>
+<p>这两个注解的最大区别是: <code>@RequestBody</code>需要绑定控制器方法的参数, 而<code>@ResponseBody</code>要注解到控制器的方法上, 以控制最后返回的类型.</p>
+<p><code>@RequestBody</code>有一个设置是required, 默认是true, 表示必须有请求体. 一般自动化Web应用肯定要有请求体. 我们可以来写点代码测试一下:</p>
+<p>来看两个例子是怎么转换的:</p>
+<pre>
+//入参转换成字符串
+@RequestMapping("/inner")
+public String inBound(@RequestBody(required = false) String content) {
+    System.out.println("这个请求的内容是: " + content);
+    return "index";
+}
+</pre>
+<p>来对这个路径进行一系列测试:</p>
+<ol>
+    <li>纯GET请求, 控制台打印出null, 说明没有请求体</li>
+    <li>GET请求, 在URL中加上参数, 控制台打印出null, 说明没有请求体</li>
+    <li>纯POST请求, 控制台打印出null, 说明没有请求体</li>
+    <li>纯POST请求在URL中加上参数, 控制台打印出参数和值, 说明会把POST请求的URL参数也当成body, 同时还说明其实这个转换器在内部过程中还获取了请求头的信息.</li>
+    <li>纯POST请求, 只在请求体内加上内容, 媒体格式是x-www-form-urlencoded, 控制台打印出参数和值. 这里很有意思, 如果只有一个属性名, 没有值, 转换的结果会自动在后边加上一个=</li>
+    <li>纯POST请求, 只在请求体内加上内容, 媒体格式是text/plain, 控制台原样打印出请求体的结果.</li>
+</ol>
+<p>这里中文还是乱码, 因为还没有加上过滤器. 此外<code>StringHttpMessageConverter</code>的源码中可以看到字符集是ISO-8859.通过测试可以看到, <code>StringHttpMessageConverter</code>至少对于
+两种媒体类型做出了不同的反应. x-www-form-urlencoded会去按照属性=值&属性=值的方式去转换,如果遇不到等于号, 还会自动加上一个. 而对于text/plain, 会原样转换, 并不会寻找键值对.</p>
+<p>既然刚才成功的测试了<code>StringHttpMessageConverter</code>在入参的使用, 观察这个控制器, 我们返回的是字符串"index", 已经知道这会被当成一个视图名称进行解析. 这是因为框架默认会去解释这个方法的返回值.</p>
+<p>如果我只想返回"index"作为响应体呢? 这个时候就需要使用<code>@ResponseBody</code>,将其加在这个方法上:</p>
+<pre>
+<span style="color: red">@ResponseBody</span>
+@RequestMapping("/inner")
+public String inBound(@RequestBody(required = false) String content) {
+    System.out.println("这个请求的内容是: " + content);
+    return "index";
+}
+</pre>
+<p>会是什么样的结果呢? 用浏览器访问<code>http://localhost:8080/body/inner</code>, 果然, 就得到了一个<code>"index"</code>字符串, 响应的详细信息是:</p>
+<pre>
+HTTP/1.1 200 OK
+Content-Type: <span style="color: red">text/plain;charset=ISO-8859-1</span>
+Content-Length: 5
+Date: Fri, 14 Feb 2020 05:19:40 GMT
+index
+</pre>
+<p>可以发现, <code>@ResponseBody</code>对于控制器方法来讲, 就是那个开关. 如果注解上, 控制器方法就不会再返回(被框架解释成)ModelAndView对象, 而是会通过返回的类型, 去查找能否将返回的类型转换成相应的类型.</p>
+<p>对于字符串类型来说, 正好可以将其转换成字符串, 所以就有内置的<code>StringHttpMessageConverter</code>来将字符串类型写入响应中.</p>
+<p>由于这是字符串转字符串, 还看不出来在哪里转换, 来对比返回一幅图片的控制器, 一个使用OutputStream直接写入响应, 一个使用类型转换:</p>
+<pre>
+//使用OutputStream直接将图片数据写入响应
+//在之前的学习中, 知道如果直接操作响应, 控制器方法的返回类型需要设置成void
+@RequestMapping("/image")
+public void image(OutputStream outputStream) throws IOException {
+    Resource file = new FileSystemResource("C:\\Users\\Minko\\Pictures\\mhwi.jpg");
+    FileCopyUtils.copy(file.getInputStream(), outputStream);
+}
+
+//图片就是二进制数据, 将图片转换成byte[]类型
+//加上注解, 然后直接返回字节数组对象
+@ResponseBody
+@RequestMapping("/byteimage")
+public byte[] image() throws IOException {
+    Resource file = new FileSystemResource("C:\\Users\\Minko\\Pictures\\mhwi2.jpg");
+    return FileCopyUtils.copyToByteArray(file.getInputStream());
+}
+</pre>
+<p>你可能认为第二个控制器也成功的返回了图片. 其实不是, 第一个控制器返回了浏览器显示的图片, 第二个控制器返回了一堆乱码.</p>
+<p>但是第二个控制器说明<code>ByteArrayHttpMessageConverter</code>生效了, 将字节数组写入到了响应中, 如果转换失败, 会报错.</p>
+<p>这两个返回的差异在于, <code>ByteArrayHttpMessageConverter</code>还附带了对于媒体类型的写入, 查看详细响应可以知道, 第一个响应没有附带任何媒体类型信息, 因为只是写入了一堆数据, 只不过浏览器会去尝试将其解释为可以解释的类型.
+    而第二个响应的媒体类型是:application/octet-stream, 表示一个二进制文件, 浏览器显示的自然怪怪的了. 但是这恰好说明<code>ByteArrayHttpMessageConverter</code>确实控制了返回的媒体类型.</p>
+
+<h2 style="text-align: center;" id="con3">注解的替代品: HttpEntity&lt;T>和ResponseEntity&lt;T></h2>
+<p>如果不想使用注解, 可以使用注解的两个替代类, 即<code>HttpEntity&lt;T></code>和<code>ResponseEntity&lt;T></code>.</p>
+<p>前者当成方法参数传递给控制器方法, T为请求体转换成的类型. 后者当成方法的返回值, T是要转换成请求体的类型. 所以可以看到二者本质上注解背后的转换器规则是一样的.</p>
+<p>改写一下上边两个方法, 一看便知:</p>
+<pre>
+@RequestMapping("/inner")
+public ResponseEntity&lt;String> inBound(HttpEntity&lt;String> httpEntity) {
+
+    System.out.println(httpEntity.getHeaders());
+    System.out.println(httpEntity.getBody());
+
+    return new ResponseEntity&lt;>("index", HttpStatus.OK);
+}
+</pre>
+<p>这里可以打印出头部信息和请求体来看. <code>ResponseEntity&lt;></code>的构造方法也很简单, 就是一个要转换的类, 和Http响应码.</p>
+<p>再写一下发送图片二进制数据的类:</p>
+<pre>
+@RequestMapping("/byteimage")
+public ResponseEntity&lt;byte[]> image() throws IOException {
+    Resource file = new FileSystemResource("C:\\Users\\Minko\\Pictures\\mhwi2.jpg");
+    return new ResponseEntity&lt;>(FileCopyUtils.copyToByteArray(file.getInputStream()), HttpStatus.OK);
+}
+</pre>
+<p>Spring会自动检测控制器方法入参的类型以及返回的类, 如果是<code>HttpEntity&lt;T></code>和<code>ResponseEntity&lt;T></code>, 在内部依然是和注解一样都去调用转换器, 从而输出结果.</p>
+<p>唯一要注意的是, 内建的很多转换器都会写一个特定的媒体类型, 这是不受控制的.</p>
+
+<h2 style="text-align: center;" id="con4">JSON转换器</h2>
+<p>前边的类型转换对于日常开发来说最主要的用途是什么, 就是创建前后端分离的Web服务而不是应用. 那么就要求将一个类能够转换成JSON, JSON转换类.</p>
+<p>Java中提供JSON服务的就是大名鼎鼎的Jackson包, 可以使用这个包, 搭配Spring提供的JSON转换, 来创建Rest风格的控制器.</p>
+<p>先添加Maven 依赖:</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>com.fasterxml.jackson.core&lt;/groupId>
+    &lt;artifactId>jackson-core&lt;/artifactId>
+    &lt;version>2.10.2&lt;/version>
+&lt;/dependency>
+</pre>
+<p>然后需要使用Spring提供的转换类, 在WebConfig类中, 使用WebMvcConfigurationSupport提供的configureMessageConverters方法, 来添加转换类:</p>
+<pre>
+@Override
+protected void configureMessageConverters(List&lt;HttpMessageConverter&lt;?>> converters) {
+    converters.add(new MappingJackson2HttpMessageConverter());
+}
+</pre>
+<p>这个方法参数中的converters就是所有可用的转换类, 可以向其中添加Spring提供的MappingJackson2HttpMessageConverter对象即可.</p>
+<p>创建的时候, 要保证classpath下边有Jackson的包, 这样就可以成功启动, 在之后, 就可以来试着写一下了.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
