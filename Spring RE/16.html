@@ -21,9 +21,9 @@
 
 <ol>
     <li><a href="#con1">将模型数据暴露给视图的渠道</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
+    <li><a href="#con2">ModelAndView</a></li>
+    <li><a href="#con3">@ModelAttribute</a></li>
+    <li><a href="#con4">Map和Model对象</a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
 </ol>
@@ -33,7 +33,7 @@
 <ol>
     <li>存放在<code>ModelAndView</code>对象中, 当一个控制器方法返回这个对象的时候, 向这个对象中添加的键值对都会添加到模型上.</li>
     <li><code>@ModelAttribute</code>, 这个注解可以标注在控制器方法或者控制器方法参数上, 有不同的作用, 但总体来说, 这个注解用于特定情况下向模型放入数据. 后边会详述</li>
-    <li><code>Map</code>和<code>Model</code>对象, 如果一个控制器方法返回<code>org.springframework.ui.Model/ModelMap</code>或者<code>java.util.Map</code>对象, 框架也会截获返回值, 然后将其中的键值对都添加到模型中.</li>
+    <li><code>Map</code>和<code>Model</code>对象, 如果一个控制器方法的参数<code>org.springframework.ui.Model/ModelMap</code>或者<code>java.util.Map</code>对象, 在方法中可以通过这个参数访问和修改模型数据.</li>
     <li><code>@SessionAtrributes</code>, 这个注解和<code>@ModelAttribute</code>有些类似, 用于固定向Session中放入数据.</li>
     <li>使用Servlet源生API, 按照JSP的方式放入数据, 这些数据其实也会被模型拿到.</li>
 </ol>
@@ -49,6 +49,185 @@
     <li><code>void setViewName(@Nullable String viewName)</code>, 设置一个视图名称, 用于给视图解析器进行解析, 从而得到正确的视图文件地址.</li>
     <li><code>void clear()</code>, 清除所有的模型数据和setView()方法设置的视图.</li>
 </ol>
+<p>这个使用方法在前边已经多次使用了, 正常情况下推荐使用ModelAndView对象来作为返回值.</p>
+
+
+<h2 style="text-align: center;" id="con3">@ModelAttribute</h2>
+<p>这个注解的核心作用, 就是向模型中放入数据. 有两种使用方式.</p>
+<h3>注解控制器方法的参数</h3>
+<p>第一种方式是将其注解到控制器方法的参数之前, 需要给注解传一个属性名称, 会以这个属性名将参数放入到模型对象中.</p>
+<p>比如我们之前那个通过表单映射到User对象的控制器方法:</p>
+<pre>
+@RequestMapping("/usercreate")
+public ModelAndView createUser(User user) {
+    System.out.println(user);
+    ModelAndView modelAndView = new ModelAndView();
+    modelAndView.setViewName("index");
+    modelAndView.addObject("user", user);
+    return modelAndView;
+}
+</pre>
+<p>现在将其修改成:</p>
+<pre>
+@RequestMapping("/usercreate")
+public String createUser(<span style="color: red">@ModelAttribute("modelUser")</span> User user) {
+    System.out.println(user);
+    return "index";
+}
+</pre>
+<p>对应的index.jsp中加上一个判断:</p>
+<pre>
+&lt;c:if test="${modelUser!=null}">
+    &lt;p>测试模型信息: ${modelUser}&lt;/p>
+&lt;/c:if>
+</pre>
+<p>再用表单映射的方式去访问, 可以看到, 虽然没有显式的将user对象设置的模型上, index.jsp却渲染出了modelUser键对应的值, 也就是user对象的信息.</p>
+<p>在这个控制器方法中, 会先使用请求中的信息映射到user对象, 然后<code>>@ModelAttribute("modelUser")</code>会以modelUser为键, 将user对象放入到模型中. 在最终渲染的时候, 将这个数据交给视图进行渲染. 对于JSP文件来说, 实际存放user对象的地点是ServletRequest的属性列表中.
+所以JSP文件才可以直接使用<code>${modelUser}</code>.</p>
+<p>还需要注意的是, 一个参数只能使用一个Spring的注解, 不能同时使用多个注解.</p>
+<h3>注解控制器方法</h3>
+<p>第二种方式是将<code>@ModelAttribute</code>注解在控制器方法上, 被注解的方法, 会在这个控制器类其他所有的映射了路径的方法调用之前被调用, 然后将方法的返回值添加到模型中. 这种使用方式通常用来固定向模型添加数据.</p>
+<p>比如我们现在编写一个固定向页面添加当前时间的功能, 即用户每次访问, 都在页面显示当前的时间. 那么可以每次在用户访问的时候, 都生成当前时间, 然后放入到模型数据中, 交给页面进行渲染:</p>
+<pre>
+@Controller
+@RequestMapping("/model")
+public class ModelController {
+
+    @RequestMapping("/nodata")
+    public ModelAndView noData() {
+        ModelAndView modelAndView = new ModelAndView();
+        modelAndView.setViewName("index");
+        return modelAndView;
+    }
+
+    @RequestMapping("/view")
+    public ModelAndView testModelAndView() {
+        ModelAndView modelAndView = new ModelAndView();
+        modelAndView.addObject("test","这是测试信息");
+        modelAndView.setViewName("index");
+        return modelAndView;
+    }
+
+    @ModelAttribute("time")
+    public String getCurrentTimeString() {
+        LocalDateTime localDateTime = LocalDateTime.now();
+
+        return localDateTime.toString();
+    }
+
+}
+</pre>
+<p>然后在JSP中加上:</p>
+<pre>
+&lt;p>当前时间是: ${time}&lt;/p>
+</pre>
+<p>之后只要访问<code>/model/nodata</code>或者<code>/model/view</code>路径, 页面中都会显示当前的时间. 如果请求没有使用到ModelController这个控制器, 比如访问/usercreate, 则被code>@ModelAttribute</code>注解的方法不会执行, 页面中也就获取不到时间.</p>
+<p>所以相比于之前的ModelAndView对象, 这个@ModelAttribute更像是专门向模型中存放数据的功能.</p>
+<h3>控制器方法注解和参数注解的属性名称相同</h3>
+<p>这里还有一点要注意的是, 如果我们有这样一个类:</p>
+<pre>
+@Controller
+public class BasicController {
+
+    <span style="color: red">@ModelAttribute("modelUser")</span>
+    public User getUser() {
+        User user = new User();
+        user.setAge(10);
+        return user;
+    }
+
+
+    @RequestMapping("/usercreate")
+    public String createUser(<span style="color: red">@ModelAttribute("modelUser")</span> User user) {
+        System.out.println(user);
+        return "index";
+    }
+}
+</pre>
+<p>控制器方法上的注解中的属性名称, 和参数的注解中的属性名称一致, 都是modelUser, 这会发生什么情况呢? 做个实验可以知道:</p>
+<pre>
+访问 http://localhost:8080/usercreate?userName=cony&address.detail=zhr
+页面显示 User{userName='cony', age=10, address=Address{detail='zhr'}}
+
+访问 http://localhost:8080/usercreate?userName=cony&address.detail=zhr&age=6
+页面显示 User{userName='cony', age=6, address=Address{detail='zhr'}}
+</pre>
+<p>这背后的机制是, 被<code>@ModelAttribute("modelUser")</code>注解的控制器方法依然会先于其他具体的处理方法运行, 将一个仅仅只设置了age=10的User对象以modelUser键名设置到模型中.</p>
+<p>之后控制器方法运行, 这时候并不是直接用请求数据装填user对象再覆盖掉modelUser, 而是会先把模型中的那个modelUser键名对应的user对象和从请求中获取的数据进行组合, 并且来自请求的数据优先级更高, 组合并填充完成user对象后, 同时将其更新到模型上, 并且作为请求的参数.</p>
+<p>所以可以看到, 在请求中没有附带age=6的条件时, 模型中的modelUser对应的user对象是一个二者组合之后的结果. 在请求附带了age=6的时候, 由getUser()返回的user对象的age=10的属性, 被来自HTTP请求的age=6给覆盖了.</p>
+<p>一般来说, <code>@ModelAttribute</code>主要用来完成像上边的第二种情况的工作, 即某些控制器会固定的放入一些数据的功能, 如果是为了向模型上设置数据, 一般不太会使用<code>@ModelAttribute</code>.</p>
+
+<h2 style="text-align: center;" id="con4">Map和Model对象</h2>
+<p>这两个对象, 实际上就是把Spring ModelAndView的内部机制进一步暴露的操作方法.</p>
+<p>查看ModelAndView的源码, 部分代码如下:</p>
+<pre>
+public class ModelAndView {
+    @Nullable
+    private ModelMap model;
+
+    public ModelAndView(String viewName, @Nullable Map&lt;String, ?> model) {
+        this.view = viewName;
+        if (model != null) {
+            this.getModelMap().addAllAttributes(model);
+        }
+
+    }
+
+    public ModelMap getModelMap() {
+        if (this.model == null) {
+            this.model = new ModelMap();
+        }
+
+        return this.model;
+    }
+
+    public Map&lt;String, Object> getModel() {
+        return this.getModelMap();
+    }
+    
+    public ModelAndView addObject(Object attributeValue) {
+        this.getModelMap().addAttribute(attributeValue);
+        return this;
+    }
+
+}
+</pre>
+<p>看了上边这些代码, 你会发现, 其实ModelAndView内部实际使用一个ModelMap对象来存放模型数据. 再点开ModelMap, 就会发现:</p>
+<pre>
+public class ModelMap extends LinkedHashMap&lt;String, Object> {
+    ......
+}
+</pre>
+<p>原来ModelMap就是一个Map对象, 怪不得ModelAndView的构造器里可以直接传一个Map对象进来, 会将其属性都设置到ModelMap上, 二者其实都是Map类型.</p>
+<p>Spring在每次调用控制器方法之前, 都会针对这次请求-响应处理创建一个隐含的模型对象, 其实可以认为其就是当前请求-响应对应的ModelAndView对象中的这个ModelMap对象.</p>
+<p>只要Spring检测到处理方法的入参是Map或者Model类型, Spring就会将ModelMap的引用传递给控制器方法, 在方法中就可以操作当前请求-响应对应的模型数据.</p>
+<p>给刚才向模型内添加时间的控制器再编写一个例子:</p>
+<pre>
+@Controller
+@RequestMapping("/model")
+public class ModelController {
+
+    @ModelAttribute("time")
+    public String getCurrentTimeString() {
+        LocalDateTime localDateTime = LocalDateTime.now();
+
+        return localDateTime.toString();
+    }
+
+    @RequestMapping("/map")
+    public String testModelMap(Map&lt;String, Object> map) {
+        System.out.println("模型数据是: " + map);
+        System.out.println("修改时间");
+        map.replace("time", "新修改的时间");
+        return "index";
+    }
+
+}
+</pre>
+<p>访问/model/map, 会发现控制台先打印出了<code>模型数据是: {time=2020-02-15T23:57:47.739611400}</code>. 很显然这是模型中存放的键值对. 之后将time键给改掉了. 结果最后JSP中显示出来的结果是: "当前时间是: 新修改的时间".</p>
+<p>这说明只要传入的参数是这两个类型, 就等于可以直接操作模型数据了.</p>
+<p>这里需要说明的是, org.springframework.ui.Model是一个接口, 实现了这个接口的有ModelMap, ExtendedModelMap等类, 而Map实际上是Java的接口, 也有很多实现类.
+    所以控制器能够接受的参数只要是这两个接口的实现类就可以, 因此实际能传入的类型有很多种, 像例子中传入Map接口类型使用多态是可以的, 如果传具体类型, 一般使用ModelMap类型, 语义比较明确.</p>
 
 
 
@@ -77,12 +256,6 @@
 
 
 
-
-
-
-<h2 style="text-align: center;" id="con3"></h2>
-
-<h2 style="text-align: center;" id="con4"></h2>
 
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
