@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Spring RE 16 操作Model数据</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>在两年前刚知道Web开发的时候, 对于MVC中的三个词还不是很理解, 尤其是Model, 哪里有一个叫做模型的对象呢?</p>
+<p>后来学了Java以及JSP技术, 知道了请求与响应在Web容器中的传递, 知道了没有一个所谓的Model对象, 数据可以附在请求或者响应上或者容器中, 然后在渲染视图的时候从相应的对象中取出来. 然后才知道, 其实Model是一种抽象, 就是在处理一次请求并返回一个响应的一个业务处理过程中, 返回响应所需要的数据对象.</p>
+<p>在之前知道了不加<code>@ResponseBody</code>的控制器可以返回一个ModelAndView对象, 也可以返回一个字符串. 现在就来看看如何操作模型数据, 即如何将模型数据暴露给视图.</p>
+
+<ol>
+    <li><a href="#con1">将模型数据暴露给视图的渠道</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">将模型数据暴露给视图的渠道</h2>
+<p>所谓将模型数据暴露给视图的渠道, 就是在渲染视图的时候, 从哪里获取所需要的数据. 详细一点的说, 就是DispatcherServlet解析完视图名称, 找到视图对象之后, 从哪里获取数据来渲染视图.</p>
+<p>从哪里获取视图, 对于编写Web应用的我们, 也就意味着在使用Spring框架的时候, 生成数据的时候将其存放在哪里, 就好比JSP中可以在请求, 响应, Session, 容器中设置一个键值对用来存放JSP视图需要的数据, Spring框架也有一些特定的渠道:</p>
+<ol>
+    <li>存放在<code>ModelAndView</code>对象中, 当一个控制器方法返回这个对象的时候, 向这个对象中添加的键值对都会添加到模型上.</li>
+    <li><code>@ModelAttribute</code>, 这个注解可以标注在控制器方法或者控制器方法参数上, 有不同的作用, 但总体来说, 这个注解用于特定情况下向模型放入数据. 后边会详述</li>
+    <li><code>Map</code>和<code>Model</code>对象, 如果一个控制器方法返回<code>org.springframework.ui.Model/ModelMap</code>或者<code>java.util.Map</code>对象, 框架也会截获返回值, 然后将其中的键值对都添加到模型中.</li>
+    <li><code>@SessionAtrributes</code>, 这个注解和<code>@ModelAttribute</code>有些类似, 用于固定向Session中放入数据.</li>
+    <li>使用Servlet源生API, 按照JSP的方式放入数据, 这些数据其实也会被模型拿到.</li>
+</ol>
+<p>凡是"添加到模型上的数据", 都可以在JSP视图中或者其他的模板引擎比如Thymeleaf中, 使用对应的键名取出来, 从而完成将模型数据传递给视图的工作. 下边就来一个一个看一下这些对象或者注解.</p>
+
+<h2 style="text-align: center;" id="con2">ModelAndView</h2>
+<p>对于传统的Web开发, 也就是通过视图渲染数据, 在Spring中推荐使用这个对象, 因为无论是名称还是使用的逻辑上边都非常简单明了.</p>
+<p>ModelAndView对象的主要方法如下:</p>
+<ol>
+    <li><code>ModelAndView addObject(String attributeName, @Nullable Object attributeValue)</code>, 添加一个属性名称和对应的值</li>
+    <li><code>ModelAndView addAllObjects(@Nullable Map&lt;String, ?> modelMap)</code>, 将一个modelMap对象中的所有键值对都添加到ModelAndView对象上</li>
+    <li><code>void setView(@Nullable View view)</code>, 设置一个视图对象, 如果不是采用解析视图名称方式, 而是直接创建视图对象的话, 就可以使用该方法, 让DispatcherServlet调用渲染器去渲染指定的视图.</li>
+    <li><code>void setViewName(@Nullable String viewName)</code>, 设置一个视图名称, 用于给视图解析器进行解析, 从而得到正确的视图文件地址.</li>
+    <li><code>void clear()</code>, 清除所有的模型数据和setView()方法设置的视图.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
