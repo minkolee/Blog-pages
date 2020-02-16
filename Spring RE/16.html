@@ -16,7 +16,8 @@
 </head>
 <body>
 <p>在两年前刚知道Web开发的时候, 对于MVC中的三个词还不是很理解, 尤其是Model, 哪里有一个叫做模型的对象呢?</p>
-<p>后来学了Java以及JSP技术, 知道了请求与响应在Web容器中的传递, 知道了没有一个所谓的Model对象, 数据可以附在请求或者响应上或者容器中, 然后在渲染视图的时候从相应的对象中取出来. 然后才知道, 其实Model是一种抽象, 就是在处理一次请求并返回一个响应的一个业务处理过程中, 返回响应所需要的数据对象.</p>
+<p>后来学了Java以及JSP技术, 知道了请求与响应在Web容器中的传递, 知道了没有一个所谓的Model对象, 数据可以附在请求或者响应上或者容器中, 然后在渲染视图的时候从相应的对象中取出来. 然后才知道,
+    其实Model是一种抽象, 就是在处理一次请求并返回一个响应的一个业务处理过程中, 返回响应所需要的数据对象.</p>
 <p>在之前知道了不加<code>@ResponseBody</code>的控制器可以返回一个ModelAndView对象, 也可以返回一个字符串. 现在就来看看如何操作模型数据, 即如何将模型数据暴露给视图.</p>
 
 <ol>
@@ -24,18 +25,21 @@
     <li><a href="#con2">ModelAndView</a></li>
     <li><a href="#con3">@ModelAttribute</a></li>
     <li><a href="#con4">Map和Model对象</a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con5">@SessionAtrributes和@ModelAttribute</a></li>
+    <li><a href="#con6">Servlet API</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">将模型数据暴露给视图的渠道</h2>
 <p>所谓将模型数据暴露给视图的渠道, 就是在渲染视图的时候, 从哪里获取所需要的数据. 详细一点的说, 就是DispatcherServlet解析完视图名称, 找到视图对象之后, 从哪里获取数据来渲染视图.</p>
-<p>从哪里获取视图, 对于编写Web应用的我们, 也就意味着在使用Spring框架的时候, 生成数据的时候将其存放在哪里, 就好比JSP中可以在请求, 响应, Session, 容器中设置一个键值对用来存放JSP视图需要的数据, Spring框架也有一些特定的渠道:</p>
+<p>从哪里获取视图, 对于编写Web应用的我们, 也就意味着在使用Spring框架的时候, 生成数据的时候将其存放在哪里, 就好比JSP中可以在请求, 响应, Session, 容器中设置一个键值对用来存放JSP视图需要的数据,
+    Spring框架也有一些特定的渠道:</p>
 <ol>
     <li>存放在<code>ModelAndView</code>对象中, 当一个控制器方法返回这个对象的时候, 向这个对象中添加的键值对都会添加到模型上.</li>
     <li><code>@ModelAttribute</code>, 这个注解可以标注在控制器方法或者控制器方法参数上, 有不同的作用, 但总体来说, 这个注解用于特定情况下向模型放入数据. 后边会详述</li>
-    <li><code>Map</code>和<code>Model</code>对象, 如果一个控制器方法的参数<code>org.springframework.ui.Model/ModelMap</code>或者<code>java.util.Map</code>对象, 在方法中可以通过这个参数访问和修改模型数据.</li>
+    <li><code>Map</code>和<code>Model</code>对象, 如果一个控制器方法的参数<code>org.springframework.ui.Model/ModelMap</code>或者<code>java.util.Map</code>对象,
+        在方法中可以通过这个参数访问和修改模型数据.
+    </li>
     <li><code>@SessionAtrributes</code>, 这个注解和<code>@ModelAttribute</code>有些类似, 用于固定向Session中放入数据.</li>
-    <li>使用Servlet源生API, 按照JSP的方式放入数据, 这些数据其实也会被模型拿到.</li>
+    <li>使用Servlet原生API, 按照JSP的方式放入数据, 这些数据也会被模型拿到.</li>
 </ol>
 <p>凡是"添加到模型上的数据", 都可以在JSP视图中或者其他的模板引擎比如Thymeleaf中, 使用对应的键名取出来, 从而完成将模型数据传递给视图的工作. 下边就来一个一个看一下这些对象或者注解.</p>
 
@@ -44,8 +48,12 @@
 <p>ModelAndView对象的主要方法如下:</p>
 <ol>
     <li><code>ModelAndView addObject(String attributeName, @Nullable Object attributeValue)</code>, 添加一个属性名称和对应的值</li>
-    <li><code>ModelAndView addAllObjects(@Nullable Map&lt;String, ?> modelMap)</code>, 将一个modelMap对象中的所有键值对都添加到ModelAndView对象上</li>
-    <li><code>void setView(@Nullable View view)</code>, 设置一个视图对象, 如果不是采用解析视图名称方式, 而是直接创建视图对象的话, 就可以使用该方法, 让DispatcherServlet调用渲染器去渲染指定的视图.</li>
+    <li><code>ModelAndView addAllObjects(@Nullable Map&lt;String, ?> modelMap)</code>,
+        将一个modelMap对象中的所有键值对都添加到ModelAndView对象上
+    </li>
+    <li><code>void setView(@Nullable View view)</code>, 设置一个视图对象, 如果不是采用解析视图名称方式, 而是直接创建视图对象的话, 就可以使用该方法,
+        让DispatcherServlet调用渲染器去渲染指定的视图.
+    </li>
     <li><code>void setViewName(@Nullable String viewName)</code>, 设置一个视图名称, 用于给视图解析器进行解析, 从而得到正确的视图文件地址.</li>
     <li><code>void clear()</code>, 清除所有的模型数据和setView()方法设置的视图.</li>
 </ol>
@@ -82,11 +90,13 @@ public String createUser(<span style="color: red">@ModelAttribute("modelUser")</
 &lt;/c:if>
 </pre>
 <p>再用表单映射的方式去访问, 可以看到, 虽然没有显式的将user对象设置的模型上, index.jsp却渲染出了modelUser键对应的值, 也就是user对象的信息.</p>
-<p>在这个控制器方法中, 会先使用请求中的信息映射到user对象, 然后<code>>@ModelAttribute("modelUser")</code>会以modelUser为键, 将user对象放入到模型中. 在最终渲染的时候, 将这个数据交给视图进行渲染. 对于JSP文件来说, 实际存放user对象的地点是ServletRequest的属性列表中.
-所以JSP文件才可以直接使用<code>${modelUser}</code>.</p>
+<p>在这个控制器方法中, 会先使用请求中的信息映射到user对象, 然后<code>>@ModelAttribute("modelUser")</code>会以modelUser为键, 将user对象放入到模型中. 在最终渲染的时候,
+    将这个数据交给视图进行渲染. 对于JSP文件来说, 实际存放user对象的地点是ServletRequest的属性列表中.
+    所以JSP文件才可以直接使用<code>${modelUser}</code>.</p>
 <p>还需要注意的是, 一个参数只能使用一个Spring的注解, 不能同时使用多个注解.</p>
 <h3>注解控制器方法</h3>
-<p>第二种方式是将<code>@ModelAttribute</code>注解在控制器方法上, 被注解的方法, 会在这个控制器类其他所有的映射了路径的方法调用之前被调用, 然后将方法的返回值添加到模型中. 这种使用方式通常用来固定向模型添加数据.</p>
+<p>第二种方式是将<code>@ModelAttribute</code>注解在控制器方法上, 被注解的方法, 会在这个控制器类其他所有的映射了路径的方法调用之前被调用, 然后将方法的返回值添加到模型中.
+    这种使用方式通常用来固定向模型添加数据.</p>
 <p>比如我们现在编写一个固定向页面添加当前时间的功能, 即用户每次访问, 都在页面显示当前的时间. 那么可以每次在用户访问的时候, 都生成当前时间, 然后放入到模型数据中, 交给页面进行渲染:</p>
 <pre>
 @Controller
@@ -121,7 +131,8 @@ public class ModelController {
 <pre>
 &lt;p>当前时间是: ${time}&lt;/p>
 </pre>
-<p>之后只要访问<code>/model/nodata</code>或者<code>/model/view</code>路径, 页面中都会显示当前的时间. 如果请求没有使用到ModelController这个控制器, 比如访问/usercreate, 则被code>@ModelAttribute</code>注解的方法不会执行, 页面中也就获取不到时间.</p>
+<p>之后只要访问<code>/model/nodata</code>或者<code>/model/view</code>路径, 页面中都会显示当前的时间. 如果请求没有使用到ModelController这个控制器,
+    比如访问/usercreate, 则被code>@ModelAttribute</code>注解的方法不会执行, 页面中也就获取不到时间.</p>
 <p>所以相比于之前的ModelAndView对象, 这个@ModelAttribute更像是专门向模型中存放数据的功能.</p>
 <h3>控制器方法注解和参数注解的属性名称相同</h3>
 <p>这里还有一点要注意的是, 如果我们有这样一个类:</p>
@@ -152,10 +163,14 @@ public class BasicController {
 访问 http://localhost:8080/usercreate?userName=cony&address.detail=zhr&age=6
 页面显示 User{userName='cony', age=6, address=Address{detail='zhr'}}
 </pre>
-<p>这背后的机制是, 被<code>@ModelAttribute("modelUser")</code>注解的控制器方法依然会先于其他具体的处理方法运行, 将一个仅仅只设置了age=10的User对象以modelUser键名设置到模型中.</p>
-<p>之后控制器方法运行, 这时候并不是直接用请求数据装填user对象再覆盖掉modelUser, 而是会先把模型中的那个modelUser键名对应的user对象和从请求中获取的数据进行组合, 并且来自请求的数据优先级更高, 组合并填充完成user对象后, 同时将其更新到模型上, 并且作为请求的参数.</p>
-<p>所以可以看到, 在请求中没有附带age=6的条件时, 模型中的modelUser对应的user对象是一个二者组合之后的结果. 在请求附带了age=6的时候, 由getUser()返回的user对象的age=10的属性, 被来自HTTP请求的age=6给覆盖了.</p>
-<p>一般来说, <code>@ModelAttribute</code>主要用来完成像上边的第二种情况的工作, 即某些控制器会固定的放入一些数据的功能, 如果是为了向模型上设置数据, 一般不太会使用<code>@ModelAttribute</code>.</p>
+<p>这背后的机制是, 被<code>@ModelAttribute("modelUser")</code>注解的控制器方法依然会先于其他具体的处理方法运行,
+    将一个仅仅只设置了age=10的User对象以modelUser键名设置到模型中.</p>
+<p>之后控制器方法运行, 这时候并不是直接用请求数据装填user对象再覆盖掉modelUser, 而是会先把模型中的那个modelUser键名对应的user对象和从请求中获取的数据进行组合, 并且来自请求的数据优先级更高,
+    组合并填充完成user对象后, 同时将其更新到模型上, 并且作为请求的参数.</p>
+<p>所以可以看到, 在请求中没有附带age=6的条件时, 模型中的modelUser对应的user对象是一个二者组合之后的结果. 在请求附带了age=6的时候, 由getUser()返回的user对象的age=10的属性,
+    被来自HTTP请求的age=6给覆盖了.</p>
+<p>一般来说, <code>@ModelAttribute</code>主要用来完成像上边的第二种情况的工作, 即某些控制器会固定的放入一些数据的功能, 如果是为了向模型上设置数据, 一般不太会使用<code>@ModelAttribute</code>.
+</p>
 
 <h2 style="text-align: center;" id="con4">Map和Model对象</h2>
 <p>这两个对象, 实际上就是把Spring ModelAndView的内部机制进一步暴露的操作方法.</p>
@@ -224,41 +239,187 @@ public class ModelController {
 
 }
 </pre>
-<p>访问/model/map, 会发现控制台先打印出了<code>模型数据是: {time=2020-02-15T23:57:47.739611400}</code>. 很显然这是模型中存放的键值对. 之后将time键给改掉了. 结果最后JSP中显示出来的结果是: "当前时间是: 新修改的时间".</p>
+<p>访问/model/map, 会发现控制台先打印出了<code>模型数据是: {time=2020-02-15T23:57:47.739611400}</code>. 很显然这是模型中存放的键值对. 之后将time键给改掉了.
+    结果最后JSP中显示出来的结果是: "当前时间是: 新修改的时间".</p>
 <p>这说明只要传入的参数是这两个类型, 就等于可以直接操作模型数据了.</p>
-<p>这里需要说明的是, org.springframework.ui.Model是一个接口, 实现了这个接口的有ModelMap, ExtendedModelMap等类, 而Map实际上是Java的接口, 也有很多实现类.
-    所以控制器能够接受的参数只要是这两个接口的实现类就可以, 因此实际能传入的类型有很多种, 像例子中传入Map接口类型使用多态是可以的, 如果传具体类型, 一般使用ModelMap类型, 语义比较明确.</p>
+<p>这里需要说明的是, org.springframework.ui.Model是一个接口, Spring包中实现了这个接口的有ModelMap, ExtendedModelMap等类, 而Map是Java的常用接口, 也有很多实现类.
+    控制器能够接受的参数只要是这两个接口的实现类就可以, 因此实际能传入的类型有很多种, 像例子中传入Map接口类型使用多态是可以的, 如果传具体类型, 一般使用ModelMap类型, 语义比较明确.</p>
 
+<h2 style="text-align: center;" id="con5">@SessionAtrributes</h2>
+<p>这个注解要结合之前的<code>@ModelAttribute</code>来看, 不然会让人有点搞不清楚. 所以先说原理, 详细的流程如下:</p>
+<ol>
+    <li>在进入控制器之前, Spring创建一个隐含的模型对象</li>
+    <li>调用标注了@ModelAttribute的控制器方法, 将方法返回值添加到模型中</li>
+    <li>查看Session中是否存在@SessionAttributes中指定的属性名称的属性, 如果有, 将其也添加到模型中. 如果模型中已经有同名的属性, 这一步会将其覆盖</li>
+    <li>然后执行@ModelAttribute("xxx")注解的参数,然后有如下情况:
+        <ol>
+            <li>如果xxx已经在模型内存在, 则会向上边一样根据请求中的数据组装或者覆盖xxx属性, 并且会更新模型中的xxx属性. 如果xxx不存在于模型中, 则转到下一步.</li>
+            <li>如果xxx与@SessionAttributes("xxx")同名, 则会尝试从Session中获取xxx属性, 将其填充入参对象, 此后依然是合并或者覆盖, 并且会将该属性保存到Session中. 如果找不到, 则抛出HttpSessionRequiredException异常.</li>
+            <li>如果xxx也不是@SessionAttributes中的名称, 则只会用请求消息来填充该参数, 然后将其设置到模型上.</li>
+        </ol>
+    </li>
+</ol>
+<p>这个注解只能标注在控制器类上, 不能标注在方法上. 此外支持多个属性名称, 以及types用来指定类型.</p>
+<p>这个方法看流程是有点懵逼的, 但其实只要记住, 其核心都是在控制器处理的参数中. 但如果是第一次访问并生成Session中的数据, 则需要想办法给Session放进数据, 这一般就是使用@SessionAttributes和@ModelAttribute搭配使用.</p>
+<p>看一个复杂一点但是我觉得已经说得非常清楚的例子, 就是经典的登录过程, 在一个表单里进行POST数据, 然后将用户设置到Session中, 看看其他控制器是否能够访问.</p>
+<p>先编写一个想在页面上展示已经登录的用户的控制器:</p>
+<pre>
+@Controller
+@SessionAttributes("user")
+public class BasicController {
 
+    @RequestMapping("/test")
+    public String home(@ModelAttribute("user") User user) {
+        return "index";
+    }
+}
+</pre>
+<p>根据上边的分析, 由于这个控制器中的模型没有叫做user的对象, 所以会到Session中去寻找同名属性, 如果我们刚启动服务器的时候, 立刻来访问这个/test路径, 按照上边的分析, 会得到一个异常. 如果在模型和Session中任意能够找到叫做user的属性, 都会被更新到模型中.</p>
+<p>如果我们在Session上设置了user属性, 再访问这个页面, 应该就没有异常了.</p>
+<p>编写index.jsp如下:</p>
+<pre>
+&lt;%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;html>
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>主页&lt;/title>
+    &lt;link rel="stylesheet"  type="text/css" href="/css/style.css">
+&lt;/head>
+&lt;body>
+&lt;h1>主页&lt;/h1>
+&lt;p>当前登录的用户是${user}&lt;/p>
 
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这个JSP意图就是显示当前登录的用户. 现在启动服务器, 访问这个路径, 结果发现果然有异常.</p>
+<p>我们来编写另外一个用于向Session中添加用户的登录表单及控制器:</p>
+<pre>
+@Controller
+@RequestMapping("/user")
+@SessionAttributes("user")
+public class LoginController {
 
+    @RequestMapping("/form")
+    public String login() {
+        return "login";
+    }
 
+    //#1
+    //每次访问控制器都生成一个新的User对象放入到模型中
+    @ModelAttribute("user")
+    public User generateUser() {
+        return new User();
+    }
 
+    //#2
+    @PostMapping("/login")
+    public String validateUser(@ModelAttribute("user") User user) {
+        System.out.println("方法的入参对象是: " + user);
+        return "redirect:/test";
+    }
 
+    #3
+    @GetMapping("/logout")
+    public String logout(SessionStatus sessionStatus) {
+        sessionStatus.setComplete();
+        return "redirect:/test";
+    }
+}
+</pre>
+<p>1号方法, 也就是<code>@ModelAttribute</code>注解的方法是一定需要的, 因为validateUser的入参不是需要Session中的user, 就是需要模型中的user. 既然其他地方都没有在Session中设置user, 这里必须先给模型里设置一个空的user. 否则#2就会报异常.</p>
+<p>#2的入参就会到模型和Session中寻找, 在模型中找到, 就不会到Session中寻找, 之后会将空的user与请求数据进行合并, 并将合并后的user放入到session以及更新到模型中.</p>
+<p>之后我们重定向到刚才的/test路径. 因为是重定向, 很显然, 模型数据一定是带不过去的, 只有Session中的数据才可以.</p>
+<p>3号方法清除Session中的所有数据.</p>
+<p>login.jsp编写如下:</p>
+<pre>
+&lt;%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;html>
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>输入用户信息&lt;/title>
+    &lt;link rel="stylesheet"  type="text/css" href="/css/style.css">
+&lt;/head>
+&lt;body>
+&lt;h1>用户登录&lt;/h1>
+&lt;form action="${pageContext.request.contextPath}/user/login" method="post">
+    &lt;label for="">
+        用户名 &lt;input type="text" name="userName">
+    &lt;/label>
+    &lt;label for="">
+        年龄 &lt;input type="number" name="age">
+    &lt;/label>
+    &lt;label for="">
+        住址&lt;input type="text" name="address.detail">&lt;/label>
+    &lt;button type="submit">提交&lt;/button>
+&lt;/form>
 
+&lt;/body>
+&lt;/html>
+</pre>
+<p>重新启动服务器, 现在按照如下方式来访问:</p>
+<ol>
+    <li>访问<code>http://localhost:8080/test</code>, 得到500错误, 异常是org.springframework.web.HttpSessionRequiredException: Expected session attribute 'user'</li>
+    <li>访问<code>http://localhost:8080/user/form</code>, 填写表单并提交.</li>
+    <li>提交表单之后, 自动重定向到<code>http://localhost:8080/test</code>, 页面中出现了用户信息.</li>
+    <li>之后反复刷新<code>http://localhost:8080/test</code>, 都是当前用户信息.不会再报错.</li>
+    <li>一旦访问<code>http://localhost:8080/user/logout</code>, 立刻又报500错误, 和最初访问这个地址一样, 这是因为清除了所有Session中的信息.</li>
+</ol>
+<p>这里模型使用了重定向, 而且跨越两个控制器, 很显然模型数据是无法互相传递的, 只有通过Session. 控制器的3号方法说明确实将user对象设置到了Session中, 一旦清除就会重新报错.</p>
+<p>总结一下就是一个前提, 两个操作:</p>
+<ol>
+    <li>前提: 两个注解同时使用, 注解的属性名称相同, 这样才能协同控制Session数据.</li>
+    <li>第一个操作, 向Session中放入数据: 负责想要往Session上设置数据的控制器, 一定要有一个@ModelAttribute注解的方法先把要设置的数据对象给制造出来, 之后通过控制器方法中被@ModelAttribute注解的参数, 可以对这个数据对象进行加工. 加工完毕之后, 这个数据对象就会存在于Session中和模型中.</li>
+    <li>第二个操作, 从Session中取出数据: 想要从Session中取出数据的控制器, 只需要确保访问到这个控制器之前, Session中已经存在数据对象, 直接在方法入参中使用<code>@ModelAttribute</code>就可以将其存到模型中用于页面渲染.</li>
+</ol>
+<p>所以用这两个注解也可以实现@Session操作, 就是注意有点绕, 不过用习惯了其实也相当不错.</p>
 
+<h2 style="text-align: center;" id="con6">Servlet API</h2>
+<p>这一段就简单多了, 一般来说, 模型数据会被我们设置到HttpServletRequest或者HttpSession对象上, 这个语义还是比较明确的. 来看看例子.</p>
+<pre>
+@Controller
+@RequestMapping("/session")
+public class SessionController {
 
+    @RequestMapping("/add")
+    public String addSessionData(HttpServletRequest request, HttpSession session) {
 
+        request.setAttribute("setinrequest", "cony");
+        session.setAttribute("setinsession", "owl");
 
+        return "redirect:/session/find";
+    }
 
+    @RequestMapping("/add2")
+    public String addSessionData2(HttpServletRequest request, HttpSession session) {
 
+        request.setAttribute("setinrequest", "cony");
+        session.setAttribute("setinsession", "owl");
 
+        return "forward:/session/find";
+    }
 
+    @RequestMapping("/find")
+    public ModelAndView testFindDataFromSesssion(HttpServletRequest request, HttpSession session) {
 
+        System.out.println("从request中获取: "+request.getAttribute("setinrequest"));
+        System.out.println("从session中获取: "+session.getAttribute("setinsession"));
 
+        ModelAndView modelAndView = new ModelAndView();
+        modelAndView.addObject("setbycontroller", "kiki");
+        modelAndView.setViewName("index");
+        return modelAndView;
+    }
 
+}
+</pre>
+<p>第一个控制器方法使用原生的request对象和session对象, 分别设置了两个属性, 然后重定向到路径 /session/find. 第二个控制器方法的区别是进行转发.</p>
+<p>很显然, 有JSP的经验就知道, 第一个是重定向, 所以设置在请求中的数据会丢失, 第二个是请求转发, 设置在请求中的数据不会丢失. 而Session只要不过期, 数据都可以访问到.</p>
+<p>总的来说, 如果想完全遵守Spring的语义, 推荐的方式就是显式返回ModelAndView对象, 将模型数据设置在ModelAndView对象中.</p>
+<p>如果是想在多个请求中共享数据, 可以考虑使用<code>@SessionAttributes</code>和<code>@ModelAttribute</code>搭配使用.</p>
 
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>

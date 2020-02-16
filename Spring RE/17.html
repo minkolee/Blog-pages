@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Spring RE 17 Spring MVC - 数据校验</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>应用程序在执行业务逻辑之前, 需要验证从请求接收到的数据是否正确, 数据验证其实大原则上来说也算是业务的一部分. Spring MVC只要能从请求中将数据类型转换到目标对象, 就算完成了.</p>
+<p>然而, 很多可以转换成目标对象的数据, 未必就是在业务层面来说的数据. 如果不同的人员都来编写各自业务部分的验证代码, 就会导致同样的数据可能在不同的地方被拦截.</p>
+<p>还一个问题是, 数据输入错误, 必须要让用户知道哪里出错, 需要将出错信息返回到视图, 因此也需要在模型上设置错误数据. 视图上还必须要留出渲染错误信息的地方.</p>
+<p>为了解决这个问题, Java EE有一个JSR-303标准, 专门验证一个Bean的数据合法性. 实现了JSR-303的就有Hibernate validator, 所以学会Hibernate真的是方便.</p>
+
+<ol>
+    <li><a href="#con1">JSR-303标准和Hibernate的扩展</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">JSR-303标准和Hibernate的扩展</h2>
+<p>JSR-303是通过将验证逻辑直接绑定到数据对象的域上进行验证的方法, 具体来说, 就是将注解加到要验证的数据对象的各个域上.</p>
+<p>JSR-303标准提供了如下注解:</p>
+<table>
+    <caption>JSR-303</caption>
+    <thead>
+    <tr>
+        <th>注解</th>
+        <th>说明</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>@Null</code></td>
+        <td>被注解的域必须是null</td>
+    </tr>
+    <tr>
+        <td><code>@NotNull</code></td>
+        <td>被注解的域不能为null</td>
+    </tr>
+    <tr>
+        <td><code>@AssertTrue</code></td>
+        <td>被注解的域必须是true</td>
+    </tr>
+    <tr>
+        <td><code>@AssertFalse</code></td>
+        <td>必须是false</td>
+    </tr>
+    <tr>
+        <td><code>@Min(value)</code></td>
+        <td>被注解的必须是一个number(基本类型), 其值必须大于等于注解的参数value</td>
+    </tr>
+    <tr>
+        <td><code>@Max(value)</code></td>
+        <td>被注解的必须是一个number(基本类型), 其值必须小于等于注解的参数value</td>
+    </tr>
+    <tr>
+        <td><code>@DecimalMin(value)</code></td>
+        <td>BigDecimal类型的最小值</td>
+    </tr>
+    <tr>
+        <td><code>@DecimalMax(value)</code></td>
+        <td>BigDecimal类型的最大值</td>
+    </tr>
+    <tr>
+        <td><code>@Size(max, min)</code></td>
+        <td>被注解的域大小(不是数值, 而是那个数据类型的size/长度/length)必须在max和min之间</td>
+    </tr>
+    <tr>
+        <td><code>@Digits(integer, fraction)</code></td>
+        <td>被注释的必须是数字, 而且值必须在可接受的范围内</td>
+    </tr>
+    <tr>
+        <td><code>@Past</code></td>
+        <td>被注解的是时间对象, 必须是一个过去的日期</td>
+    </tr>
+    <tr>
+        <td><code>@Future</code></td>
+        <td>被注解的是时间对象, 必须是一个将来的日期</td>
+    </tr>
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
