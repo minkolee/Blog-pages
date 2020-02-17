@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Spring RE 18 视图</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>Spring MVC里的C和M都看完了, 剩下的就是一个V也就是视图了. 之前只是知道返回一个ModelAndView给DispatcherServlet就结束了, 最后返回一个用模型数据渲染的视图, 现在就来仔细看看这个过程.</p>
+
+<ol>
+    <li><a href="#con1">什么是视图</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">什么是视图</h2>
+<p>说到视图, 还是回到之前说的来, 我们会配置一个视图解析器, 用于将ModelAndView中的视图名称解析成视图路径下的一个文件, 进而去找到视图. 我们在配置类中使用的是InternalResourceViewResolver, 点开源代码可以看到继承了UrlBasedViewResolver, 继续追进去再到AbstractCachingViewResolver.</p>
+<p>可以看到这个AbstractCachingViewResolver有一个方法<code>public View resolveViewName(String viewName, Locale locale) throws Exception</code>, 这个方法返回一个视图对象View. 这就是视图解析器的作用.</p>
+<p>很显然, 通过刚才的分析, 我们可以知道, 视图对象在Spring中是一个<code>org.springframework.web.servlet.View</code>接口类, 继续点进这个接口, 源代码如下:</p>
+<pre>
+import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.springframework.lang.Nullable;
+
+public interface View {
+    String RESPONSE_STATUS_ATTRIBUTE = View.class.getName() + ".responseStatus";
+    String PATH_VARIABLES = View.class.getName() + ".pathVariables";
+    String SELECTED_CONTENT_TYPE = View.class.getName() + ".selectedContentType";
+
+    @Nullable
+    default String getContentType() {
+        return null;
+    }
+
+    void render(@Nullable Map&lt;String, ?> var1, HttpServletRequest var2, HttpServletResponse var3) throws Exception;
+}
+</pre>
+<p>除了静态的用来标识的字符串之外, 核心的就是两个方法, 一个是获取视图对应的媒体类型; 一个是render方法, 可以看到接受的三个对象分别是一个Map, 一个请求, 一个响应, 这个方法的作用不难想象, Map其实就是隐含模型数据, 用模型数据和请求数据, 向响应中写入结果, 也就是渲染视图.</p>
+<p>这里同时说明, 每次的视图对象都是由解析器创建的. 那么Spring提供了哪些View接口的实现类呢?</p>
+<p>所有视图的实现类都位于<code>org.springframework.web.servlet.view</code>包中, 其中有一个默认的InternalResourceView对象, 就是用于将JSP资源封装成一个View对象, 这也是InternalResourceViewResolver默认使用的对象. 所以现在明白了为什么什么也不设置, 就可以使用JSP技术了吧. 当然, 这也是Java Web容器的标准之一, 肯定是默认的了.</p>
+<p>所以到了这里我们就可以知道, 如果想要使用不同的视图来渲染数据, 只需要使用不同的视图解析器, 创建不同的视图类型, 就可以达到使用不同视图的目的了.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
