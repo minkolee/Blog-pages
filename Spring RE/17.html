@@ -22,11 +22,10 @@
 
 <ol>
     <li><a href="#con1">JSR-303标准和Hibernate的扩展</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">Spring配置验证框架</a></li>
+    <li><a href="#con3">如何进行验证</a></li>
+    <li><a href="#con4">展示错误信息</a></li>
+    <li><a href="#con5">自定义错误信息</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">JSR-303标准和Hibernate的扩展</h2>
 <p>JSR-303是通过将验证逻辑直接绑定到数据对象的域上进行验证的方法, 具体来说, 就是将注解加到要验证的数据对象的各个域上.</p>
@@ -88,40 +87,298 @@
         <td><code>@Future</code></td>
         <td>被注解的是时间对象, 必须是一个将来的日期</td>
     </tr>
+    <tr>
+        <td><code>@Pattern</code></td>
+        <td>使用正则表达式进行验证</td>
+    </tr>
     </tbody>
 </table>
+<p>Hibernate还有四个扩展的验证:</p>
+<ol>
+    <li><code>@Email</code>, 被注解的格式符合电子邮件地址的格式</li>
+    <li><code>@Length</code>, 被注解的字符串长度</li>
+    <li><code>@NotEmpty</code>, 字符串不能是空串, 这是为了有效区分null与空串</li>
+    <li><code>@Range</code>, 表示范围.</li>
+</ol>
+<p>这里经过我实际检验, <code>@Email</code>和<code>@NotEmpty</code>已经也是最新JSR-303的标准, 而Hibernate特有的只剩下@Length和@Range, 所以基本上不需要使用Hibernate特有的注解也可以完成验证.</p>
 
 
 
+<h2 style="text-align: center;" id="con2">Spring配置验证框架</h2>
+<p>想也不用想, Spring配置验证框架, 肯定也是需要创建一个Bean, 创建的过程中使用外部的实现, 就和JPA很类似.</p>
+<p>Spring的包是<code>org.springframework.validation</code>,其中重要的接口是<code>Validator</code>, 有两个方法:</p>
+<ol>
+    <li><code>boolean supports(Class&lt;?> clazz)</code>, 表示可以验证什么类.</li>
+    <li><code>void validate(Object target, Errors errors)</code>, 对目标进行校验, 并将校验错误记录在errors内, 如果没有错误, errors内没有数据.</li>
+</ol>
+<p>这个Bean的具体实现类是<code>LocalValidatorFactoryBean</code>, XML方式就是一个Bean标签, 直接指定类是<code>org.springframework.validation.beanvalidation.LocalValidatorFactoryBean</code>即可.</p>
+<p>不过更方便的是, 如果配置了<code>&lt;mvc:annotation-driven/></code>或者以Java配置类方式写上了<code>@ComponentScan("xxx")</code>, Spring会在当前的classpath下寻找实现了JSR-303的供应商程序, 然后用其装配<code>LocalValidatorFactoryBean</code></p>
+<p>在Maven中加入Hibernate Validator的配置:</p>
+<pre>
+&lt;dependency>
+    &lt;groupId>org.hibernate&lt;/groupId>
+    &lt;artifactId>hibernate-validator&lt;/artifactId>
+    &lt;version>6.0.7.Final&lt;/version>
+&lt;/dependency>
+</pre>
+<p>然后直接启动项目, 可以观察到一行日志:</p>
+<pre>
+17-Feb-2020 08:54:27.630 INFO [RMI TCP Connection(3)-127.0.0.1] org.hibernate.validator.internal.util.Version.&lt;clinit> HV000001: Hibernate Validator 6.0.7.Final
+</pre>
+通过IDEA的Spring支持, 可以查看当前Spring中的Bean, 可以看到有一个MVCValidator名称的Bean, 其实现类是org.springframework.validation.Validator, 说明确实自动创建成功了.
 
+<h2 style="text-align: center;" id="con3">如何进行验证</h2>
+<p>前边已经说过, 验证是采用注解与要验证的类进行绑定的方式, 因此验证的第一步, 就是给被验证的类加上合适的注解.</p>
+<h3>添加验证规则</h3>
+<p>来新创建一个类Velkhana, 用于表示怪物猎人中的怪物冰呪龙, 为其加上注解:</p>
+<pre>
+public class Velkhana {
 
+    @Pattern(regexp = "\\w{7,20}")
+    private String monsterName;
 
+    @DecimalMax("3245.06")
+    @DecimalMin("2284.52")
+    private BigDecimal size;
 
+    @Past
+    private Date releaseDate;
 
+    ......
+}
+</pre>
+<p>这里我查了一下, 怪物猎人里怪物的名称不会超过20个英文字母. 然后查了一下冰呪龙的大小金冠体积, 给Size标记了大小. 最后由于冰呪龙是冰原的首发怪物, 因此加入到本作的时间一定是过去时间, 也可以将这个日期看做击杀时间, 总之一定是过去的日期.</p>
+<p>然后来编写一个控制器, 用来输入一个Velkhana的对象:</p>
+<pre>
+@Controller
+@RequestMapping("/mhwi")
+public class MHWI {
 
+    @PostMapping("/add")
+    public String getVelkhana(@ModelAttribute("vel") Velkhana velkhana) {
+        System.out.println("传入的冰呪龙对象是: " + velkhana);
+        return "index";
+    }
+}
+</pre>
+<p>在index.jsp中加上:</p>
+<pre>
+&lt;p>当前的冰呪龙是: ${vel}&lt;/p>
+</pre>
+<p>之后可以用Postman来发一个Post请求到/mhwi/add, 要注意时间的字符串格式需要使用像<code>06 Sep 2019</code>这样的字符串, 才能被转换到Date对象.</p>
+<p>随便发送一个超过限制的数据, index.jsp会显示如下:</p>
+<pre>
+当前的冰呪龙是: Monster{monsterName='aaaa', size=4000, releaseDate=Sat Feb 29 00:00:00 CST 2020}
+</pre>
+<p>很显然, 我们发送了超过不符合要求的数据, 不过此时依然正常显示, 是因为我们只是配置好了验证规则, 但没有实际进行验证, 所以接下来就是第二步, 开启验证.</p>
+<h3>开启验证</h3>
+<p>要开启验证, 需要给控制器方法做一些修改, 在传入的Velkhana对象之前加上@Valid注解. 注意, 从请求中获取数据和模型的注解只能同时在方法入参上加一个, 而@Valid不受此限制, 可以额外再加在参数上.</p>
+<strong>这里还需要注意的是, 只要加上了@Valid注解, 之后的参数马上就要传入一个BindingResult类型的参数, 用于存放验证结果. 不能随心所欲的设置参数. 有几个被验证的参数, 就要在每个参数之后都紧接着加上BindingResult参数.</strong>
+<p>修改控制器如下:</p>
+<pre>
+@Controller
+@RequestMapping("/mhwi")
+public class MHWI {
 
+    @PostMapping("/add")
+    public String getVelkhana(<span style="color: red">@Valid</span> @ModelAttribute("vel") Velkhana velkhana, BindingResult bindingResult, Map&lt;String, Object> map) {
+        if (<span style="color: red">bindingResult.hasErrors()</span>) {
 
+            for (FieldError e : bindingResult.getFieldErrors()) {
+                System.out.println(e.getField() + e.getDefaultMessage() + " 错误的值是: " + e.getRejectedValue());
+            }
+            map.put("vel", "出错了, 请重新输入");
+            return "index";
+        }
+        System.out.println("传入的冰呪龙对象是: " + velkhana);
+        return "index";
+    }
+}
+</pre>
+<p>再一次Post刚才的数据, 就会发现控制台打印出了错误信息:</p>
+<pre>
+releaseDate需要是一个过去的时间 错误的值是: Sat Feb 29 00:00:00 CST 2020
+monsterName需要匹配正则表达式"w{7,20}" 错误的值是: a
+size必须小于或等于3245.06 错误的值是: 4000
+</pre>
+<p>通过BindingResult对象, 可以通过FieldErrors得到所有验证错误的错误对象, 从每一个错误对象中, 可以取得属性名称, 验证错误的信息, 错误的值等信息.</p>
+<p>这样在后台, 我们就可以知道哪些属性发生了错误, 从而可以进行相应的业务处理. 不过还有一个问题, 就是如何将错误信息展示给用户.</p>
 
+<h2 style="text-align: center;" id="con4">展示错误信息</h2>
+<p>其实从上边可以看出来, 既然我们可以获取错误对象的所有内容, 比如属性名称和原来错误的值, 就可以将其都放入到模型中, 用户提交表单之后如果发生错误, 可以依然返回表单页, 将错误信息都展示出来.</p>
+<p>没错, Spring也是这么做的, 在方法参数前只要注解了<code>@Valid</code>, 哪怕没有那个<code>@ModelAttribute</code>注解, Spring也会将验证错误的信息全部都放入到隐含的模型中. 可以用Spring的form标签在JSP中获取:</p>
+<p>我们来添加一个form.jsp, 用来输入怪物信息和显示验证结果:</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<span style="color: red">&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %></span>
+&lt;html>
+&lt;head>
+    &lt;title>输入怪物信息&lt;/title>
+    &lt;style>
+        .errorClass {
+            color: red;
+        }
 
+    &lt;/style>
+&lt;/head>
+&lt;body>
+&lt;h1>输入怪物名称&lt;/h1>
+&lt;form:form modelAttribute="vel" action="${pageContext.request.contextPath}/mhwi/add">
+    &lt;div>
+        请输入怪物名称
+        &lt;form:errors path="monsterName" cssClass="errorClass"/>
+        &lt;form:input path="monsterName" type="text"/>
+    &lt;/div>
+    &lt;div>
+        请输入怪物大小
+        &lt;form:errors path="size" cssClass="errorClass"/>
+        &lt;form:input path="size" type="number"/>
+    &lt;/div>
+    &lt;div>
+        请输入怪物参战时间
+        &lt;form:errors path="releaseDate" cssClass="errorClass"/>
+        &lt;form:input path="releaseDate" type="text"/>
+    &lt;/div>
+    &lt;button type="submit">提交&lt;/button>
+&lt;/form:form>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>然后修改一下控制器, 因为表单绑定了vel对象, 需要每次创建一个空的, 然后表单可以自动的拿到用户上次提交的数据用于展示:</p>
+<pre>
+@Controller
+@RequestMapping("/mhwi")
+public class MHWI {
 
+    @GetMapping("/form")
+    public String form() {
+        return "form";
+    }
 
+    //#1
+    @ModelAttribute("vel")
+    public Velkhana getVel() {
+        return new Velkhana();
+    }
 
+    //#2
+    @PostMapping("/add")
+    public String getVelkhana(@Valid @ModelAttribute("vel") Velkhana velkhana, BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
 
+            for (FieldError e : bindingResult.getFieldErrors()) {
+                System.out.println(e.getField() + e.getDefaultMessage() + " 错误的值是: " + e.getRejectedValue());
+            }
+            return "form";
+        }
+        System.out.println("传入的冰呪龙对象是: " + velkhana);
+        return "index";
+    }
+}
+</pre>
+<p>1号方法是新增的, 用于每次第一次访问表单的时候创建一个空白的对象用于表单绑定. 在2号方法里取消了设置vel到map上, 交给框架自行控制.</p>
+<p>现在访问/mhwi/form, 填入一些不符合要求的结果, 就可以发现显示出了错误信息:</p>
+<pre>
+输入怪物名称
+请输入怪物名称 <span style="color: red">需要匹配正则表达式"\w{7,20}"</span> jar
+请输入怪物大小 <span style="color: red">必须小于或等于3245.06</span> 4000
+请输入怪物参战时间 <span style="color: red">需要是一个过去的时间</span> Sat Feb 29 14:00:00 CST 2020
+提交
+</pre>
+<p>而且页面依然会展示表单和用户已经提交的数据, 方便用户修改, 直到全部都正确为止, 就会转到index的JSP页面, 展示出正确的结果.</p>
+<p>当然这个例子比较简陋, 页面顶部的地址栏都一直是/add结尾的控制器页面, 其实应该进行更详细的规划, 不过用来说明错误是足够了.</p>
+<p>如果想自己操作页面,而不使用Spring提供的方式, 那么就可以自己将错误信息和字段放入到模型中来展示, 比如自己编写一个新表单form2.jsp:</p>
+<pre>
+&lt;%@ page contentType="text/html;charset=UTF-8" language="java" %>
+&lt;%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+&lt;%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+&lt;html>
+&lt;head>
+    &lt;title>输入怪物信息2&lt;/title>
+    &lt;style>
+        .errorClass {
+            color: red;
+        }
 
+    &lt;/style>
+&lt;/head>
+&lt;body>
+&lt;h1>输入怪物名称&lt;/h1>
+&lt;form action="/mhwi/add2" method="post">
+    &lt;div>
+    &lt;c:if test="${monsterNameError!=null}">
+        &lt;p class="errorClass">${monsterNameError}&lt;/p>
+    &lt;/c:if>
+    &lt;label for="">输入怪物名称 &lt;input name="monsterName" type="text" value="${vel.monsterName}">&lt;/label>
+    &lt;/div>
+    &lt;div>
+    &lt;c:if test="${sizeError!=null}">
+        &lt;p class="errorClass">${sizeError}&lt;/p>
+    &lt;/c:if>
+    &lt;label for="">输入怪物大小 &lt;input name="size" type="number" value="${vel.size}">&lt;/label>
+    &lt;/div>
+    &lt;div>
+        &lt;c:if test="${releaseDateError!=null}">
+        &lt;p class="errorClass">${releaseDateError}&lt;/p>
+    &lt;/c:if>
+    &lt;label for="">输入参战日期 &lt;input name="releaseDate" type="text" value="${vel.releaseDate}">&lt;/label>
+    &lt;/div>
+    &lt;button type="submit">提交&lt;/button>
+&lt;/form>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这其中绑定了input的value到对象中, 然后通过判断是否存在错误信息来显示错误信息. 在控制器中, 用户输入的数据以绑定到模型中, 剩下的就是如果出现验证错误, 就在模型中放入对应的错误和信息即可:</p>
+<pre>
+@Controller
+@RequestMapping("/mhwi")
+public class MHWI {
 
+    @GetMapping("/form2")
+    public String form2() {
+        return "form2";
+    }
 
+    @ModelAttribute("vel")
+    public Velkhana getVel() {
+        return new Velkhana();
+    }
 
+    @PostMapping("/add2")
+    public String getVelkhana2(@Valid @ModelAttribute("vel") Velkhana velkhana, BindingResult bindingResult, Map&lt;String, Object> map) {
+        System.out.println("传入的冰呪龙对象是: " + velkhana);
 
+        if (bindingResult.hasErrors()) {
+            for (FieldError e : bindingResult.getFieldErrors()) {
+                System.out.println(e.getField() + e.getDefaultMessage() + " 错误的值是: " + e.getRejectedValue());
+                //向模型中放入验证错误的数据
+                map.put(e.getField() + "Error", e.getDefaultMessage());
+            }
+            return "form2";
+        }
+        return "index";
+    }
+}
+</pre>
+<p>这样就完成了自定义的表单, 其功能和前边Spring的表单完全一致, 反复会让用户输入到正确结果为止.</p>
 
+<h2 style="text-align: center;" id="con5">自定义错误信息</h2>
+<p>错误信息也是可以自定义的, 预先定义的信息比较生硬, 可以通过注解的message属性来设置自定义的信息.</p>
+<pre>
+@Pattern(regexp = "\\w{7,20}", message = "怪物名称在7-20个字符之间")
+private String monsterName;
 
-<h2 style="text-align: center;" id="con2"></h2>
+@DecimalMax(value = "3245.06", message = "不能超过大金冠长度3245.06")
+@DecimalMin(value = "2284.52", message = "不能小于小金冠长度2284.52")
+private BigDecimal size;
 
-<h2 style="text-align: center;" id="con3"></h2>
+@Past(message = "必须是过去的日期")
+private Date releaseDate;
+</pre>
+<p>这就可以覆盖系统默认的错误消息.</p>
+<p>还可以通过国际化来配置错误消息, 还可以自定义验证器, 这些高级内容就在需要的时候来看了.</p>
 
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
