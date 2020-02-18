@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Spring RE 18 视图</title>
+    <title>Spring RE 18 视图与上传文件</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -19,11 +19,8 @@
 
 <ol>
     <li><a href="#con1">什么是视图</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">配置Thymeleaf模板引擎</a></li>
+    <li><a href="#con3">文件上传</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">什么是视图</h2>
 <p>说到视图, 还是回到之前说的来, 我们会配置一个视图解析器, 用于将ModelAndView中的视图名称解析成视图路径下的一个文件, 进而去找到视图. 我们在配置类中使用的是InternalResourceViewResolver, 点开源代码可以看到继承了UrlBasedViewResolver, 继续追进去再到AbstractCachingViewResolver.</p>
@@ -51,7 +48,154 @@ public interface View {
 <p>除了静态的用来标识的字符串之外, 核心的就是两个方法, 一个是获取视图对应的媒体类型; 一个是render方法, 可以看到接受的三个对象分别是一个Map, 一个请求, 一个响应, 这个方法的作用不难想象, Map其实就是隐含模型数据, 用模型数据和请求数据, 向响应中写入结果, 也就是渲染视图.</p>
 <p>这里同时说明, 每次的视图对象都是由解析器创建的. 那么Spring提供了哪些View接口的实现类呢?</p>
 <p>所有视图的实现类都位于<code>org.springframework.web.servlet.view</code>包中, 其中有一个默认的InternalResourceView对象, 就是用于将JSP资源封装成一个View对象, 这也是InternalResourceViewResolver默认使用的对象. 所以现在明白了为什么什么也不设置, 就可以使用JSP技术了吧. 当然, 这也是Java Web容器的标准之一, 肯定是默认的了.</p>
-<p>所以到了这里我们就可以知道, 如果想要使用不同的视图来渲染数据, 只需要使用不同的视图解析器, 创建不同的视图类型, 就可以达到使用不同视图的目的了.</p>
+<p>视图解析器配置之后是一个Bean, 视图对象也是一个Bean, 每次渲染视图的时候, 这些Bean都是被多线程重用的, 由于Bean本身就是多线程安全的, 所以没有问题.</p>
+<p>这里再提一下视图解析器, 视图解析器可以同时配置多个, 每个视图解析器都实现了Ordered接口并且有一个数字,可以通过这个属性指定解析器的优先顺序.</p>
+<p>最优先的是一个叫做ContentNegotiatingViewResolver的视图解析器, 根据MIME类型来选用对应的视图解析器, 而我们将一个名称解析为一个URL路径的<code>InternalResourceViewResolver</code>默认是最低优先级, 这是因为在Java Web容器中, Servlet以及本质就是Servlet的JSP技术是默认就可以渲染视图的.</p>
+<p>所以到了这里我们就可以知道, 如果想要使用不同的视图来渲染数据, 首先需要实现一个视图解析器, 返回一个不同于JSP的View对象. 下边就以配置Thymeleaf来试验一下.</p>
+
+<h2 style="text-align: center;" id="con2">配置Thymeleaf模板引擎</h2>
+<p>JSP和Servlet的局限性在于, 必须在Java Web容器中使用, 很多其他类型的或者基于其他语言的Web容器并不支持Servlet技术, Thymeleaf则是独立的一套渲染模板的引擎, 所以可以用于各个场景, 比如生成HTML格式的电子邮件.</p>
+<p>首先配置Thymeleaf的依赖:</p>
+<pre>
+&lt;!-- Thymeleaf 的标准包-->
+&lt;dependency>
+    &lt;groupId>org.thymeleaf&lt;/groupId>
+    &lt;artifactId>thymeleaf&lt;/artifactId>
+    &lt;version>3.0.11.RELEASE&lt;/version>
+&lt;/dependency>
+
+&lt;!-- 将Thymeleaf与Spring4集成的包 -->
+&lt;dependency>
+    &lt;groupId>org.thymeleaf&lt;/groupId>
+    &lt;artifactId>thymeleaf-spring4&lt;/artifactId>
+    &lt;version>3.0.11.RELEASE&lt;/version>
+&lt;/dependency>
+</pre>
+<p>在Spring中使用Thymeleaf, 上边两个包都需要, 一个是Thymeleaf的核心功能, 一个是专门用于Spring来将Thymeleaf集成进自己体系的包.</p>
+<p>然后我们需要来配置上边使用的三个对象, Thymeleaf要使用的模板引擎的后缀名就是html, 一步一步来.</p>
+<p>首先配置视图路径解析器, 这个一看便知作用:</p>
+<pre>
+import org.thymeleaf.spring4.templateresolver.SpringResourceTemplateResolver;
+import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.ITemplateResolver;
+
+
+@Bean
+public ITemplateResolver templateResolver() {
+    SpringResourceTemplateResolver templateResolver = new SpringResourceTemplateResolver();
+    templateResolver.setTemplateMode(TemplateMode.HTML);
+    templateResolver.setPrefix("/WEB-INF/views/thymeleaf/");
+    templateResolver.setSuffix(".html");
+    templateResolver.setCharacterEncoding("UTF-8");
+    templateResolver.setCacheable(false);
+    return templateResolver;
+}
+</pre>
+<p>这其中的返回类型和解析器类型, 全部都是Thymeleaf包提供的. 这里我们可以把自己原来配置的<code>InternalResourceViewResolver</code>的Bean删除了.</p>
+<p>然后, 需要配置模板解析引擎, 相比JSP来说, 这是一个新东西, 因为JSP技术是Web容器自带的,无需配置, 而Thymeleaf就必须先配置这个东西作为一个Bean:</p>
+<pre>
+@Bean
+public TemplateEngine templateEngine(ITemplateResolver templateResolver) {
+    SpringTemplateEngine templateEngine = new SpringTemplateEngine();
+    templateEngine.setTemplateResolver(templateResolver);
+    return templateEngine;
+}
+</pre>
+<p>这里使用了Spring的自动依赖注入, 因为之前已经配置了一个ITemplateResolver类型的Bean, 所以这里会自动将其传入, 组装成一个TemplateEngine类型的Bean.</p>
+<p>最后配置视图解析器, 也就是相当于视图的Bean:</p>
+<pre>
+@Bean
+public ViewResolver viewResolver(TemplateEngine templateEngine) {
+    ThymeleafViewResolver resolver = new ThymeleafViewResolver();
+    resolver.setTemplateEngine(templateEngine);
+    return resolver;
+}
+</pre>
+<p>同样也是依赖注入, 可以看到这三个Bean环环相扣, 持有引用, 可以协同工作. 配置了上边的一些东西之后, 就可以把原来解析JSP路径的解析器全部删掉了.</p>
+<p>在views目录下创建thymeleaf目录, 然后创建一个index.html:</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html lang="zh">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>Thymeleaf&lt;/title>
+&lt;/head>
+&lt;body>
+&lt;p>Thymeleaf&lt;/p>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>然后编写一个最简单的控制器:</p>
+<pre>
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+public class ThymeleafController {
+
+
+    @RequestMapping("/")
+    public String index() {
+        return "index";
+    }
+
+}
+</pre>
+<p>之后启动服务器, 访问根路径, 发现已经正确的显示出了Thymeleaf页面. </p>
+<p>视图还有很多种, 分别需要不同的解析器和视图对象, 比如Excel和PDF, 需要的时候再学吧.</p>
+<p>今天虽然文字少了一点, 不过总算知道使用Spring Boot的时候是怎么来配置这些模板引擎的了, 只是把这个东西给后台化了.</p>
+
+<h2 style="text-align: center;" id="con3">文件上传</h2>
+<p>Spring MVC通过一个MultipartResolver实现文件上传. 这个东西需要配置成一个Bean, 但是这个东西依赖Apache Jakarta Commons io/FileUpload 包来实现. 文件上传就对应HTML FROM中的multipart.</p>
+<p>依赖包的Maven配置如下:</p>
+<pre>
+&lt;!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
+&lt;dependency>
+    &lt;groupId>commons-io&lt;/groupId>
+    &lt;artifactId>commons-io&lt;/artifactId>
+    &lt;version>2.6&lt;/version>
+&lt;/dependency>
+
+&lt;!-- https://mvnrepository.com/artifact/commons-fileupload/commons-fileupload -->
+&lt;dependency>
+    &lt;groupId>commons-fileupload&lt;/groupId>
+    &lt;artifactId>commons-fileupload&lt;/artifactId>
+    &lt;version>1.4&lt;/version>
+&lt;/dependency>
+
+</pre>
+<p>来配置一个文件上传的MultipartResolver:</p>
+<pre>
+@Bean
+public CommonsMultipartResolver commonsMultipartResolver() throws IOException {
+    CommonsMultipartResolver commonsMultipartResolver = new CommonsMultipartResolver();
+    commonsMultipartResolver.setDefaultEncoding("UTF-8");
+    commonsMultipartResolver.setMaxUploadSize(5242880L);
+    commonsMultipartResolver.setUploadTempDir(new FileSystemResource("d:\\temp"));
+    return commonsMultipartResolver;
+}
+</pre>
+<p>然后是控制器:</p>
+<pre>
+@PostMapping("/upload")
+public String upload(@RequestParam("file") MultipartFile file) throws IOException {
+    System.out.println(file);
+    System.out.println(file.getOriginalFilename());
+    System.out.println(file.getSize());
+    file.transferTo(new File("d:\\temp\\" + file.getOriginalFilename()));
+    return "index";
+}
+</pre>
+<p>上传的文件会自动放在MultipartFile对象中, 可以查看原来的文件名, 大小等. 还可以使用.transferTo()方法将其存放在指定的位置.</p>
+<p>上传表单则必须要使用额外的enctype属性:</p>
+<pre>
+&lt;form action="/upload" method="post" <span style="color: red">enctype="multipart/form-data"</span>>
+    上传文件&lt;input type="file" name="file">
+    &lt;button type="submit">提交&lt;/button>
+&lt;/form>
+</pre>
+<p>之后尝试了一下, 发现可以成功的上传文件了.</p>
+<p>至此, Spring MVC的主要内容就看完了, 其实核心不外乎两个, 一是从请求中读入各种数据并且组装成Web应用需要的数据对象, 二是将Web应用处理后的数据, 以各种方式组成响应返回.</p>
 
 
 
@@ -60,37 +204,6 @@ public interface View {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con2"></h2>
-
-<h2 style="text-align: center;" id="con3"></h2>
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
