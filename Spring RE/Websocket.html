@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TITLE</title>
+    <style>
+        .message {
+            border: 1px solid black;
+            width: 300px;
+            height: 200px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <input type="text" class="message" id="message">
+    <div class="message" id="result">
+
+    </div>
+
+<button id="send">button</button>
+
+<script type="text/javascript">
+    var start = false;
+    var url = "ws://localhost:8080/test";
+    var sock = new WebSocket(url);
+
+    sock.onopen = function () {
+        console.log("开启连接");
+        sayHello();
+
+    };
+
+    sock.onmessage = function (e) {
+        console.log("接受消息" + e.data);
+        if (start) {
+            document.getElementById("result").innerHTML = (new Date() + "<br>" + e.data);
+        }
+        start = true;
+
+    };
+
+    sock.onclose = function () {
+        console.log("关闭连接")
+    };
+
+    function sayHello() {
+        var text = document.getElementById("message").value;
+        document.getElementById("message").value = "";
+        console.log("发送消息" + text);
+        sock.send(text);
+    }
+
+    document.getElementById("send").addEventListener("click", sayHello);
+
+</script>
+</body>
+</html>

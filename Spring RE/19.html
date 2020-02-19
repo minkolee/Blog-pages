@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Spring RE 19</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>WebSocket的简单使用, 找了个教程做了一下, 发现还是挺有意思的. 这里就直接记录下来怎么折腾的:</p>
+<p>首先需要配置开启WebSocket:</p>
+<pre>
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.socket.server.standard.ServerEndpointExporter;
+
+@Configuration
+public class WebSocketConfig {
+
+    @Bean
+    public ServerEndpointExporter serverEndpointExporter() {
+        return new ServerEndpointExporter();
+    }
+}
+</pre>
+<p>有了ServerEndpointExporter的支持, 就能够在控制器中开启WebSocket, 然后配置对应的注解与路径, 就可以将那个路径变成WebSocket协议:</p>
+<pre>
+import javax.websocket.*;
+import javax.websocket.server.ServerEndpoint;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Controller
+@ServerEndpoint("/test")
+public class WebSocketServer {
+
+    private static Map&lt;String, Session> clients = new ConcurrentHashMap&lt;>();
+
+    @OnOpen
+    public void onOpen(Session session) {
+        System.out.println("有新客户端连接: " + session.getId());
+        clients.put(session.getId(), session);
+    }
+
+    @OnClose
+    public void onClose(Session session) {
+        System.out.println("有用户断开了, id为:" + session.getId());
+        clients.remove(session.getId());
+    }
+
+    @OnError
+    public void onError(Throwable throwable) {
+        throwable.printStackTrace();
+    }
+
+    @OnMessage
+    public void onMessage(String message) {
+        System.out.println("接收到的Message是: " + message);
+        this.sendAll(message);
+    }
+
+    private void sendAll(String message) {
+        for (Map.Entry&lt;String, Session> sessionEntry : clients.entrySet()) {
+            sessionEntry.getValue().getAsyncRemote().sendText(message);
+        }
+    }
+}
+</pre>
+<p>这段代码也比较清楚, 就是每来一个新连接, 就把连接号和对应的连接对象放到一个Map中, 之后群发消息的时候遍历这个对象然后进行发送.</p>
+<p>之后是前端:</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html lang="en">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;meta http-equiv="X-UA-Compatible" content="IE=edge">
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1">
+    &lt;title>TITLE&lt;/title>
+    &lt;style>
+        .message {
+            border: 1px solid black;
+            width: 300px;
+            height: 200px;
+        }
+
+    &lt;/style>
+&lt;/head>
+&lt;body>
+
+    &lt;input type="text" class="message" id="message">
+    &lt;div class="message" id="result">
+
+    &lt;/div>
+
+&lt;button id="send">button&lt;/button>
+
+&lt;script type="text/javascript">
+    var start = false;
+    var url = "ws://localhost:8080/test";
+    var sock = new WebSocket(url);
+
+    sock.onopen = function () {
+        console.log("开启连接");
+        sayHello();
+
+    };
+
+    sock.onmessage = function (e) {
+        console.log("接受消息" + e.data);
+        if (start) {
+            document.getElementById("result").innerHTML = (new Date() + "&lt;br>" + e.data);
+        }
+        start = true;
+
+    };
+
+    sock.onclose = function () {
+        console.log("关闭连接")
+    };
+
+    function sayHello() {
+        var text = document.getElementById("message").value;
+        document.getElementById("message").value = "";
+        console.log("发送消息" + text);
+        sock.send(text);
+    }
+
+    document.getElementById("send").addEventListener("click", sayHello);
+
+&lt;/script>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这里用了一个框输入消息, 一个框展示接收到的消息, 原理都很简单. 没有想到WebSocket如此简单好用. 以后可以尝试在Web中使用一下WebSocket了.</p>
+<p>基本上Spring 4.x 的内容都看完了, 这次主要是从原理角度重新过了一遍, 框架其实就是一本说明书很厚的工具, 知道如何在框架的内部把框架的流程替换成自己的就可以了.</p>
+<p>下一步就是再次回到数据结构和算法上来了, 估计要用C语言和Java同时来操作一下了. 先从Java的数据结构好好学起吧.</p>
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
