@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 01 包 - 数组实现</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>现在准备开始看数据结构了, 不使劲补补是不行的, 顺便也打打基础, 看看内部原理, 争取能到LeetCode上边去刷点题目.</p>
+<p>先从最简单的开始, 没有一上来就找一本巨大的书看, 找了一本<a href="https://item.jd.com/12094507.html">数据结构与抽象：Java语言描述（原书第4版）</a>, 这本看了一下不是非常硬核, 上来就搞那么强的理论. 书的<a
+        href="https://media.pearsoncmg.com/bc/abp/cs-resources/products/product.html#product,isbn=0133744051" target="_blank">配套源码在此</a>.</p>
+<p>趁着京东编程书打折, 买了一本C++ Primer Plus, 准备把C++的部分也看一下, 毕竟耗子哥也说了C++去看一下泛型了解一下, 可以触类旁通.</p>
+
+<ol>
+    <li><a href="#con1">设计包的接口</a></li>
+    <li><a href="#con2">用数组实现包 - 使用定长数组的思路</a></li>
+    <li><a href="#con3">add(T newEntry)方法</a></li>
+    <li><a href="#con4">public T[] toArray()方法</a></li>
+    <li><a href="#con5">查找项目</a></li>
+    <li><a href="#con6">remove方法</a></li>
+    <li><a href="#con7">重构remove系列方法</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">设计包的接口</h2>
+<p>包这种数据类型指的是没有顺序, 可以持有重复的对象的数据集合. 为了达到这个目的, 设计的包接口如下:</p>
+<pre>
+public class Bag&lt;T> implements BagInterface&lt;T> {
+
+    @Override
+    public int getCurrnetSize() {
+        return 0;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return false;
+    }
+
+    @Override
+    public boolean add(T newEntry) {
+        return false;
+    }
+
+    @Override
+    public T remove() {
+        return null;
+    }
+
+    @Override
+    public boolean remove(T anEntry) {
+        return false;
+    }
+
+    @Override
+    public void clear() {
+    }
+
+    @Override
+    public int getFrequencyOf(T anEntry) {
+        return 0;
+    }
+
+    @Override
+    public boolean contains(T anEntry) {
+        return false;
+    }
+
+    @Override
+    public T[] toArray() {
+        return null;
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con2">用数组实现包 - 定长数组</h2>
+<p>由于数组一般是一个编程语言最根本的数据结构, 因此一开始尝试使用这个方法来实现.</p>
+<p>首先要考虑的是一组核心方法, 核心方法如下:</p>
+<ol>
+    <li>构造器和引入数组相关的变量</li>
+    <li><code>public boolean add(T newEntry)</code></li>
+    <li><code>public T[] toArray()</code></li>
+    <li><code>private boolean isArrayFull()</code></li>
+</ol>
+
+<p>最先来考虑的是, 由于我们需要在内部使用数组, 因此必须在内部先定义一些和数组相关的域, 比如一个数组变量, 数组的大小, 以及包中放了多少东西.</p>
+<pre>
+public class ArrayBag&lt;T> implements BagInterface&lt;T> {
+
+    private final T[] bag;
+
+    private int numberOfEntries;
+
+    private static final int DEFAULT_CAPACITY = 25;
+
+    @Override
+    public int getCurrnetSize() {
+        return 0;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return false;
+    }
+
+    @Override
+    public boolean add(T newEntry) {
+        return false;
+    }
+
+    @Override
+    public T remove() {
+        return null;
+    }
+
+    @Override
+    public boolean remove(T anEntry) {
+        return false;
+    }
+
+    @Override
+    public void clear() {
+
+    }
+
+    @Override
+    public int getFrequencyOf(T anEntry) {
+        return 0;
+    }
+
+    @Override
+    public boolean contains(T anEntry) {
+        return false;
+    }
+
+    @Override
+    public T[] toArray() {
+        return null;
+    }
+}
+</pre>
+<p>常见的做法是, 先标明实现接口, 然后添加域, 之后将所有方法都先实现成默认的, 可以通过IDE工具辅助.</p>
+<p>这里IDEA会提示数组类型的变量没有初始化, 可能会造成问题, 确实如此, 我们要在构造器中初始化这个变量.</p>
+<p>这里首先要知道的就是, Java的数组不支持泛型, 所以要声明成一个Object[]类型的数组, 然后进行类型转换, 不过这会引起编译警告, 因此可以在构造方法上加上压制编译警告的注解.</p>
+<p>先来编写构造方法:</p>
+<pre>
+/**
+ * 指定长度的包对象的构造器
+ *
+ * @param capacity int类型数值, 指包的大小
+ */
+<span style="color: red">@SuppressWarnings("unchecked")</span>
+public ArrayBag(int capacity) {
+    <span style="color: red">bag = (T[]) new Object[capacity];</span>
+    numberOfEntries = 0;
+}
+
+/**
+ * 无参构造方法, 使用默认的数值DEFAULT_CAPACITY=25创建包对象
+ */
+public ArrayBag() {
+    this(DEFAULT_CAPACITY);
+}
+</pre>
+<p>这里IDEA会提示注解和下边的要匹配, 如果没有unchecked错误, 则会提示无需注解.</p>
+<p>构造方法结束之后, 我们的包对象在每次实例化的时候,内部已经有了一个数组. 然后就需要来考虑实现核心方法了, 首先就是add方法.</p>
+
+<h2 style="text-align: center;" id="con3">add(T newEntry)方法</h2>
+<p>这里有一大问题, 就是如何将元素添加到数组中, 是简单的按照索引添加吗. 如果仅仅增大索引, 判断索引是否超过最大数量-1, 就会有一个问题, 即某个位置的元素如果删除了怎么办? 索引就会失效.</p>
+<p>所以在考虑add方法的时候, 其实也要考虑remove方法.</p>
+<p>这里给出的方法是, 每次添加完成的时候, 都要递增numberOfEntries的值, 下一次添加就将元素放到数组对应numberOfEntries的索引上. 每次删除完成的时候, numberOfEntries递减, 还需要将数组最后一个值放到被删除的位置, 然后将数组最后一个值置为null.</p>
+<p>这样就可以保证两种操作都可以正常工作, 由于包是无序的, 因此目前的手段可以满足要求.</p>
+<p>根据这个思路, 先来编写add方法:</p>
+<pre>
+@Override
+public boolean add(T newEntry) {
+    boolean isAddSuccess = true;
+    if (isArrayFull()) {
+        isAddSuccess = false;
+    }else {
+        bag[numberOfEntries] = newEntry;
+        numberOfEntries++;
+    }
+    return isAddSuccess;
+}
+
+private boolean isArrayFull() {
+    return numberOfEntries >= bag.length;
+}
+</pre>
+<p>add方法中用到了一个isArrayFull()方法, 这个方法没有必要开放给外界, 因此作为一个私有方法, 只需要判断当前数组中的项目是不是大于等于bag的长度即可, 小于就说明还没有满, 大于和等于就说明已经满了.</p>
+
+<h2 style="text-align: center;" id="con4">public T[] toArray()方法</h2>
+<p>这个方法看上去很简单, 既然私有变量已经是一个T[]类型, 是不是可以直接返回? 答案是不行, 因为Java返回的是引用, 只要有这个引用, 就可以任意操作其中的数据. 会破坏我们原来的结构.</p>
+<p>所以需要采取的方法就是新创建一个数组, 然后将私有变量bag中的每一项复制进去就可以了.</p>
+<pre>
+@Override
+@SuppressWarnings("unchecked")
+public T[] toArray() {
+    T[] result = (T[]) new Object[bag.length];
+    //这里IDE提示可以使用System.arraycopy方法
+    for (int i = 0; i < numberOfEntries; i++) {
+        result[i] = bag[i];
+    }
+    return result;
+}
+</pre>
+<p>这里如果将返回的数组中的任何一项设置为null, 就不会影响我们内部的私有变量bag对于原来对象的引用. 唯一的缺点依然持有原来每一项的引用, 如果直接更改, 那是没有办法的.</p>
+<p>这里真正彻底解决问题的方法是深复制一份, 不过现在还用不到这种.</p>
+<p>然后顺便把剩下几个小方法实现一下:</p>
+<pre>
+@Override
+public int getCurrnetSize() {
+    return numberOfEntries;
+}
+
+@Override
+public boolean isEmpty() {
+    return numberOfEntries == 0;
+}
+
+@Override
+public void clear() {
+    for (int i = 0; i < numberOfEntries; i++) {
+        bag[i] = null;
+    }
+    numberOfEntries = 0;
+}
+</pre>
+<p>关于clear()方法, 由于数组持有的是引用, 因此还是必须要把所有的引用都设置为null.</p>
+<p>到目前为止还有四个方法: 两个remove, 查找某一项的数量, 查找是否包含某一项, 下边就来实现, 不过现在已经可以来测试一下了.</p>
+<pre>
+public class OnlineShopper {
+
+    public static void main(String[] args) {
+
+        Item[] items = {
+                new Item("Bird feeder", 2050),
+                new Item("Squirrel guard", 1547),
+                new Item("Bird bath", 4499),
+                new Item("Sunflower Seeds", 1295),
+        };
+
+        ArrayBag&lt;Item> shoppingCart = new ArrayBag&lt;>();
+
+        int totalCost = 0;
+
+        for (Item nextItem : items) {
+            shoppingCart.add(nextItem);
+            totalCost += nextItem.getPrice();
+        }
+
+        System.out.println(Arrays.toString(shoppingCart.toArray()));
+
+        //这里不能直接使用Item[]类型的数组变量来接着toArray()的结果, 必须如此使用,否则会类型错误
+        Object[] itemObjects = shoppingCart.toArray();
+
+        ((Item) itemObjects[0]).setName("gugugu");
+
+        System.out.println(Arrays.toString(shoppingCart.toArray()));
+    }
+}
+</pre>
+<p>通过这段代码可以发现, 还是可以更改其中的数据. 这一点要注意, 没有完全的封装, 但是作为一个数据结构来说已经OK了.</p>
+
+
+<h2 style="text-align: center;" id="con5">查找项目</h2>
+<p>前边remove方法的思路已经知道了, 不过在删除之前, 很显然, 还需要先知道一个项目到底存在不存在于包内. </p>
+<p>很显然, 要查找一个项目是不是在其中, 需要遍历, 然后调用其中存放的元素的.equals方法.</p>
+<p>因此可以写出下列查找是否存在于包内的contains方法:</p>
+<pre>
+@Override
+public boolean contains(T anEntry) {
+    boolean found = false;
+    int index = 0;
+    for (; index < numberOfEntries; index++) {
+        if (bag[index].equals(anEntry)) {
+            found = true;
+            break;
+        }
+    }
+    return found;
+}
+</pre>
+<p>这个方法还是非常简明扼要的, 由于包中可以有重复的元素, 因此找到一个就可以终止查找并返回true了.</p>
+<p>然后还有一个方法, 就是返回包中某个项目存在了几次, 这个只要稍作修改, 遍历所有变量然后添加一个计数即可:</p>
+<pre>
+@Override
+public int getFrequencyOf(T anEntry) {
+    int result = 0;
+    for (int index = 0; index < numberOfEntries; index++) {
+        if (bag[index].equals(anEntry)) {
+            result++;
+        }
+    }
+    return result;
+}
+</pre>
+<p>这个方法也很简单, 只不过必定会遍历整个数组, 以免漏掉任何一项.</p>
+<p>这里一开始我没有在Item中覆盖标准的equals方法导致自己的equals方法无法调用. 修改后的Item类如下:</p>
+<pre>
+public class Item {
+
+    private int price;
+    private String name;
+
+    public int getPrice() {
+        return price;
+    }
+
+    public void setPrice(int price) {
+        this.price = price;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Item() {
+
+    }
+
+    public Item(String name, int price) {
+
+        this.price = price;
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return "Item{" +
+                "price=" + price +
+                ", name='" + name + '\'' +
+                '}';
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj.getClass() == Item.class) {
+            return ((Item) obj).getName().equals(this.name) && ((Item) obj).getPrice() == this.price;
+        } else {
+            return false;
+        }
+    }
+}
+</pre>
+<p>现在都成功了, 然后就是关键的remove方法了.</p>
+
+<h2 style="text-align: center;" id="con6">remove方法</h2>
+<p>remove方法的原理已经知道了, 就是删除之后, 将数组的最后一个数据项填充到刚才删除的位置, 因为包无序, 所以可以不用关心顺序.</p>
+<p>首先我们来看<code>T remove()</code>方法, 调用这个方法会从包里删除一个元素, 只要包不为空, 就可以删除.</p>
+<p>在内部, 我们决定从数组的最大一项开始删除. 在每次删除之前, 肯定要检查当前的数组是不是为空, 不是空就暂时存储最大一个元素, 然后将私有变量bag对应的索引设置为空, 再返回最大元素, 所以编写方法如下:</p>
+<pre>
+@Override
+public T remove() {
+
+    T result = null;
+
+    if (!this.isEmpty()) {
+        result = bag[numberOfEntries - 1];
+        bag[numberOfEntries - 1] = null;
+        numberOfEntries--;
+    }
+
+    return result;
+}
+</pre>
+<p>然后就是<code>remove(T anEntry)</code>这个删除指定项的方法. 假如这个项目重复, 则我们每次就删除遇到的一个. 这样问题就简化很多.</p>
+<p>这个方法需要先判断包是不是为空, 为空就返回false. 如果不为空则需要查找, 查找之后删除, 因此稍微复杂一点:</p>
+<pre>
+@Override
+public boolean remove(T anEntry) {
+    if (!this.isEmpty()) {
+        for (int index = 0; index < numberOfEntries; index++) {
+            if (anEntry.equals(bag[index])) {
+                bag[index] = bag[numberOfEntries - 1];
+                bag[numberOfEntries - 1] = null;
+                numberOfEntries--;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+</pre>
+<p>如果为空, 就返回false, 如果不为空, 一项一项查找, 找到之后就用最后一项替代刚才那一项, 然后立刻返回true, 不再执行.</p>
+<p>实际上到了这里方法就全部写完了, 不过注意观察, 其中的一些代码, 和remove()非常类似. 可以考虑重构一下.</p>
+
+<h2 style="text-align: center;" id="con7">重构remove系列方法</h2>
+<p>通过观察, 我们可以知道, 如果一个项目位于bag的最后, 则删除这个元素和调用remove()方法没有什么区别.</p>
+<p>因此, 核心是获取要删除的元素的索引. 所以我们可以内部定义一个私有方法, 即通过一个元素的索引来删除元素. 新的方法是 <code>private T removeEntry(int index)</code></p>
+<p>假如有了这个方法, 那么<code>public T remove()</code>方法可以简化成这样:</p>
+<pre>
+@Override
+public T remove() {
+
+    return removeEntry(numberOfEntries - 1);
+
+}
+</pre>
+<p>而如果再有一个获取索引的方法, 则可以简化<code>public boolean remove(T anEntry)</code>方法如下:</p>
+<pre>
+@Override
+public boolean remove(T anEntry) {
+    int index = getIndexOf(anEntry);
+    return removeEntry(index) != null;
+}
+</pre>
+<p>所以下边的关键就是来实现这两个方法:</p>
+<p>首先是<code>int getIndexOf(T entry)</code>, 这里我们要思考, 如果找不到应该返回什么, 0? 正数? 很显然需要返回一个找到的情况下绝对不会出现的数字, 比如可以返回-1:</p>
+<pre>
+private int getIndexOf(T entry) {
+    int index = -1;
+
+    for (int i = 0; i < numberOfEntries; i++) {
+        if (bag[i].equals(entry)) {
+            index = i;
+            break;
+        }
+    }
+    return index;
+}
+</pre>
+<p>有了这个方法之后, 再来编写<code>private T removeEntry(int index)</code>方法, 就简单多了:</p>
+<pre>
+private T removeEntry(int index) {
+    if (index == -1 || isEmpty()) {
+        return null;
+    }
+
+    T result = bag[index];
+    bag[index] = bag[numberOfEntries - 1];
+    bag[numberOfEntries - 1] = null;
+    numberOfEntries--;
+    return result;
+}
+</pre>
+<p>这个方法也很简单, 如果包空或者找不到, 就返回null, 否则返回result. 这样两个remove方法都重构过了, 看看还有没有其他的方法也可以依赖于这两个方法.</p>
+<p>答案就是contains, 只需要获取要查找的项目的索引, 然后检查是不是小于等于0就可以了. 所以也可以重构如下:</p>
+<pre>
+@Override
+public boolean contains(T anEntry) {
+
+    return getIndexOf(anEntry) >= 0;
+}
+</pre>
+<p>使用两个私有方法重构之后, 代码的逻辑就更加清晰了, 主要逻辑核心都变成了数组的索引操作, 这也是数组使用的一大好处. 最后放上完整的代码.</p>
+<pre>
+public class ArrayBag&lt;T> implements BagInterface&lt;T> {
+
+    private T[] bag;
+
+    private int numberOfEntries;
+
+    private static final int DEFAULT_CAPACITY = 25;
+
+
+    @SuppressWarnings("unchecked")
+    public ArrayBag(int capacity) {
+        bag = (T[]) new Object[capacity];
+        numberOfEntries = 0;
+    }
+
+
+    public ArrayBag() {
+        this(DEFAULT_CAPACITY);
+    }
+
+
+    @Override
+    public int getCurrnetSize() {
+        return numberOfEntries;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return numberOfEntries == 0;
+    }
+
+    @Override
+    public boolean add(T newEntry) {
+        boolean isAddSuccess = true;
+        if (isArrayFull()) {
+            isAddSuccess = false;
+        }else {
+            bag[numberOfEntries] = newEntry;
+            numberOfEntries++;
+        }
+        return isAddSuccess;
+    }
+
+    private boolean isArrayFull() {
+        return numberOfEntries >= bag.length;
+    }
+
+    @Override
+    public void clear() {
+        for (int i = 0; i &lt; numberOfEntries; i++) {
+            bag[i] = null;
+        }
+        numberOfEntries = 0;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public T[] toArray() {
+        T[] result = (T[]) new Object[bag.length];
+
+        for (int index = 0; index &lt; numberOfEntries; index++) {
+            result[index] = bag[index];
+        }
+        return result;
+    }
+
+    @Override
+    public int getFrequencyOf(T anEntry) {
+        int result = 0;
+        for (int index = 0; index &lt; numberOfEntries; index++) {
+            if (bag[index].equals(anEntry)) {
+                result++;
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public boolean contains(T anEntry) {
+
+        return getIndexOf(anEntry) >= 0;
+    }
+
+
+    @Override
+    public T remove() {
+        return removeEntry(numberOfEntries - 1);
+    }
+
+    @Override
+    public boolean remove(T anEntry) {
+        int index = getIndexOf(anEntry);
+        return removeEntry(index) != null;
+    }
+
+    private T removeEntry(int index) {
+        if (index == -1 || isEmpty()) {
+            return null;
+        }
+
+        T result = bag[index];
+        bag[index] = bag[numberOfEntries - 1];
+        bag[numberOfEntries - 1] = null;
+        numberOfEntries--;
+        return result;
+    }
+
+    private int getIndexOf(T entry) {
+        int index = -1;
+
+        for (int i = 0; i &lt; numberOfEntries; i++) {
+            if (bag[i].equals(entry)) {
+                index = i;
+                break;
+            }
+        }
+        return index;
+    }
+
+}
+</pre>
+<p>通过看包的第一种实现, 发现这本书写的还挺易懂, 后边进度就要快一些了, 博客也不会记录这么详细了.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
