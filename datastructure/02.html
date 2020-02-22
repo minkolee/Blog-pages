@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 包 - 变长数组实现</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>看了定长, 再来看变长数组, 在之前, 先补一些让类更安全的方法.</p>
+
+<ol>
+    <li><a href="#con1">编程技巧 - 让类更安全</a></li>
+    <li><a href="#con2">变长数组实现包</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">编程技巧 - 让类更安全</h2>
+<p>让类更安全的方法就是尽可能少的暴露内部数据. 除此之外, 还应该防着为初始化完成的类, 以及应该对包的上限进行一些限制.</p>
+<p>添加两个私有变量如下, 一个表示当前的对象是否初始化完成, 一个表示包的大小限制:</p>
+<pre>
+private boolean initialized;
+
+private static final int MAX_CAPACITY = 10000;
+</pre>
+<p>对于第一个initialized变量, 在每次操作核心方法之前, 加上一个如下私有方法的调用, 注意方法要加在合理的位置上, 不要重复调用:</p>
+<pre>
+private void checkInitialized() {
+    if (!initialized) {
+        throw new RuntimeException("Bag is not properly initialized");
+    }
+}
+</pre>
+<p>然后在构造器的地方加上判断用户给定的包大小的判断:</p>
+<pre>
+@SuppressWarnings("unchecked")
+public ArrayBag(int capacity) {
+    if (<span style="color: red">capacity > MAX_CAPACITY</span>) {
+        throw new RuntimeException("Max bag capacity exceeds 10000");
+    }
+
+    bag = (T[]) new Object[capacity];
+    numberOfEntries = 0;
+    initialized = true;
+}
+</pre>
+<p>现在这个类就比原来更加安全, 同时也可以防止包的大小过大.</p>
+
+<h2 style="text-align: center;" id="con2">变长数组实现包</h2>
+<p>变长数组实现包的核心算法就是, 每次包放满的时候, 就尝试将包的私有变量bag的长度扩大到原来的2倍长度. 其他所有逻辑都不变.</p>
+<p>实现起来可以手工编写, 也可以使用Java的Arrays数组工具类.</p>
+<p>这里先来定义一个私有方法, 用来扩充数组:</p>
+<pre>
+private void doubleCapacity() {
+    int length = 2 * bag.length;
+    checkCapacity(length);
+    bag = Arrays.copyOf(bag, length);
+}
+</pre>
+<p>这里想到如果扩大一倍之后, 就可能会超过最大长度, 因此再定义一个私有方法用来检查长度:</p>
+<pre>
+private void checkCapacity(int capacity) {
+    if (capacity > MAX_CAPACITY) {
+        throw new RuntimeException("Cannot Resize Bag because exceeded MAX CAPACITY = 10000");
+    }
+}
+</pre>
+<p>有了这个方法之后, 就可以来重新编写add方法了. 编写之前的add方法有可能返回false, 因为定长, 现在我们无需返回false, 只要返回true就可以. 如果数组无法扩充, 则直接就抛异常了, 无需返回false.</p>
+<pre>
+@Override
+public boolean add(T newEntry) {
+    checkInitialized();
+    boolean isAddSuccess = true;
+    if (isArrayFull()) {
+        <span style="color: red">doubleCapacity();</span>
+    }
+
+    bag[numberOfEntries] = newEntry;
+    numberOfEntries++;
+
+    return isAddSuccess;
+}
+</pre>
+<p>通过这么编写, 就可以实现变长数组.</p>
+<p>用数组实现包, 则包的特点就会带有数组的特点:</p>
+<ol>
+    <li>添加一个项(未超过长度), 时间是常数</li>
+    <li>添加一个项, 超过长度, 时间是复制原来数组的时间加上常数, 也就可以认为就是复制原来数组的时间, 即遍历原来数组的时间</li>
+    <li>删除未指定项目, 在实现中就是删除最后一个项目, 时间也是常数.</li>
+    <li>删除一个项目, 时间是在数组中搜索到这个项目的时间, 因此最差时间也是遍历原来数组的时间</li>
+</ol>
+<p>今天继续放上女儿的最新作品: <img src="http://img.conyli.cc/conypaint20200222.png" alt="星之心"></p>
+
+
+
+
+
+<h2 style="text-align: center;" id="con3">练习题目</h2>
+<ol>
+    <li>对外无需暴露getIndexOf和removeEntry方法, 因为暴露这些就会暴露底层实现.</li>
+    <li>这个方法实现起来, 首先需要查找到原来的对象, 然后返回并且设置, 可以利用已经实现的静态方法比如引用等来获取.
+    <pre>
+    public T replace(T newEntry, T targetEntry) {
+        if (newEntry == null || targetEntry ==null) {
+            throw new RuntimeException("两个参数都不能为null");
+        }
+        T result = null;
+        int index = getIndexOf(targetEntry);
+        if (index > -1) {
+            result = bag[index];
+            bag[index] = newEntry;
+        }
+        return result;
+    }
+    </pre></li>
+    <li>clear其实只需要将所有的项都设置成null, 然后将当前的数量设置为1就可以. 然后调用一次checkInitialized方法即可, 也就是已经有的实现.</li>
+    <li>删除随机项目不会影响到其他方法, 只要remove依然遵循我们的要求, 删除之后依然保持用数组最后的项目替换原来的项目.
+    <pre>
+    public T removeRandom() {
+        if (!isEmpty()) {
+            Random random = new Random();
+            return removeEntry(random.nextInt(numberOfEntries));
+        }
+        return null;
+    }
+    </pre>
+    </li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
