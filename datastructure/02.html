@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 包 - 变长数组实现</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>看了定长, 再来看变长数组, 在之前, 先补一些让类更安全的方法.</p>
+
+<ol>
+    <li><a href="#con1">编程技巧 - 让类更安全</a></li>
+    <li><a href="#con2">变长数组实现包</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">编程技巧 - 让类更安全</h2>
+<p>让类更安全的方法就是尽可能少的暴露内部数据. 除此之外, 还应该防着为初始化完成的类, 以及应该对包的上限进行一些限制.</p>
+<p>添加两个私有变量如下, 一个表示当前的对象是否初始化完成, 一个表示包的大小限制:</p>
+<pre>
+private boolean initialized;
+
+private static final int MAX_CAPACITY = 10000;
+</pre>
+<p>对于第一个initialized变量, 在每次操作核心方法之前, 加上一个如下私有方法的调用, 注意方法要加在合理的位置上, 不要重复调用:</p>
+<pre>
+private void checkInitialized() {
+    if (!initialized) {
+        throw new RuntimeException("Bag is not properly initialized");
+    }
+}
+</pre>
+<p>然后在构造器的地方加上判断用户给定的包大小的判断:</p>
+<pre>
+@SuppressWarnings("unchecked")
+public ArrayBag(int capacity) {
+    if (<span style="color: red">capacity > MAX_CAPACITY</span>) {
+        throw new RuntimeException("Max bag capacity exceeds 10000");
+    }
+
+    bag = (T[]) new Object[capacity];
+    numberOfEntries = 0;
+    initialized = true;
+}
+</pre>
+<p>现在这个类就比原来更加安全, 同时也可以防止包的大小过大.</p>
+
+<h2 style="text-align: center;" id="con2">变长数组实现包</h2>
+<p>变长数组实现包的核心算法就是, 每次包放满的时候, 就尝试将包的私有变量bag的长度扩大到原来的2倍长度. 其他所有逻辑都不变.</p>
+<p>实现起来可以手工编写, 也可以使用Java的Arrays数组工具类.</p>
+<p>这里先来定义一个私有方法, 用来扩充数组:</p>
+<pre>
+private void doubleCapacity() {
+    int length = 2 * bag.length;
+    checkCapacity(length);
+    bag = Arrays.copyOf(bag, length);
+}
+</pre>
+<p>这里想到如果扩大一倍之后, 就可能会超过最大长度, 因此再定义一个私有方法用来检查长度:</p>
+<pre>
+private void checkCapacity(int capacity) {
+    if (capacity > MAX_CAPACITY) {
+        throw new RuntimeException("Cannot Resize Bag because exceeded MAX CAPACITY = 10000");
+    }
+}
+</pre>
+<p>有了这个方法之后, 就可以来重新编写add方法了. 编写之前的add方法有可能返回false, 因为定长, 现在我们无需返回false, 只要返回true就可以. 如果数组无法扩充, 则直接就抛异常了, 无需返回false.</p>
+<pre>
+@Override
+public boolean add(T newEntry) {
+    checkInitialized();
+    boolean isAddSuccess = true;
+    if (isArrayFull()) {
+        <span style="color: red">doubleCapacity();</span>
+    }
+
+    bag[numberOfEntries] = newEntry;
+    numberOfEntries++;
+
+    return isAddSuccess;
+}
+</pre>
+<p>通过这么编写, 就可以实现变长数组.</p>
+<p>用数组实现包, 则包的特点就会带有数组的特点:</p>
+<ol>
+    <li>添加一个项(未超过长度), 时间是常数</li>
+    <li>添加一个项, 超过长度, 时间是复制原来数组的时间加上常数, 也就可以认为就是复制原来数组的时间, 即遍历原来数组的时间</li>
+    <li>删除未指定项目, 在实现中就是删除最后一个项目, 时间也是常数.</li>
+    <li>删除一个项目, 时间是在数组中搜索到这个项目的时间, 因此最差时间也是遍历原来数组的时间</li>
+</ol>
+
+
+<h2 style="text-align: center;" id="con3">练习题目</h2>
+<ol>
+    <li>对外无需暴露getIndexOf和removeEntry方法, 因为暴露这些就会暴露底层实现.</li>
+    <li>这个方法实现起来, 首先需要查找到原来的对象, 然后返回并且设置, 可以利用已经实现的静态方法比如引用等来获取.
+    <pre>
+    public T replace(T newEntry, T targetEntry) {
+        if (newEntry == null || targetEntry ==null) {
+            throw new RuntimeException("两个参数都不能为null");
+        }
+        T result = null;
+        int index = getIndexOf(targetEntry);
+        if (index > -1) {
+            result = bag[index];
+            bag[index] = newEntry;
+        }
+        return result;
+    }
+    </pre></li>
+    <li>clear其实只需要将所有的项都设置成null, 然后将当前的数量设置为1就可以. 然后调用一次checkInitialized方法即可, 也就是已经有的实现.</li>
+    <li>删除随机项目不会影响到其他方法, 只要remove依然遵循我们的要求, 删除之后依然保持用数组最后的项目替换原来的项目.
+    <pre>
+    public T removeRandom() {
+        if (!isEmpty()) {
+            Random random = new Random();
+            return removeEntry(random.nextInt(numberOfEntries));
+        }
+        return null;
+    }
+    </pre>
+    </li>
+    <li>如果使用已经编写好的项目, 那么一次性删除全部的项目, 可以使用多次remove, 直到不再contain为止, 不过这么样的话要遍历好几次数组, 效率低下. 所以编写一个一次循环就可以删除完毕的. 逻辑如下: 首先找到要删除的元素, 之后进行第一次删除, 这一次必定会成功. 因为有可能删除之后是null.
+        所以用一个while循环, 判断不为null和当前位置依然相等, 只要同时满足两个条件, 继续删除当前位置的元素. 如果不满足, 就前进到下一个元素进行判断. 代码如下:
+    <pre>
+    /**
+     * 从包中删除与参数相等的每一个对象, 实现逻辑是
+     * 先找到该参数的位置, 然后进行删除, 之后检查被替换的是否与entry相同, 如果不同, 继续下一个位置, 如果相同, 继续删除.
+     *
+     * @param entry 要删除的对象
+     */
+    public T removeEvery(T entry) {
+
+        T result = null;
+
+        if (!isEmpty()) {
+            for (int i = 0; i < numberOfEntries; i++) {
+                //只要能找到, 第一次删除必定成功
+                if (bag[i].equals(entry)) {
+                    result = removeEntry(i);
+                    //有可能删除之后是null, 所以先把判断是不是null放在前边用来短路判断
+                    //只要不是null, 又和原来继续相等, 就继续删除当前位置上的元素
+                    while (bag[i] != null && bag[i].equals(entry)) {
+                        removeEntry(i);
+                    }
+                }
+
+            }
+        }
+        return result;
+    }
+    </pre>
+    这样一次循环就可以完成, 由于从末尾删除元素是常数时间操作, 所以这个方法只遍历一次数组, 运行时间只和要删除的项有多少项有关系. 即O(n)复杂度.</li>
+    <li>现实中能想到的, 比如以前放CD光盘的塑料盒子, 一个只能放20片CD, CD可以有两片是完全存着相同数据的, 假如我们认为相同数据的CD就是相等的, 那么这个就是一个限定大小的包. 可变的比如存钱罐, 显然可以存入重复面值的硬币, 如果存满了, 不是砸掉, 而是更换一个更大的, 这个就是可变的包.</li>
+    <li>书堆可以是一个包.</li>
+    <li>初始10, 每次的变化是 10->20->40->80>160, 添加20项后就是20项.</li>
+    <li>这个实际上就是将一个ArrayBag类型, 转换成一个同样大小的ResizableArrayBag实例, 方法如下:
+    <pre>
+    public static &lt;T> ResizableArrayBag&lt;T> transferFixedBagToResizableBag(ArrayBag&lt;T> bag) {
+        ResizableArrayBag&lt;T> resizableArrayBag = new ResizableArrayBag&lt;>(bag.getCurrnetSize());
+        for (int i = 0; i &lt; bag.getCurrnetSize(); i++) {
+            resizableArrayBag.add((bag.toArray())[i]);
+        }
+        return resizableArrayBag;
+    }
+    </pre>
+    </li>
+    <li>如果直接修改泛型为<code>&lt;T extends Comparable&lt;T>></code>, 内部由于是一个Object数组, 无法将其强制转换成T[]类型, 因为Object不实现Comparable接口.
+        这里想到了函数式编程, 无需去实现接口, 只要传入一个<code>Comparator&ltT></code>对象就行了:
+    <pre>
+    public T getMin(Comparator&lt;T> comparator) {
+        T result = null;
+        int index = getMinIndex(comparator);
+        if (index >= 0) {
+            result = bag[index];
+        }
+        return result;
+    }
+
+    public T getMax(Comparator&lt;T> comparator) {
+        T result = null;
+        int index = getMaxIndex(comparator);
+        if (index >= 0) {
+            result = bag[index];
+        }
+        return result;
+
+    }
+
+    private int getMinIndex(Comparator&lt;T> comparator) {
+        if (isEmpty()) {
+            return -1;
+        }
+
+        int result = 0;
+        T min = bag[0];
+        for (int i = 0; i &lt; numberOfEntries; i++) {
+            if (comparator.compare(min, bag[i]) > 0) {
+                min = bag[i];
+                result = i;
+            }
+        }
+        return result;
+    }
+
+    private int getMaxIndex(Comparator&lt;T> comparator) {
+        if (isEmpty()) {
+            return -1;
+        }
+
+        int result = 0;
+        T max = bag[0];
+        for (int i = 0; i &lt; numberOfEntries; i++) {
+            if (comparator.compare(max, bag[i]) &lt; 0) {
+                max = bag[i];
+                result = i;
+            }
+        }
+        return result;
+    }
+
+    public T removeMin(Comparator&lt;T> comparator) {
+        int index = getMinIndex(comparator);
+        if (index &lt; 0) {
+            return null;
+        }
+        T result = bag[index];
+        removeEntry(index);
+        return result;
+    }
+
+    public T removeMax(Comparator&lt;T> comparator) {
+        int index = getMaxIndex(comparator);
+        if (index &lt; 0) {
+            return null;
+        }
+        T result = bag[index];
+        removeEntry(index);
+        return result;
+    }
+    </pre>
+    这样这个方法的灵活性就高了很多, 无需一定要对象实现Comparable接口, 只需要使用lambda表达式来灵活的传入比较策略就可以了.
+    </li>
+    <li>
+        同样的考虑, 为了不影响原来包的状态, 传入一个函数式接口:
+        <pre>
+        public BagInterface&lt;T> getAllLessThan(T entry, Comparator&lt;T> comparator) {
+            BagInterface&lt;T> result = new ResizableArrayBag&lt;>();
+            for (int i = 0; i &lt; numberOfEntries; i++) {
+                if (comparator.compare(bag[i], entry) &lt; 0) {
+                    result.add(bag[i]);
+                }
+            }
+            return result;
+        }
+        </pre>
+    </li>
+    <li>equals方法的核心是数量相等, 而且所有元素的数量也相等. 可以写出方法如下:
+    <pre>
+    @Override
+    @SuppressWarnings("unchecked")
+    public boolean equals(Object obj) {
+        if (obj.getClass() != this.getClass()) {
+            return false;
+        }
+
+        if (this.numberOfEntries != ((ResizableArrayBagComparable&lt;T>) obj).getCurrnetSize()) {
+            return false;
+        }
+
+        for (int i = 0; i &lt; numberOfEntries; i++) {
+            if (this.getFrequencyOf(bag[i]) != ((ResizableArrayBagComparable&lt;T>) obj).getFrequencyOf(bag[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+    </pre>
+    因为类型擦除的原因, 所以类型直接强转就可以了, 然后从里边取出数据来进行比较.
+    </li>
+    <li>这两个方法也比较简单, 实现之后, 在每次删除元素成功之后进行调整.
+    <pre>
+    protected boolean isTooBig() {
+        return numberOfEntries < bag.length / 2 && bag.length > 20;
+    }
+
+    private void reduceArray() {
+        int length = bag.length;
+        if (length <= 20) {
+            return;
+        }
+        bag = Arrays.copyOf(bag, length * 3 / 4);
+    }
+    </pre>
+    注意我们所有的remove方法, 最后都落实到private方法removeEntry上 所以只需要修改这个方法的逻辑:
+    <pre>
+    protected T removeEntry(int index) {
+        checkInitialized();
+        if (index == -1 || isEmpty()) {
+            return null;
+        }
+
+        T result = bag[index];
+        bag[index] = bag[numberOfEntries - 1];
+        bag[numberOfEntries - 1] = null;
+        numberOfEntries--;
+
+        if (isTooBig()) {
+            reduceArray();
+        }
+
+        return result;
+    }
+    </pre>
+    </li>
+    <li>
+        a. 其实数组的大小在20左右已经可以了, 再多次缩短数组的长度没有必要, 还可能会因为稍微操作数组就会造成反复创建新数组. b的问题也是类似的. 如果刚刚减少到一半之下就立刻调整到一半, 则再增加的时候, 又需要复制数组, 增大开销, 减小的3/4可以应对添加之后又反复删除的情况.
+    </li>
+    <li>union的方法实现简单, 只需要将两个包的内容都添加到一个包中即可, 需要遍历两个包:
+    <pre>
+    public ResizableArrayBag&lt;T> union(ResizableArrayBag&lt;T> anotherBag) {
+        ResizableArrayBag&lt;T> unionResult = new ResizableArrayBag&lt;>(this.numberOfEntries + anotherBag.numberOfEntries);
+        for (int i = 0; i &lt; numberOfEntries; i++) {
+            unionResult.add(bag[i]);
+        }
+        for (int i = 0; i &lt; anotherBag.numberOfEntries; i++) {
+            unionResult.add(anotherBag.bag[i]);
+        }
+        return unionResult;
+    }
+    </pre>
+    </li>
+    <li>交集就是同时出现在两个包中的项, 然后需要取重复较小的数量. 因为最终结果必然是两个包任意一个包的子集,只需要遍历一边的包即可:
+    <pre>
+    public ResizableArrayBag&lt;T> intersection(ResizableArrayBag&lt;T> anotherBag) {
+        ResizableArrayBag&lt;T> intersectionResult = new ResizableArrayBag&lt;>();
+        for (int i = 0; i &lt; numberOfEntries; i++) {
+            int number = anotherBag.getFrequencyOf(bag[i]);
+            //只有当前元素也在对面存在, 而且当前元素不存在于结果中的时候才进行操作
+            if (number > 0 && !intersectionResult.contains(bag[i])) {
+                int thisNumber = this.getFrequencyOf(bag[i]);
+                //取两个数量的较小部分 = count
+                int count = Math.min(number, thisNumber);
+                //然后将当前元素添加count次
+                while (count > 0) {
+                    intersectionResult.add(bag[i]);
+                    count--;
+                }
+            }
+        }
+        //组装最终返回的对象
+        int length = intersectionResult.getCurrnetSize();
+        ResizableArrayBag&lt;T> finalResult = new ResizableArrayBag&lt;>(length);
+        for (int i = 0; i &lt; length; i++) {
+            finalResult.add(intersectionResult.bag[i]);
+        }
+
+        return finalResult;
+    }
+    </pre>
+    为了节省空间, 这里根据结果最后创建了一个长度与其相等的包, 然后将其中的数据复制进去, 以免返回一个带有很多null的结果.
+    </li>
+    <li>创建差集的方法很类似, 只不过要换成判断两者的数量来决定如何操作.
+    <pre>
+    public ResizableArrayBag&lt;T> difference(ResizableArrayBag&lt;T> anotherBag) {
+        ResizableArrayBag&lt;T> differenceResult = new ResizableArrayBag&lt;>();
+        for (int i = 0; i &lt; numberOfEntries; i++) {
+            int number = anotherBag.getFrequencyOf(bag[i]);
+            System.out.println("当前的元素是: " + bag[i]);
+            if (!differenceResult.contains(bag[i])) {
+                int thisNumber = this.getFrequencyOf(bag[i]);
+                //根据两个数量来得到结果 count, 如果自己的数量比其大, 就添加差额, 如果相等或者小于0, 就不添加.
+                int count = Math.max(thisNumber - number, 0);
+                //然后将当前元素添加count次
+                System.out.println("当前的值是: " + bag[i] + " 在自己包中出现几次: " + thisNumber + " 在另外一个包内出现几次: " + number + "要添加几次: " + count);
+                while (count > 0) {
+                    differenceResult.add(bag[i]);
+                    count--;
+                }
+            }
+        }
+
+        int length = differenceResult.getCurrnetSize();
+
+        ResizableArrayBag&lt;T> finalResult = new ResizableArrayBag&lt;>(length);
+        for (int i = 0; i &lt; length; i++) {
+            finalResult.add(differenceResult.bag[i]);
+        }
+
+        return finalResult;
+    }
+    </pre>
+    <p>这里唯一要注意的是, 无需判断本包中的元素在另外一个包的数量, 如果是0, 也依然需要进行相减运算.</p>
+    </li>
+</ol>
+<p>总算写完了全部练习, 真不容易.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
