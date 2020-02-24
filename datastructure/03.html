@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 包 - 链表实现</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>看了数组, 自然就想到用链表了. 说到这里我想起来刀魂里的Ivy, 一把剑鞭, 剑就像数组连在一起. 而链表就打散了连续在一起的内存地址.</p>
+<p>看来修炼完数据结构与算法之后, 可以左手一把精钢哈希表盾牌, 右手一条链表数组剑鞭, 可以去刷怪(题)了.</p>
+
+<ol>
+    <li><a href="#con1">LinkedBag设计</a></li>
+    <li><a href="#con2">编写add方法</a></li>
+    <li><a href="#con3">toArray方法</a></li>
+    <li><a href="#con4">其他与遍历数组相关的方法</a></li>
+    <li><a href="#con5">remove系列方法</a></li>
+    <li><a href="#con6">链表实现包的优缺点</a></li>
+    <li><a href="#con7">练习</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">LinkedBag设计</h2>
+<p>LinkedBag首先要有一个东西当成节点, 肯定是一个Node类了. 但是这个类放在哪里, 有讲究.</p>
+<p>由于无需将内部结构暴露给外边, 所以使用私有非静态内部类, 这样这个内部类的对象一定要附着在已经存在的外部对象, 而且还无法访问. 同时内部类又可以使用外部类的数据和泛型, 比较方便.</p>
+<p>所以先创建一个实现了BagInterface的LinkedBag, 然后编排一个内部类:</p>
+<pre>
+public class LinkedBag&lt;T> implements BagInterface&lt;T> {
+
+    private class Node {
+        private T data;
+        private Node next;
+
+        private Node(T dataPortion) {
+            this(dataPortion, null);
+        }
+
+        private Node(T dataPortion, Node nextNode) {
+            this.data = dataPortion;
+            this.next = nextNode;
+        }
+    }
+
+    @Override
+    public int getCurrentSize() {
+        return 0;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return false;
+    }
+
+    @Override
+    public boolean add(T newEntry) {
+        return false;
+    }
+
+    @Override
+    public T remove() {
+        return null;
+    }
+
+    @Override
+    public boolean remove(T anEntry) {
+        return false;
+    }
+
+    @Override
+    public void clear() {
+
+    }
+
+    @Override
+    public int getFrequencyOf(T anEntry) {
+        return 0;
+    }
+
+    @Override
+    public boolean contains(T anEntry) {
+        return false;
+    }
+
+    @Override
+    public T[] toArray() {
+        return null;
+    }
+}
+</pre>
+<p>这个玩意在学C的时候就知道用struct也是这个套路, 包含一个数据对象和一个指向自己结构的指针. Java里其实也是一样的. 不过面向对象的好处就是有构造器比较方便的使用.</p>
+<p>两个构造器, 一个对应创建一个独立的新节点(或者说链表头部), 一个创建一个带有下一个节点的节点.</p>
+<p>有了这个节点, 之后就可以来写一下LinkedBag的构造方法, LinkedBag中必须有一个Node对象, 用来指向一个链表的第一个节点:</p>
+<pre>
+public class LinkedBag&lt;T> implements BagInterface&lt;T> {
+
+    private Node firstNode;
+    private int numberOfEntries;
+
+    public LinkedBag() {
+        firstNode = null;
+        numberOfEntries = 0;
+    }
+
+    //内部类定义和其他接口方法
+
+}
+</pre>
+<p>这里定义了两个变量, 一个是指向第一个节点的firstNode引用, 一个是记录链表长度的值. 这里没有为了安全起见设置初始化的initialized布尔变量, 因为LinkedBag的初始化仅仅只是两个赋值, 而且都是默认值. 不涉及创建数组等数据结构.
+因此不用担心, 之后的</p>
+
+
+<h2 style="text-align: center;" id="con2">编写add方法</h2>
+<p>链表添加一个节点的操作, 如果是从头添加, 其实是一样的, 根本无需考虑第一个节点是不是为空, 只需要如下步骤:</p>
+<ol>
+    <li>创建一个新节点newNode</li>
+    <li>将newNode的next指向firstNode</li>
+    <li>将firstNode指向newNode</li>
+</ol>
+<p>根据这个方法, 就可以编制一个add方法, 这个也是一个核心方法.</p>
+<pre>
+/**
+ * 向链表中添加一个新的数据, 原理是创建一个新节点, 让新节点指向链表头, 然后让链表头指向新节点
+ * @param newEntry  The object to be added as a new entry.
+ * @return 必定返回true, 如果因为内存用光, 无需从内存错误中恢复
+ */
+@Override
+public boolean add(T newEntry) {
+    Node newNode = new Node(newEntry);
+    newNode.next = firstNode;
+    firstNode = newNode;
+    numberOfEntries++;
+    return true;
+}
+</pre>
+<p>这个方法永远返回true, 因为一般无需从内存耗尽错误中恢复.</p>
+
+<h2 style="text-align: center;" id="con3">toArray方法</h2>
+<p>这个方法其实核心就是遍历. 遍历链表的方法也很简单, 为了保险起见, 可以同时测试某个节点的.next为空和超出索引两个条件, 以免会造成不一致.</p>
+<pre>
+@Override
+@SuppressWarnings("unchecked")
+public T[] toArray() {
+    T[] result = (T[]) new Object[numberOfEntries];
+    int i = 0;
+    Node currentNode = firstNode;
+    while (i < numberOfEntries && currentNode != null){
+        result[i++] = currentNode.data;
+        currentNode = currentNode.next;
+    }
+    return result;
+}
+</pre>
+<p>这段代码也是标配了, 基本上都会背了. 这里要注意的时候, 似乎没有必要去同时测试两个条件, 比如如果我们其他的操作都能够保证链表的结尾节点一定是null, 而每次add的时候numberOfEntries也会更新就可以.</p>
+<p>同时测试两个值的话, 可以更高的程度上保持一致性.</p>
+<p>此时有了numberOfEntries变量, 也可以把其他的方法都实现上了.</p>
+<pre>
+@Override
+public int getCurrentSize() {
+    return numberOfEntries;
+}
+
+@Override
+public boolean isEmpty() {
+    return numberOfEntries == 0 && firstNode == null;
+}
+</pre>
+<p>这里的测试也同时测试了数量为0和首节点为null, 也是一个双重保证.</p>
+
+<h2 style="text-align: center;" id="con4">其他与遍历数组相关的方法</h2>
+<p>首先是getFrequencyof(), 知道了如何遍历, 就比较简单了:</p>
+<pre>
+@Override
+public int getFrequencyOf(T anEntry) {
+    int count = 0;
+    int index = 0;
+    Node currentNode = firstNode;
+
+    while (currentNode != null && (index < numberOfEntries)) {
+        if (anEntry.equals(currentNode.data)) {
+            count++;
+        }
+        currentNode = currentNode.next;
+        index++;
+    }
+    return count;
+}
+</pre>
+<p>这个方法很简单,遍历链表, 相同就增加一个计数,最后返回计数.</p>
+<p>contains比这个简单粗暴一些, 不用遍历完, 只要发现就返回:</p>
+<pre>
+@Override
+public boolean contains(T anEntry) {
+    boolean found = false;
+    int index = 0;
+    Node currentNode = firstNode;
+    while (currentNode != null && (index < numberOfEntries)) {
+        if (anEntry.equals(currentNode.data)) {
+            found = true;
+            break;
+        }
+        currentNode = currentNode.next;
+        index++;
+    }
+    return found;
+}
+</pre>
+<p>这些套路都很熟悉了, 来看看删除.</p>
+
+<h2 style="text-align: center;" id="con5">remove系列方法</h2>
+<p>首先看看不加参数的删除. 从前边的遍历可以发现, 不像数组可以直接通过index来删除某个位置的元素.</p>
+<p>既然如此, 我们就采取最简单的方法, 就是删除链表最后添加进去, 也就是第一个元素.</p>
+<p>删除第一个元素的方法也很简单, 就是将firstNode直接指向firstNode的next即可, 这样中间的元素失去引用,就被删除在链子之外. 然后将数量减1.</p>
+<pre>
+@Override
+public T remove() {
+    T result = null;
+    if (!isEmpty()) {
+        result = firstNode.data;
+        firstNode = firstNode.next;
+        numberOfEntries--;
+    }
+    return null;
+}
+</pre>
+<p>这个套路也是熟悉的不行. 然后来看删除指定的元素. 删除指定的元素首先就是要定位到那个元素. 其次, 就是要获取这个元素的上一个节点, 将上一个节点指向这个元素的下一个节点.</p>
+<p>链表为空的时候当然就返回false. 这里的关键就是查找要稍微改变一下, 即找到那个元素的同时, 要获取那个元素的上一个节点.</p>
+<p>但其实这种思路有点过时, 更好的方法是, 先找到要删除的节点, 然后用第一个节点中的数据直接替换掉要删除的节点, 然后将第一个节点删除. 即使只有一个节点也没有关系, 用自己替换自己, 然后会干掉自己.</p>
+<p>这样就不用实际来移动被删除节点的前后节点. 只需要进行几个判断即可.</p>
+<p>为了获取一个节点的引用, 可以来编写一个私有方法:</p>
+<pre>
+private Node getRefference(T entry) {
+    int index = 0;
+    Node currentNode = firstNode;
+    while (currentNode != null && (index < numberOfEntries)) {
+        if (entry.equals(currentNode.data)) {
+            break;
+        }
+        currentNode = currentNode.next;
+    }
+    return currentNode;
+}
+</pre>
+<p>然后使用这个方法, 加上一些判断, 就可以来写出删除一个Entry的remove方法:</p>
+<pre>
+@Override
+public boolean remove(T anEntry) {
+    boolean result = false;
+    //表不为空
+    if (!isEmpty()) {
+        //获取节点引用
+        Node target = getRefference(anEntry);
+        //如果有该节点再进行删除操作
+        if (target != null) {
+            target.data = firstNode.data;
+            remove();
+            result = true;
+        }
+    }
+    return result;
+}
+</pre>
+<p>仔细思考的话这方法确实比拿到上一个节点的链接逻辑要好很多. 而且只需要遍历一次, 一样的复杂度, 但是逻辑确实好了一些.</p>
+<p>有了这个私有方法之后, contains方法也可以使用这个私有方法, 有了可重用的私有方法, 方法的耦合程度就进一步下降了, 也更好修改了:</p>
+<pre>
+@Override
+public boolean contains(T anEntry) {
+    return getRefference(anEntry) != null;
+}
+</pre>
+<p>到现在为止就实现完了全部接口里的方法.</p>
+
+<h2 style="text-align: center;" id="con6">链表实现包的优缺点</h2>
+<p>所谓优缺点, 肯定就是和数组相比较的优缺点, 来简单看一下:</p>
+<ol>
+    <li>添加一个项目, 固定在链表头部插入. 数组固定在末尾插入,不考虑变长的话, 都是常数操作. 如果要考虑变长, 则数组添加一个东西可能会遍历一遍, 因此数组的性能受是否定长影响.</li>
+    <li>删除一项, 链表固定删除第一项, 数组删除最后一项, 也是常数操作. 涉及到长度变化, 则会加上遍历的时间.</li>
+    <li>查找和删除, 都需要遍历, 二者是相等的.</li>
+    <li>在内存耗费上, 数组可能会有浪费的空间, 不过链表不会, 但代价就是链表还要存储额外的引用.</li>
+</ol>
+<p>从整体上看, 除了内存使用更有效率之外, 二者本质上都是线性表, 所以在添加和删除上的时间差不多. 但是定长数组的时间可能会额外增加一个遍历也就是O(n)的时间, 特别要注意.</p>
+<p>剩下就是继续写练习了.</p>
+<h2 style="text-align: center;" id="con7">练习</h2>
+<ol>
+    <li>参数是一个T[[, 遍历然后添加即可.
+    <pre>
+    public LinkedBag(T[] array) {
+        this();
+        int length = array.length;
+        for (T t : array) {
+            add(t);
+        }
+    }
+    </pre>
+    </li>
+
+    <li>交换之后, 可以看到firstNode指向的原来的链表丢失, 而newNode的next指向自己. 每次添加都是这样, 而且计数器还错误的增加了, 因此会显示出与计数器相同个数的最后一个添加的元素. 由于计数器和实际数量不一致, 使用到计数器的地方都会出问题.</li>
+    <li>实现replace方法, 这个比较容易, 只需要找到一个, 然后对换其中的数据即可, 并将原来的数据返回, 编写如下:
+    <pre>
+    public T replace(T newEntry, T oldEntry) {
+        T result = null;
+
+        //直接尝试获取oldEntry的引用
+        Node target = getRefference(oldEntry);
+        if (target != null) {
+            result = target.data;
+            target.data = newEntry;
+        }
+        return result;
+    }
+    </pre>
+    </li>
+    <li>修改删除一个随机项, 只需要控制遍历到哪里即可.并不会影响到其他方法. 代码如下:
+    <pre>
+    public T removeRandom() {
+        T result = null;
+        //原理就是随机控制遍历的一个数字, 然后删除那个位置的节点即可. 由于手工控制遍历的点了, 因此就获取了引用, 直接删除即可.
+        if (isEmpty()) {
+            return result;
+        }
+        Random random = new Random();
+        int index = random.nextInt(numberOfEntries);
+        Node currentNode = firstNode;
+        //定位到随机节点
+        while (index > 0 && currentNode != null) {
+            index--;
+            currentNode = currentNode.next;
+        }
+        //已经获取到对Node节点的引用. 直接删除之,无需再去调用getReference方法了
+        if (currentNode != null) {
+            result = currentNode.data;
+            currentNode.data = firstNode.data;
+            remove();
+        }
+        return result;
+    }
+    </pre>
+    </li>
+    <li>removeEvery方法在一次遍历中, 遇到就删除, 由于是用第一个节点来替换, 因此不用再判断替换过来的是不是还需要被删除, 一次性就可以干完.
+        因为始终是删除第一个节点, 这里要注意就是在remove()方法执行之前, 先将currentNode往后移动一次.
+    <pre>
+    public boolean removeEvery(T entry) {
+        boolean deleted = false;
+        Node currentNode = firstNode;
+
+        while (currentNode != null) {
+            if (currentNode.data.equals(entry)) {
+                currentNode.data = firstNode.data;
+                currentNode = currentNode.next;
+                remove();
+                deleted = true;
+            } else {
+                currentNode = currentNode.next;
+            }
+        }
+        return deleted;
+    }
+    </pre>
+    </li>
+    <li>分别是最大, 最小和删除最大, 最小, 由于只要找到指定的节点就可以删除了, 因此实现也比较方便, 这里依然是传入一个函数式对象即可. 这里还可以定义私有方法来获取引用, 这样就方便很多了.
+    <pre>
+    private Node getMinRefference(Comparator&lt;T> comparator) {
+        if (isEmpty()) {
+            return null;
+        } else {
+            System.out.println("执行了获取最小值方法");
+            T min = firstNode.data;
+            Node minNode = firstNode;
+            Node currentNode = firstNode;
+            while (currentNode != null) {
+                if (comparator.compare(currentNode.data, min) &lt; 0) {
+                    min = currentNode.data;
+                    minNode = currentNode;
+                }
+                currentNode = currentNode.next;
+            }
+            return minNode;
+        }
+    }
+
+    public T getMin(Comparator&lt;T> comparator) {
+        Node minNode = getMinRefference(comparator);
+        if (minNode == null) {
+            return null;
+        } else {
+            return minNode.data;
+        }
+    }
+
+    private Node getMaxRefference(Comparator&lt;T> comparator) {
+        if (isEmpty()) {
+            return null;
+        } else {
+            T max = firstNode.data;
+            Node maxNode = firstNode;
+            Node currentNode = firstNode;
+            while (currentNode != null) {
+                if (comparator.compare(currentNode.data, max) > 0) {
+                    max = currentNode.data;
+                    maxNode = currentNode;
+                }
+                currentNode = currentNode.next;
+            }
+            return maxNode;
+        }
+    }
+
+    public T getMax(Comparator&lt;T> comparator) {
+        Node maxNode = getMaxRefference(comparator);
+        if (maxNode == null) {
+            return null;
+        } else {
+            return maxNode.data;
+        }
+    }
+
+    public T removeMin(Comparator&lt;T> comparator) {
+        T result = null;
+        Node minNode = getMinRefference(comparator);
+        if (minNode != null) {
+            result = minNode.data;
+            minNode.data = firstNode.data;
+            remove();
+        }
+        return result;
+    }
+
+    public T removeMax(Comparator&lt;T> comparator) {
+        T result = null;
+        Node maxNode = getMaxRefference(comparator);
+        if (maxNode != null) {
+            result = maxNode.data;
+            maxNode.data = firstNode.data;
+            remove();
+        }
+        return result;
+    }
+    </pre>
+    其实这里可以发现, 如果定义一个根据引用来删除对象的私有方法, 需要写的内容更加少.
+    </li>
+    <li>实现第二章的练习11也很简单, 在遍历的时候判断是否要添加即可.
+    <pre>
+    public BagInterface&lt;T> getAllLessThan(T entry, Comparator&lt;T> comparator) {
+        BagInterface&lt;T> result = new LinkedBag&lt;>();
+        Node currentNode = firstNode;
+        while (currentNode != null) {
+            if (comparator.compare(currentNode.data, entry) &lt; 0) {
+                result.add(currentNode.data);
+            }
+            currentNode = currentNode.next;
+        }
+        return result;
+    }
+    </pre>
+    </li>
+    <li>
+        equals的方法, 比较总数量是否相同, 以及所有的项目的数量是否相同
+    <pre>
+    @Override
+    @SuppressWarnings("unchecked")
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        LinkedBag&lt;T> linkedBag = (LinkedBag&lt;T>) o;
+
+        if (this.numberOfEntries == linkedBag.numberOfEntries) {
+            Node currentNode = firstNode;
+            while (currentNode != null) {
+                if (this.getFrequencyOf(currentNode.data) != linkedBag.getFrequencyOf(currentNode.data)) {
+                    return false;
+                }
+                currentNode = currentNode.next;
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+    </pre>
+    </li>
+    <li>9-11题目其实就是遍历的方法不同, 本质没有任何区别.
+    <pre>
+    public LinkedBag&lt;T> union(LinkedBag&lt;T> anotherBag) {
+        LinkedBag&lt;T> unionResult = new LinkedBag&lt;>();
+        Node currentNode = firstNode;
+        while (currentNode != null) {
+            unionResult.add(currentNode.data);
+            currentNode = currentNode.next;
+        }
+
+        currentNode = anotherBag.firstNode;
+        while (currentNode != null) {
+            unionResult.add(currentNode.data);
+            currentNode = currentNode.next;
+        }
+        return unionResult;
+    }
+    </pre>
+    </li>
+    <li>
+    <pre>
+    public LinkedBag&lt;T> intersection(LinkedBag&lt;T> anotherBag) {
+        LinkedBag&lt;T> intersectionResult = new LinkedBag&lt;>();
+        Node currentNode = firstNode;
+        while (currentNode!=null) {
+            int number = anotherBag.getFrequencyOf(currentNode.data);
+            //只有当前元素也在对面存在, 而且当前元素不存在于结果中的时候才进行操作
+            if (number > 0 && !intersectionResult.contains(currentNode.data)) {
+                int thisNumber = this.getFrequencyOf(currentNode.data);
+                //取两个数量的较小部分 = count
+                int count = Math.min(number, thisNumber);
+                //然后将当前元素添加count次
+                while (count > 0) {
+                    intersectionResult.add(currentNode.data);
+                    count--;
+                }
+            }
+            currentNode = currentNode.next;
+        }
+
+        return intersectionResult;
+    }
+    </pre>
+    </li>
+    <li>
+    <pre>
+    public LinkedBag&lt;T> difference(LinkedBag&lt;T> anotherBag) {
+        LinkedBag&lt;T> differenceResult = new LinkedBag&lt;>();
+        Node currentNode = firstNode;
+        while (currentNode != null) {
+
+            int number = anotherBag.getFrequencyOf(currentNode.data);
+//            System.out.println("当前的元素是: " + bag[i]);
+            if (!differenceResult.contains(currentNode.data)) {
+                int thisNumber = this.getFrequencyOf(currentNode.data);
+                //根据两个数量来得到结果 count, 如果自己的数量比其大, 就添加差额, 如果相等或者小于0, 就不添加.
+                int count = Math.max(thisNumber - number, 0);
+                //然后将当前元素添加count次
+//                System.out.println("当前的值是: " + bag[i] + " 在自己包中出现几次: " + thisNumber + " 在另外一个包内出现几次: " + number + "要添加几次: " + count);
+                while (count > 0) {
+                    differenceResult.add(currentNode.data);
+                    count--;
+                }
+            }
+            currentNode = currentNode.next;
+        }
+
+        return differenceResult;
+    }
+    </pre>
+    </li>
+</ol>
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
