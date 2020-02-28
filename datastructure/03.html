@@ -556,6 +556,79 @@ public boolean contains(T anEntry) {
     }
     </pre>
     </li>
+
+    <li>双向链表只需要修改Node节点, 添加一个指向前一个节点的previous指针, 可以人为规定, 第一个节点的previous就是nulll, 最后一个节点的next也是null, 其他的都正常连接.
+    <pre>
+    private class Node {
+        private T data;
+        private Node next;
+        private Node previous;
+
+        private Node(T dataPortion) {
+            this(dataPortion, null, null);
+        }
+
+        private Node(T dataPortion, Node nextNode, Node previous) {
+            this.previous = previous;
+            this.data = dataPortion;
+            this.next = nextNode;
+        }
+
+        @Override
+        public String toString() {
+            return "Node{" +
+                    "data=" + data +
+                    '}';
+        }
+    }
+    </pre>
+    </li>
+    <li>
+        13题目一样, 改成外部类的话就用setter getter软件.
+    </li>
+    <li>
+        将一个节点添加到首个节点, 与本质上是相同的, 但是要多设置一个, 就是将后一个节点的previous指向当前节点, 本身第一个节点, previous是null
+    <pre>
+    @Override
+    public boolean add(T newEntry) {
+        Node newNode = new Node(newEntry);
+        //新节点的next指向firstNode
+        newNode.next = firstNode;
+        //新节点的previous指向null
+        newNode.previous = null;
+        //将第一个节点指向newNode
+        firstNode = newNode;
+        numberOfEntries++;
+        return true;
+    }
+
+    </pre>
+    </li>
+    <li>从双向链表的开头删除一个节点, 需要将firstNode指向下一个节点, 同时还需要将新的首节点的previous设置成null, 这里要当心删除之后为null的情况.
+    <pre>
+    @Override
+    public T remove() {
+        if (isEmpty()) {
+            return null;
+        }
+
+        Node currentNode = firstNode;
+        firstNode = firstNode.next;
+        //如果是单链表, first=first.next就可以了
+        //但是双向链表, 下一个节点还存有对上一个的引用, 因此必须进行判断
+        //如果删除之后不是null, 才设置previous
+        if (firstNode != null) {
+            firstNode.previous = null;
+        }
+        //之后删除当前节点指向下一个节点指针
+        currentNode.next = null;
+        numberOfEntries--;
+        return currentNode.data;
+    }
+    </pre>
+
+    </li>
+
 </ol>
 
 
