@@ -21,8 +21,8 @@
 <ol>
     <li><a href="#con1">栈的设计</a></li>
     <li><a href="#con2">编写add方法</a></li>
-    <li><a href="#con3">toArray方法</a></li>
-    <li><a href="#con4">其他与遍历数组相关的方法</a></li>
+    <li><a href="#con3">栈的应用 - 括号匹配</a></li>
+    <li><a href="#con4">栈的应用 - 表达式转换</a></li>
     <li><a href="#con5">remove系列方法</a></li>
     <li><a href="#con6">链表实现包的优缺点</a></li>
     <li><a href="#con7">练习</a></li>
@@ -166,6 +166,130 @@ public class LinkedListStack&lt;T> implements Stack&lt;T> {
 }
 </pre>
 
+<h2 style="text-align: center;" id="con3">栈的应用 - 表达式处理</h2>
+<p>先看几个概念:</p>
+<ol>
+    <li>a+b 中缀表达式, 即运算符在操作数之间.</li>
+    <li>+ab 前缀表达式, 也叫波兰表示法</li>
+    <li>ab+ 后缀表达式, 也叫逆波兰表示法</li>
+</ol>
+<p>利用栈首先可以解决的一大问题, 就是中缀代数表达式中的分隔符是否正确, 分隔符即{},[],(), 所谓分隔符正确, 就是指整个式子中所有的分隔符都是能够互相配对的.</p>
+<p>这个套路其实之前就玩过了, 如果表达式是一个字符串, 只要按从左到右(或者右到左)的顺序扫描一遍, 将所有的一侧符号都压入栈中, 扫描到另外一侧符号的时候, 从栈中弹出与其对应的符号, 如果扫描完毕, 栈依然是空的, 就说明分隔符是正确的.</p>
+<p>写出代码如下:</p>
+<pre>
+public boolean checkBalance(String expression) {
+    boolean result = false;
+    if (expression == null) {
+        return result;
+    }
+
+    int length = expression.length();
+    LinkedListStack&lt;Character> stack = new LinkedListStack&lt;>();
+    Character popedCharacter;
+    for (int i = 0; i &lt; length; i++) {
+        char c = expression.charAt(i);
+
+        switch (c) {
+            case '{':
+            case '[':
+            case '(':
+                stack.push(c);
+                break;
+            case '}':
+                popedCharacter = stack.pop();
+                if (popedCharacter != '{') {
+                    return result;
+                }
+                break;
+            case ']':
+                popedCharacter = stack.pop();
+                if (popedCharacter != '[') {
+                    return result;
+                }
+                break;
+            case ')':
+                popedCharacter = stack.pop();
+                if (popedCharacter != '(') {
+                    return result;
+                }
+                break;
+            default:
+        }
+
+        System.out.println("当前的栈是: " + Arrays.toString(stack.toArray()));
+    }
+    if (stack.isEmpty()) {
+        result = true;
+    }
+
+    return result;
+}
+</pre>
+
+<h2 style="text-align: center;" id="con4">栈的应用 - 表达式转换</h2>
+<p>将中缀表达式转换成后缀表达式. 当时第一次碰到这个算法的时候还是仔细想了一下. 因为后缀表达式是按照优先级来排序的, 优先级高的会拍在一起, 所以这个套路就是不断的比较压入栈的操作符与当前操作符的优先级.</p>
+<p>如果当前操作符的优先级高于栈中的操作符,就说明这个当前操作符一定是写的更靠左, 所以就压入栈中, 等到下一个操作数拼接到字符串上之后, 再弹栈或者进行比较, 如果小于, 就说明靠右, 就出一个栈, 然后把当前操作符压进栈, 然后继续拼接字符串并进行比较.</p>
+<p>总结一下操作就是:</p>
+<ol>
+    <li>从左至右扫描操作符, 创建一个新的空字符串A作为结果</li>
+    <li>对于每一个符号, 如果不是运算符, 拼接到A上</li>
+    <li>对于每一个符号, 如果是运算符, 如果栈为空, 压入栈中. 如果栈不为空, 比较当前符号与栈顶符号的优先级程度</li>
+    <li>当前符号优先级大于栈顶符号, 将当前符号压入栈中</li>
+    <li>当前符号优先级等于或者小于栈顶符号, 说明之前有操作符不属于下一个操作数, 必须反复弹出操作符并拼接到字符串上, 直到栈为空, 说明之前的操作符都已经弹完了, 之后再把当前操作符加入到栈中.</li>
+</ol>
+<p>根据这个方法, 写出支持四则运算, 不带括号的方法:</p>
+<pre>
+public String change(String expression) {
+    if (expression == null) {
+        return "";
+    }
+    LinkedListStack&lt;Character> stack = new LinkedListStack&lt;>();
+    StringBuilder stringBuilder = new StringBuilder();
+    int length = expression.length();
+    for (int i = 0; i &lt; length; i++) {
+        char c = expression.charAt(i);
+
+        switch (c) {
+            case '+':
+            case '-':
+            case '*':
+            case '/':
+                if (stack.isEmpty()) {
+                    stack.push(c);
+                } else {
+                    //当前优先级大于栈中的, 说明上一个操作数不是上一个操作符的操作数, 所以将运算符入栈
+                    if (big(c, stack.peek())) {
+                        stack.push(c);
+                    } else {
+                        //如果当前优先级小于等于, 说明存在之前要计算完毕的表达式, 就需要反复弹出, 直到栈为空或者再出现大于的情况
+                        while (!stack.isEmpty() && !big(c, stack.peek())) {
+                            stringBuilder.append(stack.pop());
+                        }
+                        //弹干净之后说明又有一段新的表达式, 加入栈中
+                        stack.push(c);
+                    }
+                }
+                break;
+            default:
+                stringBuilder.append(c);
+                break;
+        }
+    }
+    //全部处理完之后, 如果还有栈中的运算符, 一定是前边剩下的, 也全部弹出加在字符串后边即可.
+    while (!stack.isEmpty()) {
+        stringBuilder.append(stack.pop());
+    }
+
+    return stringBuilder.toString();
+
+}
+
+//第一个操作符的优先级大于第二个操作符
+private boolean big(Character c1, Character c2) {
+    return (c1 == '*' || c1 == '/') && (c2 == '+' || c2 == '-');
+}
+</pre>
+<p>逻辑还是对的, 像<code>System.out.println(test.change("a*b*c-d*e"));</code>, 运算结果是: ab*c*de*-, 按照结合律ab=y, 这个式子是 yc*de*, yc=x, 变成 xde*-, 这个时候就是运算 de*=z, 最后就是 xz-, 正确.</p>
 
 
 
@@ -176,11 +300,6 @@ public class LinkedListStack&lt;T> implements Stack&lt;T> {
 
 
 
-
-
-
-<h2 style="text-align: center;" id="con3">栈的设计</h2>
-<h2 style="text-align: center;" id="con4">栈的设计</h2>
 <h2 style="text-align: center;" id="con5">栈的设计</h2>
 <h2 style="text-align: center;" id="con6">栈的设计</h2>
 
