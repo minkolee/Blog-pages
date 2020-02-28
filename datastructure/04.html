@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 包 - 栈</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>要敲代码, 设计先行. 栈不再解释了, 这里主要看设计思想</p>
+<p>看来修炼完数据结构与算法之后, 可以左手一把精钢哈希表盾牌, 右手一条链表数组剑鞭, 可以去刷怪(题)了.</p>
+
+<ol>
+    <li><a href="#con1">栈的设计</a></li>
+    <li><a href="#con2">编写add方法</a></li>
+    <li><a href="#con3">toArray方法</a></li>
+    <li><a href="#con4">其他与遍历数组相关的方法</a></li>
+    <li><a href="#con5">remove系列方法</a></li>
+    <li><a href="#con6">链表实现包的优缺点</a></li>
+    <li><a href="#con7">练习</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">栈的设计</h2>
+<p>栈顶: 最后添加到栈的一项. 栈限制对其中项目的访问, 客户只能看到或删除栈顶或者加入栈顶. 查找的方法是一个个删除, 直到找到或者为空.</p>
+<p>栈的这个特点, 可以将一系列内容的顺序反过来.</p>
+<p>将项添加到栈中的操作称为入栈(push), 删除操作称为出栈(pop). 获取栈顶项目但不删除的操作叫做查看(peek). 一般不能在栈中查找具体项, 但可以根据实现而不同.</p>
+<p>所以老样子, 先来创建接口:</p>
+<pre>
+public interface Stack&lt;T> {
+
+    void push(T newEntry);
+
+    T pop();
+
+    T peek();
+
+    boolean isEmpty();
+
+    void clear();
+}
+</pre>
+<p>接口只是一个开始, 然后还需要规划行为:</p>
+<ol>
+    <li>栈为空时候要不要抛异常. 取决于是否认为栈中可以存放null. 如果可以, 最好的方法是在栈空的时候, 对公共方法比如pop()和peek()来抛出异常.</li>
+    <li>私有方法与公有方法不同, 私有方法需要处理各种可能出现的问题, 以让私有方法可以信任. 不要信任公有方法, 客户会以很多方式来调用.</li>
+    <li>抛异常抛什么异常呢, 如果预期让客户从异常中恢复, 就应该抛受检异常. 对于栈来说, 如果栈为空一般意味着使用错误, 所以要抛运行时错误.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">栈的实现</h2>
+<p>回想一下之前写的包, 虽然包本身是没有顺序的. 但是我们内部使用的链表和数组都是有顺序的.</p>
+<p>但具体顺序如何, 还需要进一步看实现, 数组包添加到最后一项, 默认弹出最后一项, 其实完全符合要求. 链表每次添加在头部节点, 删除的时候也从头部节点开始删除, 依然符合这种情况.</p>
+<p>所以可以任意选择数组和链表结构来实现, 但是对外暴露的API就不要向包那么多了, 仅需要实现上边的代码.</p>
+<p>就以链表为例, 修改一个栈出来, 由于栈对外暴露的方法不多, 因此只需要弄两个私有方法来添加和删除首结点即可:</p>
+<pre>
+public class LinkedListStack&lt;T> implements Stack&lt;T> {
+
+    private class Node {
+        private T data;
+        private Node next;
+
+        private Node(T dataPortion) {
+            this(dataPortion, null);
+        }
+
+        private Node(T dataPortion, Node nextNode) {
+            this.data = dataPortion;
+            this.next = nextNode;
+        }
+
+        @Override
+        public String toString() {
+            return "Node{" +
+                    "data=" + data +
+                    '}';
+        }
+    }
+
+    private Node firstNode;
+    private int numberOfEntries;
+
+    public LinkedListStack() {
+        this.firstNode = null;
+        this.numberOfEntries = 0;
+    }
+
+
+    @Override
+    public T pop() {
+        return remove();
+    }
+
+    @Override
+    public T peek() {
+        if (isEmpty()) {
+            throw new RuntimeException("栈为空, 不能进行peek()操作");
+        } else {
+            return firstNode.data;
+        }
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return numberOfEntries == 0;
+    }
+
+    @Override
+    public void clear() {
+        firstNode = null;
+        numberOfEntries = 0;
+    }
+
+    @SuppressWarnings("unchecked")
+    public T[] toArray() {
+        T[] result = (T[]) new Object[numberOfEntries];
+        int i = 0;
+        Node currentNode = firstNode;
+        while (i &lt; numberOfEntries && currentNode != null) {
+            result[i++] = currentNode.data;
+            currentNode = currentNode.next;
+        }
+        return result;
+    }
+
+    @Override
+    public void push(T newEntry) {
+        add(newEntry);
+    }
+
+    /**
+     * 私有方法删除并返回一个数据, 删除链表开头的数据
+     * 如果链表为空则抛出异常
+     *
+     * @return 当链表为空返回null, 不为空则返回链表第一个节点的数据对象
+     */
+    private T remove() {
+        T result = null;
+        if (!isEmpty()) {
+            result = firstNode.data;
+            firstNode = firstNode.next;
+            numberOfEntries--;
+        } else {
+            throw new RuntimeException("栈为空, 不能进行pop()操作");
+        }
+        return result;
+    }
+
+    /**
+     * 向链表中添加一个新的数据, 原理是创建一个新节点, 让新节点指向链表头, 然后让链表头指向新节点
+     *
+     * @param newEntry The object to be added as a new entry.
+     */
+    private void add(T newEntry) {
+        Node newNode = new Node(newEntry);
+        newNode.next = firstNode;
+        firstNode = newNode;
+        numberOfEntries++;
+    }
+}
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con3">栈的设计</h2>
+<h2 style="text-align: center;" id="con4">栈的设计</h2>
+<h2 style="text-align: center;" id="con5">栈的设计</h2>
+<h2 style="text-align: center;" id="con6">栈的设计</h2>
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
