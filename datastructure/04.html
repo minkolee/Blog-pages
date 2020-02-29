@@ -15,17 +15,18 @@
     </style>
 </head>
 <body>
-<p>要敲代码, 设计先行. 栈不再解释了, 这里主要看设计思想</p>
-<p>看来修炼完数据结构与算法之后, 可以左手一把精钢哈希表盾牌, 右手一条链表数组剑鞭, 可以去刷怪(题)了.</p>
+<p>要敲代码, 设计先行. 栈不再解释了, 这里主要看设计思想.</p>
+<p>修炼完数据结构与算法之后, 可以左手一把精钢哈希表盾牌, 右手一条链表数组剑鞭, 可以去刷怪(题)了.</p>
+<p>今天正好是难得的2月29日, 必须得发一篇博文. 最近在好友安利下开始玩起了PathOfExile, 感觉是一个巨坑, 不过在坑也不能耽误学编程.</p>
 
 <ol>
     <li><a href="#con1">栈的设计</a></li>
-    <li><a href="#con2">编写add方法</a></li>
+    <li><a href="#con2">栈的实现</a></li>
     <li><a href="#con3">栈的应用 - 括号匹配</a></li>
-    <li><a href="#con4">栈的应用 - 表达式转换</a></li>
-    <li><a href="#con5">remove系列方法</a></li>
-    <li><a href="#con6">链表实现包的优缺点</a></li>
-    <li><a href="#con7">练习</a></li>
+    <li><a href="#con4">栈的应用 - 中缀运算表达式转后缀 - 四则运算符</a></li>
+    <li><a href="#con5">栈的应用 - 中缀运算表达式转后缀 - 扩展运算符</a></li>
+    <li><a href="#con6">栈的应用 - 计算后缀表达式的值</a></li>
+    <li><a href="#con7">栈的应用 - 双栈计算中缀表达式</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">栈的设计</h2>
@@ -166,7 +167,7 @@ public class LinkedListStack&lt;T> implements Stack&lt;T> {
 }
 </pre>
 
-<h2 style="text-align: center;" id="con3">栈的应用 - 表达式处理</h2>
+<h2 style="text-align: center;" id="con3">栈的应用 - 括号匹配</h2>
 <p>先看几个概念:</p>
 <ol>
     <li>a+b 中缀表达式, 即运算符在操作数之间.</li>
@@ -226,7 +227,7 @@ public boolean checkBalance(String expression) {
 }
 </pre>
 
-<h2 style="text-align: center;" id="con4">栈的应用 - 表达式转换</h2>
+<h2 style="text-align: center;" id="con4">栈的应用 - 中缀运算表达式转后缀 - 四则运算符</h2>
 <p>将中缀表达式转换成后缀表达式. 当时第一次碰到这个算法的时候还是仔细想了一下. 因为后缀表达式是按照优先级来排序的, 优先级高的会拍在一起, 所以这个套路就是不断的比较压入栈的操作符与当前操作符的优先级.</p>
 <p>如果当前操作符的优先级高于栈中的操作符,就说明这个当前操作符一定是写的更靠左, 所以就压入栈中, 等到下一个操作数拼接到字符串上之后, 再弹栈或者进行比较, 如果小于, 就说明靠右, 就出一个栈, 然后把当前操作符压进栈, 然后继续拼接字符串并进行比较.</p>
 <p>总结一下操作就是:</p>
@@ -291,6 +292,238 @@ private boolean big(Character c1, Character c2) {
 </pre>
 <p>逻辑还是对的, 像<code>System.out.println(test.change("a*b*c-d*e"));</code>, 运算结果是: ab*c*de*-, 按照结合律ab=y, 这个式子是 yc*de*, yc=x, 变成 xde*-, 这个时候就是运算 de*=z, 最后就是 xz-, 正确.</p>
 
+<h2 style="text-align: center;" id="con5">栈的应用 - 中缀运算表达式转后缀 - 扩展运算符</h2>
+<p>然后还需要引入括号, 由于括号括住的部分一定需要先行计算完成, 因此将左括号看成一个运算符, 优先级比其他运算符都低, 之后的所有运算符继续按照正常顺序来判定. 直到出现一个右括号, 就反复弹栈, 直到弹出左括号.</p>
+<p>还需要引入的就是幂, 幂是右结合的, 意味着所有运算符里幂运算是优先级最高的, 而且再加上右结合, 意味着直接压栈即可.</p>
+<p>最后总结出了如下规律:</p>
+<ol>
+    <li>操作数: 拼接在字符串之后</li>
+    <li>+-*/四则运算符: 比较大小关系, 如果优先级相等或者小于, 说明栈顶的运算符属于前边两个操作数, 弹栈拼接再将当前压栈. 如果优先级高于, 说明上一个操作数不属于栈顶的运算符, 而属于当前运算符, 将当前运算符压栈</li>
+    <li>遇到左括号: 将左括号压栈即可</li>
+    <li>遇到右括号: 首先右括号不压栈, 直接丢掉. 从栈中弹出所有运算符, 直到遇到左括号, 左括号也弹出, 但是不要将左括号拼接到字符串中</li>
+    <li>遇到幂运算符: 直接压栈, 表示优先级最高.</li>
+</ol>
+<p>所以栈这个后进先出, 还真的要好好理解一下如何应用先进先出的思想.</p>
+<p>可以继续修改代码如下:</p>
+<pre>
+public String change(String expression) {
+    if (expression == null) {
+        return "";
+    }
+
+    LinkedListStack&lt;Character> stack = new LinkedListStack&lt;>();
+    StringBuilder stringBuilder = new StringBuilder();
+    int length = expression.length();
+    for (int i = 0; i &lt; length; i++) {
+        char c = expression.charAt(i);
+
+        switch (c) {
+            //幂优先级最高, 直接入栈. 左括号作为分隔符, 也直接入栈
+            case '^':
+            case '(':
+                stack.push(c);
+                break;
+
+            //加减乘除, 只需要判断当前的加减乘除与栈中的运算符(加减乘除,幂,左括号)进行判断
+            //如果大于, 直接压栈
+            //如果小于, 反复弹到当前运算符小于等于栈顶运算符, 然后压栈
+            //可见最终一定要压栈当前运算符, 只是在压栈前看优先级, 当前运算符优先级高, 就要保留, 如果级别低或者相等, 说明在当前运算符之前需要把高于这个运算符优先级的都弹回去
+            case '+':
+            case '-':
+            case '*':
+            case '/':
+                //栈不为空且当前运算符不大于(即小于等于)栈顶运算符, 反复弹栈并将运算符拼接到字符串上
+                while (!stack.isEmpty() && !big(c, stack.peek())) {
+                    stringBuilder.append(stack.pop());
+                }
+                stack.push(c);
+                break;
+
+            //右括号处理, 一个右括号, 必定和之前的左括号搭配, 只要程序不错误, 栈中此时至少会有一个左括号
+            //因此需要不断检查栈顶, 只要不是左括号, 就弹栈并且拼接, 直到左括号出现, 说明两个括号之间的内容都已经处理完毕
+            //之后就抛弃栈里的左括号
+            case ')':
+                while (stack.peek() != '(') {
+                    stringBuilder.append(stack.pop());
+                }
+                    stack.pop();
+                break;
+
+            //不是运算符就直接拼接上去
+            default:
+                stringBuilder.append(c);
+                break;
+        }
+
+        System.out.println("当前的栈是: " + Arrays.toString(stack.toArray()));
+    }
+
+    //处理完之后, 如果还有没有拼上去的运算符, 就按照顺序拼上去, 优先级不会错
+    while (!stack.isEmpty()) {
+        stringBuilder.append(stack.pop());
+    }
+
+    return stringBuilder.toString();
+
+}
+
+//解析方法依赖于四则运算符与(四则运算符or左括号or幂运算符号)的大小比较, 所以这个方法很重要
+public boolean big(Character c1, Character c2) {
+    //第一种情况, 四则运算相互比较, 只有一种情况是优先级高, 就是c1是乘or除, c2是加or减. 其他的所有情况都不是大于
+    boolean condition1 = (c1 == '*' || c1 == '/') && (c2 == '+' || c2 == '-');
+    //第二种情况, 只要第一个是幂运算, 始终高, 因为幂是左结合, 必定高
+    boolean condition2 = (c1 == '^');
+    //第三种情况, 比较括号, 由于括号一定是后来的优先级要高于之前的, 因此不管前边是什么, 哪怕也是一个括号, 一定比已经存在栈中的括号要高, 所以只需要c2是括号即可.
+    boolean condition3 = (c2 == '(');
+    //最后三种条件满足任意一种, 都判定为c1优先级大于c2.
+    return condition1 || condition2 || condition3;
+}
+</pre>
+
+
+<h2 style="text-align: center;" id="con6">栈的应用 - 计算后缀表达式的值</h2>
+<p>通过比较中缀表达式和后缀表达式, 可以发现后缀表达式的运算符和操作数出现的顺序就决定了优先顺序, 无需像中缀表达式一样使用括号来强调优先级.</p>
+<p>后缀表达式特别适合使用栈来进行计算, 只需要按照从左向右解析, 每次遇到运算符就弹出两个操作数, 计算完毕之后, 将结果放入栈中即可.</p>
+<pre>
+public static double evaluatePostfix(String expression) {
+    Stack&lt;Double> value = new LinkedListStack&lt;>();
+
+    int length = expression.length();
+
+    for (int i = 0; i &lt; length; i++) {
+        char c = expression.charAt(i);
+
+        switch (c){
+            case '+':
+            case '-':
+            case '*':
+            case '/':
+            case '^':
+                double secondOp = value.pop();
+                double firstOp = value.pop();
+                //先弹出来的是第二个操作数, 后弹出来的是第一个操作数, 这里要注意顺序
+                //依赖私有静态方法evaluate
+                value.push(evaluate(firstOp, secondOp, c));
+                break;
+            default:
+                value.push(Double.parseDouble(String.valueOf(c)));
+                break;
+        }
+    }
+
+    System.out.println("当前的栈是: " + Arrays.toString(value.toArray()));
+
+    double result = value.pop();
+
+    //这里要注意, 正常结束的话, 栈中只会有一个结果, 如果栈弹出结果之后还有结果, 说明表达式有误.
+    if (!value.isEmpty()) {
+        throw new RuntimeException("表达式有误");
+    }
+
+    return result;
+}
+
+//私有静态方法evaluate, 用来实际求值并返回, 如果有错误, 因为是表达式的问题, 直接抛异常即可.
+private static double evaluate(double firstOp, double secondOp, char operator) {
+    switch (operator) {
+        case '+':
+            return firstOp + secondOp;
+        case '-':
+            return firstOp - secondOp;
+        case '*':
+            return firstOp * secondOp;
+        case '/':
+            return firstOp / secondOp;
+        case '^':
+            return Math.pow(firstOp, secondOp);
+        default:
+            throw new RuntimeException("不支持运算符: " + operator);
+    }
+}
+</pre>
+<p>有了将中缀表达式转换成后缀表达式的函数和对后缀表达式进行求值的函数, 就可以对中缀表达式进行求值了, 只要将上边两个方法结合起来, 先把中缀表达式转换成后缀表达式, 再对后缀表达式求值.</p>
+<pre>
+System.out.println(Postfix.evaluatePostfix(Postfix.convertToPostfix("6/3*(1+(9-7))")));
+</pre>
+<p>不过还有更好的办法, 可以发现从中缀表达式转换成后缀表达式使用了一次栈, 求值后缀表达式的时候又使用了一次栈. 可以直接通过使用双栈来计算后缀表达式.</p>
+
+<h2 style="text-align: center;" id="con7">栈的应用 - 双栈计算中缀表达式</h2>
+<p>各种算法真的是争奇斗艳, 使用一个栈不行, 就使用两个栈, 一个栈保存操作数, 一个栈保存操作符.</p>
+<p>其核心算法是, 将操作数压入A栈, 遇到运算符, 如果运算符比栈顶运算符优先级高, 就压入B栈, 如果优先级小于或者等于, 就从B栈中弹出之前的操作符, 但是在弹出操作符的时候, 也要弹出两个操作数, 将结果计算完毕之后放回栈中.</p>
+<p>这样反复操作直到表达式末尾, 然后不断弹出运算符和两个操作数, 计算完成之后放入栈中, 直到B栈为空.</p>
+<p>遇到幂的方法不变, 遇到括号的时候, 则需要一直弹出直到左括号结束, 逻辑和刚才解析后缀表达式的时候非常相似.</p>
+<p>来自己编写出来, 这次改成Integer返回类型, 因为对于不大的表达式, 单字符没有必要去解析成double:</p>
+<pre>
+public static int evaluateInfix(String expression) {
+    Stack&lt;Character> operatorStack = new LinkedListStack&lt;>();
+    Stack&lt;Integer> valueStack = new LinkedListStack&lt;>();
+
+    int length = expression.length();
+
+    for (int i = 0; i &lt; length; i++) {
+        char c = expression.charAt(i);
+
+        switch (c) {
+            case '+':
+            case '-':
+            case '*':
+            case '/':
+                //运算符栈为空就压栈
+                if (operatorStack.isEmpty()) {
+                    operatorStack.push(c);
+                //运算符栈不为空, 比较大小, 当前运算符优先级高就压栈
+                } else if (big(c, operatorStack.peek())) {
+                    operatorStack.push(c);
+                } else {
+                //当前运算符优先级低, 就不断弹出之前的都算完, 最后再压入自己
+                    while (!operatorStack.isEmpty() && !big(c, operatorStack.peek())) {
+                        int secondOp = valueStack.pop();
+                        int firstOp = valueStack.pop();
+                        valueStack.push(evaluate(firstOp, secondOp, operatorStack.pop()));
+                    }
+                    operatorStack.push(c);
+                }
+                break;
+            //对于幂运算是最高级,左括号是分隔符, 都无条件压入栈中
+            case '^':
+            case '(':
+                operatorStack.push(c);
+                break;
+            //右括号逻辑与原来一样, 说明到了一个结果的末尾, 只要反复弹栈计算, 直到左括号, 也弹出不要, 此时值栈中的数据就是括号中计算的结果.
+            case ')':
+                while (operatorStack.peek() != '(') {
+                    int secondOp = valueStack.pop();
+                    int firstOp = valueStack.pop();
+                    valueStack.push(evaluate(firstOp, secondOp, operatorStack.pop()));
+                }
+                operatorStack.pop();
+                break;
+            //不是上述运算符, 就是值, 全部压入值栈中
+            default:
+                valueStack.push(Integer.parseInt(String.valueOf(c)));
+                break;
+
+        }
+
+    }
+
+    //表达式解析完成之后, 运算符栈中一定是按照优先级排列好的运算符, 只需要不断弹栈求值
+    while (!operatorStack.isEmpty()) {
+        int secondOp = valueStack.pop();
+        int firstOp = valueStack.pop();
+        valueStack.push(evaluate(firstOp, secondOp, operatorStack.pop()));
+    }
+
+    int result = valueStack.pop();
+    //最后加上一个判断, 值栈应该正好弹空, 否则报运行时错误.
+    if (valueStack.isEmpty()) {
+        return result;
+    } else {
+        throw new RuntimeException("表达式有误");
+    }
+}
+</pre>
+<p>这一章书上都没有具体实现, 只给出了算法, 自己经过跟踪Debug, 成功的都实现出来了. 剩下就是利用这些思路, 去做一下练习了.</p>
 
 
 
@@ -300,8 +533,7 @@ private boolean big(Character c1, Character c2) {
 
 
 
-<h2 style="text-align: center;" id="con5">栈的设计</h2>
-<h2 style="text-align: center;" id="con6">栈的设计</h2>
+
 
 
 
