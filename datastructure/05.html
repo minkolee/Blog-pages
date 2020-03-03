@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 栈 - Lisp前缀表达式与走迷宫</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>这两天沉迷POE中, 果然是复杂一些的游戏才玩的进去. 可以暂时玩着等今年的废土3和博德之门3了.</p>
+<p>当然开发方面也绝对不能落下, 这两天把栈相关的练习写完了, 其中有两个比较大的程序值得留意一下. 分别是Lisp表达式解析和用栈来记录路径走迷宫.</p>
+
+<ol>
+    <li><a href="#con1">Lisp表达式解析</a></li>
+    <li><a href="#con2">迷宫寻路</a></li>
+</ol>
+
+
+<h2 style="text-align: center;" id="con1">Lisp表达式解析</h2>
+<p>Lisp表达式是前缀表达式, 解析思路其实和之前也差不多, 关键还是在处理括号的套路, 由于Lisp表达式的括号必定是成对的, 只要遇到一个右括号, 就必定可以计算出来一个结果. 所以其实思路不算太难就想得到.</p>
+<p>这里还考虑了换行符和空白等符号, 以让输入一段表达式更加方便. 算法如下: </p>\
+<p>从表达式的开始进行解析, 表达式的每一个字符一共有如下几种情况:</p>
+<ol>
+    <li>遇到一个操作符, 将操作符压入操作符A栈中, 称为A栈. 由于操作符是单个的, 所以使用Char类型的Stack接口对象</li>
+    <li>遇到一个左括号, 将左括号压入操作数栈中,称为B栈, 这里左括号实际上是一个区分, 所以比较好的方法是不压入操作符栈中, 而是压入操作数栈中. 不过这里碰到类型问题, 后来想了想, 还是使用了字符串和BigDecimal类之间的转换来操作, 因此这里的栈就是字符串栈.</li>
+    <li>遇到一个操作数, 将操作数压入B栈.</li>
+    <li>遇到一个右括号, 从A栈中弹出一个操作符, 从B栈中不断的弹出所有操作数直到遇到左括号, 弹出左括号, 计算操作符与所有的操作数的结果, 将结果放回到B栈中</li>
+    <li>遇到其他字符(比如空白), 跳过.</li>
+</ol>
+<p>这里读入操作数的时候, 并不是简单的读入单字符, 而是从当前字符串的位置开始, 向后不断搜索到空白或者右括号的部分, 将这个部分读入成一个字符串, 然后创建对应的BigDecimal类来解析.</p>
+<p>根据上边的思路, 可以编写代码如下:</p>
+<pre>
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Scanner;
+
+public class LispInterpreter {
+
+    public static void main(String[] args) {
+        boolean goOn = true;
+        Scanner input = new Scanner(System.in);
+        String expression;
+        while (goOn) {
+            System.out.println("请输入Lisp表达式, 例如(+(-6)(*2 3 4)).  输入quit退出: ");
+            expression = input.nextLine();
+            if (expression.equals("quit")) {
+                goOn = false;
+            } else {
+                try {
+                    System.out.println("你输入的表达式的结果是: " + evaluateLispExpression(expression));
+                } catch (IllegalArgumentException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+        }
+    }
+
+    public static String evaluateLispExpression(String expression) {
+        int length = expression.length();
+
+        //存放字符串形式的值的栈
+        Stack&lt;String> valueStack = new LinkedListStack&lt;>();
+
+        //存放操作符的栈
+        Stack&lt;Character> operatorStack = new LinkedListStack&lt;>();
+
+        //开始遍历表达式
+        for (int i = 0; i &lt; length; i++) {
+            char currentChar = expression.charAt(i);
+
+            switch (currentChar) {
+
+                //左括号就压值栈
+                case '(':
+                    valueStack.push(String.valueOf(currentChar));
+                    break;
+
+                //加减乘除操作符, 压操作符栈
+                case '+':
+                case '-':
+                case '*':
+                case '/':
+                    operatorStack.push(currentChar);
+                    break;
+
+                //右括号需要计算一对括号中的结果
+                case ')':
+                    //首先获取最近的操作符.
+                    char operator = operatorStack.pop();
+                    //将操作符和当前的值栈交给解析一对括号的函数来操作
+                    parseSinglePairExpression(operator, valueStack);
+                    break;
+
+                //各种空白符直接忽略
+                case ' ':
+                case '\n':
+                case '\r':
+                    break;
+
+                //剩下的是字符, 需要从当前位置一直读入到下一个空白符合或者右括号为止
+                default:
+                    //用一个变量j来判断空格或者右括号, 只要不是, 遇到字符就连续拼接
+                    int j = i;
+                    StringBuilder builder = new StringBuilder();
+                    while (expression.charAt(j) != ')' && expression.charAt(j) != ' ' && expression.charAt(j)!='\r' && expression.charAt(j)!='\n') {
+                        builder.append(expression.charAt(j));
+                        j++;
+                    }
+
+                    //拼接完成之后的字符串应该就是操作数字符串, 将其压入栈中
+                    valueStack.push(builder.toString());
+
+                    //当前的j指向空白符号或者右括号, 将i设置为j-1, 由于循环的最后会递增i, 这样下一次i就会扫描到j指向的位置
+                    i = j - 1;
+                    break;
+            }
+        }
+
+        //将结果从B栈中弹出, 此时两个栈应该都为空.
+        String result = valueStack.pop().toString();
+
+        //最后检测两个栈, 有一个栈没有弹空就说明表达式有问题, 报异常
+        if (valueStack.isEmpty() && operatorStack.isEmpty()) {
+            return result;
+        } else {
+            throw new IllegalArgumentException("表达式有误");
+        }
+    }
+
+
+    /**
+     * 这个函数用来根据运算符从栈中取出操作数进行计算, 并将结果放入栈中
+     * @param operator 单字符的操作符
+     * @param valueStack 存放值的栈
+     */
+    private static void parseSinglePairExpression(char operator, Stack&lt;String> valueStack) {
+        //设置一个临时的栈, 用于按照表达式的顺序存放操作数
+        Stack&lt;BigDecimal> tempStack = new LinkedListStack&lt;>();
+
+        //同时设置一个统计有几个操作数的变量
+        int count = 0;
+
+        //只要栈顶不是左括号, 就反复从B栈中弹出操作数, 然后放到临时栈中, 同时进行计数.
+        while (!valueStack.peek().equals("(")) {
+            tempStack.push(new BigDecimal(valueStack.pop()));
+            count++;
+        }
+        //然后弹出左括号, 弹出左括号后, 一对括号之间的内容就全部被弹出, 接下来只需要计算出结果, 然后放回B栈中即可.
+        valueStack.pop();
+
+        //现在有了所有的按照顺序排列的操作数和操作符, 根据操作符来进行运算.
+        //根据操作符进行四种运算, 最后都要将计算结果压入B栈.
+        switch (operator) {
+            case '+':
+                //如果无操作数, 返回0
+                if (count == 0) {
+                    valueStack.push("0");
+                //如果有操作数, 反复弹出结果, 相加即可
+                } else {
+                    BigDecimal sum = new BigDecimal("0");
+                    while (!tempStack.isEmpty()) {
+                        sum = sum.add(tempStack.pop());
+                    }
+                    //将结果压入值栈
+                    valueStack.push(sum.toString());
+                }
+                break;
+
+            case '-':
+                //如果没有操作数就报异常
+                if (count == 0) {
+                    throw new IllegalArgumentException("减法必须至少有一个操作数");
+                //如果只有一个操作数就取反
+                } else if (count == 1) {
+                    valueStack.push(tempStack.pop().negate().toString());
+                //如果有两个以上操作数, 不断相减
+                } else {
+                    BigDecimal start = tempStack.pop();
+                    while (!tempStack.isEmpty()) {
+                        start = start.subtract(tempStack.pop());
+                    }
+                    valueStack.push(start.toString());
+                }
+                break;
+            case '*':
+                //乘法无操作数返回1
+                if (count == 0) {
+                    valueStack.push(new BigDecimal("1").toString());
+                //至少有一个操作数, 连续相乘即可, 然后将结果字符串压入值栈
+                } else {
+                    BigDecimal start = tempStack.pop();
+                    while (!tempStack.isEmpty()) {
+                        start = start.multiply(tempStack.pop());
+                    }
+                    valueStack.push(start.toString());
+                }
+                break;
+
+            case '/':
+                //除法必须有操作数, 否则报异常
+                if (count == 0) {
+                    throw new IllegalArgumentException("除法必须至少有一个操作数");
+                //仅有一个操作数的话返回1/a
+                } else if (count == 1) {
+                    BigDecimal result = new BigDecimal("1").divide(tempStack.pop(),2, RoundingMode.HALF_UP);
+                    valueStack.push(result.toString());
+                //超过两个操作数的情况下, 不断进行除法
+                } else {
+                    BigDecimal start = tempStack.pop();
+                    while (!tempStack.isEmpty()) {
+                        start = start.divide(tempStack.pop(),2, RoundingMode.HALF_UP);
+                    }
+                    valueStack.push(start.toString());
+                }
+                break;
+
+            //如果操作符不属于上边四种, 就报异常
+            default:
+                throw new IllegalArgumentException("操作符有误");
+        }
+    }
+
+}
+</pre>
+<p>这里编写了一个私有的静态函数用来从栈中辅助计算, 就让整个过程不那么复杂, 解析表达式放入内容是一个方法, 根据操作符和栈来计算是另外一个方法, 这样比较方便修改错误. 这里测试都通过了, 发现这次对于栈的理解也更深刻了.</p>
+
+<h2 style="text-align: center;" id="con2">迷宫寻路</h2>
+<p>所谓迷宫寻路, 就是一个二维数组当成迷宫, 然后从起点走到终点. 我自己想出来了算法, 竟然就是初级的递归回溯.</p>
+<p>算法的核心很简单, 创建一个找迷宫的对象步骤如下:</p>
+<ol>
+    <li>首先需要一个二维字符数组作为迷宫, 每一个格子用X表示无法通行, 空格表示没有走过的可以通行的路线. * 表示路径中的路线, a表示走过但是无法通行的路线. 一开始所有格子只有X和空格两种状态.</li>
+    <li>然后在构造函数中设置起点和终点, 用一个Point类来表示点, 先行后列. 传入的起点按照行列传入, 在构造Point的时候减去1, 传入实际索引.</li>
+    <li>之后将起点Point对象压入栈, 然后开始进行主算法.</li>
+    <li>开启一个循环, 只要栈不为空, 就循环如下操作:
+        <ol>
+            <li>不断获取栈顶的Point对象, 然后按照下右上左的顺序检查相邻是不是为通行点. 只要找到, 就返回这个可用点, 如果没找到, 返回null.</li>
+            <li>如果有相邻可用点, 将这个点压入栈中, 然后将这个点对应的坐标设置为*, 表示加入到路径中. 之后立刻判断是不是已经到出口, 如果到出口就结束循环. 否则继续循环, 用新的栈顶的点继续寻找相邻可用的点.</li>
+            <li>如果这个点没有相邻可用点, 由于在达到这个点的时候已经进行过出口判断, 说明当前点为死路, 将当前点对应的数组标记为 a, 表示此地可以走动, 但是路不通. 之后最关键的, 将当前点弹出栈, 之后继续循环.</li>
+            <li>整个循环就按照这个算法, 当走到死路的时候, 就会回退到之前的节点继续寻找可用点. 如果没有可用路径, 这个算法会一直回退到栈完全为空. 此时循环也会结束</li>
+        </ol>
+        </li>
+    <li>循环结束之后检查栈, 栈为空则说明无路径可以从入口抵达出口, 如果栈不为空, 则说明找到了一条路径, 之后显示即可.</li>
+</ol>
+<p>自己想出了解法, 终于明白了栈的一大好处就是可以进行回溯, 当前条件不满足的时候, 可以处理上一个条件.</p>
+<p>详细代码如下, 还是感觉很不错的:</p>
+<pre>
+import datastructure.chapter5.LinkedListStack;
+import datastructure.chapter5.Stack;
+import java.util.Objects;
+
+public class PathFinder {
+
+    private Point start;
+
+    private Point destination;
+
+    //二维字符数组, 作为迷宫
+    private char[][] maze;
+
+    //迷宫的行数, 用于判断是否越界
+    private int row;
+
+    //迷宫的列数, 用于判断是否越界
+    private int column;
+
+    //存放路径的栈
+    private Stack&lt;Point> path = new LinkedListStack&lt;>();
+
+    //构造器, 传入迷宫对象, 起点和终点的坐标, 创建起点, 并将起点加入栈中, 将字符数组中起点对应的坐标设置为*
+    public PathFinder(char[][] maze, int startX, int startY, int endX, int endY) {
+        this.maze = maze;
+        this.start = new Point(startX-1, startY-1);
+        this.destination = new Point(endX-1, endY-1);
+        path.push(start);
+        maze[startX-1][startY-1] = '*';
+        row = maze.length;
+        column = (maze[0]).length;
+        System.out.println("迷宫初始化完毕, 有 "+row+" 行, "+ column+" 列.");
+        System.out.println("迷宫初始化完毕, 起点是: "+ start);
+        System.out.println("迷宫初始化完毕, 终点是: "+ destination);
+    }
+
+    //主算法
+    //从起点出发, 将起点加入path中, 然后尝试往一个方向走, 如果可以的话, 将走到的格子加到栈中
+    //如果一个格子各个方向都走不通(即所有方向都是路径中, 阻塞, 已经访问, 则将该格子标记为已经访问, 然后将该格子弹出)
+    //继续从栈顶尝试往其他方向走.
+    //每走一步, 都判定栈顶的点是不是出口, 如果是出口则结束. 如果栈为空, 则说明找不到路径.
+    public void findPath() {
+
+        //只要栈不为空
+        while (!path.isEmpty()) {
+            //尝试寻找栈顶点的相邻可通行点
+            Point currentPoint = path.peek();
+
+            Point nextPoint = path.peek().getNextPoint();
+
+            //如果有相邻可通行点, 将可通行点加入path, 同时更改数组的标记
+            if (nextPoint != null) {
+                path.push(nextPoint);
+                maze[nextPoint.x][nextPoint.y] = '*';
+                //判断是否为终点, 是终点就结束循环
+                if (path.peek().equals(destination)) {
+                    break;
+                }
+            }
+            //如果没有相邻可通行点, 说明当前路径不通, 需要将当前路径标记为已经访问, 然后弹出栈.
+            else {
+                maze[currentPoint.x][currentPoint.y] = 'a';
+                path.pop();
+            }
+        }
+
+        //循环结束之后, 如果栈为空, 说明无路可走, 退回到起点. 栈不空则找到路径
+        if (path.isEmpty()) {
+            System.out.println("该迷宫没有从起点到终点的路径");
+        } else {
+            System.out.println("找到一条路径, 用*号表示, a表示该算法曾经探寻过的路线:");
+            printMaze();
+        }
+
+    }
+
+    private void printMaze() {
+        for (int i = 0; i &lt; row; i++) {
+            for (int j = 0; j &lt; column; j++) {
+                System.out.print(maze[i][j] + " ");
+            }
+            System.out.println();
+        }
+    }
+
+    //内部类Point, 将寻找相邻可通行格子的任务交给Point的getNextPoint()方法
+    private class Point {
+        private int x;
+        private int y;
+
+        public Point(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Point point = (Point) o;
+            return x == point.x &&
+                    y == point.y;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(x, y);
+        }
+
+        //按照下右上左的顺序寻找可通行点
+        public Point getNextPoint() {
+            System.out.println("尝试获取可通行的点");
+            //先尝试下方, 最小索引是0, 最大索引是row-1
+            // 如果x不是在最底部, 检查x下方坐标的状态, 如果可以通行, 返回那个点
+            if (x != row - 1) {
+                if (maze[x + 1][y] == ' ') {
+                    System.out.println("可用的点是下方的点");
+                    return new Point(x + 1, y);
+                }
+            }
+
+            //再尝试右方, 横向最小索引是0, 最大索引是column-1
+            if (y != column - 1) {
+                if (maze[x][y + 1] == ' ') {
+                    System.out.println("可用的点是右方的点, x=" + x + "y=" + y);
+                    return new Point(x, y + 1);
+                }
+            }
+
+            //再尝试上方, x索引最小为0, 上方最小索引是0
+            if (x != 0) {
+                if (maze[x - 1][y] == ' ') {
+                    System.out.println("可用的点是上方的点");
+                    return new Point(x - 1, y);
+                }
+            }
+
+            //最后尝试左方
+            if (y != 0) {
+                if (maze[x][y - 1] == ' ') {
+                    System.out.println("可用的点是左方的点");
+                    return new Point(x, y - 1);
+                }
+            }
+
+            //四个方向都走不通, 返回null
+            return null;
+        }
+
+        @Override
+        public String toString() {
+            return "Point{" +
+                    "x=" + x +
+                    ", y=" + y +
+                    '}';
+        }
+    }
+
+
+    public static void main(String[] args) {
+
+
+        //7行, 13列的迷宫, 坐标为先行,后列, 起点是 (2,1), 出口是 (3,13)
+        char[][] maze = new char[][]{
+                {'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'},
+                {' ', ' ', ' ', 'X', ' ', ' ', ' ', 'X', 'X', 'X', 'X', ' ', 'X'},
+                {'X', 'X', ' ', ' ', ' ', 'X', ' ', ' ', ' ', ' ', 'X', ' ', ' '},
+                {'X', 'X', ' ', 'X', 'X', ' ', 'X', ' ', 'X', ' ', ' ', ' ', 'X'},
+                {'X', 'X', ' ', ' ', 'X', ' ', ' ', ' ', 'X', ' ', 'X', ' ', 'X'},
+                {'X', 'X', ' ', 'X', 'X', 'X', 'X', 'X', ' ', 'X', 'X', ' ', 'X'},
+                {'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'}
+        };
+
+        PathFinder finder = new PathFinder(maze, 2, 1, 3, 13);
+
+        finder.findPath();
+
+    }
+
+}
+</pre>
+<p>好好的用栈写了两个大点的程序, 确实又学到新东西了, 也知道怎么回溯了. 这本书确实不错.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
