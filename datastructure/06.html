@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 递归思想</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>到递归了, 看起来容易的递归用起来难, 用起来简单的递归理解起来难...用好递归真的不容易. 这次来好好看一下.</p>
+<p>递归的核心并不是什么调用自己, 而是将一个问题分解成更小的问题, 小问题域大问题有着同样操作过程. 调用自己的方法称为递归方法.</p>
+
+<ol>
+    <li><a href="#con1">递归方案设计</a></li>
+    <li><a href="#con2">两个小题目</a></li>
+    <li><a href="#con3">递归内部的调用 - 进入递归之前和之后的代码</a></li>
+    <li><a href="#con4">老套的题目</a></li>
+    <li><a href="#con5">用递归处理数组 - 迭代</a></li>
+    <li><a href="#con6">用递归处理数组 - 分半</a></li>
+    <li><a href="#con6">用递归处理链表</a></li>
+</ol>
+
+
+<h2 style="text-align: center;" id="con1">递归方案设计</h2>
+<p>要设计一个递归解决问题的方案, 核心是如下三个方面:</p>
+<ol>
+    <li>方案的哪个部分的工作可以直接完成, 不需要进行分解</li>
+    <li>对于要分解的内容, 如何定义与要解决的问题的求解方案相同, 但是规模更小的问题. 而且规模更小的问题对于解决目标问题是有贡献的.</li>
+    <li>过程何时结束</li>
+</ol>
+<p>将上边的思想转换为代码要求, 就是如下的步骤:</p>
+<ol>
+    <li>给方法一个输入值, 通常作为参数给出</li>
+    <li>方法定义必须有针对这个参数的不同的逻辑判断, 其中有一些分支不需要递归, 指向一个确定的结果或者终止情况.</li>
+    <li>另外一些情形则包含对方法的递归调用, 这个递归调用必须完成"更小"版本的任务, 或者传递"更小"的参数, 总之就是缩减问题规模.</li>
+</ol>
+<p>递归有些可以方便的改成循环, 不过为了学习思路, 来继续练一些小内容.</p>
+
+<h2 style="text-align: center;" id="con2">几个自测题</h2>
+<p>1 编写 void 方法, 跳过N行的显示. 很显然要给方法传入参数N. 方法逻辑是, 跳过N行等于跳过1行再跳过N-1行, 我们的方法就是实现跳过N行的功能, 所以编写如下:</p>
+<pre>
+public static void skipLine(int n) {
+    if (n != 0) {
+        System.out.println();
+        skipLine(n - 1);
+    }
+}
+</pre>
+<p>这个很好理解, 当n等于0就终止, 不然就先跳过一行, 再去跳过N-1行.</p>
+<p>2 一个画N个同心圆的描述算法, 最内侧的半径是r, 第一个画的圆是最内侧的圆, 然后依次画更大的圆. 每多一个同心圆, 半径就是内部紧挨着的同心圆的4/3倍.</p>
+<p>这个就用伪代码了. 因为要控制圆的半径以及画几个圆, 所以方法的参数有两个, 也很容易想到.</p>
+<pre>
+public void drawCircle(int count, double radius){
+
+    if(count > 0){
+        drawSingleCircle(radius)
+        drawCircle(count-1, radius*4/3)
+    }
+}</pre>
+
+<h2 style="text-align: center;" id="con3">递归内部的调用 - 进入递归之前和之后的代码</h2>
+<p>在学CSAPP的时候知道, 虽然人类读起来像是自己调用自己, 但对于机器来说, 递归调用方法与调用其他方法并没有区别, 同样都是生成活动记录和变量表, 然后不断压栈, 把指针移动到新的方法的返回值处.</p>
+<p>所以计算机并不会有自己调用自己这一说.</p>
+<p>不过递归的时候, 依然要注意代码的顺序, 比如递归代码如下:</p>
+<pre>
+public recursion(int i){
+    some code1
+
+    recursion(i-1)
+
+    some code2
+
+    }
+</pre>
+<p>在递归发生之处之前的代码, 也就是some code1的部分, 每次都会得到执行, 而且执行顺序是最早调用的方法就会最早运行, 最后的递归结束时候的方法的代码最后运行.
+    而some code2的部分就很有意思了. 最早运行的some code2的部分是递归达到终止条件返回之后立刻运行的, 也就是从时间上来说, 是最后运行的递归方法的some code2会最先运行.</p>
+<p>在刚才的例子中, 都是在最后程序的最后调用递归方法, 因此操作代码的顺序就是从第一次调用开始直到最后, 如果换一下进入递归的次序, 就完全不同了.</p>
+<p>来一个小题目: countUp(n), 从1-n计数, 要求使用递归实现, 在显示信息之前就进入递归.</p>
+<p>如果直接来写, 就会发现比较别扭:</p>
+<pre>
+public static void count(int n) {
+
+    some Code
+
+    count(???)
+}
+</pre>
+<p>由于每次方法只有一个n变量, 没法知道上一次计数到了几, 如果把递归放到最后, 就比较难写.</p>
+<p>如果改换一下思路, 即每次如果给递归方法传递一个n-1, 判断n>=1的话, 最后的递归函数停机的时候, 就是n=1, 我们要从1数到n, 从前边分析可以知道, 达到停机条件的递归方法在进入递归之后的代码最先调用, 因此可以改一下顺序:</p>
+<pre>
+public static void count(int n) {
+
+    if (n >= 1) {
+        count(n - 1);
+        System.out.println(n);
+    }
+}
+</pre>
+<p>因为递归方法一个很重要的因素就是在递归方法之间传递参数, 还记得一开始说的思想, 就是每次参数要"更小"一些. 这里确实传递了更小的参数, 但是方法的调用时机决定了顺序, 所以非常有意思. </p>
+<p>从这个题目可以看出, 仅仅改变方法中进入递归的时点, 代码就可以以相反的两种顺序运行, 这是一个很重要的思路.</p>
+
+<h2 style="text-align: center;" id="con4">又是一个老套的题目</h2>
+<p>写一个递归求值, 计算整数从1到n的乘积, n>0.</p>
+<p>这又是老套路了, f(n) = n*f(n-1)即可, 当n=1的时候不递归, 固定返回1.</p>
+<pre>
+public static long fatoria(int n) {
+    if (n == 1) {
+        return 1;
+    } else {
+        return (long) (n) * fatoria(n - 1);
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con5">用递归处理数组 - 迭代</h2>
+<p>真正的挑战来了, 由于递归在很多时候非常好用而且易于理解, 所以使用递归是一项基本功.</p>
+<p>想要理解递归, 当然就得多敲递归代码, 甚至要刻意练习使用递归.</p>
+<p>在很多排序和图算法中, 使用递归是非常普遍的事情, 所以就从最简单的操作数组来一点点的练习递归方法.</p>
+<p>首先就是最简单的遍历数组, 这是一个迭代任务, 如何将一个迭代任务改成递归呢, 其核心思想就是, 对于一个数组, 操作第一个元素, 然后对剩下的部分进行同样的操作.</p>
+<p>看一个最简单的方法:</p>
+<pre>
+public static void displayArray(int[] array, int firstIndex, int lastIndex) {
+    for (int i = firstIndex; i <= lastIndex; i++) {
+        System.out.println(array[i]);
+    }
+}
+</pre>
+<p>这个方法显示一个数组中[first,last]索引对应的内容, 这是一个非常简单的使用索引迭代的例子.</p>
+<p>现在要将其改成迭代, 首先分解任务, 我们不一次显示数组的全部, 而是分解成显示一个数组的第一个元素, 然后以同样的方式处理数组剩下的部分, 直到数组为空.</p>
+<p>那么在每次迭代的时候, 就需要传递一个"更小"规模的数组, (这里的更小指的是规模更小, 实际上你会想到, 只要每次迭代的时候增加firstIndex即可), 所以递归如下:</p>
+<pre>
+public static void displayArrayRecursion(int[] array, int firstIndex, int lastIndex) {
+    if (firstIndex <= lastIndex) {
+        System.out.println(array[firstIndex]);
+        displayArray(array, firstIndex+1,lastIndex);
+    }
+}
+</pre>
+<p>这里每次"更小"一点的数组, 具体是用一段更小范围的索引来实现的, 当firstIndex超过lastIndex的时候, 递归方法就会终止并返回.</p>
+<p>当然, 如果只是这样就没什么太大的挑战. 这里我们是从firstIndex来开始的, 如果我们将问题分解成, 先显示数组的[firstIndex, lastIndex-1]的部分, 最后显示一个lastIndex对应的值, 该如何操作呢.</p>
+<p>实际上没有什么太大的区别, 甚至不用太注意之前提到过的何时进入递归, 只要把思路翻译成代码即可:</p>
+<pre>
+public static void displayArrayRecursionFromLast(int[] array, int firstIndex, int lastIndex) {
+    if (firstIndex <= lastIndex) {
+        displayArrayRecursionFromLast(array, firstIndex, lastIndex - 1);
+
+    }
+}
+</pre>
+<p>上边的代码几乎就是思路的直接翻译, 先显示先显示数组的[firstIndex, lastIndex-1]的部分, 最后显示最后的值, 不断缩小问题规模, 直到数组长度为0.</p>
+<p>看了前边的解说, 会知道<code>System.out.println(array[lastIndex]);</code>逆序执行, 最后执行到第一个元素会先将其打印出来, 然而这不是重点, 而是好好体会递归易于理解的特性.</p>
+
+<h2 style="text-align: center;" id="con6">用递归处理数组 - 分半</h2>
+<p>现在有了新想法, 每次处理一半的数组. 这里有个小知识, 无论数组(或者一个数组片段)中元素的个数是奇数还是偶数, 一般都取<code>(first+last)/2</code>的索引作为中间位置, 注意这里是整数除法, 是不会四舍五入的.</p>
+<p>每次处理一半的数组, 相比迭代来说, 就要非常的直观了. 迭代还可以更容易的想用循环, 而分片处理的写法, 用递归就更容易理解.</p>
+<p>现在依然来显示数组, 我们每次就先显示前一半, 再显示后一半, 直到数组不能再分前后, 就显示出来:</p>
+<pre>
+public static void displayArrayRecursionByHalf(int[] array, int firstIndex, int lastIndex) {
+
+    //停机条件依然是firstIndex > lastIndex,
+
+    if (firstIndex < lastIndex) {
+        //显示前半部分
+        displayArrayRecursionByHalf(array, firstIndex, (firstIndex+lastIndex)/2);
+        //显示后半部分
+        displayArrayRecursionByHalf(array, (firstIndex + lastIndex) / 2 + 1, lastIndex);
+    //直到数组仅一个元素的时候才显示字符
+    } else if (firstIndex == lastIndex) {
+        System.out.println(array[firstIndex]);
+    }
+
+}
+</pre>
+<p>可以看到, 递归代码几乎就是思维直接的表示, 对于一个数组, 如果不能再分, 就显示, 否则就先显示前一半, 再显示后一半. 而且稍微深入想一下就知道, 这样的顺序还不会错. 要逆序也很简单, 只要优先处理后半部分, 对调一下进入递归的两行代码即可.</p>
+<p>将这个题目做一下改动, 假如规定每次将数组分割成3部分, 即左半部分,中间元素,右半部分, 然后依次显示左中右, 也是可以直接把思路翻译成代码:</p>
+<pre>
+public static void displayArrayRecursionThreePart(int[] array, int firstIndex, int lastIndex) {
+    //首先想好想好停机条件, 如果firstIndex>lastIndex, 什么也不做
+    //first=last的时候, 打印字符
+    //first&llast的时候说明数组可分, 因此可以继续处理三个部分
+
+    if (firstIndex == lastIndex) {
+        System.out.println(array[firstIndex]);
+    } else if (firstIndex &l lastIndex) {
+        //处理不含中间索引的左半部分
+        displayArrayRecursionThreePart(array, firstIndex, (firstIndex + lastIndex) / 2 - 1);
+        //显示中间的部分
+        System.out.println(array[(firstIndex+lastIndex)/2]);
+        //处理右半部分
+        displayArrayRecursionThreePart(array, (firstIndex + lastIndex) / 2 + 1, lastIndex);
+    }
+
+}
+</pre>
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
