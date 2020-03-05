@@ -25,7 +25,8 @@
     <li><a href="#con4">老套的题目</a></li>
     <li><a href="#con5">用递归处理数组 - 迭代</a></li>
     <li><a href="#con6">用递归处理数组 - 分半</a></li>
-    <li><a href="#con6">用递归处理链表</a></li>
+    <li><a href="#con7">用递归处理链表 - 逆序比较方便</a></li>
+    <li><a href="#con8">尾递归</a></li>
 </ol>
 
 
@@ -158,7 +159,7 @@ public static void displayArrayRecursionFromLast(int[] array, int firstIndex, in
 <p>上边的代码几乎就是思路的直接翻译, 先显示先显示数组的[firstIndex, lastIndex-1]的部分, 最后显示最后的值, 不断缩小问题规模, 直到数组长度为0.</p>
 <p>看了前边的解说, 会知道<code>System.out.println(array[lastIndex]);</code>逆序执行, 最后执行到第一个元素会先将其打印出来, 然而这不是重点, 而是好好体会递归易于理解的特性.</p>
 
-<h2 style="text-align: center;" id="con6">用递归处理数组 - 分半</h2>
+<h2 style="text-align: center;" id="con6">用递归处理链表 - 逆序比较方便</h2>
 <p>现在有了新想法, 每次处理一半的数组. 这里有个小知识, 无论数组(或者一个数组片段)中元素的个数是奇数还是偶数, 一般都取<code>(first+last)/2</code>的索引作为中间位置, 注意这里是整数除法, 是不会四舍五入的.</p>
 <p>每次处理一半的数组, 相比迭代来说, 就要非常的直观了. 迭代还可以更容易的想用循环, 而分片处理的写法, 用递归就更容易理解.</p>
 <p>现在依然来显示数组, 我们每次就先显示前一半, 再显示后一半, 直到数组不能再分前后, 就显示出来:</p>
@@ -200,10 +201,139 @@ public static void displayArrayRecursionThreePart(int[] array, int firstIndex, i
 
 }
 </pre>
+<h2 style="text-align: center;" id="con7">用递归处理链表</h2>
+<p>用递归处理链表的一大好处就是之前提到的如果使用处理代码在进入递归之后的方法, 可以方便的从链表的尾部进行处理. 如果用迭代就会很麻烦, 当然这是以额外的空间换来的方式.</p>
+<p>递归处理链表一般会写在一个ADT的内部, 因为不这样做的话, 会将每个链表节点的引用都暴露给外部对象.</p>
+<p>现在我们给之前使用的LinkedListStack添加两个方法, 一个按照从栈顶显示到栈底的方法打印所有节点的数据, 一个反着从栈底到栈顶打印.</p>
+<p>先来看从栈顶到栈底, 由于栈使用了链表实现, 每次压栈是压入链表头部, 因此对于我们来说, 这就是一个从链表头遍历到链表尾的操作. 与数组类似, 可以很方便的写出递归方法:</p>
+<pre>
+public class LinkedListStack&lt;T> implements Stack&lt;T> {
+
+    ......
+
+    public void showData() {
+        recursionFromRecent(firstNode);
+    }
 
 
+    private void recursionFromRecent(Node node) {
+        if (node != null) {
+            System.out.print(node.data + " | ");
+            recursionFromRecent(node.next);
+        }
+    }
+
+    .....
+
+}
+</pre>
+<p>这个方法很容易理解, 每次显示链表的第一个元素, 然后对更短的链表做相同的处理.</p>
+<p>如果要反向显示,通过之前的学习, 也可以想到了, 只要交换一下进入递归的顺序. 理解起来就是先处理最后一个节点之前的数据, 再显示最后一个节点.</p>
+<pre>
+public class LinkedListStack&lt;T> implements Stack&lt;T> {
+
+    ......
+
+    public void showDataFromOldest() {
+        recursionFromOldest(firstNode);
+    }
 
 
+    private void recursionFromOldest(Node node) {
+        if (node != null) {
+            recursionFromOldest(node.next);
+            System.out.print(node.data + " | ");
+        } else {
+            System.out.println();
+        }
+    }
+
+    .....
+
+}
+</pre>
+<p>这种方式, 处理每个节点的顺序就是反向的, 也非常好用, 这是递归比迭代用起来方便的一大套路.</p>
+
+<h2 style="text-align: center;" id="con8">尾递归</h2>
+<p>所谓尾递归, 就是递归方法的最后一步操作是调用自身. 注意最后一步的意义, 比如下边这个方法:</p>
+<pre>
+public void test(int i){
+
+    //处理i
+
+    return 2*test(i-1)+test(i+1);
+}
+</pre>
+<p>这个方法并不是尾递归, 因为最后一步操作是进行加法, 而不是调用自身进入递归. 如果最后一行是<code>return test(i+1)</code>这种, 才叫做尾递归.</p>
+<p>尾递归对于计算机来说, 不过是换了一下变量, 继续执行该方法. 所以尾递归可以使用迭代来改写, 因为对于这个方法来说, 只是每次传入的参数有所改变, 只需要将方法中对于参数的操作步骤提取出来改成迭代就可以了.</p>
+<p>很多程序的编译器可以自动识别递归, 将尾递归改成循环, 对于学过CSAPP的我们知道, 内部其实就保存一下运算之后的参数到其他地方, 然后每次运算完, 将结果更新到参数地址, 再次调用即可.</p>
+<p>所以理论上是可以通过改变变量的值, 将递归改成尾递归, 比如最经典的斐波那契数列数列, 如果不加思考的话, 会写成如下:</p>
+<pre>
+public static int badFib(int n) {
+    System.out.println("执行一次");
+    if (n == 0) {
+        return 0;
+    } else if (n == 1) {
+        return 0;
+    } else return badFib(n - 1) + badFib(n - 2);
+}
+</pre>
+<p>这里可以传入一个计数器统计一下总共调用了多少次, n=10的时候, 就递归了177次, 所以效率肯定低下, 这是因为结尾不是尾递归, 而且反复计算了太多次无用的F(1), F(0).</p>
+<p>想改成尾递归, 对于这个题目来说, 由于n只是计数, 所以必须再来一些变量才可以,
+    我们注意到Fib的起始已知的数字是两个数字, 叫做a和b, 然后第三个数字等于a+b, 下一个数字等于b+a+b,
+    所以可以发现, 只需要2个变量就能传递当前的状态, 即只需要知道上一个和再上一个的数字即可. 所以可以添加2个变量, 然后将递归变成不断的累加两个变量, 修改递归方法如下:</p>
+<pre>
+public static int goodFib(int n, int a, int b) {
+
+    if (n == 0) {
+        return 1;
+    }
+
+    if (n == 1) {
+        return 1;
+    }
+
+    if (n == 2) {
+        return a + b;
+    } else {
+        n--;
+        int temp = a + b;
+        a = b;
+        b = temp;
+        return goodFib(n, a, b);
+    }
+}
+</pre>
+<p>这个方法的本质其实有点像循环, 就是使用n来控制把上一次的b当成a, a+b当成b的次数, 由于0和1对应的已知, 实际上是从2开始累加. 参数a和b的意义实际上指的是Fib(0)=1和 Fib(1)=2. 但是没有必要对外暴露, 所以可以在外边套一层壳, 最终方法如下:</p>
+<pre>
+private static int goodFib(int n, int a, int b) {
+
+    if (n == 0) {
+        return 1;
+    }
+
+    if (n == 1) {
+        return 1;
+    }
+
+    if (n == 2) {
+        return a + b;
+    } else {
+        n--;
+        int temp = a + b;
+        a = b;
+        b = temp;
+        return goodFib(n, a, b);
+    }
+}
+
+public static int fib(int n) {
+    return goodFib(n, 1, 1);
+}
+</pre>
+<p>对外调用, 就可以调用fib方法, 这其中的默认参数就是数列开始于1,1. 这样做的好处是可以更改一下开始的位置, 比如当前的n=10实际上表示的是斐波那契数列第11个位置.</p>
+<p>如果想要从数列5, 8的位置继续向后计算, 就可以修改传入的数字为5,8, 这样计算出的n, 就是从8开始之后的n-1位数字.</p>
+<p>话说写这个函数, 让我想起来SICP中用Lisp来写这个递归, 确实够刺激. 好了, 递归思想就研究到这里, 下边就是写练习了. 之后的各种算法里用到递归的多了去了.</p>
 
 
 
