@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 排序</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>又到排序了. 上次看算法第四版只是迅速过了一遍, 书一遍看不明白就看两遍, 有些东西必须得硬来才行.</p>
+<p>递归的习题就没那么好写了, 有的想了一会就写出来了, 比如那个用三个栈排序的, 但是有些比如全排列和递归的动态规划就不那么明显会写了.</p>
+<p>估计还是每一次要维持一个背包的这种对象, 在递归之间如何传递, 比较麻烦. 看来代码还得仔细想想, 看来自学开发还算可以, 不会像要面试找工作那样压力那么大.</p>
+
+<ol>
+    <li><a href="#con1">泛型简单回顾 - Comparable&lt;T>接口</a></li>
+    <li><a href="#con2">选择排序</a></li>
+    <li><a href="#con3">插入排序</a></li>
+    <li><a href="#con4">老套的题目</a></li>
+    <li><a href="#con5">用递归处理数组 - 迭代</a></li>
+    <li><a href="#con6">用递归处理数组 - 分半</a></li>
+    <li><a href="#con7">用递归处理链表 - 逆序比较方便</a></li>
+    <li><a href="#con8">尾递归</a></li>
+</ol>
+
+
+<h2 style="text-align: center;" id="con1">泛型简单回顾 - Comparable&lt;T>接口</h2>
+<p>在排序之前, 比较元素的大小是一个重要的议题. Java提供了一个接口Comparable接口, 只要继承了该接口, 都可以用来比较大小. 该接口其实我们已经很熟悉了, 不过这里要说的是泛型.</p>
+<p>比如我们可以利用排序接口, 实现一个简单的泛型方法:</p>
+<pre>
+public static &lt;T extends Comparable&lt;T>> T findMin(T[] array) {
+
+    T min = array[0];
+    for (int i = 1; i &lt; array.length; i++) {
+        if (array[i].compareTo(min) &lt; 0) {
+            min = array[i];
+        }
+    }
+    return min;
+}
+</pre>
+<p>看上去好像很简单, 但实际上有一个问题, 现在我们有一种车CarA, 还有继承CarA的CarB, 二者都有重量可以进行比较, 代码如下:</p>
+<pre>
+public class CarA implements Comparable&lt;CarA> {
+
+    private int weight;
+
+    private String name;
+
+    public CarA(int weight, String name) {
+        this.weight = weight;
+        this.name = name;
+    }
+
+    @Override
+    public int compareTo(CarA carA) {
+        return this.weight - carA.weight;
+
+    }
+}
+</pre>
+<pre>
+public class CarB extends CarA {
+
+    public CarB(int weight, String name) {
+        super(weight, name + "B");
+    }
+}
+</pre>
+<p>CarA实现了Comparable&lt;CarA>接口, 所以CarB也实现了Comparable&lt;CarA>接口, 可以进行二者的比较, 不同类型的比较也可以, 因为compareTo(CarA carA)方法中的类型是CarA, CarB也是CarA, 例如:</p>
+<pre>
+public static void main(String[] args) {
+        CarA carA1 = new CarA(10, "dfkj");
+        CarA carA2 = new CarA(17, "fd");
+        CarA carA3 = new CarA(3, "asd");
+
+        System.out.println(carA1.compareTo(carA2));
+
+        CarB carB1 = new CarB(29, "dfkbbvcj");
+        CarB carB2 = new CarB(21, "bjkd");
+
+        System.out.println(carB2.compareTo(carB1));
+        System.out.println(carA2.compareTo(carB1));
+        System.out.println(carB2.compareTo(carA3));
+
+
+    }
+</pre>
+<p>但是如果我们想使用我们的泛型方法, 从CarA和CarB数组中寻找最小值, 接着上边的:</p>
+<pre>
+CarA[] carAS = new CarA[]{carA1, carA2, carA3};
+CarB[] cars = new CarB[]{carB1, carB2};
+CarA mincara = findMin(carAS);
+CarB mincarb = findMin(cars);
+</pre>
+<p>这个时候会发现编译报错:</p>
+<pre>
+Error:(23, 31) java: 不兼容的类型: 推论变量 T 具有不兼容的上限
+    等式约束条件：datastructure.ex03.CarA
+    下限：datastructure.ex03.CarB,java.lang.Comparable&lt;T>
+</pre>
+<p>这个问题在于泛型方法的要求是<code>&lt;T extends Comparable&lt;T>></code>, 当泛型方法接收的类型是CarA的时候, CarA是实现了Comparable&lt;CarA>的, 所以不会有问题.</p>
+<p>但泛型接收的类型是CarB的时候, CarB并没有实现<code>Comparable&lt;CarB></code>类型, CarB依然实现的是<code>Comparable&lt;CarA></code>类型; 而且<code>Comparable&lt;CarB></code>并不是一个<code>Comparable&lt;CarA></code>类型.</p>
+<p>想要避免这种问题, 很显然, 如果一个类是父类并且实现了Comparable接口, 这个父类的任意层级的子类, 一定实现了一个Comparable&lt;某个父类>接口. 因此泛型方法需要修改成:</p>
+<pre>public static &lt;T extends Comparable&lt;<span style="color: red">? super T</span>>> T findMin(T[] array)</pre>
+<p>这样就可以正常工作了. 如果以后碰到泛型方面的问题, 就可以还原一下来思考结果. 此外通配符表示任意类型, 而不能使用某个具体类型. 因为一个SomeClass&lt;A>类型, 并不是一个SomeClass&lt;B>类型, 即使A和B有继承关系, 泛型类也不是同一个类型.</p>
+<p>在后边实现排序算法的时候, 就会经常使用<code>public static &lt;T extends Comparable&lt;? super T>> void sort(T[] array)</code>这样的泛型方法了.</p>
+
+
+<h2 style="text-align: center;" id="con2">选择排序</h2>
+<p>一开始都先排数组.</p>
+<p>选择排序的原理是, 先找到整个序列里的最小的元素, 然后将其与第一个元素进行交换, 然后对数组中剩下的部分重复这个操作.</p>
+<p>这个操作可以非常方便的用递归或者迭代的方式写出来. 先看迭代方法, 很容易理解:</p>
+<pre>
+//对外暴露的公有方法
+public static &lt;T extends Comparable&lt;? super T>> void sort(T[] array) {
+    int length = array.length;
+    if (!(length == 0 || length == 1)) {
+        //对数组中每一个元素, 先找到这个元素到结尾的最小值, 然后和自己替换
+        for (int i = 0; i &lt; length; i++) {
+            //利用辅助方法找到当前元素到数组结尾的最小值对应的索引
+            int minindex = findMin(array, i, length - 1);
+
+            //交换当前元素与最小值元素
+            T temp = array[i];
+            array[i] = array[minindex];
+            array[minindex] = temp;
+        }
+    }
+}
+
+//辅助排序方法的私有方法, 根据给定的索引在一个数组中寻找索引范围内的最小值对应的索引
+private static &lt;T extends Comparable&lt;? super T>> int findMin(T[] array, int startIndex, int lastIndex) {
+    int min = startIndex;
+
+    for (int i = startIndex; i &lt;= lastIndex; i++) {
+        if (array[min].compareTo(array[i]) > 0) {
+            min = i;
+        }
+    }
+    return min;
+}
+</pre>
+<p>递归的思路是, 递归方法的功能是可以找到数组中的最小值, 然后交换最小值与当前元素, 之后对剩下的部分继续应用该方法进行处理, 要额外传递一个当前变量的数值, 以表示从哪里继续处理:</p>
+<pre>
+//对外暴露的公有方法
+public static &lt;T extends Comparable&lt;? super T>> void resursionSort(T[] array) {
+    recursionFindMinAndSwap(array, 0);
+}
+
+//实际的递归方法, 懒得使用每次复制数组的方式, 本来就是O(n^2)级别的算法, 就少占用点空间吧.
+private static &lt;T extends Comparable&lt;? super T>> void recursionFindMinAndSwap(T[] array, int index) {
+    //停机条件是当前索引等于数组的最大索引
+    if (index != array.length - 1) {
+        //找到当前索引到数组末尾的最小元素对应的索引
+        int minIndex = findMin(array, index, array.length - 1);
+
+        //交换第一个元素和最小元素的值
+        T temp = array[minIndex];
+        array[minIndex] = array[index];
+        array[index] = temp;
+        //然后继续对剩下的数组进行操作
+        recursionFindMinAndSwap(array, index + 1);
+    }
+
+}
+</pre>
+<p>这里还可以加入一些变化, 比如只想对一个数组的前n个元素进行排序, 则只需要额外传入一个n, 然后将索引设置一下即可:</p>
+<pre>
+public static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int n) {
+    if (n > array.length) {
+        throw new RuntimeException("数组的项比参数n要少!");
+    }
+    if (!(n == 0 || n == 1)) {
+        //对数组中每一个元素, 先找到这个元素到结尾的最小值, 然后和自己替换
+        for (int i = 0; i < n; i++) {
+            int minindex = findMin(array, i, n - 1);
+
+            //交换两个元素的位置
+            T temp = array[i];
+            array[i] = array[minindex];
+            array[minindex] = temp;
+        }
+    }
+}
+</pre>
+<p>有了这个方法之后, 原来的sort只需要改成调用这个方法, n=数组长度即可:</p>
+<pre>
+public static &lt;T extends Comparable&lt;? super T>> void sort(T[] array) {
+    sort(array, array.length);
+}
+</pre>
+<p>递归版本也可以再加入一个参数n, 来控制排序到第几项, 就不再一一写了,原理是一样的, 还可以将交换数组的两个索引也抽出到一个函数中.</p>
+<p>选择排序由于是最直观的, 现在无需看教材, 自己都能够实现了. </p>
+
+<h2 style="text-align: center;" id="con3">插入排序</h2>
+<p>插入排序的套路是, 每遇到一本书, 都不断将其和左边的书进行比较, 如果大于, 就不改变位置, 如果小于, 就将其换到左边的书的左边, 然后继续比较下一个位置.</p>
+<p>用迭代的方法的话, 就是对于每一个元素, 从当前索引反向遍历到数组头, 只要小于, 就交换位置, 直到达到正确的位置.</p>
+<pre>
+//排前N个元素的插入排序
+public static &lt;T extends Comparable&lt;? super T>> void insertionSort(T[] array, int n) {
+    //遍历数组的元素
+
+    if (n > array.length || n &lt; 0) {
+
+        throw new RuntimeException("n大于数组的个数或者n小于等于0.");
+    }
+
+    for (int i = 0; i &lt; n; i++) {
+
+        //取到当前元素
+        T target = array[i];
+
+        //反向遍历到数组的头部, 由于无需和自己比较, 所以j开始的索引是i-1
+        for (int j = i - 1; j >= 0; j--) {
+            //比较j+1与j索引位置的元素, 如果当前元素小于j索引位置的元素, 则应该将j位置的元素往后移动一个索引, 然后把这个元素插进去
+            //等于元素就一点一点的交换到正确的位置
+            if (array[j+1].compareTo(array[j]) &lt; 0) {
+                array[j + 1] = array[j];
+                array[j] = target;
+            }
+            //如果大于, 就什么也不做
+        }
+        System.out.println("第" + (i + 1) + "个元素排完之后的数组是: " + Arrays.toString(array));
+
+    }
+}
+
+//全排序, 调用上边编写的方法
+public static &lt;T extends Comparable&lt;? super T>> void insertionSort(T[] array) {
+    insertionSort(array, array.length);
+}
+</pre>
+<p>插入排序的递归版本想了一会就想明白了, 其实就是一个从末尾算起的选择排序, 我们的递归方法的功能是, 把数组的最后一项插入到最后一项之前的数组的合适位置, 然后对最后一项之前的数组使用这个方法, 直到数组中只剩一个元素就停机.</p>
+<p>尝试自己来写一下看看:</p>
+<pre>
+public static &lt;T extends Comparable&lt;? super T>> void insertLastToRightPlace(T[] array, int n) {
+    //停机条件是n=1,, 什么也不用干
+
+    if (array.length == 1) {
+        return;
+    }
+
+    //方法的核心功能就是将最后一个索引插入到合适的位置
+    if (n != 1) {
+        T lastElement = array[n - 1];
+        //依然是不断交换, 注意索引不要越界, 在n=1的时候就可以停止了, 只需要操作到数组从头开始的第二个元素即可
+        for (int j = n - 1; j > 0; j--) {
+            if (array[j - 1].compareTo(array[j]) > 0) {
+                array[j] = array[j - 1];
+                array[j - 1] = lastElement;
+            }
+        }
+        //然后继续对剩下的部分进行操作
+        insertLastToRightPlace(array, n - 1);
+    }
+}
+
+public static &lt;T extends Comparable&lt;? super T>> void insertionRecursionSort(T[] array) {
+    insertLastToRightPlace(array, array.length);
+}
+</pre>
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
