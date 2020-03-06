@@ -23,11 +23,7 @@
     <li><a href="#con1">泛型简单回顾 - Comparable&lt;T>接口</a></li>
     <li><a href="#con2">选择排序</a></li>
     <li><a href="#con3">插入排序</a></li>
-    <li><a href="#con4">老套的题目</a></li>
-    <li><a href="#con5">用递归处理数组 - 迭代</a></li>
-    <li><a href="#con6">用递归处理数组 - 分半</a></li>
-    <li><a href="#con7">用递归处理链表 - 逆序比较方便</a></li>
-    <li><a href="#con8">尾递归</a></li>
+    <li><a href="#con4">重构选择排序和插入排序到更灵活的版本</a></li>
 </ol>
 
 
@@ -238,35 +234,53 @@ public static &lt;T extends Comparable&lt;? super T>> void insertionSort(T[] arr
     insertionSort(array, array.length);
 }
 </pre>
-<p>插入排序的递归版本想了一会就想明白了, 其实就是一个从末尾算起的选择排序, 我们的递归方法的功能是, 把数组的最后一项插入到最后一项之前的数组的合适位置, 然后对最后一项之前的数组使用这个方法, 直到数组中只剩一个元素就停机.</p>
+<p>插入排序的递归版本想了一会就想明白了, 如果我们的递归函数是可以实现排序的,那么只需要对前边元素排序,然后把最后一个元素插入进去即可.</p>
 <p>尝试自己来写一下看看:</p>
 <pre>
+//n表示排前几个数字
 public static &lt;T extends Comparable&lt;? super T>> void insertLastToRightPlace(T[] array, int n) {
-    //停机条件是n=1,, 什么也不用干
 
+    //停机条件是n=1, 不做任何操作直接返回
     if (array.length == 1) {
         return;
     }
 
-    //方法的核心功能就是将最后一个索引插入到合适的位置
-    if (n != 1) {
+    //当n>=2的时候,先把从数组开头的n-1个排好, 然后把第n个元素(索引是n-1)插入到前边的元素中.
+    if (n > 1) {
+        //最后一个索引是n-1
+        insertLastToRightPlace(array, n - 1);
         T lastElement = array[n - 1];
-        //依然是不断交换, 注意索引不要越界, 在n=1的时候就可以停止了, 只需要操作到数组从头开始的第二个元素即可
-        for (int j = n - 1; j > 0; j--) {
-            if (array[j - 1].compareTo(array[j]) > 0) {
-                array[j] = array[j - 1];
-                array[j - 1] = lastElement;
+
+        //要将n-1 插入到 0 n-2中
+        //依然是不断交换, 注意索引别越界, 最后一次比较应该是基于第二个元素比较第一个元素
+        for (int j = n - 2; j >= 0; j--) {
+            if (array[j].compareTo(array[j+1]) > 0) {
+                array[j+1] = array[j];
+                array[j] = lastElement;
             }
         }
-        //然后继续对剩下的部分进行操作
-        insertLastToRightPlace(array, n - 1);
+        System.out.println(Arrays.toString(array));
     }
 }
-
-public static &lt;T extends Comparable&lt;? super T>> void insertionRecursionSort(T[] array) {
-    insertLastToRightPlace(array, array.length);
-}
 </pre>
+<p>之前写递归傻了, 把进入递归放在了不断交换的后边, 这样会导致得到错误的结果.</p>
+
+<h2 style="text-align: center;" id="con4">重构选择排序和插入排序到更灵活的版本</h2>
+<p>现在的排序方法还不够通用, 必须编写一个可以指定要排序的数组, 以及开始和结束索引的方法, 以对这个索引范围(包含两端索引)的内容进行排序. 而且这个方法可以作为类中其他方法的基础方法, 比如实现了索引范围排序, 那么一个对数组进行全排序的方法就可以在内部引用这个范围排序,只需要把范围设置为0-数组最大索引即可.</p>
+<p>先来重构选择排序的类, 由于选择排序内部需要执行两大功能, 即寻找一个范围内的最小索引, 和交换数组中两个索引的值, 所以需要先编写两个静态方法:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
