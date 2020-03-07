@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Java 数据结构 排序</title>
+    <title>Java 数据结构 排序 - 选择排序</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -22,8 +22,7 @@
 <ol>
     <li><a href="#con1">泛型简单回顾 - Comparable&lt;T>接口</a></li>
     <li><a href="#con2">选择排序</a></li>
-    <li><a href="#con3">插入排序</a></li>
-    <li><a href="#con4">重构选择排序和插入排序到更灵活的版本</a></li>
+    <li><a href="#con3">重构选择排序到更灵活的版本</a></li>
 </ol>
 
 
@@ -194,84 +193,275 @@ public static &lt;T extends Comparable&lt;? super T>> void sort(T[] array) {
 }
 </pre>
 <p>递归版本也可以再加入一个参数n, 来控制排序到第几项, 就不再一一写了,原理是一样的, 还可以将交换数组的两个索引也抽出到一个函数中.</p>
-<p>选择排序由于是最直观的, 现在无需看教材, 自己都能够实现了. </p>
+<p>选择排序由于是最直观的, 现在无需看教材, 自己都能够实现了.</p>
 
-<h2 style="text-align: center;" id="con3">插入排序</h2>
-<p>插入排序的套路是, 每遇到一本书, 都不断将其和左边的书进行比较, 如果大于, 就不改变位置, 如果小于, 就将其换到左边的书的左边, 然后继续比较下一个位置.</p>
-<p>用迭代的方法的话, 就是对于每一个元素, 从当前索引反向遍历到数组头, 只要小于, 就交换位置, 直到达到正确的位置.</p>
-<pre>
-//排前N个元素的插入排序
-public static &lt;T extends Comparable&lt;? super T>> void insertionSort(T[] array, int n) {
-    //遍历数组的元素
-
-    if (n > array.length || n &lt; 0) {
-
-        throw new RuntimeException("n大于数组的个数或者n小于等于0.");
-    }
-
-    for (int i = 0; i &lt; n; i++) {
-
-        //取到当前元素
-        T target = array[i];
-
-        //反向遍历到数组的头部, 由于无需和自己比较, 所以j开始的索引是i-1
-        for (int j = i - 1; j >= 0; j--) {
-            //比较j+1与j索引位置的元素, 如果当前元素小于j索引位置的元素, 则应该将j位置的元素往后移动一个索引, 然后把这个元素插进去
-            //等于元素就一点一点的交换到正确的位置
-            if (array[j+1].compareTo(array[j]) &lt; 0) {
-                array[j + 1] = array[j];
-                array[j] = target;
-            }
-            //如果大于, 就什么也不做
-        }
-        System.out.println("第" + (i + 1) + "个元素排完之后的数组是: " + Arrays.toString(array));
-
-    }
-}
-
-//全排序, 调用上边编写的方法
-public static &lt;T extends Comparable&lt;? super T>> void insertionSort(T[] array) {
-    insertionSort(array, array.length);
-}
-</pre>
-<p>插入排序的递归版本想了一会就想明白了, 如果我们的递归函数是可以实现排序的,那么只需要对前边元素排序,然后把最后一个元素插入进去即可.</p>
-<p>尝试自己来写一下看看:</p>
-<pre>
-//n表示排前几个数字
-public static &lt;T extends Comparable&lt;? super T>> void insertLastToRightPlace(T[] array, int n) {
-
-    //停机条件是n=1, 不做任何操作直接返回
-    if (array.length == 1) {
-        return;
-    }
-
-    //当n>=2的时候,先把从数组开头的n-1个排好, 然后把第n个元素(索引是n-1)插入到前边的元素中.
-    if (n > 1) {
-        //最后一个索引是n-1
-        insertLastToRightPlace(array, n - 1);
-        T lastElement = array[n - 1];
-
-        //要将n-1 插入到 0 n-2中
-        //依然是不断交换, 注意索引别越界, 最后一次比较应该是基于第二个元素比较第一个元素
-        for (int j = n - 2; j >= 0; j--) {
-            if (array[j].compareTo(array[j+1]) > 0) {
-                array[j+1] = array[j];
-                array[j] = lastElement;
-            }
-        }
-        System.out.println(Arrays.toString(array));
-    }
-}
-</pre>
-<p>之前写递归傻了, 把进入递归放在了不断交换的后边, 这样会导致得到错误的结果.</p>
-
-<h2 style="text-align: center;" id="con4">重构选择排序和插入排序到更灵活的版本</h2>
+<h2 style="text-align: center;" id="con3">重构选择排序和到更灵活的版本</h2>
 <p>现在的排序方法还不够通用, 必须编写一个可以指定要排序的数组, 以及开始和结束索引的方法, 以对这个索引范围(包含两端索引)的内容进行排序. 而且这个方法可以作为类中其他方法的基础方法, 比如实现了索引范围排序, 那么一个对数组进行全排序的方法就可以在内部引用这个范围排序,只需要把范围设置为0-数组最大索引即可.</p>
-<p>先来重构选择排序的类, 由于选择排序内部需要执行两大功能, 即寻找一个范围内的最小索引, 和交换数组中两个索引的值, 所以需要先编写两个静态方法:</p>
+<p>先来重构选择排序的类, 由于选择排序内部需要执行两大功能, 即寻找一个范围内的最小索引, 和交换数组中两个索引的值, 所以编写一个新的方法, 同时将寻找最小索引和交换数组索引的功能抽取出来:</p>
+<p>此外, 还有一个问题, 默认是升序排列, 是不是可以选择降序排列, 其实也很简单, 只需要将寻找最小索引改成寻找最大索引即可, 可以通过给核心方法添加一个reverse参数来控制寻找最大还是最小的索引.</p>
+<p>于是最后写成的类中包含一个核心私有迭代排序方法, 一个核心私有递归排序方法, 三个私有静态辅助方法, 然后就暴露给外界使用的排序整个数组, 排序指定索引间的数组, 排序前n个和后n个元素的公有方法, 这些公有方法全部都调用两个核心私有方法之一.</p>
+<p>完整的类如下:</p>
+<pre>
+public class Selection {
+
+    /**
+     * 给数组开头的count个元素进行升序排列
+     *
+     * @param array 数组
+     * @param count 从开始要排序的元素的数量
+     * @param &lt;T>   泛型参数,必须实现Comparable接口
+     */
+    public static &lt;T extends Comparable&lt;? super T>> void sortFromStart(T[] array, int count) {
+
+        //判断参数是否合理, 由于核心函数会判断参数是否有问题, 所以这里只需要判断count即可, 等于0或者1直接返回
+        //如果count等于其他值, 会由核心函数进行判断
+        if (count == 0 || count == 1) {
+            return;
+        }
+
+        //调用核心函数, 开始索引为0, 结束索引为count-1即可
+        sort(array, 0, count - 1, false);
+    }
+
+    /**
+     * 给数组开头的count个元素进行降序排列
+     *
+     * @param array 数组
+     * @param count 从开始要排序的元素的数量
+     * @param &lt;T>   泛型参数,必须实现Comparable接口
+     */
+    public static &lt;T extends Comparable&lt;? super T>> void sortFromStartDesc(T[] array, int count) {
+
+        //判断参数是否合理, 由于核心函数会判断参数是否有问题, 所以这里只需要判断count即可, 等于0或者1直接返回
+        //如果count等于其他值, 会由核心函数进行判断
+        if (count == 0 || count == 1) {
+            return;
+        }
+
+        //调用核心函数, 开始索引为0, 结束索引为count-1即可
+        sort(array, 0, count - 1, true);
+    }
 
 
+    /**
+     * 给从数组末尾向前数起的count个元素进行升序排序
+     *
+     * @param array 要排序的数组
+     * @param count 末尾的count个元素
+     * @param &lt;T>   泛型参数,必须实现Comparable接口
+     */
+    public static &lt;T extends Comparable&lt;? super T>> void sortFromEnd(T[] array, int count) {
+
+        //判断参数是否合理, 由于核心函数会判断参数是否有问题, 所以这里只需要判断count即可, 等于0或者1直接返回
+        //如果count等于其他值, 会由核心函数进行判断
+        if (count == 0 || count == 1) {
+            return;
+        }
+
+        //调用核心函数, 开始索引为array.length-1-count, 结束索引为 array.length-1
+        recursionSort(array, array.length - count, array.length - 1, false);
+    }
+
+    /**
+     * 给从数组末尾向前数起的count个元素进行降序排序
+     *
+     * @param array 要排序的数组
+     * @param count 末尾的count个元素
+     * @param &lt;T>   泛型参数,必须实现Comparable接口
+     */
+    public static &lt;T extends Comparable&lt;? super T>> void sortFromEndDesc(T[] array, int count) {
+
+        //判断参数是否合理, 由于核心函数会判断参数是否有问题, 所以这里只需要判断count即可, 等于0或者1直接返回
+        //如果count等于其他值, 会由核心函数进行判断
+        if (count == 0 || count == 1) {
+            return;
+        }
+
+        //调用核心函数, 开始索引为array.length-1-count, 结束索引为 array.length-1
+        recursionSort(array, array.length - count, array.length - 1, true);
+    }
+
+    /**
+     * 对数组全部元素进行升序排列, 内部直接调用核心私有方法或者另外一个排序前N个的都可以
+     *
+     * @param array 要排序的数组
+     * @param &lt;T>   泛型参数,必须实现Comparable接口
+     */
+    public static &lt;T extends Comparable&lt;? super T>> void sort(T[] array) {
+        sort(array, 0, array.length - 1, false);
+    }
+
+    /**
+     * 对数组全部元素进行降序排列, 内部直接调用核心私有方法或者另外一个排序前N个的都可以
+     *
+     * @param array 要排序的数组
+     * @param &lt;T>   泛型参数,必须实现Comparable接口
+     */
+    public static &lt;T extends Comparable&lt;? super T>> void sortDesc(T[] array) {
+        sort(array, 0, array.length - 1, true);
+    }
 
 
+    /**
+     * 对指定索引范围内的数组元素进行升序排序, 包含起始索引与结束索引
+     *
+     * @param array      要排序的数组
+     * @param startIndex 要排序的部分的起始索引
+     * @param endIndex   要排序的部分的结束索引
+     * @param &lt;T>        泛型参数,必须实现Comparable接口
+     */
+    public static &lt;T extends Comparable&lt;? super T>> void sortBetweenIndex(T[] array, int startIndex, int endIndex) {
+        //内部直接调用私有核心方法即可
+        sort(array, startIndex, endIndex, false);
+    }
+
+    /**
+     * 对指定索引范围内的数组元素进行降序排序, 包含起始索引与结束索引
+     *
+     * @param array      要排序的数组
+     * @param startIndex 要排序的部分的起始索引
+     * @param endIndex   要排序的部分的结束索引
+     * @param &lt;T>        泛型参数,必须实现Comparable接口
+     */
+    public static &lt;T extends Comparable&lt;? super T>> void sortBetweenIndexDesc(T[] array, int startIndex, int endIndex) {
+        //内部直接调用私有核心方法即可
+        sort(array, startIndex, endIndex, true);
+    }
+
+
+    /**
+     * 对起始索引索引和结束索引之间(包含起始索引和结束索引)的部分进行排序, 就地排序, 不返回新数组.
+     * 本方法是数组排序的核心私有方法, 对外暴露的其他方法内部调用该方法.
+     * 数组元素需要实现Comparable接口
+     *
+     * @param array      要排序的数组,
+     * @param startIndex 要进行排序部分的起始索引
+     * @param endIndex   要进行排序部分的结束索引
+     * @param reverse    布尔类型, 是否降序排序, 为true表示降序排序, 为false表示升序排序
+     * @param &lt;T>        泛型参数,必须实现Comparable接口
+     */
+    private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse) {
+        //判断数组长度, 如果为0或者1, 直接返回
+        if (array.length == 0 || array.length == 1) {
+            return;
+        }
+
+        //判断两个索引参数是否符合要求
+        if (startIndex &lt; 0 || startIndex > array.length - 1 || endIndex &lt; 0 || endIndex > array.length - 1 || startIndex > endIndex) {
+            throw new IllegalArgumentException("索引超出范围");
+        }
+
+        //主排序算法, 对于数组中每一个元素, 获取其到endIndex之间的最小值, 然后交换二者的位置, 注意, 其实只需要遍历到倒数第二个元素即可, 因为不管交换不交换, 结果都正确.
+        for (int i = startIndex; i &lt; endIndex; i++) {
+            //根据是否升序或者降序, 查找当前索引到结束索引之间的最小/大值对应的索引
+            int swapIndex;
+            if (reverse) {
+                swapIndex = findMaxIndex(array, i, endIndex);
+            } else {
+                swapIndex = findMinIndex(array, i, endIndex);
+            }
+
+            //交换当前索引和最大/最小值索引的内容
+            swap(array, i, swapIndex);
+        }
+    }
+
+    /**
+     * 递归版本的核心排序私有方法, 方法原理是, 寻找当前数组的最小/大值, 与第一个进行交换. 然后对数组的第二个元素开始到结束的部分进行同样的空操作, 直到剩余部分长度为1结束.
+     * 这个递归方法的名称应该叫交换第一个元素与最大/最小值更加合适
+     * @param array      要排序的数组
+     * @param startIndex 开始的索引
+     * @param endIndex   结束的索引
+     * @param reverse    是否反向(降序)排列, true为降序, false为升序
+     * @param &lt;T>        泛型参数,必须实现Comparable接口
+     */
+    private static &lt;T extends Comparable&lt;? super T>> void recursionSort(T[] array, int startIndex, int endIndex, boolean reverse) {
+        //基础的参数判断与非递归版本一致
+        if (array.length == 0 || array.length == 1) {
+            return;
+        }
+
+        //判断两个索引参数是否符合要求
+        if (startIndex &lt; 0 || startIndex > array.length - 1 || endIndex &lt; 0 || endIndex > array.length - 1 || startIndex > endIndex) {
+            throw new IllegalArgumentException("索引超出范围");
+        }
+
+        //停机条件是startIndex=endIndex
+        if (startIndex != endIndex) {
+            //根据是否降序取最小/最大值对应的索引
+            int swapIndex;
+            if (reverse) {
+                swapIndex = findMaxIndex(array, startIndex, endIndex);
+            } else {
+                swapIndex = findMinIndex(array, startIndex, endIndex);
+            }
+            //交换第一个索引与最大/最小值对应的索引的内容
+            swap(array, startIndex, swapIndex);
+            //对从start+1开始到endIndex的部分继续排序
+            recursionSort(array, startIndex + 1, endIndex, reverse);
+        }
+
+    }
+    
+    
+    /**
+     * 寻找一个数组在起始索引和结束索引之间的最小值对应的索引, 数组元素需要实现Comparable接口. 私有方法, 为支持排序方法.
+     *
+     * @param array      数组对象
+     * @param startIndex 起始索引
+     * @param lastIndex  结束索引
+     * @param &lt;T>        泛型参数,必须实现Comparable接口
+     * @return 在起始索引和结束索引之间的最小值对应的索引
+     */
+    private static &lt;T extends Comparable&lt;? super T>> int findMinIndex(T[] array, int startIndex, int lastIndex) {
+        int min = startIndex;
+
+        for (int i = startIndex; i &lt;= lastIndex; i++) {
+            if (array[min].compareTo(array[i]) > 0) {
+                min = i;
+            }
+        }
+        return min;
+    }
+
+
+    /**
+     * 寻找一个数组在起始索引和结束索引之间的最大值对应的索引, 数组元素需要实现Comparable接口. 私有方法, 为支持排序方法.
+     *
+     * @param array      数组对象
+     * @param startIndex 起始索引
+     * @param lastIndex  结束索引
+     * @param &lt;T>        泛型参数,必须实现Comparable接口
+     * @return 在起始索引和结束索引之间的最大值对应的索引
+     */
+    private static &lt;T extends Comparable&lt;? super T>> int findMaxIndex(T[] array, int startIndex, int lastIndex) {
+        int max = startIndex;
+
+        for (int i = startIndex; i &lt;= lastIndex; i++) {
+            if (array[max].compareTo(array[i]) &lt; 0) {
+                max = i;
+            }
+        }
+        return max;
+    }
+
+    /**
+     * 交换数组中两个元素的方法, 不返回任何值, 就地交换. 私有方法, 为支持排序方法
+     *
+     * @param array  数组
+     * @param index1 要交换的两个元素的其中一个索引
+     * @param index2 要交换的两个元素的另外一个索引
+     * @param &lt;T>    泛型参数,必须实现Comparable接口
+     */
+    private static &lt;T> void swap(T[] array, int index1, int index2) {
+        T temp = array[index1];
+        array[index1] = array[index2];
+        array[index2] = temp;
+    }
+}
+</pre>
+<p>算法真的不能着急, 必须一点一点慢慢吃透, 不仅练会算法本身, 还得一并提高工程实践能力才行. 这样写出来的类灵活性高多了.</p>
+<p>选择排序很显然, 最差的情况下, 第一个元素要遍历n次才能找到最小值/最大值, 然后第二个元素是n-1次, 一直到第n个元素, 很显然是平方级别的复杂度, 这个已经很熟悉了.</p>
 
 
 

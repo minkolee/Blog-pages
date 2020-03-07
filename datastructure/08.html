@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 排序 - 插入排序</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>要看一个排序, 就得把思想记住, 思想记住了, 即使具体代码忘记了, 也可以很快写出来新的应用到工程中, 但要是思路忘记了, 那就等于全部忘光了.</p>
+
+<ol>
+    <li><a href="#con1">插入排序的思路和核心方法</a></li>
+    <li><a href="#con2">编写核心方法</a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4">重构选择排序和插入排序到更灵活的版本</a></li>
+</ol>
+
+
+<h2 style="text-align: center;" id="con1">插入排序的思路</h2>
+<p>插入排序的思路是, 对于数组的每一个元素, 将其与其左边的元素不断进行比较. 假如是升序排列的话, 如果当前元素比左边的大, 说明位于正确的位置上, 比左边的小, 则说明其要移动到左边元素的左边. 移动完之后, 再与左边的元素进行比较.</p>
+<p>从整体上来看, 就是数组中的每一个元素, 都不断与其左边的元素进行交换, 一直到处于正确的位置上. </p>
+<p>编写迭代方法的时候, 一开始就编写像选择排序一样灵活的排序方法, 即可以使用开始和结束索引的方法. 这里的整体思路就是对于数组的每一个元素, 都从这个元素反向迭代到数组的头部, 然后比较每个位置上的元素与当前元素, 如果当前元素更小, 就将那个位置往后移动一下.</p>
+<p>一直到当前元素大于那个元素, 则说明当前元素应该紧跟在那个位置的元素之后, 因此就将当前元素插入到刚刚移走的元素的位置上. 编写这个方法, 要特别注意数组的索引, 不要超过界限.</p>
+<pre>
+public static &lt;T extends Comparable&lt;? super T>> void insertionSort(T[] array, int n) {
+    //遍历数组的元素
+
+    if (n > array.length || n &lt; 0) {
+
+        throw new RuntimeException("n大于数组的个数或者n小于等于0.");
+    }
+
+    for (int i = 0; i &lt; n; i++) {
+
+        //取到当前元素
+        T target = array[i];
+
+        //反向遍历到数组的头部, 由于无需和自己比较, 所以j开始的索引是i-1
+        for (int j = i - 1; j >= 0; j--) {
+            //比较j+1与j索引位置的元素, 如果当前元素小于j索引位置的元素, 则应该将j位置的元素往后移动一个索引, 然后把这个元素插进去
+            //等于元素就一点一点的交换到正确的位置
+            if (array[j+1].compareTo(array[j]) &lt; 0) {
+                array[j + 1] = array[j];
+                array[j] = target;
+            }
+            //如果大于, 就什么也不做
+        }
+        System.out.println("第" + (i + 1) + "个元素排完之后的数组是: " + Arrays.toString(array));
+
+    }
+}
+
+//全排序, 调用上边编写的方法
+public static &lt;T extends Comparable&lt;? super T>> void insertionSort(T[] array) {
+    insertionSort(array, array.length);
+}
+</pre>
+<p>插入排序的递归版本想了一会就想明白了, 如果我们的递归函数是可以实现排序的,那么只需要对前边元素排序,然后把最后一个元素插入进去即可.</p>
+<p>尝试自己来写一下看看:</p>
+<pre>
+//n表示排前几个数字
+public static &lt;T extends Comparable&lt;? super T>> void insertLastToRightPlace(T[] array, int n) {
+
+    //停机条件是n=1, 不做任何操作直接返回
+    if (array.length == 1) {
+        return;
+    }
+
+    //当n>=2的时候,先把从数组开头的n-1个排好, 然后把第n个元素(索引是n-1)插入到前边的元素中.
+    if (n > 1) {
+        //最后一个索引是n-1
+        insertLastToRightPlace(array, n - 1);
+        T lastElement = array[n - 1];
+
+        //要将n-1 插入到 0 n-2中
+        //依然是不断交换, 注意索引别越界, 最后一次比较应该是基于第二个元素比较第一个元素
+        for (int j = n - 2; j >= 0; j--) {
+            if (array[j].compareTo(array[j+1]) > 0) {
+                array[j+1] = array[j];
+                array[j] = lastElement;
+            }
+        }
+        System.out.println(Arrays.toString(array));
+    }
+}
+</pre>
+<p>之前写递归傻了, 把进入递归放在了不断交换的后边, 这样会导致得到错误的结果.</p>
+
+<h2 style="text-align: center;" id="con4">重构选择排序和插入排序到更灵活的版本</h2>
+<p>现在的排序方法还不够通用, 必须编写一个可以指定要排序的数组, 以及开始和结束索引的方法, 以对这个索引范围(包含两端索引)的内容进行排序. 而且这个方法可以作为类中其他方法的基础方法, 比如实现了索引范围排序, 那么一个对数组进行全排序的方法就可以在内部引用这个范围排序,只需要把范围设置为0-数组最大索引即可.</p>
+<p>先来重构选择排序的类, 由于选择排序内部需要执行两大功能, 即寻找一个范围内的最小索引, 和交换数组中两个索引的值, 所以编写一个新的方法, 同时将寻找最小索引和交换数组索引的功能抽取出来:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
