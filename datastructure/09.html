@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Java 数据结构 排序 - 插入排序</title>
+    <title>Java 数据结构 排序 - 插入排序 - 给链表排序</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -344,10 +344,10 @@ private static &lt;T extends Comparable&lt;? super T>> void recursionSwap(T[] ar
 
 <h2 style="text-align: center;" id="con4">插入排序的优缺点</h2>
 <p>没有看教材, 自己也写出来了插入排序, 关键是对思路理解的更深了. 插入依然需要遍历比较, 所以很显然, 也是平方级的复杂度, 因此也够慢的.</p>
-<p>但是插入排序也有好处:</p>
+<p>但是插入排序有几大好处:</p>
 <ol>
     <li>对于已经有序的内容, 每次新增一个数据, 让结果依然有序的复杂度是O(n), 这就让插入排序经常用于一些已经排序好, 减少和新增幅度不大的内容.</li>
-    <li>插入排序的思想可以用于链表排序, 选择排序就非常难以操作链表类型的数据结构.</li>
+    <li>插入排序的思想可以用于链表排序, 选择排序之类非常难以操作.</li>
 </ol>
 <p>之前排列的都是数组, 之后就要用插入排序来操作一下链表的排序.</p>
 
