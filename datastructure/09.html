@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Java 数据结构 排序 - 插入排序 - 给链表排序</title>
+    <title>Java 数据结构 排序 - 插入排序 - 链表排序</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,347 +15,296 @@
     </style>
 </head>
 <body>
-<p>要看一个排序, 就得把思想记住, 思想记住了, 即使具体代码忘记了, 也可以很快写出来新的应用到工程中, 但要是思路忘记了, 那就等于全部忘光了.</p>
+<p>链表排序的最大问题是, 不能像数组那样简单的交换节点, 要操作一个节点, 很多时候需要知道这个节点之前的节点.</p>
+<p>因此像选择排序这种直接通过索引交换位置的方法, 操作链表就变得非常麻烦. 但是插入排序就提供了一个崭新的思路.</p>
+<p>插入排序的一大特点之前已经了解了, 就是某个元素的左侧是已经排序的, 右侧(包括其自己)是尚未排序的, 等于就将整组数据分成了两部分, 一部分已排序, 一部分未排序.</p>
+<p>排序的过程也就是将所有未排序部分中的数据一个一个的插入到已排序部分中. 这就比较符合链表的思想, 一起来看看.</p>
 
 <ol>
-    <li><a href="#con1">插入排序的思路和核心方法</a></li>
-    <li><a href="#con2">编写公有方法</a></li>
-    <li><a href="#con3">递归版本的方法</a></li>
-    <li><a href="#con4">插入排序的优缺点</a></li>
+    <li><a href="#con1">链表排序的核心思想与准备工作</a></li>
+    <li><a href="#con2">核心排序方法编写</a></li>
+    <li><a href="#con3">改进一下链表数据结构</a></li>
 </ol>
 
 
-<h2 style="text-align: center;" id="con1">插入排序的思路</h2>
-<p>插入排序的思路是, 对于数组的每一个元素, 将其与其左边的元素不断进行比较. 假如是升序排列的话, 如果当前元素比左边的大, 说明位于正确的位置上, 比左边的小, 则说明其要移动到左边元素的左边. 移动完之后, 再与左边的元素进行比较.</p>
-<p>从整体上来看, 就是数组中的每一个元素, 都不断与其左边的元素进行交换, 一直到处于正确的位置上. </p>
-<p>编写迭代方法的时候, 一开始就编写像选择排序一样灵活的排序方法, 即可以使用开始和结束索引的方法. 这里的整体思路就是对于数组的每一个元素, 都从这个元素反向迭代到数组的头部, 然后比较每个位置上的元素与当前元素, 如果当前元素更小, 就将那个位置往后移动一下.</p>
-<p>一直到当前元素大于那个元素, 则说明当前元素应该紧跟在那个位置的元素之后, 因此就将当前元素插入到刚刚移走的元素的位置上. 编写这个方法, 要特别注意数组的索引, 不要超过界限. 此外还可以将插入动作单独提取到一个方法中.</p>
-<p>核心方法如下:</p>
+<h2 style="text-align: center;" id="con1">链表排序的核心思想与准备工作</h2>
+<p>真的佩服前人想出来的算法, 链表排序的核心思想就是使用插入排序, 将链表一分为二, 一部分是已经排序好的, 另外一部分是尚未排序的. 然后不断的将没有排序的部分插入到已经排序的链表的正确位置.</p>
+<p>这里的细节就是如果要将一个节点插入到链表中, 必须获得其前一个节点的引用.</p>
+<p>还一个不同点是, 数组是Java提供的基本类型, 可以方便快捷的在外部进行操作, 但是链表结构我们使用了内部类Node, 因此我们考虑创建一个包含实现了Comparable接口的元素的链表类型, 然后将排序方法作为这个链表对象的方法.</p>
+<p>所以首先来编写一个使用Comparable接口的链表类:</p>
 <pre>
-/**
- * 插入排序的核心方法, 迭代版本
- *
- * @param array      要排序的数组
- * @param startIndex 要排序部分开始的索引
- * @param endIndex   要排序部分结束的索引
- * @param reverse    是否降序排列, true为降序, false为升序
- * @param &lt;T>        泛型参数,必须实现Comparable接口
- */
-private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse) {
+public class LinkedList&lt;T extends Comparable&lt;? super T>> {
 
-    if (array.length == 0 || array.length == 1) {
-        return;
+    private class Node {
+        private T data;
+        private Node next;
+
+        public Node(T data) {
+            this(data, null);
+        }
+
+        public Node(T data, Node next) {
+            this.data = data;
+            this.next = next;
+        }
+
+        @Override
+        public String toString() {
+            return "Node{" +
+                    "data=" + data +
+                    '}';
+        }
     }
 
-    if (startIndex &lt; 0 || endIndex &lt; 0 || startIndex > array.length - 1 || endIndex > array.length - 1 || startIndex > endIndex) {
-        throw new IllegalArgumentException("索引超出范围. startIndex=" + startIndex + " endIndex=" + endIndex);
+    private Node firstNode;
+    private int numberOfEntries;
+
+    public LinkedList() {
+        this.firstNode = null;
+        numberOfEntries = 0;
     }
-    //由于插入排序的特点, 只需要从数组的第二个元素开始遍历, 一直到endIndex, 即范围是 startIndex+1 to endIndex
-    //从要排序部分的第二个元素一直到要排序部分的最后一个元素遍历
-    for (int i = startIndex + 1; i &lt;= endIndex; i++) {
 
-        //将当前元素插入到startIndex 到 i 之间的正确位置
-        insertIntoArray(array, startIndex, i, reverse);
-
+    public boolean add(T entry) {
+        Node newNode = new Node(entry, firstNode);
+        firstNode = newNode;
+        numberOfEntries++;
+        return true;
     }
-}
-</pre>
-<p>还需要实现辅助这个核心方法的<code>insertIntoArray</code>方法:</p>
-<pre>
-/**
- * 将currentIndex位置上的元素, 合理插入到startIndex - currentIndex范围内的数组中的方法
- * 本方法是插入算法中将某一个位置的元素插入到其正确位置的核心方法, 辅助核心排序方法完成工作
- * @param array 要排序的数组
- * @param startIndex 要排序的部分的开始索引位置
- * @param currentIndex 当前索引位置
- * @param reverse 是否降序, true为降序, false为升序
- * @param &lt;T> 泛型参数,必须实现Comparable接口
- */
-private static &lt;T extends Comparable&lt;? super T>> void insertIntoArray(T[] array, int startIndex, int currentIndex, boolean reverse) {
 
-    T element = array[currentIndex];
-    int index = currentIndex;
+    public boolean isEmpty() {
+        return numberOfEntries == 0;
+    }
 
-    //这里注意, 当前元素不需要一直移动到startIndex, 只需要移动到startIndex+1的位置即可, 在这个位置上比较左边一个元素的位置即可. 如果移动到数组尽头还去比较左侧元素, 会导致越界.
-    while (index > startIndex) {
-        //如果当前元素小于其左边元素, 说明其至少应该在左边元素的左边, 所以将左边元素右移一格, 然后继续比较当前元素与再左边元素
-        if (!reverse) {
-            if (element.compareTo(array[index - 1]) &lt; 0) {
-                array[index] = array[index - 1];
-                index--;
-            } else {
-                break;
-            }
+    public boolean remove() {
+        if (!isEmpty()) {
+            firstNode = firstNode.next;
+            numberOfEntries--;
+            return true;
         } else {
-            if (element.compareTo(array[index - 1]) > 0) {
-                array[index] = array[index - 1];
-                index--;
-            } else {
-                break;
-            }
+            return false;
         }
-
     }
 
-    //循环结束的时候, index就指向应该插入的位置, 如果element是最小, 此时的索引就是0, 否则就是某个应该插入的位置. 其之前的位置都已经被右移了一格
-    //将element插入到当前位置
-    array[index] = element;
-}
-</pre>
-<p>辅助方法特别需要注意界限的处理, 不要越界.</p>
-
-<h2 style="text-align: center;" id="con2">编写其他方法</h2>
-<p>这个和之前的排序的套路几乎一致了, 就是各种方法来调用私有核心排序方法, 从选择排序中直接把方法复制过来, 如果私有方法的名称还是sort, 都不用改动就可以继续沿用:</p>
-<pre>
-public class InsertionSort {
-
-    /**
-     * 给数组开头的count个元素进行升序排列
-     *
-     * @param array 数组
-     * @param count 从开始要排序的元素的数量
-     * @param &lt;T>   泛型参数,必须实现Comparable接口
-     */
-    public static &lt;T extends Comparable&lt;? super T>> void sortFromStart(T[] array, int count) {
-
-        //判断参数是否合理, 由于核心函数会判断参数是否有问题, 所以这里只需要判断count即可, 等于0或者1直接返回
-        //如果count等于其他值, 会由核心函数进行判断
-        if (count == 0 || count == 1) {
-            return;
+    public void showAllEntries() {
+        Node currentNode = firstNode;
+        while (currentNode != null) {
+            System.out.print(currentNode.data+" ");
+            currentNode = currentNode.next;
         }
-
-        //调用核心函数, 开始索引为0, 结束索引为count-1即可
-        sort(array, 0, count - 1, false);
-    }
-
-    /**
-     * 给数组开头的count个元素进行降序排列
-     *
-     * @param array 数组
-     * @param count 从开始要排序的元素的数量
-     * @param &lt;T>   泛型参数,必须实现Comparable接口
-     */
-    public static &lt;T extends Comparable&lt;? super T>> void sortFromStartDesc(T[] array, int count) {
-
-        //判断参数是否合理, 由于核心函数会判断参数是否有问题, 所以这里只需要判断count即可, 等于0或者1直接返回
-        //如果count等于其他值, 会由核心函数进行判断
-        if (count == 0 || count == 1) {
-            return;
-        }
-
-        //调用核心函数, 开始索引为0, 结束索引为count-1即可
-        sort(array, 0, count - 1, true);
-    }
-
-
-    /**
-     * 给从数组末尾向前数起的count个元素进行升序排序
-     *
-     * @param array 要排序的数组
-     * @param count 末尾的count个元素
-     * @param &lt;T>   泛型参数,必须实现Comparable接口
-     */
-    public static &lt;T extends Comparable&lt;? super T>> void sortFromEnd(T[] array, int count) {
-
-        //判断参数是否合理, 由于核心函数会判断参数是否有问题, 所以这里只需要判断count即可, 等于0或者1直接返回
-        //如果count等于其他值, 会由核心函数进行判断
-        if (count == 0 || count == 1) {
-            return;
-        }
-
-        //调用核心函数, 开始索引为array.length-1-count, 结束索引为 array.length-1
-        sort(array, array.length - count, array.length - 1, false);
-    }
-
-    /**
-     * 给从数组末尾向前数起的count个元素进行降序排序
-     *
-     * @param array 要排序的数组
-     * @param count 末尾的count个元素
-     * @param &lt;T>   泛型参数,必须实现Comparable接口
-     */
-    public static &lt;T extends Comparable&lt;? super T>> void sortFromEndDesc(T[] array, int count) {
-
-        //判断参数是否合理, 由于核心函数会判断参数是否有问题, 所以这里只需要判断count即可, 等于0或者1直接返回
-        //如果count等于其他值, 会由核心函数进行判断
-        if (count == 0 || count == 1) {
-            return;
-        }
-
-        //调用核心函数, 开始索引为array.length-1-count, 结束索引为 array.length-1
-        sort(array, array.length - count, array.length - 1, true);
-    }
-
-    /**
-     * 对数组全部元素进行升序排列, 内部直接调用核心私有方法或者另外一个排序前N个的都可以
-     *
-     * @param array 要排序的数组
-     * @param &lt;T>   泛型参数,必须实现Comparable接口
-     */
-    public static &lt;T extends Comparable&lt;? super T>> void sort(T[] array) {
-        sort(array, 0, array.length - 1, false);
-    }
-
-    /**
-     * 对数组全部元素进行降序排列, 内部直接调用核心私有方法或者另外一个排序前N个的都可以
-     *
-     * @param array 要排序的数组
-     * @param &lt;T>   泛型参数,必须实现Comparable接口
-     */
-    public static &lt;T extends Comparable&lt;? super T>> void sortDesc(T[] array) {
-        sort(array, 0, array.length - 1, true);
-    }
-
-
-    /**
-     * 对指定索引范围内的数组元素进行升序排序, 包含起始索引与结束索引
-     *
-     * @param array      要排序的数组
-     * @param startIndex 要排序的部分的起始索引
-     * @param endIndex   要排序的部分的结束索引
-     * @param &lt;T>        泛型参数,必须实现Comparable接口
-     */
-    public static &lt;T extends Comparable&lt;? super T>> void sortBetweenIndex(T[] array, int startIndex, int endIndex) {
-        //内部直接调用私有核心方法即可
-        sort(array, startIndex, endIndex, false);
-    }
-
-    /**
-     * 对指定索引范围内的数组元素进行降序排序, 包含起始索引与结束索引
-     *
-     * @param array      要排序的数组
-     * @param startIndex 要排序的部分的起始索引
-     * @param endIndex   要排序的部分的结束索引
-     * @param &lt;T>        泛型参数,必须实现Comparable接口
-     */
-    public static &lt;T extends Comparable&lt;? super T>> void sortBetweenIndexDesc(T[] array, int startIndex, int endIndex) {
-        //内部直接调用私有核心方法即可
-        sort(array, startIndex, endIndex, true);
-    }
-
-}
-</pre>
-
-<h2 style="text-align: center;" id="con3">递归版本的方法</h2>
-<p>在开始之前, 考虑到递归方法一样需要检查参数, 所以可以将检查参数也抽出来成为一个静态方法:</p>
-<pre>
-/**
- * 检查参数是否出现问题的函数, 如果参数有问题, 抛出运行时错误
- *
- * @param array      要排序的数组
- * @param startIndex 要排序部分的起始索引
- * @param endIndex   要排序部分的结束索引
- * @param &lt;T>        泛型参数,必须实现Comparable接口
- */
-private static &lt;T> void checkArguments(T[] array, int startIndex, int endIndex) {
-    if (startIndex &lt; 0 || endIndex &lt; 0 || startIndex > array.length - 1 || endIndex > array.length - 1 || startIndex > endIndex) {
-        throw new IllegalArgumentException("索引超出范围. startIndex=" + startIndex + " endIndex=" + endIndex);
-    }
-}
-</pre>
-<p>这样迭代和递归都可以使用这个方法来检查参数, 就更突出迭代和递归核心方法中的算法了.</p>
-<p>递归版本的方法依然是思路最重要. 从之前迭代方法中查看规律, 每个元素在要进入迭代之前, 其左侧的所有元素已经是排序好的.</p>
-<p>假如我们的递归方法是能够完成排序工作的函数, 则只需要对数组的前n-1个元素进行排序,再把最后一个元素插入到已经排好序的数组中就可以了. 停机条件是数组长度为1, 无需排序, 直接返回.</p>
-<p>所以我们递归方法的逻辑是:</p>
-<pre>
-如果数组长度不是1:
-    排数组之前的n-1个元素(对0 - n-1 的数组调用递归方法)
-    将第n个元素插入到之前n-1个元素的数组中的正确位置.
-</pre>
-<p>根据这个思路, 加上之前编写的将元素插入数组的方法, 就可以编写出递归方法如下:</p>
-<pre>
-/**
- * 递归插入排序的方法, 是核心私有方法
- * 递归思想是从迭代观察发现, 每一个元素的左边已经是被排序好的, 排序的方法就是将那个元素插入左边已经排序好的序列.
- * 本方法既然可以进行排序, 只要数组长度不为1, 就先将数组最后一个元素的左边部分全部排序好, 再将最后一个元素插入到已经排序好的部分.
- *
- * @param array      要排序的数组
- * @param startIndex 要排序部分的开始索引
- * @param endIndex   要排序部分结束的索引
- * @param reverse    是否降序排列, true为降序, false为升序
- * @param &lt;T>        泛型参数,必须实现Comparable接口
- */
-public static &lt;T extends Comparable&lt;? super T>> void recursionSort(T[] array, int startIndex, int endIndex, boolean reverse) {
-    //判断过程和原来一样, 其实也可以抽取出来
-    if (array.length == 0 || array.length == 1) {
-        return;
-    }
-
-    checkArguments(array, startIndex, endIndex);
-
-    //如果数组长度不为1
-    if (startIndex != endIndex) {
-        //对数组n-1的部分进行排序
-        recursionSort(array, startIndex, endIndex - 1, reverse);
-        //将当前最后一个索引 endIndex 对应的元素插入到 start - endIndex 之间
-        insertIntoArray(array, startIndex, endIndex, reverse);
-    }
-
-}
-</pre>
-<p>夜深人静的时候插入排序也仔细想好了, 这次无需重构, 一开始就想好了可以传入开始和结束索引, 以及升序和降序的核心方法的编写, 然后再其中还把插入部分也单独提取成一个方法, 在递归方法中就可以使用了.</p>
-<p>这个插入方法其实也有递归思路, 由于其实就是将元素不断交换到正确的位置, 因此递归思路是:</p>
-<pre>
-如果当前元素小于左边元素并且当前元素不是开头元素:
-    交换左边元素和当前元素
-    对当前元素是最左侧的数组(即n-1长度的数组)继续调用递归方法
-</pre>
-<p>如果递归函数实现的效果是根据大小交换一个数组的最右边和次右边的功能, 那么只需先交换, 再对数组n-1的部分继续调用就可以了:</p>
-<pre>
-/**
- * 将insertIntoArray方法改写而成的递归方法
- * 递归方法的功能是交换一个数组的最右侧两个元素. 停机条件是根据reverse的比较大小.
- * 例如,如果reverse是 false 表示 升序排列, 则停机条件首先是两个索引相等, 无需插入, 之后停机条件是当前元素大于等于其左侧元素
- * 如果当前元素小于其左侧元素, 交换两个元素的位置, 当前元素的索引就减少了1, 于是继续对当前元素为末尾的数组调用递归方法, 这样递归方法就始终跟踪一个元素.
- *
- * @param array        要插入的数组
- * @param startIndex   插入部分的起始索引
- * @param currentIndex 要将哪个索引的元素插入到起始到这个索引的部分, 参数就是那个索引
- * @param &lt;T>          泛型参数,必须实现Comparable接口
- */
-private static &lt;T extends Comparable&lt;? super T>> void recursionSwap(T[] array, int startIndex, int currentIndex, boolean reverse) {
-
-    if (currentIndex != startIndex) {
-
-        if (!reverse) {
-            if (array[currentIndex].compareTo(array[currentIndex - 1]) &lt; 0) {
-                T temp = array[currentIndex];
-                array[currentIndex] = array[currentIndex - 1];
-                array[currentIndex - 1] = temp;
-                recursionSwap(array, startIndex, currentIndex - 1, false);
-            }
-        } else {
-            if (array[currentIndex].compareTo(array[currentIndex - 1]) > 0) {
-                T temp = array[currentIndex];
-                array[currentIndex] = array[currentIndex - 1];
-                array[currentIndex - 1] = temp;
-                recursionSwap(array, startIndex, currentIndex - 1, true);
-            }
-        }
+        System.out.println();
 
     }
 }
 </pre>
-<p>有了这个插入动作的递归方法, 就可以把核心递归排序方法中的:</p>
-<pre>insertIntoArray(array, startIndex, endIndex, reverse);</pre>
-<p>替换成:</p>
-<pre>recursionSwap(array, startIndex, endIndex, reverse);</pre>
-<p>排序工作一样没问题.</p>
+<p>这个链表仅仅只保留了计数, 从链表首位置添加元素, 从链表首位置删除元素的功能.</p>
+<p>我们的排序方法将作为这个类的方法存在, 给这个链表进行就地排序.</p>
 
-<h2 style="text-align: center;" id="con4">插入排序的优缺点</h2>
-<p>没有看教材, 自己也写出来了插入排序, 关键是对思路理解的更深了. 插入依然需要遍历比较, 所以很显然, 也是平方级的复杂度, 因此也够慢的.</p>
-<p>但是插入排序有几大好处:</p>
+<h2 style="text-align: center;" id="con2">核心排序方法编写</h2>
+<p>按照之前的思路, 我们核心的排序方法的工作思路如下:</p>
 <ol>
-    <li>对于已经有序的内容, 每次新增一个数据, 让结果依然有序的复杂度是O(n), 这就让插入排序经常用于一些已经排序好, 减少和新增幅度不大的内容.</li>
-    <li>插入排序的思想可以用于链表排序, 选择排序之类非常难以操作.</li>
+    <li>将链表从头开始一分为二, 一个链表是已经排序的链表, 一个是尚未排序的部分. </li>
+    <li>具体如何拆分呢? 由于我们最后的链表依然是要以firstNode变量为开头, 并且在排序方法启动的时候, 所有的元素都是尚未排序的, 因此开始的时候直接新创建一个变量比如叫做notSortedNode指向firstNode指向的节点, 然后直接将firstNode设置为null.
+        这样操作之后, firstNode相当于已排序部分, 为空. notSortedNode中为原来链表的所有元素, 全部都没排序.</li>
+    <li>只要notSortedNode中还有元素, 将元素插入到firstNode节点链表的适当位置.</li>
+    <li>notSortedNode中没有元素的时候, 停止操作, 此时得到的firstNode就是已经排序的链表.</li>
 </ol>
-<p>之前排列的都是数组, 之后就要用插入排序来操作一下链表的排序.</p>
+<p>依据这个思路, 我们将元素插入到firstNode节点链表的适当位置抽取成一个方法, 用来辅助核心排序方法. 来用代码实现:</p>
+<pre>
+/**
+ * 将一个节点插入到一个已经排序的链表的方法. 核心原理是将被插入的节点的数据与被插入的链表中每个节点进行比较, 根据是否降序找到大于/小于被插入的节点的数据的那一项, 然后将节点插入至那一项之前
+ * 如果遍历都没能够找到插入位置, 说明需要将被插入的节点插入到节点末尾
+ * @param insertedNode 要插入的节点
+ * @param reverse 升序还是降序, true表示降序, false表示升序
+ */
+private void insertIntoNodes(Node insertedNode, boolean reverse) {
 
+    //如果已排序链表中没有元素, 直接将其插入第一个节点,
+    if (firstNode == null) {
+        insertedNode.next = null;
+        firstNode = insertedNode;
+    } else {
+        //获取要插入的节点的数据
+        T data = insertedNode.data;
 
+        //开始遍历已排序链表, 先弄出两个引用, 一个指向遍历到的节点, 一个指向上一个节点, 对于第一个节点, 前一个节点为空
+        Node previousNode = null;
+        Node currentNode = firstNode;
 
+        boolean inserted = false;
 
+        //对于链表中每一个节点来判断是否可以插入
+        while (currentNode != null && !inserted) {
 
+            //如果某个节点的数据大于/小于要插入的节点, 说明要插入到这个节点之前.
+            //根据是否降序来选择比较的结果, 降序则是遍历到的节点的数据大于要插入的节点的数据
+            if (!reverse) {
+                //判断到大于0的时候说明发现了正确位置
+                if (currentNode.data.compareTo(data) > 0) {
+                    //如果上一个节点为空, 说明是首节点, 就跟往链表中插入一个新元素一样
+                    if (previousNode == null) {
+                        insertedNode.next = firstNode;
+                        firstNode = insertedNode;
+                    //如果不为空, 将其插入到上一个和当前节点之间
+                    } else {
+                        insertedNode.next = currentNode;
+                        previousNode.next = insertedNode;
+                    }
+                    //只要执行到这里, 就说明已经插入完了, 将已经插入变量设置为true
+                    inserted = true;
 
+                //如果要某个节点的数据没有大于要插入的节点, 更新当前节点和上一个节点, 然后继续遍历链表
+                } else {
+                    previousNode = currentNode;
+                    currentNode = currentNode.next;
+                }
+            //升序的逻辑和降序完全一样, 只是比较大小的逻辑不同
+            } else {
+                if (currentNode.data.compareTo(data) < 0) {
+                    //如果上一个节点为空, 说明是首节点, 就跟往链表中插入一个新元素一样
+                    if (previousNode == null) {
+                        insertedNode.next = firstNode;
+                        firstNode = insertedNode;
+
+                        //如果不为空, 将其插入到上一个和当前节点之间
+                    } else {
+                        insertedNode.next = currentNode;
+                        previousNode.next = insertedNode;
+                    }
+                    //只要找到了大于的部分, 就说明已经插入完了, break循环
+                    inserted = true;
+                    //如果要某个节点的数据没有大于要插入的节点, 继续寻找下一个节点
+                } else {
+                    previousNode = currentNode;
+                    currentNode = currentNode.next;
+                }
+            }
+        }
+
+        //执行到此处说明while循环结束, currentNode是null, previousNode是最后一个节点. 此时需要再判断一下是否插入成功. 如果一直到末尾现在都没有插入成功, 说明当前元素比起已经排序的所有元素, 是其中最小/最大的, 则需要将其插入到末尾
+        if (!inserted) {
+            //末尾节点是previousNode, 直接将其设置为previousNode.next. 这里还要记住, 一定要将insertedNode的next设置为null, 因为插入的实际上是未排序的链表的首节点, 如果不设置成null, 实际上是把整条链表都插入过来了.
+            previousNode.next = insertedNode;
+            insertedNode.next = null;
+        }
+    }
+}
+</pre>
+<p>有了插入方法的辅助, 核心排序方法就简单多了:</p>
+<pre>
+public void sort() {
+    //将链表拆分成两个, unsortedNode是未排序链表, 就是原来的整条链表
+    Node unsortedNode = firstNode;
+    //firstNode是未排序的链表, 一开始为空
+    firstNode = null;
+
+    //只要未排序链表中还有元素
+    while (unsortedNode != null) {
+        //保存对未排序链表第一个节点的引用
+        Node currentNode = unsortedNode;
+        //将未排序链表的首部指向下一个元素
+        unsortedNode = unsortedNode.next;
+        //对未排序链表的第一个节点进行排序
+        insertIntoNodes(currentNode, false);
+
+    }
+}
+</pre>
+<p>关于核心排序方法, 要解释一下的是while循环中三个语句的顺序. 为什么不是先插入, 再移动到下一个节点, 是因为我们的插入方法, 必定会修改其传入的参数的next节点, 不是修改成null, 就是修改成某一个节点.</p>
+<p>因此在插入之后, insertIntoNodes()方法的第一个参数的next会发生变化, 如果核心排序方法写成这样:</p>
+<pre>
+//只要未排序链表中还有元素
+while (unsortedNode != null)
+    //对未排序链表的第一个节点进行排序
+    insertIntoNodes(unsortedNode, false);
+
+    //这句会有问题(实际上unsortedNode.next已经不是原来的未排序链表的下一个元素了)
+    <span style="color: red">unsortedNode = unsortedNode.next;</span>
+}
+</pre>
+<p>此时的<code>unsortedNode.next</code>已经被修改, 所以红色语句实际没有把unsortedNode指向下一个正确的位置.</p>
+<p>既然有了sort(), 也再来一个sortDesc():</p>
+<pre>
+public void sortDesc() {
+    Node unsortedNode = firstNode;
+    firstNode = null;
+
+    while (unsortedNode != null) {
+        Node currentNode = unsortedNode;
+        unsortedNode = unsortedNode.next;
+        insertIntoNodes(currentNode, true);
+
+    }
+}
+</pre>
+<p>可以发现, 插入排序的时间复杂度依然是n的平方级别, 但是插入排序的这种思想, 特别适合链表. 如果使用选择排序, 由于链表的控制比较麻烦, 在交换元素的时候就会非常麻烦. </p>
+
+<h2 style="text-align: center;" id="con3">改进一下链表数据结构</h2>
+<p>由于插入排序的时间复杂度是n平方级别, 如果没事就排一次, 似乎没有必要. 我们可以在链表数据结构中加上一个私有布尔变量, 用于表示当前的链表是否已经排过序. 如果已经排序了, 就无须再傻傻的再拆分然后执行一次了.</p>
+<p>那么很显然, 这个变量初始应该是false, 在每次执行完排序方法之后, 都应该将其设置成为true. 那么什么时候应该设置成false呢, add()方法执行之后, 可以将其设置为false, 因为无法保证插入的元素究竟是不是有序.</p>
+<p>如果删除一个元素, 由于是从链表的头部进行删除, 此时可以检测是否排序, 如果已经排序, 从链表头部删除一个节点, 并不会影响链表的有序性. 如果未排序, 删掉一个依然是未排序. 所以remove方法不会影响有序性, 也就无需操作这个变量.</p>
+<p>其他的打印内容和是否为空的判断都不影响有序性.</p>
+<p>所以修改后的类如下:</p>
+<pre>
+public class LinkedList&lt;T extends Comparable&lt;? super T>> {
+
+    ......
+
+    //是否已经升序排序
+    private boolean isSorted = false;
+    //是否已经降序排序
+    private boolean isSortedDesc = false;
+
+    //排序方法只有在当前链表未排序的时候才会工作
+    public void sort() {
+        if (<span style="color: red">!isSorted</span>) {
+            Node unsortedNode = firstNode;
+            firstNode = null;
+
+            while (unsortedNode != null) {
+                Node currentNode = unsortedNode;
+                unsortedNode = unsortedNode.next;
+                insertIntoNodes(currentNode, false);
+            }
+            //将升序排序设置成true, 将降序排序设置成false
+            <span style="color: red">isSorted = true;</span>
+            <span style="color: red">isSortedDesc = false;</span>
+        }
+
+    }
+
+    public void sortDesc() {
+        if (<span style="color: red">!isSorted</span>) {
+            Node unsortedNode = firstNode;
+            firstNode = null;
+
+            while (unsortedNode != null) {
+                Node currentNode = unsortedNode;
+                unsortedNode = unsortedNode.next;
+                insertIntoNodes(currentNode, true);
+
+            }
+            //将降序排序设置成true, 将升序排序设置成false
+            <span style="color: red">isSorted = false;</span>
+            <span style="color: red">isSortedDesc = true;</span>
+        }
+
+    }
+
+    //插入新元素之后就将两种排序都设置为false
+    public boolean add(T entry) {
+        Node newNode = new Node(entry, firstNode);
+        firstNode = newNode;
+        numberOfEntries++;
+
+        <span style="color: red">isSorted = false;</span>
+        <span style="color: red">isSortedDesc = false;</span>
+        return true;
+    }
+
+    ......
+}
+</pre>
+<p>这样能排序的链表也搞定了, 爽多了. 下边继续看排序, 希尔排序.</p>
 
 
 
