@@ -22,6 +22,7 @@
     <li><a href="#con2">编写公有方法</a></li>
     <li><a href="#con3">递归版本的方法</a></li>
     <li><a href="#con4">插入排序的优缺点</a></li>
+    <li><a href="#con5">递归实现寻找第二最小</a></li>
 </ol>
 
 
@@ -351,9 +352,75 @@ private static &lt;T extends Comparable&lt;? super T>> void recursionSwap(T[] ar
 </ol>
 <p>之前排列的都是数组, 之后就要用插入排序来操作一下链表的排序.</p>
 
+<h2 style="text-align: center;" id="con5">递归实现寻找第二最小</h2>
+<p>这两天写了递归排序的方法, 对于递归的思路有所开拓, 以前的思维有些局限, 以为递归中仅仅主要依靠递归方法自己的逻辑, 实际上像插入排序的递归, 也可以使用insertIntoArray这种其他方法来辅助.</p>
+<p>于是睡前洗澡的时候就在想之前留下的递归题目, 然后终于想出来了递归寻找第二最小的算法如下:</p>
+<p>停机条件: 数组长度为2, 返回较大的值. 数组长度为1, 返回唯一的值. </p>
+<p>如果数组长度大于3, 寻找数组后边n-1个元素的第二最小和最小, 然后和数组的第一个元素进行比较, 返回结果即可. </p>
+<p>这个递归方法需要使用一个辅助寻找最小值的方法:</p>
+<pre>
+public static &lt;T extends Comparable&lt;? super T>> T findMin(T[] array, int startIndex, int endIndex) {
+    if (startIndex &lt; 0 || endIndex &lt; 0 || startIndex > endIndex || startIndex > array.length - 1 || endIndex > array.length - 1) {
+        throw new IllegalArgumentException("索引不正确: startIndex" + startIndex + " endIndex=" + endIndex);
+    }
 
+    T min = array[startIndex];
 
+    for (int i = startIndex; i &lt;= endIndex; i++) {
+        if (min.compareTo(array[i]) > 0) {
+            min = array[i];
+        }
+    }
 
+    return min;
+
+}
+</pre>
+<p>之后的递归就是上边思路的直接转化:</p>
+<pre>
+public static &lt;T extends Comparable&lt;? super T>> T findSecondMin(T[] array, int startIndex, int endIndex) {
+    //检查参数
+    if (startIndex &lt; 0 || endIndex &lt; 0 || startIndex > endIndex || startIndex > array.length - 1 || endIndex > array.length - 1) {
+        throw new IllegalArgumentException("索引不正确: startIndex" + startIndex + " endIndex=" + endIndex);
+    }
+
+    //停机条件1 数组只有一个元素, 返回那个元素
+    if (startIndex == endIndex) {
+        return array[startIndex];
+    }
+
+    //停机条件2 数组只有一个元素, 返回较大的元素
+    if (endIndex - startIndex == 1) {
+        if (array[startIndex].compareTo(array[endIndex]) > 0) {
+            return array[startIndex];
+        } else {
+            return array[endIndex];
+        }
+    }
+
+    //获取数组第一个元素
+    T element1 = array[startIndex];
+
+    //数组剩下部分的第二小元素
+    T element2 = findSecondMin(array, startIndex + 1, endIndex);
+
+    //数组剩下部分的最小元素
+    T element3 = findMin(array, startIndex + 1, endIndex);
+
+    //进行比较
+    //如果第一个元素小于后边数组的最小值, 那第二小就是最小值
+    if (element1.compareTo(element3) &lt; 0) {
+        return element3;
+    //如果第一个元素大于等于后边数组的最小值, 但是小于后边数组的第二小值, 那第一个元素就是整个数组的第二小值
+    } else if (element1.compareTo(element2) &lt; 0) {
+        return element1;
+    //如果第一个元素大于等于后边数组的第二小值, 那后边数组的第二小值就是整个数组的第二小值
+    } else {
+        return element2;
+    }
+}
+</pre>
+<p>经过测试, 发现确实可以找到, 对递归的认识更深了, 不然以前总想着在递归里还套用循环, 实际上完全不必. 只要想明白自己递归方法的作用, 然后寻找一个思路, 再转换成代码即可.</p>
 
 
 
