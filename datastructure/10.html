@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 排序 - 希尔排序</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>希尔排序是改进的插入排序, 其思想来自于, 如果数组基本上已经有序, 插入排序的效率非常高, 可能只需要遍历数组很少的几次就搞定了.</p>
+<p>来看看希尔排序的思路</p>
+
+
+<ol>
+    <li><a href="#con1">希尔排序的思想</a></li>
+    <li><a href="#con2">希尔排序方法编写</a></li>
+    <li><a href="#con3">改进希尔排序</a></li>
+</ol>
+
+
+<h2 style="text-align: center;" id="con1">希尔排序的思想</h2>
+<p>这些成熟的算法基本上都是50-60年代提出来的, 像希尔排序就是1959年就提出来了, 经典算法永远不过时, 只要计算机还是目前的架构.</p>
+<p>希尔排序其实是改进的插入排序, 通过观察插入排序可以知道, 如果数组基本上有序, 则交换数组元素的次数很好, 插入排序的效率比较高.</p>
+<p>因此Shell提出, 先将数组分成等间距的若干组, 每次对这一组进行排序, 然后减少间距, 再对新的一组排序, 最后对整个数组进行排序.</p>
+<p>用例子来说的话, 假如一个数组有索引0-19, 一共20个元素, 可以先将0 10 这两个索引的元素看成一个数组, 然后对其插入排序, 再将0 5 10 15 看成一个数组进行插入排序. 再将 0 2 4 6 .. 看成一个数组进行排序. 最后对整个数组进行排序.</p>
+<p>所以每次选择间隔很重要, Shell的建议是初始间隔等于数组长度的n/2, 然后每次将间隔减半, 直到1, 就是对全数据进行排序.</p>
+<p>此外, 观察上边的例子可以发现, 如果数组长度是偶数, 会重复排多次0 10 这种是偶数的元素, 会降低效率, 应该要更平均的来排序. 不过还是先来看看基础版本的希尔排序</p>
+
+
+<h2 style="text-align: center;" id="con2">希尔排序方法编写</h2>
+<p>既然是改进的插入排序, 因此需要利用我们之前编写的排序方法, 这里的关键是需要修改排序方法来引入一个步长来控制每次的索引.</p>
+<p>为此, 需要先来修改核心的迭代排序方法, 再增加一个控制步长的参数叫做step.</p>
+<p>我们之前的插入排序, 是直接一个排序排完两个给出的索引之间的全部元素, 但是现在我们修改这个核心功能, 让其每次只对两个索引之间给定间隔的元素排序:</p>
+<pre>
+/**
+ * 希尔排序的核心方法, 迭代版本
+ *
+ * @param array      要排序的数组
+ * @param startIndex 要排序部分开始的索引
+ * @param endIndex   要排序部分结束的索引
+ * @param step       希尔排序所需的步长, 初始是数组长度/2
+ * @param reverse    是否降序排列, true为降序, false为升序
+ * @param &lt;T>        泛型参数,必须实现Comparable接口
+ */
+private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, <span style="color: red">int step</span>, boolean reverse) {
+    if (array.length == 0 || array.length == 1) {
+        return;
+    }
+
+    checkArguments(array, startIndex, endIndex);
+
+    //希尔排序要遍历的元素, 实际上是从startIndex开始, 每次加上步长的元素, 所以i每次应该增加step长度. 这里就还是从头遍历, 方便控制索引
+    //
+    for (int i = startIndex; i &lt;= endIndex; <span style="color: red">i += step</span>) {
+
+        //核心方法也需要修改, 并不是插入到startIndex 到 i 之间的所有元素, 而是startIndex 到 i 之间以 step为间隔的元素.
+        insertIntoArray(array, startIndex, i, <span style="color: red">step</span>, reverse);
+
+    }
+}
+</pre>
+<p>很显然, 这只是完成了间隔步长的一次排序, 真正的排序方法需要循环调用这个方法. 不过不着急, 先把辅助方法insertIntoArray也修改一下:</p>
+<pre>
+/**
+ * 将currentIndex位置上的元素, 合理插入到 按照步长分割的其左侧数组中的方法
+ * 本方法辅助希尔排序方法完成工作
+ *
+ * @param array        要排序的数组
+ * @param startIndex   要排序的部分的开始索引位置
+ * @param currentIndex 当前索引位置
+ * @param step         希尔排序所需的步长
+ * @param reverse      是否降序, true为降序, false为升序
+ * @param &lt;T>          泛型参数,必须实现Comparable接口
+ */
+private static &lt;T extends Comparable&lt;? super T>> void insertIntoArray(T[] array, int startIndex, int currentIndex, int step,  boolean reverse) {
+
+    T element = array[currentIndex];
+    int index = currentIndex;
+
+    //这里需要比较 当前元素, 也就是currentIndex, 与其 减去步长之后的元素, 不过不能超过数组左边界, 所以加上一个判断条件
+    while (index > startIndex && <span style="color: red">index - step >= 0</span>) {
+
+        //当前元素与减去步长之后的元素比较
+        if (!reverse) {
+            if (element.compareTo(array[<span style="color: red">index - step</span>]) &lt; 0) {
+                array[index] = array[<span style="color: red">index - step</span>];
+                <span style="color: red">index-=step;</span>
+            } else {
+                break;
+            }
+        } else {
+            if (element.compareTo(array[<span style="color: red">index - step</span>]) > 0) {
+                array[index] = array[<span style="color: red">index - step</span>];
+                <span style="color: red">index-=step;</span>
+            } else {
+                break;
+            }
+        }
+
+    }
+
+    //循环结束的时候, index就指向应该插入的位置, 如果element是最小, 此时的索引就是0, 否则就是某个应该插入的位置. 其之前的位置都已经被右移了一格
+    //将element插入到当前位置
+    array[index] = element;
+}
+</pre>
+<p>注意红色的部分, 现在每次currentIndex都是和其左侧减去步长之后的索引进行比较, 而不是减去1, 同时还需要考虑到减去步长之后不能越界的问题.</p>
+<p>经过上边的修改, 现在每次执行一次sort方法, 都会对在开始和结束索引中, 按照step的间隔的元素进行排序. 最后就是在外边套上希尔排序的核心思想, 即步长初始等于数组长度的一半, 此后每次减半, 直到为1.</p>
+<pre>
+/**
+ * 包装后的希尔排序核心排序方法, 是另外一个重载sort方法的包装
+ *
+ * @param array      要排序的数组
+ * @param startIndex 要排序的范围的起始索引
+ * @param endIndex   要排序的范围的结束索引
+ * @param reverse    是否升序, false为升序, true为降序
+ * @param &lt;T>        泛型参数,必须实现Comparable接口
+ */
+private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse) {
+    //初始步长为数组长度/2
+    int step = array.length / 2;
+
+    //之后每次数组步长减半, 最后一次正好到1, 为0就退出
+    while (step > 0) {
+        sort(array, startIndex, endIndex, step, reverse);
+        step = step / 2;
+    }
+}
+</pre>
+<p>可以看到, 这个方法的签名实际上是和之前选择和插入排序的核心方法没有什么区别, 都封装到了内部.</p>
+<p>剩下来就是编写那些公共方法, 就不一一编写了.</p>
+
+<h2 style="text-align: center;" id="con3">希尔排序的思想</h2>
+<p>回到第一部分的例子, 可以发现, 如果数组的长度是偶数, 每次步长除以2的时候, 会重复排序一些特定的索引上的元素. 只需要避免step是偶数即可, 因此可以加上一个小小的判断, 当其为偶数的时候, 将其加1即可.</p>
+<p>修改后的代码如下:</p>
+<pre>
+private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse) {
+    int step = array.length / 2;
+
+    while (step > 0) {
+
+        if (<span style="color: red">step % 2 == 0</span>) {
+            //当step是偶数的时候, 将其加1传递给排序方法
+            sort(array, startIndex, endIndex, <span style="color: red">step + 1</span>, reverse);
+        } else {
+            //如果是奇数就不做变更
+            sort(array, startIndex, endIndex, step, reverse);
+        }
+
+        step = step / 2;
+    }
+}
+</pre>
+<p>假如数组长度是20, 如果按照原来的方法, 第一次步长为10, 会排序 0 和 10位置上的元素, 然后步长为5, 会排序0,5,10,15的元素, 然后步长为2, 会排序 0 2 4 6 8 10.... 最后是1.</p>
+<p>同样长度20, 按照新方法, 第一次步长为10,实际传递给方法是11, 排序0 11位置上的元素, 第二次步长为5, 实际排序0 5 10 15的元素, 第三次步长为2, 实际传递给排序的步长是3, 排序0 3 6 9 12 15..最后一次排1. 可以看到重复的元素减少了.</p>
+<p>希尔排序的复杂度是n的1.5次方, 要好于选择排序和普通情况下的插入排序. 因此是一个比两者更好的方法.</p>
+<p>至此已经看过了三种排序, 选择排序, 插入排序, 希尔排序; 也可以说是两种, 选择和插入排序, 因为希尔排序是改进的插入排序.</p>
+<p>这三种排序的思路比较简单清晰, 但是复杂度还都是n的幂次方级别的. 后边来看更加快速的排序方法.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
