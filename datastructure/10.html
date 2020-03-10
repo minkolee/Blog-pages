@@ -23,6 +23,7 @@
     <li><a href="#con1">希尔排序的思想</a></li>
     <li><a href="#con2">希尔排序方法编写</a></li>
     <li><a href="#con3">改进希尔排序</a></li>
+    <li><a href="#con4">冒泡排序</a></li>
 </ol>
 
 
@@ -165,9 +166,122 @@ private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int 
 <p>至此已经看过了三种排序, 选择排序, 插入排序, 希尔排序; 也可以说是两种, 选择和插入排序, 因为希尔排序是改进的插入排序.</p>
 <p>这三种排序的思路比较简单清晰, 但是复杂度还都是n的幂次方级别的. 后边来看更加快速的排序方法.</p>
 
+<h2 style="text-align: center;" id="con4">冒泡排序</h2>
+<p>冒泡排序就不多说了, 经典的平方级别复杂度的算法. 我这里是自己写了一个改进的冒泡, 每次会检测上次替换的位置, 下一次循环只到那个位置为止. 如果某一次没有发生过任何交换, 则说明排序结束, 直接退出.</p>
+<p>把迭代, 递归和辅助方法一起记录下来:</p>
+<pre>
+/**
+ * 迭代方式实现冒泡排序的方法. 改进的冒泡排序, 每次追踪一下上次交换的发生的位置, 只会扫描到那个索引即可. 如果一次扫描中没有发生任何交换, 则说明数组有序, 结束排序
+ *
+ * @param array      要排序的数组
+ * @param startIndex 要排序的部分开始索引
+ * @param endIndex   要排序的部分的结束索引
+ * @param reverse    是否降序
+ * @param &lt;T>        泛型参数, 实现Comparable接口
+ */
+private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse) {
+
+    checkArguments(array, startIndex, endIndex);
+    if (startIndex != endIndex) {
+        int lastSwapIndex = endIndex;
+
+        //从start开始, 到endIndex之前一个元素即可, 因为是向后比较, 无需遍历到最后一个元素
+        //但是如果上一次交换发生在某个位置, 下一次只需要扫描到那个位置的
+        for (int i = startIndex; i &lt; endIndex; i++) {
+            //对于其中的每一个元素, 从其当前位置到最后的位置-1的位置, 不断与后边一个元素比较, 如果大于, 就交换位置
+            //这里需要控制j循环的终点, 但是必须用一个中间变量承载, 不能即时变动
+            int lastTimeIndex = lastSwapIndex;
+            //每次都设置一个布尔, 假设本次没有发生任何交换
+            boolean isSwaped = false;
 
 
+            for (int j = startIndex; j &lt; lastTimeIndex; j++) {
+                if (!reverse) {
+                    if (array[j].compareTo(array[j + 1]) > 0) {
+                        T temp = array[j + 1];
+                        array[j + 1] = array[j];
+                        array[j] = temp;
+                        //发生了交换, 将lastSwapIndex设置为此时的j即可.
+                        lastSwapIndex = j;
+                        isSwaped = true;
+                    }
+                } else {
+                    if (array[j].compareTo(array[j + 1]) &lt; 0) {
+                        T temp = array[j + 1];
+                        array[j + 1] = array[j];
+                        array[j] = temp;
+                        lastSwapIndex = j;
+                        isSwaped = true;
+                    }
+                }
+            }
 
+            //如果这一次没有发生任何交换, 则说明已经排序完毕
+            if (!isSwaped) {
+                return;
+            }
+
+
+            System.out.println("遍历完第" + i + "个元素之后的lastSwapIndex=" + lastSwapIndex);
+            System.out.println(Arrays.toString(array));
+
+        }
+    }
+
+}
+
+//递归思路是. 如果递归方法可以完成升序, 只需要将一个数组的最大值放到最后, 然后对前边的数组进行排序, 整个数组就有序了
+
+/**
+ * 递归版本. 思路是, 将整个数组的最大值交换到最后, 然后对n-1数组排好序, 整个数组就有序了. 停机条件是数组长度为1就不用排了.
+ *
+ * @param array      要排序的数组
+ * @param startIndex 要排序的部分开始索引
+ * @param endIndex   要排序的部分的结束索引
+ * @param reverse    是否降序
+ * @param &lt;T>        泛型参数, 实现Comparable接口
+ */
+public static &lt;T extends Comparable&lt;? super T>> void recursionSort(T[] array, int startIndex, int endIndex, boolean reverse) {
+    checkArguments(array, startIndex, endIndex);
+    //如果不相等, 交换最大值到最后, 然后对前边n-1个排序
+    if (startIndex != endIndex) {
+
+        //将startIndex-endIndex之间的最大值冒泡到最后
+        for (int j = startIndex; j &lt; endIndex; j++) {
+            if (!reverse) {
+                if (array[j].compareTo(array[j + 1]) > 0) {
+                    T temp = array[j + 1];
+                    array[j + 1] = array[j];
+                    array[j] = temp;
+                }
+            } else {
+                if (array[j].compareTo(array[j + 1]) &lt; 0) {
+                    T temp = array[j + 1];
+                    array[j + 1] = array[j];
+                    array[j] = temp;
+                }
+            }
+        }
+        //对前边n-1个数组排序
+        recursionSort(array, startIndex, endIndex - 1, reverse);
+    }
+}
+
+/**
+ * 检测参数合理性的方法
+ *
+ * @param array      要排序的数组
+ * @param startIndex 要排序部分的开始索引
+ * @param endIndex   要排序部分的结束索引
+ * @param &lt;T>        泛型参数, 实现Comparable接口
+ */
+private static &lt;T> void checkArguments(T[] array, int startIndex, int endIndex) {
+    if (startIndex &lt; 0 || endIndex &lt; 0 || startIndex > array.length - 1 || endIndex > array.length - 1 || startIndex > endIndex) {
+        throw new IllegalArgumentException("索引超出范围. startIndex=" + startIndex + " endIndex=" + endIndex);
+    }
+}
+</pre>
+<p>可以发现, 递归冒泡还是尾递归的.</p>
 
 
 

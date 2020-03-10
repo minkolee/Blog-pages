@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 排序 - 归并排序</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>到目前看完了选择排序, 插入排序(希尔排序), 冒泡排序, 这些都是遍历加遍历, 复杂度都是n平方级别的, 希尔排序稍微好一些.</p>
+<p>现在来看看更快的排序, 这些排序或多或少都采取了不断二分的分治法策略, 所以时间复杂度都要比之前平方级别的</p>
+<p>来看看这些更快的方法, 首先是归并排序.</p>
+
+
+<ol>
+    <li><a href="#con1">归并排序的思想</a></li>
+    <li><a href="#con2">核心方法编写</a></li>
+    <li><a href="#con3">改进归并排序</a></li>
+</ol>
+
+
+<h2 style="text-align: center;" id="con1">归并排序的思想</h2>
+<p>归并排序的核心思想是:</p>
+<ol>
+    <li>将要排序的数组分成两部分, 对每一部分按相同的顺序排序</li>
+    <li>创建一个等于原来数组的总长度的新数组</li>
+    <li>对已经有序的两个子数组, 从两个子数组的开头比较两个子数组的所有元素, 哪个符合顺序(大于或者小于另外一个), 就把哪个元素放入到新的数组中. 直到一个数组的元素全部放入新数组中.</li>
+    <li>再把另外一个数组剩余的元素全部放入新数组中. 得到的新数组就是有序的.</li>
+</ol>
+<p>很显然, 这个用递归的思路非常容易编写. 用迭代倒不是那么容易. 递归的思路很简单, 主要要写一个将两个有序数组合并成一个的方法.</p>
+<p>不过这里还有一个问题要解决, 就是如果每次都创建一个新数组并且返回, 就会反复创建很多数组, 由于只需要创建一个新数组, 所以就创建一个长度和原来数组相同的数组, 然后每次都用这个数组的一部分做临时数组即可.</p>
+<p>再考虑到以面向对象的方法编写, 因此还需要一个辅助方法, 即创建一个新数组供其他方法使用. 这样一共需要两个工具方法和一个排序方法:</p>
+<ol>
+    <li><code>private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse)</code>, 这个是套在最外边的私有排序方法, 内部使用其他方法.</li>
+    <li><code>private static &lt;T extends Comparable&lt;? super T>> T[] merge(T[] array1, int array1StartIndex, int array1EndIndex, T[] array2, int array2StartIndex, int array2EndIndex, T[] tempArray)</code>, 这是将两个数组排序到一个临时数组上的某些位置的方法.</li>
+    <li><code>private static &lt;T extends Comparable&lt;? super T>> T[] getTempArray()</code>, 这是新建一个临时数组的方法.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">核心方法编写</h2>
+<p></p>
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
