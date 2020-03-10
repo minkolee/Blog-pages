@@ -39,13 +39,30 @@
 <p>不过这里还有一个问题要解决, 就是如果每次都创建一个新数组并且返回, 就会反复创建很多数组, 由于只需要创建一个新数组, 所以就创建一个长度和原来数组相同的数组, 然后每次都用这个数组的一部分做临时数组即可.</p>
 <p>再考虑到以面向对象的方法编写, 因此还需要一个辅助方法, 即创建一个新数组供其他方法使用. 这样一共需要两个工具方法和一个排序方法:</p>
 <ol>
-    <li><code>private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse)</code>, 这个是套在最外边的私有排序方法, 内部使用其他方法.</li>
-    <li><code>private static &lt;T extends Comparable&lt;? super T>> T[] merge(T[] array1, int array1StartIndex, int array1EndIndex, T[] array2, int array2StartIndex, int array2EndIndex, T[] tempArray)</code>, 这是将两个数组排序到一个临时数组上的某些位置的方法.</li>
-    <li><code>private static &lt;T extends Comparable&lt;? super T>> T[] getTempArray()</code>, 这是新建一个临时数组的方法.</li>
+    <li><code>private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse)</code>, 这个是和之前的排序类一样的核心私有排序方法, 内部使用其他方法.</li>
+    <li><code>private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, T[] tempArray, boolean reverse)</code>, 这个方法是实际执行排序的方法, 多一个临时数组参数, 方便反复使用同一个临时数组.</li>
+    <li><code>private static &lt;T extends Comparable&lt;? super T>> T[] merge(T[] array1, int array1StartIndex, int array1EndIndex, T[] array2, int array2StartIndex, int array2EndIndex, T[] tempArray)</code>, 这是将两个有序数组归并排序到一个临时数组上的对应位置的方法.</li>
+    <li><code>private static &lt;T extends Comparable&lt;? super T>> T[] getTempArray()</code>, 这是新创建临时数组的方法.</li>
 </ol>
+<p>由于需要在方法中间共用同一个临时数组, 而对外暴露的核心私有方法并没有临时数组参数, 所以需要在核心私有方法中创建一个临时数组变量, 然后套一层上边的第二个方法, 来让其中的各个递归使用相同的临时数组.</p>
+
+
 
 <h2 style="text-align: center;" id="con2">核心方法编写</h2>
-<p></p>
+<p>按照方法逻辑来看, 首先是最外层的核心方法:</p>
+<pre>
+private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse) {
+    //先创建一个临时的数组
+    T[] tempArray = getTempArray(array.length);
+
+    sort(array, startIndex, endIndex, tempArray, reverse);
+}
+</pre>
+<p>这个方法</p>
+
+
+
+
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
