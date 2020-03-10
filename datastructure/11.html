@@ -22,8 +22,7 @@
 
 <ol>
     <li><a href="#con1">归并排序的思想</a></li>
-    <li><a href="#con2">核心方法编写</a></li>
-    <li><a href="#con3">改进归并排序</a></li>
+    <li><a href="#con2">递归版本的核心方法编写</a></li>
 </ol>
 
 
@@ -49,19 +48,114 @@
 
 
 <h2 style="text-align: center;" id="con2">核心方法编写</h2>
-<p>按照方法逻辑来看, 首先是最外层的核心方法:</p>
+<p>按照方法逻辑来看一层一层看, 首先是最外层的私有核心方法:</p>
 <pre>
 private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse) {
     //先创建一个临时的数组
-    T[] tempArray = getTempArray(array.length);
+    T[] tempArray = <span style="color: red">getTempArray</span>(array.length);
 
-    sort(array, startIndex, endIndex, tempArray, reverse);
+    //交给其他私有方法进行使用, 保证只使用同一个临时数组
+    <span style="color:red;">sort</span>(array, startIndex, endIndex, tempArray, reverse);
 }
 </pre>
-<p>这个方法</p>
+<p>然后看这个使用临时数组的sort()方法, 这个方法是递归的思路所在:</p>
+<pre>
+private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, T[] tempArray, boolean reverse) {
 
+    checkArguments(array, startIndex, endIndex);
 
+    //停机条件是数组只有一项, 直接停止
 
+    //两个索引不相等, 就归并
+    if (startIndex != endIndex) {
+        sort(array, startIndex, (startIndex + endIndex) / 2, reverse);
+        sort(array, (startIndex + endIndex) / 2 + 1, endIndex, reverse);
+        <span style="color: red">merge</span>(array, startIndex, (startIndex + endIndex) / 2, (startIndex + endIndex) / 2 + 1, endIndex, tempArray, reverse);
+
+    }
+}
+</pre>
+<p>如果数字只有一项, 就停机. 如果数组超过一项, 用中间索引将其分成两半, 对每一半进行排序, 然后按照索引把排好序的两半数组归并起来.</p>
+<p>之后看归并方法merge(), 这个方法是核心:</p>
+<pre>
+private static &lt;T extends Comparable&lt;? super T>> void merge(T[] array, int array1StartIndex, int array1EndIndex, int array2StartIndex, int array2EndIndex, T[] tempArray, boolean reverse) {
+
+    //记录临时数组的起始索引, 由于后边归并的时候会更新两个数组各自的startIndex, 所以先要保存一个最小的索引
+    int tempArrayRangeStart = array1StartIndex;
+
+    //获取临时数组的当前索引, 一开始等于第一个数组的起始索引, 后边会变动.
+    int startIndex = array1StartIndex;
+    //先遍历数组1的元素, 只要小于, 根据reverse判断是否升序
+
+    //只要两个数组有任意一个被遍历完就结束循环, 否则一直循环
+    while (array1StartIndex &lt;= array1EndIndex && array2StartIndex &lt;= array2EndIndex) {
+
+        //在每次循环中不断比较两个数组的第一个元素, 哪个数组的第一个元素小, 就将那个元素放入临时数组, 然后将那个数组的当前索引和临时数组的当前索引都更新
+
+        //升序排列, 谁小先把谁放进temp中
+        if (!reverse) {
+            //假如第一个数组的第一个元素小于第二个数组的第一个元素
+            if (array[array1StartIndex].compareTo(array[array2StartIndex]) &lt; 0) {
+                //将其放入临时数组中
+                tempArray[startIndex] = array[array1StartIndex];
+                //自增临时数组的当前索引和第一个数组的当前索引
+                startIndex++;
+                array1StartIndex++;
+            //如果不大于, 就把数组二的第一个元素放入临时数组, 自增数组二的当前索引和临时数组的当前索引
+            } else {
+                tempArray[startIndex] = array[array2StartIndex];
+                startIndex++;
+                array2StartIndex++;
+            }
+        //降序的思路和前边完全一样
+        } else {
+            if (array[array1StartIndex].compareTo(array[array2StartIndex]) > 0) {
+                tempArray[startIndex] = array[array1StartIndex];
+                startIndex++;
+                array1StartIndex++;
+            } else {
+                tempArray[startIndex] = array[array2StartIndex];
+                startIndex++;
+                array2StartIndex++;
+            }
+        }
+    }
+
+    //执行到这里, 两个数组中一定有一个数组已经被遍历完, 把没有遍历完的数组中剩余元素挨个放入临时数组中
+
+    //如果数组一没有被遍历完, 将剩余部分复制到临时数组中
+    if (array1StartIndex &lt;= array1EndIndex) {
+        for (int i = array1StartIndex; i &lt;= array1EndIndex; i++) {
+            tempArray[startIndex] = array[i];
+            startIndex++;
+        }
+    }
+
+    //如果数组二没有被遍历完, 将剩余部分复制到临时数组中
+    if (array2StartIndex &lt;= array2EndIndex) {
+        for (int i = array2StartIndex; i &lt;= array2EndIndex; i++) {
+            tempArray[startIndex] = array[i];
+            startIndex++;
+        }
+    }
+
+    //最后将临时数组的部分复制到原始数组中, 数组末尾一定是array2EndIndex, 而起始索引我们保存好了, 这样array的对应索引的部分就被归并排序好了.
+    for (int j = tempArrayRangeStart; j &lt;= array2EndIndex; j++) {
+        array[j] = tempArray[j];
+    }
+
+}
+</pre>
+<p>最后是创建临时数组的方法, 这个方法有点意思, 由于数组协变, 不能直接创建泛型类型的数组, 这里有个小技巧, 由于T必定实现Comparable&lt;T的父类>, 所以可以用一个套路:</p>
+<pre>
+@SuppressWarnings("unchecked")
+private static &lt;T extends Comparable&lt;? super T>> T[] getTempArray(int length) {
+    return (T[]) new <span style="color: red">Comparable&lt;?></span>[length];
+}
+</pre>
+<p>如果用Object[], 是无法直接转型的, 因为Object[]并没有实现Comparable接口, 但是用Comparable是可以的, 因为T实现了这个接口.</p>
+<p>关于泛型数组, 还真的要好好看看.</p>
+<p>迭代版本的归并排序, 我还真没有简单想出来, 如果从数组的头开始操作, 要如何才能归并呢...</p>
 
 
 
