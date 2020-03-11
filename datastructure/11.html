@@ -155,7 +155,10 @@ private static &lt;T extends Comparable&lt;? super T>> T[] getTempArray(int leng
 </pre>
 <p>如果用Object[], 是无法直接转型的, 因为Object[]并没有实现Comparable接口, 但是用Comparable是可以的, 因为T实现了这个接口.</p>
 <p>关于泛型数组, 还真的要好好看看.</p>
-<p>迭代版本的归并排序, 我还真没有简单想出来, 如果从数组的头开始操作, 要如何才能归并呢...</p>
+<p>迭代版本的归并排序, 思路是从数组的开头, 先两两归并, 再四四归并, 再这样一路下去. 书上的练习还要求不能使用额外的临时数组, 待我仔细想想怎么做.</p>
+
+
+
 
 
 
