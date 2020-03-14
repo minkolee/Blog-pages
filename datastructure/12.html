@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 排序 - 快速排序</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>快排和归并排序都采取了分治法策略, 所以时间复杂度都要比之前平方级别的要小一些, 很显然, 如果每次都正好分一半, 就是logN级别的排序, 可谓非常快了.</p>
+<p>快排最核心的思路是, 选择数组中一项作为枢轴(pivot), 然后让这一项之前所有的项都小于等于这一项, 让这之后的项都大于等于这一项, 这个动作叫做划分. 很显然, 在递归的思路下对一个数组的排序很简单:</p>
+<ol>
+    <li>对数组进行进行划分</li>
+    <li>对枢轴左右两侧的数组再进行快速排序</li>
+</ol>
+
+
+<ol>
+    <li><a href="#con1">基本的划分方法</a></li>
+    <li><a href="#con2">快排的划分方法</a></li>
+    <li><a href="#con3">排序的核心方法</a></li>
+</ol>
+
+
+<h2 style="text-align: center;" id="con1">划分</h2>
+<p>根据上边的思路, 我们可以先来创建一个最基本的快速排序的方法. 然后来实现一下其中的划分, 看看有什么奥秘.</p>
+<p>创建QuickSort类, 来先写好最基本的方法:</p>
+<pre>
+public class QuickSort {
+
+    private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse) {
+        if (startIndex &lt; endIndex) {
+
+            int pivotIndex = partition(array, startIndex, endIndex, reverse);
+            sort(array, startIndex, pivotIndex - 1, reverse);
+            sort(array, pivotIndex + 1, endIndex, reverse);
+        }
+    }
+
+    private static  &lt;T extends Comparable&lt;? super T>> int partition(T[] array, int startIndex, int endIndex, boolean reverse) {
+
+        return 0;
+    }
+
+    /**
+     * 交换数组中两个指定索引的元素的位置的方法
+     *
+     * @param array       目的数组
+     * @param firstIndex  第一个索引
+     * @param secondIndex 第二个索引
+     * @param &lt;T>         泛型参数, 实现Comparable接口
+     */
+    private static &lt;T extends Comparable&lt;? super T>> void swap(T[] array, int firstIndex, int secondIndex) {
+        T temp = array[firstIndex];
+        array[firstIndex] = array[secondIndex];
+        array[secondIndex] = temp;
+    }
+
+}
+</pre>
+<p>然后就是核心的划分方法了. 划分方法如果我自己写的话, 很可能会选择数组的中间索引, 然后不断的往两边去循环, 这样其实不是好的算法. 这里也就不用自己想了, 前人都已经想好了, 套路如下:</p>
+<ol>
+    <li>找到数组中一个大小的元素作为枢轴</li>
+    <li>将这个元素与数组最后一个元素交换位置</li>
+    <li>使用两个索引A和B, A是数组的起始, B是数组的倒数第二个位置, 然后A向数组末尾移动, B向数组头部移动. 各自停在大于等于和小于等于枢轴元素的位置, 如果此时A小于B, 就交换二者, 然后继续移动, 直到A>=B结束.</li>
+    <li>将枢轴与A位置的元素交换</li>
+</ol>
+<p>这里我先来编写最基本的划分方法如下:</p>
+<pre>
+/**
+ * 用于辅助快速排序的最基本的划分方法
+ *
+ * @param array      要划分的数组
+ * @param startIndex 数组的起始索引
+ * @param endIndex   数组的结束索引
+ * @param reverse    是降序还是升序
+ * @param &lt;T>        泛型参数, 实现Comparable接口
+ * @return 返回枢轴对应的索引
+ */
+private static &lt;T extends Comparable&lt;? super T>> int partition(T[] array, int startIndex, int endIndex, boolean reverse) {
+
+    //目前是最基本的划分方法, 强行规定中枢是 (startIndex+endIndex)/2
+    //既然这样, 对于长度是1和2的数组, 可以直接返回结果
+
+    //长度是1的数组就是枢轴, 直接返回对应索引
+    if (startIndex == endIndex) {
+        return startIndex;
+        //长度是2的数组, 根据reverse判断大小, 然后直接交换位置, 枢轴直接返回startIndex即可, 因为相邻的(startIndex+endIndex)/2 = startIndex
+    } else if (endIndex - startIndex == 1) {
+        //升序的情况下, 比较第一个数是不是比第二个大 ,如果大就交换位置, 否则不交换
+        if (!reverse) {
+            if (array[startIndex].compareTo(array[endIndex]) > 0) {
+                swap(array, startIndex, endIndex);
+            }
+            //降序情况下, 比较第一个数是不是比第二个小, 如果小就交换位置
+        } else {
+            if (array[startIndex].compareTo(array[endIndex]) &lt; 0) {
+                swap(array, startIndex, endIndex);
+            }
+        }
+
+        return (startIndex + endIndex) / 2;
+    //长度为3及以上的数组
+    } else {
+        //先强行选择枢轴索引和对应的元素
+        int pivot = (startIndex + endIndex) / 2;
+
+        T pivotElement = array[pivot];
+
+
+        //将枢轴元素与最后一个元素交换位置
+        swap(array, pivot, endIndex);
+
+        //然后开始各从两端向另外一端扫描
+
+        //获取原来的起始索引和右边倒数第二个索引, 下边判断控制条件会用到
+        int fromRightIndex = endIndex - 1;
+        int initialIndex = startIndex;
+
+        //startIndex>=fromRightIndex就可以终止循环了
+        while (startIndex &lt; fromRightIndex) {
+
+            if (!reverse) {
+                //从数组开头向数组末尾扫描, 扫描大于pivot的元素, 这个循环停下的位置是大于pivotElement的位置. 如果都没有, 最大也就是endIndex的地方
+                while (array[startIndex].compareTo(pivotElement) &lt;= 0 && startIndex &lt; endIndex) {
+                    startIndex++;
+                }
+
+                //从数组的倒数第二个元素开始向数组头扫描, 扫描小于pivot的元素, 这个循环停下的位置是小于pivotElement的位置, 最小也就是原来startIndex的地方
+                while (array[fromRightIndex].compareTo(pivotElement) >= 0 && fromRightIndex > initialIndex) {
+                    fromRightIndex--;
+                }
+
+            } else {
+                while (array[startIndex].compareTo(pivotElement) >= 0 && startIndex &lt; endIndex) {
+                    startIndex++;
+                }
+
+                //从数组的倒数第二个元素开始向数组头扫描, 扫描小于pivot的元素, 这个循环停下的位置是小于pivotElement的位置, 最小也就是原来startIndex的地方
+                while (array[fromRightIndex].compareTo(pivotElement) &lt;= 0 && fromRightIndex > initialIndex) {
+                    fromRightIndex--;
+                }
+            }
+
+            //如果startIndex小于fromRightIndex, 说明需要交换, 否则无需交换
+            if (startIndex &lt; fromRightIndex) {
+                swap(array, startIndex, fromRightIndex);
+            }
+        }
+
+        //循环执行完毕之后, 要么两个索引相等A=B, 要么A和B互换位置导致A>B, 此时A的位置, 必定是大于等于枢轴的位置, 因此交换A与末尾元素(就是枢轴)
+        swap(array, startIndex, endIndex);
+        //返回此时的实际枢轴所在位置的索引, 也就是startIndex的索引
+        return startIndex;
+    }
+}
+</pre>
+<p>这个方法基本上就是把算法写成代码, 这里要注意的就是, 一开始按照索引选择枢轴, 但是最后的枢轴并不一定位于原来的位置上, 而是根据这个数组中元素大于和小于枢轴元素的个数来决定.</p>
+<p>在编写了这个方法之后, 其实我们的快速排序的核心私有方法就可以正常工作了. 不过在测试中, 可以看到最后返回的枢轴索引并不一定将数组基本上分为两个相等的部分. 由于枢轴的选择对于排序至关重要, 所以来看看改进的方法.</p>
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
