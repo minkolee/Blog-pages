@@ -25,12 +25,12 @@
 
 <ol>
     <li><a href="#con1">基本的划分方法</a></li>
-    <li><a href="#con2">快排的划分方法</a></li>
-    <li><a href="#con3">排序的核心方法</a></li>
+    <li><a href="#con2">优化划分</a></li>
+    <li><a href="#con3">继续改进</a></li>
 </ol>
 
 
-<h2 style="text-align: center;" id="con1">划分</h2>
+<h2 style="text-align: center;" id="con1">基本的划分方法</h2>
 <p>根据上边的思路, 我们可以先来创建一个最基本的快速排序的方法. 然后来实现一下其中的划分, 看看有什么奥秘.</p>
 <p>创建QuickSort类, 来先写好最基本的方法:</p>
 <pre>
@@ -166,9 +166,154 @@ private static &lt;T extends Comparable&lt;? super T>> int partition(T[] array, 
 <p>这个方法基本上就是把算法写成代码, 这里要注意的就是, 一开始按照索引选择枢轴, 但是最后的枢轴并不一定位于原来的位置上, 而是根据这个数组中元素大于和小于枢轴元素的个数来决定.</p>
 <p>在编写了这个方法之后, 其实我们的快速排序的核心私有方法就可以正常工作了. 不过在测试中, 可以看到最后返回的枢轴索引并不一定将数组基本上分为两个相等的部分. 由于枢轴的选择对于排序至关重要, 所以来看看改进的方法.</p>
 
+<h2 style="text-align: center;" id="con2">优化划分</h2>
+<p>优化划分的一大要素是, 尽量让划分之后的枢轴所处的位置在数组的中间, 即返回的枢轴索引可以将数组分成差不多相等长度的两部分.</p>
+<p>为了达到这个目的, 显然最好的方法就是给数组排序, 然后获取中间索引, 但是因为排序本来就是我们的目的, 因此这个方法不可取.</p>
+<p>比较好的方法是, 取数组的第一个元素, 中间项和最后一项三个数字, 将这三个数值进行排序, 然后取中间项作为枢轴. 这需要编写一个辅助方法就可以了.</p>
+<pre>
+private static &lt;T extends Comparable&lt;? super T>> void sortFirstMiddleLast(T[] array, int firstIndex, int middleIndex, int lastIndex, boolean reverse) {
+
+    T a = array[firstIndex];
+    T b = array[middleIndex];
+    T c = array[lastIndex];
+
+    //默认是升序的情况
+    //a>=b的情况
+    if (a.compareTo(b) >= 0) {
+        //如果b>=c, 按照 c b a 排列
+        if (b.compareTo(c) >= 0) {
+            array[firstIndex] = c;
+            array[middleIndex] = b;
+            array[lastIndex] = a;
+            //如果a>=c>b, 按照a c b排列
+        } else if (a.compareTo(c) >= 0) {
+            array[firstIndex] = b;
+            array[middleIndex] = c;
+            array[lastIndex] = a;
+            //如果c>a>=b, 按照b a c 排列
+        } else {
+            array[firstIndex] = b;
+            array[middleIndex] = a;
+            array[lastIndex] = c;
+        }
+        //a&lt;b的情况
+    } else {
+        //b>a>c
+        if (a.compareTo(c) >= 0) {
+            array[firstIndex] = c;
+            array[middleIndex] = a;
+            array[lastIndex] = b;
+            //b>c>a
+        } else if (b.compareTo(c) >= 0) {
+            array[firstIndex] = a;
+            array[middleIndex] = c;
+            array[middleIndex] = b;
+            //c>b>a
+        } else {
+            array[firstIndex] = a;
+            array[middleIndex] = b;
+            array[lastIndex] = c;
+        }
+    }
+
+    //如果降序, 交换一下最大和最小值即可.
+    if (reverse) {
+        swap(array, firstIndex, lastIndex);
+    }
+
+}
+</pre>
+<p>这个方法就是先按照降序排列, 如果发现是升序, 再交换一下两头元素的位置即可.</p>
+<p>然后在划分方法获取枢轴元素的位置使用这个方法先排序, 再获取枢轴元素:</p>
+<pre>
+private static &lt;T extends Comparable&lt;? super T>> int partition(T[] array, int startIndex, int endIndex, boolean reverse) {
+
+    if (startIndex == endIndex) {
+        return startIndex;
+    } else if (endIndex - startIndex == 1) {
+        if (!reverse) {
+            if (array[startIndex].compareTo(array[endIndex]) > 0) {
+                swap(array, startIndex, endIndex);
+            }
+        } else {
+            if (array[startIndex].compareTo(array[endIndex]) &lt; 0) {
+                swap(array, startIndex, endIndex);
+            }
+        }
+
+        return (startIndex + endIndex) / 2;
+    } else {
+        int pivot = (startIndex + endIndex) / 2;
+
+        <span style="color: red">//这里新增确定三元枢轴排序的方法
+        sortFirstMiddleLast(array, startIndex, pivot, endIndex, reverse);</span>
+
+        T pivotElement = array[pivot];
+
+        swap(array, pivot, endIndex);
+
+        int fromRightIndex = endIndex - 1;
+
+        int initialIndex = startIndex;
+
+        while (startIndex &lt; fromRightIndex) {
+
+            if (!reverse) {
+                while (array[startIndex].compareTo(pivotElement) &lt;= 0 && startIndex &lt; endIndex) {
+                    startIndex++;
+                }
+
+                while (array[fromRightIndex].compareTo(pivotElement) >= 0 && fromRightIndex > initialIndex) {
+                    fromRightIndex--;
+                }
 
 
+            } else {
+                while (array[startIndex].compareTo(pivotElement) >= 0 && startIndex &lt; endIndex) {
+                    startIndex++;
+                }
 
+                while (array[fromRightIndex].compareTo(pivotElement) &lt;= 0 && fromRightIndex > initialIndex) {
+                    fromRightIndex--;
+                }
+
+
+            }
+
+            if (startIndex &lt; fromRightIndex) {
+                swap(array, startIndex, fromRightIndex);
+            }
+        }
+
+        swap(array, startIndex, endIndex);
+
+        return startIndex;
+    }
+}
+</pre>
+<p>注意上边红色的部分, 在获取枢轴元素之前, 先按照三元枢轴排一下序, 之后再获取枢轴元素, 这个元素就比刚才直接获取要稍微好一点了.</p>
+
+<h2 style="text-align: center;" id="con3">继续改进</h2>
+<p>还有继续改进的空间吗? 有的. 对于小数组, 其实划分枢轴和排序也最后会递归得到2项或者3项的小数组. 这会导致大量的判断浪费.</p>
+<p>实际上, 对上10项以下的数组, 可以直接将其排序好就行了, 对于小数组, 使用插入排序的效率是可以接受的. 所以最后的改进就是对于数组长度的判断:</p>
+<pre>
+private static &lt;T extends Comparable&lt;? super T>> void sort(T[] array, int startIndex, int endIndex, boolean reverse) {
+    <span style="color: red">if (endIndex - startIndex + 1 &lt; 10) {
+        if (!reverse) {
+            InsertionSort.sortBetweenIndex(array, startIndex, endIndex);
+        } else {
+            InsertionSort.sortBetweenIndexDesc(array, startIndex, endIndex);
+        }
+
+        }</span> else {
+        int pivotIndex = partition(array, startIndex, endIndex, reverse);
+        sort(array, startIndex, pivotIndex - 1, reverse);
+        sort(array, pivotIndex + 1, endIndex, reverse);
+    }
+}
+</pre>
+<p>如果数组长度小于10, 直接插入排序, 大于10的数组, 才选择枢轴然后进行划分. 这样快排基本上就做好了.</p>
+<p>可以看到一个快排, 几乎用上了各种套路, 对于低级数组还使用插入排序帮忙. 相比归并排序, 快排不使用额外的空间, 经过一些手段处理枢轴之后, 整体的效率比较好, 不愧是所有排序中, 很多都是以方法命名, 就这种排序不叫什么划分排序, 直接叫快速排序, 真的是快速啊.</p>
 
 
 
