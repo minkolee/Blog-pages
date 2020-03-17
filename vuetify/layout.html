@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zhHans">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href="https://fonts.css.network/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/vuetify/1.5.14/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+</head>
+<body>
+<div id="app">
+    <v-app>
+        <v-container>
+            <v-layout wrap :class="classObject">
+                <v-flex xs1>
+                    <div style="text-align: center;"><a href="#">Home</a></div>
+                </v-flex>
+                <v-flex xs1>
+                    <div style="text-align: center;"><a href="#">Products</a></div>
+                </v-flex>
+                <v-flex xs1>
+                    <div style="text-align: center;"><a href="#">Contact</a></div>
+                </v-flex>
+                <v-flex xs1>
+                    <div style="text-align: center;"><a href="#">About</a></div>
+                </v-flex>
+            </v-layout>
+        </v-container>
+    </v-app>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.bootcss.com/vuetify/1.5.2/vuetify.min.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        computed:{
+            classObject:function () {
+                return {
+                    "justify-end": this.$vuetify.breakpoint.lgAndUp,
+                    "column": this.$vuetify.breakpoint.xsOnly,
+                    "justify-space-around":this.$vuetify.breakpoint.smAndUp && this.$vuetify.breakpoint.mdAndDown
+                }
+            }
+        }
+    })
+</script>
+</body>
+</html>

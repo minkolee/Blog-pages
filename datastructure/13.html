@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 排序 - 基数排序</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>来看一个并非可以通用的算法, 但是在排布一些特殊的内容上速度很快的算法, 基数排序.</p>
+
+<ol>
+    <li><a href="#con1">基数排序的思想</a></li>
+    <li><a href="#con2">桶</a></li>
+    <li><a href="#con3">核心算法实现</a></li>
+    <li><a href="#con4">排序总结</a></li>
+</ol>
+
+
+<h2 style="text-align: center;" id="con1">基数排序的思想</h2>
+<p>这个基数排序的思想, 我仔细想了想, 其实本质上非常简单, 因为我们很多时候排序, 都是按照要比较的元素, 从每个元素的左侧开始进行比较的.</p>
+<p>比如数字, 假如只有一位数, 2,3,1,4,2, 只需要将这五个数字, 按照顺序整理好就可以了.</p>
+<p>现在扩展成两位数, 很显然, 十位数的权重大. 假如十位数全部都一样, 比如32,33,31,34,32, 那么我们只要先把右边排序好, 变成 31, 32, 32, 33, 34就可以了.</p>
+<p>现在十位数如果不一样, 在上一个的基础上, 只需要排好十位数, 就获取了正确的顺序. 因为排好十位数就要按照个位数排, 但个位数已经排好了.</p>
+<p>所以可以得到一个思路, 就是从权重低的部分逐渐向权重高的部分进行排列, 全部排列完之后, 就得到了排列后的结果.</p>
+
+<h2 style="text-align: center;" id="con2">桶和用桶排序</h2>
+<p>什么是桶, 其实可以理解为, 要排序的部分一共有几种, 就需要几个桶来暂时存放分类之后的数据, 然后从桶中按顺序取出来排列好, 然后再进行下一次排列.</p>
+<p>比如我们想排列十进制的数字, 十进制的数字一共有0-9个, 则必须使用十个桶来装, 这十个桶, 也要按照顺序排列好.</p>
+<p>此外,桶还必须保持其中元素的顺序, 以便再将元素取出来.</p>
+<p>所以桶也可以用一个容器来代替, 有序, 而且取出来也是同样有序, 目前的ADT只看过包和栈, 前者无序(虽然底层实现有序), 后者反序. 不过我们可以使用更加底层一点的变长数组. 这里为了方便, 直接就使用Java的ArrayList吧.</p>
+<p>所以用桶排序的方法, 可以归纳成如下步骤:</p>
+<ol>
+    <li>先确定每个元素的长度, 即总共需要用桶排几次. 这是控制最外层循环的数量.</li>
+    <li>每一次排序中, 做如下事情:
+        <ol>
+            <li>按照某一个位置(一般是由权重低向权重高的部分排序), 将原来的元素分别放入按照大小排列好的桶中.</li>
+            <li>从每一个桶中拿出其中所有的元素, 依次放回到原来的数据结构中</li>
+            <li>清空桶, 准备下一次对另外一个位置使用桶排序</li>
+        </ol>
+    </li>
+</ol>
+<p>很显然, 这个时候的排序, 就需要将要排序的结果看成字符串, 而不是数字类型, 否则没有第几位之说, 下边就来自己写一个.</p>
+
+
+<h2 style="text-align: center;" id="con3">核心算法实现</h2>
+<p>这次准备对十进制进行升序排列, 为了简单起见, 先不像原来一样写一个带有控制升序降序的内容了. 在开始排序之前, 发现还有不少准备工作要做. 不着急, 程序都是一个一个模块组合起来的.</p>
+<p>首先是要准备十个桶, 根据前边的描述, 每个桶准备用一个ArrayList来表示, 然后可以用一个数组来装这10个桶, 因此要编写一个简单的内部类Buckets.</p>
+<pre>
+public class RadixSort {
+    /**
+     * 内部类Buckets, 内部是一个ArrayList数组, 长度为10, 对应0-9的桶
+     */
+    private static class Buckets {
+
+        private static int count = 10;
+        private ArrayList&lt;String>[] lists;
+
+        //构造器, 创建一个数组, 其中装着10个桶
+        @SuppressWarnings("unchecked")
+        public Buckets() {
+            lists = new ArrayList[count];
+            for (int i = 0; i &lt; count; i++) {
+                lists[i] = new ArrayList&lt;String>();
+            }
+        }
+
+        /**
+         * 清除所有的桶, 方便调用.
+         */
+        public void clearAll() {
+            for (int i = 0; i < count; i++) {
+                lists[i].clear();
+            }
+        }
+
+        /**
+         * 向编号为index的桶中放入target元素
+         *
+         * @param index  桶的编号
+         * @param target 要放入桶中的元素
+         */
+        public void putIntoBucket(int index, String target) {
+            lists[index].add(target);
+        }
+
+        /**
+         * 显示桶中所有元素的内容
+         */
+        public void showBuckets() {
+            for (int i = 0; i < count; i++) {
+                System.out.println(i + "号桶的内容是:\t" + lists[i]);
+            }
+        }
+
+        /**
+         * 将桶中的元素按桶的顺序全部取出到数组中的方法
+         *
+         * @param array 要将桶中的元素按顺序装到的数组
+         */
+        public void getAllToArray(String[] array) {
+            int startIndex = 0;
+
+
+            for (int i = 0; i < count; i++) {
+                if (lists[i].size() > 0) {
+                    for (String s : lists[i]) {
+                        array[startIndex] = s;
+                        startIndex++;
+                    }
+                }
+            }
+
+            //装完之后清空桶
+            this.clearAll();
+        }
+
+    }
+}
+</pre>
+<p>有了这个内部类的帮助, 就可以很轻松的来完成核心排序算法:</p>
+<pre>
+/**
+ * 基数排序的核心方法, 这里就不使用泛型了, 针对的是字符串形式的整数的数组
+ *
+ * @param array 要排序的数组
+ */
+private static void sort(String[] array) {
+    //这里实际上应该检查一下字符串数组是否合法, 不过就不检查了, 直接来进行使用.
+
+    if (array.length == 0 || array.length == 1) {
+        System.out.println("数组无需排序");
+        return;
+    }
+
+    Buckets buckets = new Buckets();
+
+    //首先应该找到这个数组中最长的字符串
+    int max = array[0].length();
+    for (String s : array) {
+        if (s.length() > max) {
+            max = s.length();
+        }
+    }
+
+    //此时的max就是总循环的次数
+    for (int sortTimes = 0; sortTimes < max; sortTimes++) {
+        //将数组中的每个字符串元素放入对应的桶中.
+        //这里首先需要判断一下, 如果字符串的长度小于当前的sortTimes+1, 比如当前排到右边起第二位, 但是字符串只长1, 则将该位当做0.
+        for (int i = 0; i < array.length; i++) {
+            if (array[i].length() < sortTimes + 1) {
+                buckets.putIntoBucket(0, array[i]);
+            }
+            //如果长度足够, 则对右侧起的sortTimes+1位进行排序
+            else {
+                //注意, 这里取到的是字符0-9char类型直接转换成的int, 是ACSII码, 还需要减去48才得到0-9
+                int index = array[i].charAt(array[i].length() - 1 - sortTimes) - 48;
+                //将元素放进对应index编号的桶里
+                buckets.putIntoBucket(index, array[i]);
+            }
+
+        }
+
+        //每次放完之后, 再将桶里的所有元素重新放回到数组中
+        buckets.getAllToArray(array);
+
+    }
+
+}
+</pre>
+<p>这里再来思考一下降序如何排列, 其实很简单, 就是每一位都是按照9-0来排列, 只需要把字符是9的元素放入到0号桶, 8的放入到1号桶即可.</p>
+<p>也就是只需要修改放到哪个桶的索引即可. 来修改一下这个方法, 添加一个boolean参数用于控制升序还是降序, 然后修改放到桶的逻辑:</p>
+<pre>
+private static void sort(String[] array, boolean reverse) {
+
+    if (array.length == 0 || array.length == 1) {
+        System.out.println("数组无需排序");
+        return;
+    }
+
+    Buckets buckets = new Buckets();
+
+    int max = array[0].length();
+
+    for (String s : array) {
+        if (s.length() > max) {
+            max = s.length();
+        }
+    }
+
+    for (int sortTimes = 0; sortTimes < max; sortTimes++) {
+
+        for (int i = 0; i < array.length; i++) {
+            if (array[i].length() < sortTimes + 1) {
+
+                <span style="color: red">if (!reverse) {
+                    buckets.putIntoBucket(0, array[i]);
+                } else {
+                    buckets.putIntoBucket(9, array[i]);
+                }</span>
+
+            }
+            else {
+                int index = array[i].charAt(array[i].length() - 1 - sortTimes) - 48;
+
+                <span style="color: red">if (!reverse) {
+                    buckets.putIntoBucket(index, array[i]);
+                } else {
+                    buckets.putIntoBucket(9 - index, array[i]);
+                }</span>
+
+            }
+
+        }
+
+        buckets.getAllToArray(array);
+    }
+
+    System.out.println("排序完成");
+
+}
+</pre>
+<p>其中的红字部分, 由于打算给数字排序, 直接写死了, 如果桶的数量会变化, 那么这里可以改成<code>Buckets.count - 1 - index</code>.</p>
+<p>编写好了这个私有方法之后, 就可以在外边套上公有方法了, 就不再放代码了. 对于要从终端或者外部文本文件读入字符串或者数字来排序的话, 基数排序是个好选择.</p>
+<p>反过来说, 基数排序的弱点是不够通用, 比如很多对象, 实现Comparable方法可以比较, 却不一定可以精确的放入桶中.</p>
+
+
+<h2 style="text-align: center;" id="con4">排序总结</h2>
+<p>算法的关键不外乎空间复杂度和时间复杂度. 其中最核心的又是时间复杂度. 来看看这张表:</p>
+<table>
+    <caption>算法比较</caption>
+    <thead>
+    <tr>
+        <th>算法</th>
+        <th>平均</th>
+        <th>最优</th>
+        <th>最坏</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>基数排序</td>
+        <td>O(<i>n</i>)</td>
+        <td>O(<i>n</i>)</td>
+        <td>O(<i>n</i>)</td>
+    </tr>
+    <tr>
+        <td>归并排序</td>
+        <td>O(<i>n</i>log<i>n</i>)</td>
+        <td>O(<i>n</i>log<i>n</i>)</td>
+        <td>O(<i>n</i>log<i>n</i>)</td>
+    </tr>
+    <tr>
+        <td>快排</td>
+        <td>O(<i>n</i>log<i>n</i>)</td>
+        <td>O(<i>n</i>log<i>n</i>)</td>
+        <td>O(<i>n</i><sup>2</sup>)</td>
+    </tr>
+    <tr>
+        <td>希尔排序</td>
+        <td>O(<i>n</i><sup>1.5</sup>)</td>
+        <td>O(<i>n</i>)</td>
+        <td>O(<i>n</i><sup>1.5</sup>)或者O(<i>n</i><sup>2</sup>)</td>
+    </tr>
+    <tr>
+        <td>插入排序</td>
+        <td>O(<i>n</i><sup>2</sup>)</td>
+        <td>O(<i>n</i>)</td>
+        <td>O(<i>n</i><sup>2</sup>)</td>
+    </tr>
+    <tr>
+        <td>选择排序</td>
+        <td>O(<i>n</i><sup>2</sup>)</td>
+        <td>O(<i>n</i><sup>2</sup>)</td>
+        <td>O(<i>n</i><sup>2</sup>)</td>
+    </tr>
+    </tbody>
+</table>
+<p>总体来说, 如果数组已经很有序, 可以考虑插入排序或者希尔排序. 但对于一般的情况下, 以及数据量很大的情况下, 通常都选择快排. 归并排序需要额外的空间, 但是对于大批量的数据, 内存放不下的时候, 可以使用归并排序逐步完成.</p>
+<p>这里还有一个堆排序没有讲, 因为堆结构还没有学到, 堆排序也是O(<i>n</i>log<i>n</i>)复杂度的, 但一般依然选择快排.</p>
+<p>很显然, 有一些排序比如选择排序, 大部分时间都不应该选择的, 实际上通过看Java内部库的排序, 也能看过业界的倾向:</p>
+<ol>
+    <li>基本类型byte char short int long float double, java.util.Arrays.sort()使用快速排序, 还有重载方法, 可以传入两个索引,对两个索引之间的范围进行排序.</li>
+    <li>对象类型, sort(Object[] a), 内部使用归并排序, 也支持再传入两个索引</li>
+    <li>对象类型, sort(Object[] a, Comparator&lt;? super T> c), 内部使用归并排序, 可以传入一个函数式接口对象, 也支持再传入两个索引.</li>
+</ol>
+<p>从Java提供的方式来看, 可以发现归并排序和快排还是主流选择. 排序属于数据操作方法, 现在排序暂告一段落, 数据结构现在有了包和栈两个, 继续看一个很重要的数据结构, 就是队列.</p>
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
