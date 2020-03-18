@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 排序 - 链表归并排序练习</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 60px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>这是一个小练习, 虽然是排序方面的练习, 但是做完之后发现其实是承上启下的一个练习.计算机这玩意, 每天必须得敲点代码, 本质上也是一门手工艺, 和钢琴一样得天天练.</p>
+<p>练习的要求是实现链表元素的归并排序. 并不难, 不过小细节还很多,来看看</p>
+
+<ol>
+    <li><a href="#con1">链表归并排序的思想</a></li>
+    <li><a href="#con2">改造链表加入尾节点引用</a></li>
+    <li><a href="#con3">add, remove与clear方法</a></li>
+    <li><a href="#con4">排序方法与重设lastNode方法</a></li>
+    <li><a href="#con5">在链表尾部插入节点的方法</a></li>
+    <li><a href="#con6">归并排序链表</a></li>
+    <li><a href="#con7">下一步要做的</a></li>
+</ol>
+
+
+<h2 style="text-align: center;" id="con1">链表归并排序的思想</h2>
+<p>链表归并排序的思想本质上与数组归并排序的思想没有本质的不同, 不断比较两个链表的头部节点, 然后拼成一个新链表返回. 不过目前为止的链表(指到目前被我们改造过的可以进行就地插入排序的链表: 见<a href="https://conyli.cc/archives/3559" target="_blank">这篇文章</a>)只能在头部插入. </p>
+<p>如果改造一下可以在尾部插入, 链表排序的代码写起来就轻松多了.</p>
+
+<h2 style="text-align: center;" id="con2">改造链表加入尾节点引用</h2>
+<p>在已经能够排序的链表上继续改造, 要达到的目的就是可以在尾部插入节点, 因此需要一个指向尾节点的引用, 先在类中添加一个私有域:</p>
+<pre>private Node lastNode = null;</pre>
+<p>这个引用起始就是null, 因为新建的链表是空的. 现在就要来思考一下何时需要操作这个数据, 其实也就是在哪些方法中需要操作lastNode:</p>
+<ol>
+    <li>在链表头插入新节点, 如果本来lastNode是空的, 插入之后应该指向这个新节点, 并且之后再插入新节点的时候, lastNode无需变动.</li>
+    <li>从链表头删除节点, 删除之后如果链表是空的, 那么lastNode也应该是空的, 否则无需变动lastNode</li>
+    <li>从链表头删除节点, 删除之后如果链表是空的, 那么lastNode也应该是空的, 否则无需变动lastNode</li>
+    <li>排序方法, 中间的过程可以完全不管, 在排序完成之后, 重新设置lastNode</li>
+    <li>clear方法, 需要把lastNode也清除</li>
+    <li>在链表的尾部添加节点, lastNode需要指向新添加的节点</li>
+</ol>
+<p>从上边分析可以看出了, 需要修改add, remove, sort和sortDesc方法, 还需要新增一个重新设置lastNode的方法, 以及一个在链表尾部添加节点的方法. 就按这个顺序一个个来.</p>
+
+<h2 style="text-align: center;" id="con3">add, remove与clear方法</h2>
+<p>add方法需要进行一个判断, 只要lastNode不是null, 就不进行任何操作就可以了. 如果是null, 就引用至newNode即可, 这样只在第一次添加元素的时候会改变lastNode.</p>
+<pre>
+public boolean add(T entry) {
+
+    Node newNode = new Node(entry, firstNode);
+    firstNode = newNode;
+
+<span style="color: red">    //如果lastNode为空, 就设置一次, 不为空就不变
+    if (this.lastNode == null) {
+        this.lastNode = newNode;
+    }</span>
+
+    numberOfEntries++;
+    isSorted = false;
+    isSortedDesc = false;
+    return true;
+}
+</pre>
+<p>remove方法要考虑到移除元素之后, 当前链表是否为空的情况, 可以判断firstNode也可以再调用isEmpty():</p>
+<pre>
+public T remove() {
+    T result = null;
+
+    if (!isEmpty()) {
+        result = firstNode.data;
+        firstNode = firstNode.next;
+        numberOfEntries--;
+
+<span style="color: red">        //删除完一个元素之后, 如果firstNode为空就将last设置为空, 否则就不改变lastNode
+        if (firstNode == null) {
+            lastNode = null;
+        }</span>
+    }
+    return result;
+}
+</pre>
+<p>这样add和remove方法都好了, 仅在第一次添加的时候设置lastNode, remove仅在删除到空的时候修改lastNode.</p>
+<p>clear方法则添加一行即可:</p>
+<pre>
+public void clear() {
+    this.firstNode = null;
+    this.numberOfEntries = 0;
+    <span style="color: red">this.lastNode = null;</span>
+}
+</pre>
+
+<h2 style="text-align: center;" id="con4">排序方法与重设lastNode方法</h2>
+<p>从前边分析可以知道, 排序之后顺序乱了, 原来的lastNode未必是最后一个, 因此需要重新设置一下, 这个代码也很简单, 遍历到链表尾部就行了, 由于是内部使用, 设置为私有即可:</p>
+<pre>
+private void refreshLastNode() {
+    if (isEmpty()) {
+        this.lastNode = null;
+    } else {
+        this.lastNode = firstNode;
+        while (lastNode.next != null) {
+            lastNode = lastNode.next;
+        }
+    }
+}
+</pre>
+<p>之后在两个排序方法中, 在排序完成之后, 调用这个方法即可, 至于核心的插入节点的私有方法是在过程中使用, 无需进行任何改变:</p>
+<pre>
+public void sort() {
+    if (!isSorted) {
+        Node unsortedNode = firstNode;
+        firstNode = null;
+
+        while (unsortedNode != null) {
+            Node currentNode = unsortedNode;
+            unsortedNode = unsortedNode.next;
+            insertIntoNodes(currentNode, false);
+        }
+        isSorted = true;
+        isSortedDesc = false;
+        <span style="color: red">refreshLastNode();</span>
+    }
+}
+</pre>
+<pre>
+public void sortDesc() {
+
+    if (!isSortedDesc) {
+        Node unsortedNode = firstNode;
+        firstNode = null;
+
+        while (unsortedNode != null) {
+            Node currentNode = unsortedNode;
+            unsortedNode = unsortedNode.next;
+            insertIntoNodes(currentNode, true);
+
+        }
+        isSortedDesc = true;
+        isSorted = false;
+        <span style="color: red">refreshLastNode();</span>
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con5">在链表尾部插入节点的方法</h2>
+<p>然后是用来辅助归并排序的关键方法, 也就是在链表尾部插入节点. 这个方法也可以放开给外部使用, 所以设置为public.</p>
+<p>其逻辑也很简单, 先将lastNode.next指向新节点, 然后再将lastNode指向新节点即可. 不要忘记更新是否排序的两个布尔变量.</p>
+<pre>
+public boolean addToTail(T entry) {
+    //由于修改过add方法, 如果链表为空, 直接调用另外一个方法
+    if (isEmpty()) {
+        add(entry);
+    } else {
+        lastNode.next = new Node(entry);
+        lastNode = lastNode.next;
+        numberOfEntries++;
+        isSorted = false;
+        isSortedDesc = false;
+    }
+    return true;
+}
+</pre>
+
+<h2 style="text-align: center;" id="con6">归并排序链表</h2>
+<p>前边进行了一堆准备工作, 就为了能够让链表支持在尾部插入节点. 这里我们归并排序, 采用合并当前链表和另外一个链表, 然后返回一个新链表的方式.</p>
+<p>因为有了从链表尾部插入节点的方法, 所以逻辑和数组排序完全相同. 只需要注意的是在方法的开始要进行两个链表是否有序的判断, 在完成归并排序之后, 需要根据升序还是降序来给新链表设置好表示是否排序的布尔变量. 由于我们的从尾部插入的方法已经设置好了尾节点, 因此不用重复设置尾节点.</p>
+<pre>
+/**
+ * 合并另外一个有序链表的方法, 仅在两个链表都有同样的序的时候工作
+ * @param another 要合并的另外一个链表
+ * @return 一个新的链表
+ */
+public LinkedList&lt;T> merge(LinkedList&lt;T> another) {
+    LinkedList&lt;T> result = new LinkedList&lt;>();
+
+    //两个都是升序的情况下
+    if (this.isSorted) {
+        if (another.isSorted) {
+            Node currentNode1 = firstNode;
+            Node currentNode2 = another.firstNode;
+
+            //两个当前都不为空, 即链表没有遍历完的情况下
+            while (currentNode1 != null && currentNode2 != null) {
+                //都是升序排列, 所以进行比较, 小的先放到新链表尾部去
+
+                //如果当前的小就放当前的
+                if (currentNode1.data.compareTo(currentNode2.data) &lt; 0) {
+                    result.addToTail(currentNode1.data);
+                    currentNode1 = currentNode1.next;
+                } else {
+                    result.addToTail(currentNode2.data);
+                    currentNode2 = currentNode2.next;
+                }
+            }
+            //循环完毕之后有一个链表遍历完了, 检查另外一个没有遍历完的链表, 挨个把元素放进去
+            if (currentNode1 != null) {
+                while (currentNode1 != null) {
+                    result.addToTail(currentNode1.data);
+                    currentNode1 = currentNode1.next;
+                }
+            }
+
+            if (currentNode2 != null) {
+                while (currentNode2 != null) {
+                    result.addToTail(currentNode2.data);
+                    currentNode2 = currentNode2.next;
+                }
+            }
+            //设置已经升序排列好
+            result.isSorted = true;
+        } else {
+            throw new RuntimeException("链表不是都有序, 无法合并");
+        }
+    //两个都是降序的情况下
+    } else if (isSortedDesc) {
+        if (another.isSortedDesc) {
+            Node currentNode1 = firstNode;
+            Node currentNode2 = another.firstNode;
+
+            //两个当前都不为空, 即链表没有遍历完的情况下
+            while (currentNode1 != null && currentNode2 != null) {
+                //都是降序排列, 所以进行比较, 大的先放到新链表尾部去
+
+                //如果当前是大的就先放当前的
+                if (currentNode1.data.compareTo(currentNode2.data) > 0) {
+                    result.addToTail(currentNode1.data);
+                    currentNode1 = currentNode1.next;
+                } else {
+                    result.addToTail(currentNode2.data);
+                    currentNode2 = currentNode2.next;
+                }
+            }
+            //循环完毕之后有一个链表遍历完了, 检查另外一个没有遍历完的链表, 挨个把元素放进去
+            if (currentNode1 != null) {
+                while (currentNode1 != null) {
+                    result.addToTail(currentNode1.data);
+                    currentNode1 = currentNode1.next;
+                }
+            }
+
+            if (currentNode2 != null) {
+                while (currentNode2 != null) {
+                    result.addToTail(currentNode2.data);
+                    currentNode2 = currentNode2.next;
+                }
+            }
+            //设置已经降序排列好
+            result.isSortedDesc = true;
+        } else {
+            throw new RuntimeException("链表不是都有序, 无法合并");
+
+        }
+    }else {
+        throw new RuntimeException("链表不是都有序, 无法合并");
+    }
+
+    return result;
+}
+</pre>
+<p>这里代码有些重复, 想再抽离出来也是可以的, 不过由于逻辑已经很简单了, 也没有必要做进一步分离. 这样就写好了.</p>
+
+
+<h2 style="text-align: center;" id="con7">下一步要做的</h2>
+<p>此时的链表, 如果我从尾部添加一个元素, 然后从头部remove一个元素, 这就是一个队列了...</p>
+<p>昨晚又回顾了一下至今以来的计算机学习, 发现还是要好好的打基础才可以. 提高最快的并不是一开始学着做web开发, 工程实践, 而是在我重新看过C语言和CSAPP之后.</p>
+<p>对于一些基本概念理解更深厚, 以及又一遍开始看数据算法和结构之后, 就发现很多代码真的可以自己写出来了, 知道一小片数据需要如何操作. 这方面提升才是最巨大的.</p>
+<p>于是后边翻出来这个老的知乎收藏<a href="https://zhuanlan.zhihu.com/p/32506134" target="_blank">编程入门指南导读 v1.0</a>, 然后综合<a href="https://zhuanlan.zhihu.com/p/24774857" target="_blank">五门CS基础课推荐</a>对其中的内容进行了扩充, 列表如下:</p>
+<ol><h2>启蒙</h2>
+    <li>编码 - 隐匿在计算机软硬件背后的语言</li>
+    <li>计算机科学导论</li>
+    <h2>入门</h2>
+    <li>笨办法学Python</li>
+    <li>Python基础教程</li>
+    <h2>抽象基础</h2>
+    <li>CS 61A: Structure and Interpretation of Computer Programs Using Python</li>
+    <li>CS 61B Data Structures, Spring 2020</li>
+    <li>http://composingprograms.com/</li>
+    <li>计算机系统要素</li>
+    <h2>语言扩充</h2>
+    <li>语言扩充 C语言编程：一本全面的C语言入门教程（第三版） C primer plus</li>
+    <h2>计算机组成原理</h2>
+    <li>计算机组成与设计</li>
+    <li>CSAPP</li>
+    <li>现代操作系统</li>
+    <li>程序设计语言 实践之路 第三版</li>
+    <h2>语言扩充</h2>
+    <li>C++ primer 第五版</li>
+    <li>Java核心技术 卷1</li>
+    <li><a href="https://link.zhihu.com/?target=http%3A//www.nceclusters.no/globalassets/filer/nce/diverse/the-pragmatic-programmer.pdf " target="_blank">软件工程基础</a></li>
+    <li>代码大全 第二版</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
