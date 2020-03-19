@@ -22,7 +22,7 @@
     <li><a href="#con2">基于链表实现队列</a></li>
     <li><a href="#con3">基于数组实现队列</a></li>
     <li><a href="#con4">改进的数组实现队列</a></li>
-    <li><a href="#con5"></a></li>
+    <li><a href="#con5">用循环链表实现队列</a></li>
     <li><a href="#con6"></a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">队列的接口</h2>
@@ -483,19 +483,14 @@ private void checkCapacity() {
 </pre>
 <p>这个无需额外使用计数器的队列就写好了. 逻辑实际上比使用计数器的还要清晰.</p>
 
+<h2 style="text-align: center;" id="con5">用循环链表实现队列</h2>
+<p>还有一种非常有意思的方式, 是使用循环链表. 所谓循环链表, 就是一个链表的尾节点的next指向头节点, 这就叫做循环链表, 其实就是一个圈, 如果一直遍历是可以回到起点的.</p>
+<p>一般循环链表是用一个引用指向所谓的头节点就可以了. 单纯作为链表来说, 使用循环链表没有什么太大用处, 但是对于队列, 可以简化判断队列是空还是满的方法.</p>
+<p>循环链表一开始是空的, 这个时候头和尾节点都是null. 再插入一个节点的时候, 头和尾节点都是那个节点, 这个是一样的.</p>
+<p>关键在于再插入一个节点的时候, 如何处理.</p>
 
 
 
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
