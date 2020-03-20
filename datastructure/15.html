@@ -23,7 +23,7 @@
     <li><a href="#con3">基于数组实现队列</a></li>
     <li><a href="#con4">改进的数组实现队列</a></li>
     <li><a href="#con5">用循环链表实现队列</a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con6">Java提供的队列 - LinkedList</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">队列的接口</h2>
 <p>队列的接口, 可以用栈的接口来类比, 栈是从同一侧放入数据和取出数据, 队列是在两端做这两个事情.</p>
@@ -486,12 +486,179 @@ private void checkCapacity() {
 <h2 style="text-align: center;" id="con5">用循环链表实现队列</h2>
 <p>还有一种非常有意思的方式, 是使用循环链表. 所谓循环链表, 就是一个链表的尾节点的next指向头节点, 这就叫做循环链表, 其实就是一个圈, 如果一直遍历是可以回到起点的.</p>
 <p>一般循环链表是用一个引用指向所谓的头节点就可以了. 单纯作为链表来说, 使用循环链表没有什么太大用处, 但是对于队列, 可以简化判断队列是空还是满的方法.</p>
-<p>循环链表一开始是空的, 这个时候头和尾节点都是null. 再插入一个节点的时候, 头和尾节点都是那个节点, 这个是一样的.</p>
-<p>关键在于再插入一个节点的时候, 如何处理.</p>
+<p>这里的循环链表的特殊之处在于, 一开始并不是空的, 而是有一个节点, 类似循环数组一样, 这个结点永远不使用. 一个引用A指向分配给队列的节点, 一个引用B指向所有空白节点部分的开始.</p>
+<p>然后有意思部分是, 追加到队尾的时候, 是从B处进行添加的, B会为当前队伍添加一项, 然后继续指向下一个空白. 出队的时候, 是从A引用出队的, 出队的时候会将A引用往前走一个节点.</p>
+<p>由于始终有一个节点不使用, 所以很好判断节点是不是满的. 如果B.next == A, 队伍就满了, 下一次插入就要分配一个新节点. 如果B==A, 则是一开始的情况, 即isEmpty().</p>
+<p>说起来比较麻烦, 实际上操作起来没有想象中的复杂, 只需要注意一个内容, 就是一开始要为链表分配一个节点.</p>
+<p>而且为了识别空白节点, 可以考虑不允许将null放入队列中. 当然也可以采取其他方式, 比如给节点增加一个额外的枚举属性等, 这个就看具体实现了. 来先搭建一些基础设施:</p>
+<pre>
+public class LoopLinkedQueue&lt;T> implements QueueInterface&lt;T> {
+
+    private class Node {
+        private T data;
+        private Node next;
+
+        public Node(T data) {
+            this(data, null);
+        }
+
+        public Node(T data, Node next) {
+            this.data = data;
+            this.next = next;
+        }
+
+        @Override
+        public String toString() {
+            return "Node{" +
+                    "data=" + data +
+                    '}';
+        }
+    }
+
+    //表示被数据占用部分的开始节点
+    private Node queueNode;
+    //表示空白部分的开始节点
+    private Node vacancyNode;
+
+    public LoopLinkedQueue() {
+        //创建一个新的包含null值的节点
+        Node startNode = new Node(null);
+        //将其指向自己
+        startNode.next = startNode;
+        //然后将两个引用都指向这个节点.
+        queueNode = startNode;
+        vacancyNode = startNode;
+
+    }
+
+}
+</pre>
+<p>这里要注意构造器部分, 创建了一个带有null值的节点, 这个节点永远不会放入实际数据, 然后一开始将两个引用都指向这个节点, 并且关键的是这个节点的next也指向自己. 然后来一点一点实现接口方法.</p>
+<p>首先就是isEmpty():</p>
+<pre>
+@Override
+public boolean isEmpty() {
+    return vacancyNode == queueNode;
+}
+</pre>
+<p>可以看到, 刚创建的队列, 就符合这个条件, 即vacancyNode == queueNode, 这是因为两个引用都指向同一个节点, 只要插入之后, 由于有一个节点不使用, 这个队列就不会再有这个情况, 如果每次弹出数据就删除一个节点, 那么当没有其他节点的时候, 就会恢复到此种情况.</p>
+<p>接下来先看第一个方法, 就是入队:</p>
+<pre>
+@Override
+public void enqueue(T entry) {
+    if (entry == null) {
+        throw new RuntimeException("不允许将null入队");
+    }
+
+    //如果是从isEmpty()的情况开始, 需要将第一个新节点插入到不使用节点的后边, 同时注意我们的规则, 就是vacancyNode指向空白部分的开头, 而queueNode指向有数据的开始部分
+    if (isEmpty()) {
+        Node newNode = new Node(entry);
+        queueNode.next = newNode;
+        newNode.next = vacancyNode;
+        queueNode = queueNode.next;
+    //如果不空, 看是不是满, 满就插入一个空节点, 不满就不用插入, 然后将entry加入当前的vacancyNode, 然后移动一次vacancyNode
+    } else {
+        if (isFull()) {
+            Node newNode = new Node(null);
+            newNode.next = vacancyNode.next;
+            vacancyNode.next = newNode;
+        }
+        vacancyNode.data = entry;
+        vacancyNode = vacancyNode.next;
+    }
+}
+</pre>
+<p>写好了这个代码之后, 我发现, 其实不需要判断是否为空, 因为在最开始的时候, 下边的操作一样有效, 即插入一个空节点, 然后将当前节点载入数据, 再移动vacancy. 所以代码可以修改的更简明:</p>
+<pre>
+@Override
+public void enqueue(T entry) {
+    if (entry == null) {
+        throw new RuntimeException("不允许将null入队");
+    }
+
+    //只要插入新数据, 必定要将当前空白节点装入新数据
+    vacancyNode.data = entry;
+
+    //如果队列满, 在当前位置下一个插入一个新节点
+    if (isFull()) {
+        Node newNode = new Node(null);
+        newNode.next = vacancyNode.next;
+        vacancyNode.next = newNode;
+    }
+    //如果不满, 就移动一次vacancyNode
+    vacancyNode = vacancyNode.next;
+
+}
+</pre>
+<p>然后是出队, 出队的方法也比较有趣, 和原来的链表出一个队就删除一个结点不同, 这里出队, 只需要返回当前queueNode的值, 然后将当前queueNode的data置为null,再前进一下即可.</p>
+<p>如果全部的项都出完, queueNode就会移动到空白链条的开始, 也就是queueNode = vacancyNode, 这又符合了isEmpty()的条件:</p>
+<pre>
+@Override
+public T dequeue() {
+    if (isEmpty()) {
+        throw new RuntimeException("队列已经为空");
+    }
+
+    T result = queueNode.data;
+    queueNode.data = null;
+    queueNode = queueNode.next;
+    return result;
+}
+</pre>
+<p>有了这几个方法, 剩下的就简单了:</p>
+<pre>
+@Override
+public T getFront() {
+    if (isEmpty()) {
+        throw new RuntimeException("队列为空");
+    } else {
+        return queueNode.data;
+    }
+
+}
+</pre>
+<p>clear()可以直接将queueNode设置成vacancy即可. 不过还是要依次释放其中的引用以避免内存泄露:</p>
+<pre>
+@Override
+public void clear() {
+    if (!isEmpty()) {
+        while (queueNode != vacancyNode) {
+            queueNode.data = null;
+            queueNode = queueNode.next;
+        }
+    }
+}
+</pre>
+<p>clear()其实还有更简单的做法, 就是直接像构造器一样重新初始化, 但是这样会造成重新插入节点, 所以不推荐.除非内存非常紧张.</p>
+<p>最后再补一个打印队列的方法:</p>
+<pre>
+public void show() {
+    Node currentNode = queueNode;
+    while (currentNode != vacancyNode) {
+        System.out.print(currentNode.data);
+        if (currentNode.next != vacancyNode) {
+            System.out.print(" -> ");
+        }
+        currentNode = currentNode.next;
+    }
+    System.out.println();
+}
+</pre>
+<p>循环链表的方式相比普通链表, 一大好处就是避免了每次插入数据的时候删除数据, 同时还可以方便的进行比较和重用链表.</p>
+<p>如果链表经常维持在使用度比较高的情况下, 可以考虑循环链表. 没想到一个队列的实现, 也能有这么多种办法, 这还只是一个基础的队列.</p>
+
+<h2 style="text-align: center;" id="con6">Java提供的队列 - LinkedList</h2>
+<p>Java提供的队列接口是java.util.Queue&lt;E>, 然后有一个实现类是java.util.AbstractQueue&ltE>, 只要继承这个类, 然后重写其中的方法就可以实现自己的队列.</p>
+<p>慢着, 竟然还要自己实现, 难道Java就没有提供一个简单的标准队列吗, 实际上, 想要使用队列, 可以直接使用java.util.LinkedList即可. 链表实现的是Deque接口, 即双端队列.</p>
+<p>Deque继承了Queue接口, 所以双端队列也支持普通队列的操作. 因此想要使用简单队列或者双端队列, 可以直接使用LinkedList类即可. 多说一句,优先队列Java是提供了单独的实现的. 此外还有并发队列, 以后再看了.</p>
 
 
 
-<h2 style="text-align: center;" id="con6"></h2>
+
+
+
+
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
