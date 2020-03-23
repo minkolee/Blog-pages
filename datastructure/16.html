@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 双端队列和优先队列</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>双端队列就是同时可以在队列的头和尾, 都进行单个队列或者说和栈一样的操作. 双端队列被称为double-ended queue, 简称deque.</p>
+<p>优先队列是指进入队列中的所有对象, 都有一个优先级, 出队的时候, 始终按照优先级较高的对象先出列的顺序进行处理.</p>
+<p>可以想象, 双端队列其实我们已经实现过, 有了一头一尾两个指针的链表, 就是双端队列, 只需要再包装一些API即可.</p>
+<p>优先队列的思路也很清晰, 在入队和出队之间, 还要实行一个类似于排序的工作, 将队列内部所使用的数据按照优先级和先进先出顺序进行排序即可.</p>
+
+<ol>
+    <li><a href="#con1">双端队列的接口</a></li>
+    <li><a href="#con2">双端队列的实现</a></li>
+    <li><a href="#con3">优先队列的思路</a></li>
+    <li><a href="#con4">小总结</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">双端队列的接口</h2>
+<p>随着时间的推移, 掌握的数据结构越来越多, 我们可以发现, 栈和普通队列, 只不过是双端队列的特殊形式. 栈是只能操作尾部的双端队列, 而普通队列则是从尾部进入, 头部取出的双端队列.</p>
+<p>即如果编写了双端队列的API, 仅开放部分API, 就形成了栈和普通队列. 即使不屏蔽API, 只操作栈和普通队列对应的API, 也就和操作栈与普通队列完全一样.</p>
+<p>简单的API如下:</p>
+<pre>
+public interface DequeInterface&lt;T> {
+
+    void addToFront(T entry);
+    void addToBack(T entry);
+
+    T removeFront();
+    T removeBack();
+
+    T getFront();
+    T getBack();
+
+    boolean isEmpty();
+
+    void clear();
+
+}
+</pre>
+<p>既然操作两端, 那么都是成对的.</p>
+
+<h2 style="text-align: center;" id="con2">双端队列的实现</h2>
+<p>最容易的双端队列, 也是最经常用的, 包括Java标准库中的实现, 使用的都是链表.</p>
+<p>对于我们在上一节里编写的带有头尾节点引用的链表, 几乎无需做什么修改, 就可以完美的适配双端队列. 只需要再添加上已经写了无数次的从链表头部删除节点和从尾部插入新元素的方法就可以了.</p>
+<p>这里就简单写一下:</p>
+<pre>
+public class LinkedDeque&lt;T> implements DequeInterface&lt;T> {
+
+    private class Node {
+        private T data;
+        private Node next;
+
+        public Node(T data) {
+            this(data, null);
+        }
+
+        public Node(T data, Node next) {
+            this.data = data;
+            this.next = next;
+        }
+
+        @Override
+        public String toString() {
+            return "Node{" +
+                    "data=" + data +
+                    '}';
+        }
+    }
+
+    private Node firstNode;
+    private Node lastNode;
+
+    public LinkedDeque() {
+        this.firstNode = null;
+        this.lastNode = null;
+    }
+
+
+    //队列头部就是链表头, 尾就是链表尾
+    @Override
+    public void addToFront(T entry) {
+
+        if (entry == null) {
+            throw new RuntimeException("不允许向队列中放入null值");
+        }
+
+        //创建一个新节点
+        Node newNode = new Node(entry);
+        newNode.next = firstNode;
+        //如果为空同时将头尾节点指向newNode
+        if (isEmpty()) {
+            //为空要同时更新首尾节点
+            firstNode = newNode;
+            lastNode = newNode;
+            //不为空则不用更新lastNode
+        } else {
+            firstNode = newNode;
+        }
+
+    }
+
+    //从队列头部插入新数据
+    @Override
+    public void addToBack(T entry) {
+
+        //如果队列为空, 和从尾部插入一样, 所以调用其他方法即可
+        if (isEmpty()) {
+            addToFront(entry);
+
+        } else {
+            //创建新节点, 让lastNode.next指向该节点, 然后移动一次lastNode即可
+            lastNode.next = new Node(entry);
+            lastNode = lastNode.next;
+        }
+
+    }
+
+    //从队列尾部删除, 这个方法需要在删除之后重置lastNode
+    @Override
+    public T removeBack() {
+
+        T result = null;
+
+        if (!isEmpty()) {
+            result = lastNode.data;
+            //如果只有一个节点, 删完就是空的了, 就设置first和last都是null
+            if (firstNode == lastNode) {
+                lastNode = null;
+                firstNode = null;
+            } else {
+            //否则需要先找到lastNode的上一个, 然和重设
+                Node currentNode = firstNode;
+                while (currentNode.next != lastNode) {
+                    currentNode = currentNode.next;
+                }
+                lastNode = currentNode;
+                lastNode.next = null;
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public T getBack() {
+        if (isEmpty()) {
+            return null;
+        } else {
+            return firstNode.data;
+
+        }
+
+    }
+
+    //从lastNode那里出队就是removeBack()方法
+    @Override
+    public T removeFront() {
+        //获取首节点
+        T result = null;
+
+        //队列不为空的话获取第一个节点的数据, 然后将firstNode指向其next, 标准的从链表头部删除元素的操作
+        if (!isEmpty()) {
+            Node target = firstNode;
+            firstNode = firstNode.next;
+            target.next = null;
+            result = target.data;
+            //删除结束之后, 还要再看一眼链表是否为空, 如果为空说明刚删除了唯一一个元素, 此时lastNode还指向那个元素, 需要将其设置为null.
+            if (firstNode == null) {
+                lastNode = null;
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public T getFront() {
+        if (isEmpty()) {
+            return null;
+        } else {
+            return firstNode.data;
+        }
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return firstNode == null && lastNode == null;
+    }
+
+    @Override
+    public void clear() {
+        firstNode = null;
+        lastNode = null;
+    }
+
+    private String showAll() {
+        Node currentNode = firstNode;
+
+        StringBuilder builder = new StringBuilder();
+
+        while (currentNode != null) {
+            builder.append(currentNode.toString());
+            currentNode = currentNode.next;
+            if (currentNode != null) {
+                builder.append(" -> ");
+            } else {
+                builder.append("\n");
+            }
+        }
+        return builder.toString();
+    }
+
+    public void show() {
+        System.out.println("first=" + firstNode);
+        System.out.println("last=" + lastNode);
+    }
+
+    @Override
+    public String toString() {
+        return showAll();
+    }
+}
+
+</pre>
+<p>这里唯一要注意的就是removeBack()方法, 注意其中的逻辑, 如果只有一个节点, 删除完就重新设置. 如果不是一个节点, 删除完之后要重新找到删除之后应该成为lastNode的节点, 然后将其next设置为null.
+    这个动作实际上是O(n)的.</p>
+<p>编写完了这个API之后, 如果操作一端, 就像栈. 如果从一端添加, 另外一端删除, 就像是队列.</p>
+<p>Java类库中除了LinkedList实现了java.util.deque接口之外, 还有一种实现是java.util.ArrayDeque, 其实我们这里用数组实现也是可以的. 而且在尾部删除元素的时候会更快. 有了单个数组的实现, 其实双端也并不难.</p>
+<p>由于Deque接口我们现在知道可以任意当成双端队列, 普通队列和栈使用, 因此从此以后无需再使用Stack相关的类型, 只需要使用双端队列即可.</p>
+
+<h2 style="text-align: center;" id="con3">优先队列的思路</h2>
+<p>既然有优先级, 就涉及到比较. 除此之外, 优先级本身也是一个值得讨论的问题. 不过其接口其实和普通队列没有任何区别, 还是很好定义的:</p>
+<pre>
+public interface PriorityQueueInterface&lt;T> {
+
+    void add(T entry);
+
+    T remove();
+
+    T peek();
+
+    boolean isEmpty();
+
+    int getSize();
+
+    void clear();
+
+}
+</pre>
+<p>常见的优先级可以分为两种:</p>
+<ol>
+    <li>有着固定数量级别的优先级, 比如优先级可以用预先定义好的枚举类或者数字表示, 例如优先级10-1, 10为最优先, 1为最不优先</li>
+    <li>没有固定数量级别的优先级, 比如优先级可能是根据某个对象的某个属性进行判断, 预先只知道属性大小的比较方式, 无法枚举这个属性的所有可能.</li>
+</ol>
+<p>对于第一种情况, 我们的优先级队列可以由若干个子队列组成, 子队列的数量就是所有可能出现的优先级的数量. 根据不同的新入队对象的优先级级别, 将其入到对应优先级级别的队列中.
+在出队的时候, 出队方法总是从最高优先级的队列开始搜索起, 如果最高优先级的队列为空, 才去搜索下一个优先级的队列. </p>
+<p>对于第二种情况, 则很显然需要每次在入队的时候进行排序, 需要将新入队的元素插入到所有小于其优先级的元素之前(指队列的方向), 排在所有大于等于其优先级的元素最后.</p>
+<p>要解决这种问题, 可以先将元素放到队尾, 然后使用稳定的排序方法, 重新排序, 就可以得到一个按照优先级排列的队列.</p>
+<p>这两种方法就不写了, 归并排序如果每次都规定好前半部分只要小于等于后边部分的队列, 就先放入结果队列, 则是稳定的. 如果用链表实现, 只需要使用带有排序功能的链表就可以了. 而第一种实现就更加简单了.</p>
+<p>同时我们可以看出, 随着学习内容的进步, 各种数据结构和算法的组合, 可以不断的组合中更加复杂或者具有更多行为特征的数据结构, 确实有意思.</p>
+<p>java提供的优先队列是java.util.PriortiyQueue.</p>
+
+<h2 style="text-align: center;" id="con4">优先队列的思路</h2>
+<p>到目前为止, 数据结构从包, 栈, 推进到了队列. 可以发现, 有了栈, 未必一定要用包, 有了队列, 则可以将栈抛弃. 队列里有了双端队列, 则可以抛弃普通队列. 优先队列则应用于特殊场景.</p>
+<p>所以到目前, 我们只需要使用队列类型即可, 这里总结一下Java的队列类:</p>
+<ol>
+    <li><code>java.util.Queue</code>, Queue接口</li>
+    <li><code>java.util.Deque</code>, 继承自Queue接口的双端队列接口</li>
+    <li><code>java.util.LinkedList</code>, 双端队列的链表实现</li>
+    <li><code>java.util.ArrayDeque</code>, 双端队列的数组实现</li>
+    <li><code>java.util.PriorityQueue</code>, 继承自AbstractQueue, AbstractQueue仅实现了Queue接口, 所以这不是一个双端队列.</li>
+</ol>
+<p>所以在实际中, 遇到优先队列的情况, 选择PriorityQueue. 对于其他时候用到的栈, 包, 队列, 其实都可以选择双端队列了.</p>
+<p>当然, 也可能会发现, LinkedList实现了List接口, List似乎也是一个好选择, 可以任意从前后来获取数据. </p>
+<p>确实, 根据之前学习的内容, 不难猜测可能在队列之上, 还有更加宽泛的数据类型, 那就是线性表. 先用队列把练习都做了, 然后看线性表吧.</p>
+<p>顺便推荐一本老书, <a href="https://en.wikipedia.org/wiki/How_to_Design_Programs">How_to_Design_Programs</a>. 虽然是用Scheme语言写成, 但任何语言都可以从中来根据自己语言的特性来学习. 确实很棒, 比SCIP简单一些, 可以作为入门.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
