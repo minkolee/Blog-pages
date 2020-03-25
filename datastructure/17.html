@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 线性表</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>这两天在看CS61A的同时，一直在反复翻阅SICP with Python, 关于编程理念最基本的东西真是怎么看也看不够。 特别是递归里边，如何用N种硬币来表示一个数字的这类问题，总是创建不出来对应的抽象。普通的处理一批数据的递归倒还可以。</p>
+<p>CS61A现在听完了Python的部分，进入了第三章解释器，不过很多问题真的不想到头疼就写不出来。</p>
+<p>另外就是抽象的问题，习惯了面向对象之后，像CS61A课程中直接采取list或者元组进行树的抽象，还是需要仔细品味一下的。对于一个问题，如何将其抽象成可以用计算机解决的问题，似乎也是一大壁垒，只能靠多算多练才行。</p>
+<p>所以综合来看，CS61A讲的不是具体某种语言，而是程序设计的基本理念和如何跨越抽象壁垒的问题。至于使用什么语言，由于教学需要，Python可以将函数当成一等对象，所以用来学习这个理念很好。不过函数闭包实际上相当于面向对象，所以用面向对象也可以解决。</p>
+<p>好了，不废话了，还是继续看Java的数据结构，数据结构也是抽象到极致的东西，只要搞明白了，用各种语言都能写出来。</p>
+<p>另外昨晚我录制好了讲解递延所得税的视频，如果你或者你的朋友从事财务行业，或者要考CPA，可以推荐他们看看这个视频，一定会如醍醐灌顶般爽快。</p>
+<ol>
+    <li><a href="#con1">线性表</a></li>
+    <li><a href="#con2">Java中的线性表</a></li>
+    <li><a href="#con3">数组实现线性表</a></li>
+    <li><a href="#con4">小总结</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">线性表</h2>
+<p>从一开始，我们一直挥舞着两把兵器，右手一把弹簧刀一样的数组，左手一条金丝软鞭链表。用这两把武器硬生生砍下了包，栈，队列等数据结构。</p>
+<p>回头仔细一想，不管是数组还是链表，看上去都是一串东西，是线性的。现在就来看看一个通用的数据结构，叫做线性表。</p>
+<p>一个线性表，一般支持如下操作：</p>
+<ol>
+    <li>在任何位置添加一个项目</li>
+    <li>在任何位置删除一个项目</li>
+    <li>删除所有（清空）表</li>
+    <li>替换某一项</li>
+    <li>查看任意位置的项</li>
+    <li>查看全部项</li>
+    <li>检测是否包含某一项</li>
+    <li>检测计数</li>
+    <li>查看是不是空</li>
+</ol>
+<p>实际上，线性表就像是一排东西，这些东西本身不一定有序，但是有序号。前边的队列，实际上并不是真的像现实中的队列。现实中的队列，会出现插队，换人，走人，队伍解散，在队伍里找人出来等等操作。</p>
+<p>所以线性表，更像是一个非常通用的存放某种类型的容器，只要你按照某种线性表支持的操作来进行操作，线性表可以成为栈，包，双向队列等任何一个。</p>
+<p>根据上边的功能，可以写出接口如下：</p>
+<pre>
+public interface ListInterface&lt；T> {
+
+    //在末尾添加元素
+    void add(T entry);
+
+    //在指定的位置添加元素
+    void add(int newPosition, T newEntry);
+
+    //删除某个位置的元素
+    T remove(int givenPosition);
+
+    //清空表
+    void clear();
+
+    //替换指定位置的元素
+    T replace(int givenPosition, T newEntry);
+
+    //获取指定位置的元素
+    T getEntry(int givenPosition);
+
+    //获取全部元素
+    T[] toArray();
+
+    //是否含有某个元素
+    boolean contains(T anEntry);
+
+    //获取其中的元素数量
+    int getLength();
+
+    //是否为空
+    boolean isEmpty();
+}
+</pre>
+<p>因为有了可以获取其中数量的方法，以及可以从指定位置中获取内容的方法，不难想象，线性表的使用者只要按照规定的操作，就可以用线性表模拟出包，栈，队列的行为。所以线性表更加通用。</p>
+
+<h2 style="text-align: center;" id="con2">Java中的线性表</h2>
+<p>Java中的线性表的接口是<code>java.util.List&lt;T></code>接口，
+    查看<a href="https://docs.oracle.com/javase/8/docs/api/java/util/List.html" target="_blank">JDK8的List文档</a>可以看到除了抽象类之外，有如下几个类实现了接口：</p>
+<ol>
+    <li><code>ArrayList extends AbstractList&lt;E> implements List&lt;E></code></li>
+    <li><code>AttributeList extends ArrayList&lt;Object></code></li>
+    <li><code>CopyOnWriteArrayList&lt;E> extends Object implements List&lt;E></code></li>
+    <li><code>LinkedList&lt;E> extends AbstractSequentialList&lt;E> implements List&lt;E></code></li>
+    <li><code>RoleList extends ArrayList&lt;Object></code></li>
+    <li><code>RoleUnresolvedList extends ArrayList&lt;Object></code></li>
+    <li><code>RoleUnresolvedList extends ArrayList&lt;Object></code></li>
+    <li><code>Vector&lt;E> extends AbstractList&lt;E> implements List&lt;E></code></li>
+    <li><code>Stack&lt;E> extends Vector&lt;E></code></li>
+</ol>
+<p>可以看到最基础的东西就是List接口以及最基本的实现ArrayList和LinkedList, CopyOnWriteArrayList则是一个并发安全的版本.
+    这里要提一下,之前我们编写的所有数据结构, 都是线程不安全的, 只要多线程操作就会有危险. 解决方法可以将其在外边套一个安全的同步方法,也可以由使用数据结构的人自行编写线程安全的方法.这个以后等看到并发再讨论.</p>
+<p>看来实现也不外乎两种, 一种是数组实现, 一种是链表实现. 那么就来干吧.ArrayList可以看到其文档中说支持null元素, 我们就以此为目标来先写一个数组实现的线性表.</p>
+
+<h2 style="text-align: center;" id="con3">数组实现线性表</h2>
+<p>数组实现线性表的方法, 其实我们在之前把核心的一些方法都写过了.这里首先创建一个类, 然后是基础设施, 其中最关键的,就是有一个记录线性表中已经有多少个元素的变量. 有了这个变量, 就可以快速的定位到数组的最末端.从而给很多操作带来便利.</p>
+<pre>
+public class MyArrayList&lt；T> implements ListInterface&lt；T> {
+
+    //内部数组
+    private T[] list;
+
+    private int numberOfEntries;
+
+    private boolean initialized;
+
+    private static int DEFAULT_CAPACITY = 16;
+
+    private static int MAX_CAPACITY = 10000;
+
+    private void checkInitialized() {
+        if (!initialized) {
+            throw new RuntimeException("类没有初始化成功.");
+        }
+    }
+
+}
+</pre>
+<p>这几个变量都很熟悉了, 之前在编写变长数组的数据结构时候全都使用过. 然后编写构造器.</p>
+<pre>
+//根据传入的初始长度创建内部数组, 最小不短于默认长度
+@SuppressWarnings("unchecked")
+public MyArrayList(int size) {
+    if (size > MAX_CAPACITY) {
+        throw new RuntimeException("超过限制");
+    } else if (size < DEFAULT_CAPACITY) {
+        size = DEFAULT_CAPACITY;
+    }
+    System.out.println(size);
+    list = (T[]) new Object[size];
+    initialized = true;
+}
+
+public MyArrayList() {
+    this(DEFAULT_CAPACITY);
+}
+</pre>
+<p>之后来逐个实现这些方法, 有很多实际上就是变长数组的方法. 然后来逐个实现该方法.</p>
+<p>先要实现的方法就是判断数组是不是放满, 空, 以及扩展数组长度的内部私有方法, 这些方法在之后都会被用到.</p>
+<pre>
+@Override
+public int getLength() {
+    checkInitialized();
+    return numberOfEntries;
+}
+
+@Override
+public boolean isEmpty() {
+    checkInitialized();
+    return numberOfEntries == 0;
+}
+
+private boolean isFull() {
+    checkInitialized();
+    return numberOfEntries == list.length;
+}
+
+@SuppressWarnings("unchecked")
+private void enlargeCapacity() {
+    int currentNumber = list.length;
+
+    if (currentNumber == MAX_CAPACITY) {
+        throw new RuntimeException("线性表无法继续扩大");
+    } else {
+        //创建一个最长不超过MAX_CAPACITY的数组, 然后将数组复制过去
+        T[] tempArray = (T[]) new Object[Math.min(currentNumber * 2, MAX_CAPACITY)];
+        if (numberOfEntries >= 0) System.arraycopy(list, 0, tempArray, 0, numberOfEntries);
+        list = tempArray;
+    }
+}
+</pre>
+<p>判断线性表为空的方法自然是当前元素数量为0,判断满的方法则是当前元素的数量与数组的长度一样, 这时候不扩展就放不下了.</p>
+<p>扩展数组的方法则是检测当前的长度, 如果已经最大就抛异常. 如果没有满, 则创建一个当前数组的2倍但不超过MAX_CAPACITY的数组, 并将数组元素复制到这个新数组中, 用新数组取代原来的数组.</p>
+<p>扩展数组的过程中不涉及任何操作元素数量的操作.</p>
+<p>有了上边这些方法辅助, 就可以来写一些核心的方法, 首先是add方法,默认向尾部添加. 向尾部添加之前, 需要检查数组是不是满了, 如果满了就扩展数组, 然后再添加. 我们的扩展数组方法可以保证只要不抛异常, 必定可以新添加一个元素.</p>
+<pre>
+@Override
+public void add(T entry) {
+    checkInitialized();
+    if (isFull()) {
+        enlargeCapacity();
+    }
+
+    list[numberOfEntries] = entry;
+    numberOfEntries++;
+}
+</pre>
+<p>然后是在指定位置添加的方法. 依然需要先判断数组是不是已经满了. 之后需要将指定位置索引开始的元素全部往后移动一个位置, 再将新元素放进去. 移动位置正好可以通过numberOfEntries来进行操作.</p>
+<pre>
+@Override
+public void add(int newPosition, T newEntry) {
+
+    //要添加的位置最多也就是numberOfEntries的位置, 所以要检查一下参数
+    if (newPosition > numberOfEntries) {
+        throw new RuntimeException("索引不合法");
+    }
+
+    if (isFull()) {
+        enlargeCapacity();
+    }
+    //已经知道扩展后的数组必定至少还能放下一个元素. numberOfEntries指向的是数组最后一个元素之后的空白位置, 从这里反向往前循环即可.
+    int currentIndex = numberOfEntries;
+    while (currentIndex != newPosition) {
+        list[currentIndex] = list[currentIndex - 1];
+        currentIndex--;
+    }
+    //将元素全部向后移动一位之后再放入新元素
+    list[newPosition] = newEntry;
+    numberOfEntries++;
+}
+</pre>
+<p>添加元素好了, 然后来编写删除指定位置元素的方法, 逻辑正好和添加反过来, 先获取这个元素, 再将其后的所有元素往后移动一个位置.</p>
+<pre>
+@Override
+public T remove(int givenPosition) {
+    checkInitialized();
+
+    //检查指定的索引是否存在, 当有n个元素的时候, 最小只能是0, 最大的范围是n-1
+    if (givenPosition < 0 || givenPosition > numberOfEntries - 1) {
+        throw new RuntimeException("指定的索引超出范围");
+    }
+
+    T result = list[givenPosition];
+
+    //从指定的索引开始, 将之后的都往前移动一个位置
+    int currentIndex = givenPosition;
+    while (currentIndex != numberOfEntries - 1) {
+        list[currentIndex] = list[currentIndex + 1];
+        currentIndex++;
+    }
+
+    numberOfEntries--;
+    return result;
+}
+</pre>
+<p>由于不用缩小数组, 这里方便了很多. 然后又可以编写一批小的方法:</p>
+<pre>
+@Override
+public void clear() {
+    //clear只需要将numberOfEntries设置为1即可,无论是控制放入, 还是返回内部数组, 都是根据numberOfEntries来控制的. 不过最好还是将所有的位置都释放掉
+    checkInitialized();
+    for (int i = 0; i < numberOfEntries; i++) {
+        list[i] = null;
+    }
+    numberOfEntries = 0;
+}
+
+@Override
+public T getEntry(int givenPosition) {
+    checkInitialized();
+    return list[givenPosition];
+}
+
+@Override
+@SuppressWarnings("unchecked")
+public T[] toArray() {
+    checkInitialized();
+    T[] result = (T[]) new Object[numberOfEntries];
+
+    System.arraycopy(list, 0, result, 0, numberOfEntries);
+
+    return result;
+}
+
+@Override
+public T replace(int givenPosition, T newEntry) {
+    checkInitialized();
+    T result = list[givenPosition];
+    list[givenPosition] = newEntry;
+    return result;
+}
+</pre>
+<p>由于内部是数组, 定位和查找都非常方便. 现在只剩最后一个方法了, 就是contains方法.</p>
+<p>这个方法很显然, 需要遍历数组, 查找与给定对象相同的元素才可以, 一旦查找到, 就返回True,否则返回False.</p>
+<pre>
+@Override
+public boolean contains(T anEntry) {
+
+    for (int i = 0; i < numberOfEntries; i++) {
+        if (list[i].equals(anEntry)) {
+            return true;
+        }
+    }
+    return false;
+}
+</pre>
+<p>至此, 就写好了一个线性表, 其实仔细分析的话, 其相比原来的变长数组, 就多了从指定位置删除和添加元素的功能, 外加上查找, 就构成了线性表. 实现完了之后, 简单分析一下数组实现的性能:</p>
+<ol>
+    <li><code>add(T newEntry)</code>方法,很显然, add方法会在某些时候涉及到扩大数组的操作, 这个操作是O(n)的, 如果不涉及扩大数组,则操作是常数级别. 线性表的使用者控制好数据量, 可以避免O(n)的操作</li>
+    <li><code>add(int newPosition, T newEntry)</code>方法, 这个方法在最坏的时候, 会先扩大一次数组, 然后从头开始移动数组的每一个元素, 因此其实际上是2n级别的复杂度, 也是O(n)级别.</li>
+    <li><code>remove</code>方法也需要调整元素的位置, 最好的是在末尾移除, 最坏的则是在头部移除. 不管怎么说, 也是O(n)级别的复杂度.</li>
+    <li><code>contains(T anEntry)</code>方法需要遍历, 不用说了, 也是O(n)级别的复杂度.</li>
+    <li>其他辅助方法中, 为了隔离, toArray()返回一个新数组, 很显然也是O(n)复杂度的方法. 不过这个不能阻止修改引用, clear我们也采用了安全的O(n)级别方法. replace和getEntry则是常数级别的.</li>
+</ol>
+<p>通过以上的分析可以看出, 为了获取线性表的灵活性, 我们所有添加和删除以及查找方法, 全部都提高到了O(n)级别的复杂度,几乎所有核心操作都是O(n)级别的复杂度. 这和之前的包,栈,队列都有所不同. 但显然, 线性表更加通用和灵活. 这就是以提高复杂度换来的灵活性.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
