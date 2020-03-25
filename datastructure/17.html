@@ -25,7 +25,8 @@
     <li><a href="#con1">线性表</a></li>
     <li><a href="#con2">Java中的线性表</a></li>
     <li><a href="#con3">数组实现线性表</a></li>
-    <li><a href="#con4">小总结</a></li>
+    <li><a href="#con4">链表实现线性表的思考</a></li>
+    <li><a href="#con5">链表实现线性表</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">线性表</h2>
 <p>从一开始，我们一直挥舞着两把兵器，右手一把弹簧刀一样的数组，左手一条金丝软鞭链表。用这两把武器硬生生砍下了包，栈，队列等数据结构。</p>
@@ -301,17 +302,274 @@ public boolean contains(T anEntry) {
 </ol>
 <p>通过以上的分析可以看出, 为了获取线性表的灵活性, 我们所有添加和删除以及查找方法, 全部都提高到了O(n)级别的复杂度,几乎所有核心操作都是O(n)级别的复杂度. 这和之前的包,栈,队列都有所不同. 但显然, 线性表更加通用和灵活. 这就是以提高复杂度换来的灵活性.</p>
 
+<h2 style="text-align: center;" id="con4">链表实现线性表的思考</h2>
+<p>既然已经用数组编写好了线性表， 现在就要看一下如果改用链表会如何。列出来对应各个方法的思路：</p>
+<ol>
+    <li>在链表的尾部添加元素，在之前的队列可以知道，如果不维护一个尾引用，则添加的操作是O(n)，如果维护一个尾引用，则可以将其变成常数级别， 但是需要额外的逻辑来控制。</li>
+    <li>在指定的位置添加索引，这个就不像数组一样可以直接找到索引，而是必须从链表往后走指定的距离，而且插入链表还有一个问题，就是要获取之前的一个节点才可以。如果不想使用双向节点，仅使用普通链表，则需要注意编写逻辑。是O(n)复杂度。</li>
+    <li>从指定的位置删除节点， 这个和添加节点是类似的，也需要获取要删除的位置的前一个节点。因为要走到指定的位置， 所以也是O(n).</li>
+    <li>获取指定索引的元素， 这个由于不像数组，可以发现这个方法的复杂度要比数组实现的链表高，也是O(n)级别。</li>
+    <li>查找，需要遍历所有节点，和数组一样是O(n)级别</li>
+</ol>
+<p>链表实现相比数组实现，可以实现改进的地方是添加元素永远不会发生像数组那样扩容数组的操作。但因为这种操作不是经常发生，所以提升不是非常大。其他的方法，都具有相同的时间复杂度。</p>
+<p>所以整体来说，用链表实现和用数组实现差异不大，好处更在于链表不会浪费空间，但链表本身单个节点存储的数据更多，还依赖于具体的内存使用状况，所以差异不大。</p>
 
+<h2 style="text-align: center;" id="con5">链表实现线性表</h2>
+<p>依然使用之前的内部类Node,从之前的分析可以知道，我们维护三个域：首节点，尾节点和链表内的元素数量。基础设施如下：</p>
+<pre>
+public class MyLinkedList&lt；T> implements ListInterface&lt；T> {
 
+    private class Node {
+        private T data;
+        private Node next;
 
+        public Node(T data) {
+            this(data, null);
+        }
 
+        public Node(T data, Node next) {
+            this.data = data;
+            this.next = next;
+        }
 
+        @Override
+        public String toString() {
+            return "Node{" +
+                    "data=" + data +
+                    '}';
+        }
+    }
 
+    private Node firstNode;
+    private Node lastNode;
+    private int numberOfEntries;
 
+    public MyLinkedList() {
+        initialize();
+    }
 
+    private void initialize() {
+        firstNode = null;
+        lastNode = null;
+        numberOfEntries = 0;
+    }
 
+    @Override
+    public void clear() {
+        initialize();
+    }
 
+    @Override
+    public int getLength() {
+        return numberOfEntries;
+    }
 
+    @Override
+    public boolean isEmpty() {
+        return numberOfEntries == 0 && firstNode == null && lastNode == null;
+    }
+
+}
+</pre>
+<p>由于链表的特性，这里定义了一个initialize()方法,用于清空链表. 这个方法可以同时用于初始化线性表和作为clear()方法的实际执行方法.</p>
+<p>isEmpty()方法可以仅仅检测元素数量是否为0, 如果我们的逻辑编写正确的话, 是可以的, 在开发过程中可以加上其他检测以保证实现没出错, 比如firstNode和lastNode是不是同时为null.</p>
+<p>下边先来编写add系列方法. 有点类似于之前编写的双端队列. 我们规定, 添加元素都是从链表的尾部添加.</p>
+<pre>
+@Override
+public void add(T entry) {
+    //创建新节点
+    Node newNode = new Node(entry);
+
+    //如果线性表为空,要添加的节点同时是头节点和尾节点
+    if (isEmpty()) {
+        firstNode = newNode;
+        lastNode = newNode;
+    //如果不为空, lastNode一定不为空, 添加在尾部
+    } else {
+        lastNode.next = newNode;
+        lastNode = lastNode.next;
+    }
+    numberOfEntries++;
+}
+
+@Override
+public void add(int newPosition, T newEntry) {
+    //添加在指定位置,显然需要先检查索引.
+    //思考最简单的例子,一个长度1的链表, 只可能添加在0或者1号位置, 所以newPosition <= numberOfEntries
+    if (newPosition > numberOfEntries) {
+        throw new RuntimeException("插入位置的索引不合法: " + newPosition);
+    }
+
+    //然后需要从头开始遍历链表, 遍历到要插入的位置之前一个位置
+    //这里需要考虑两种情况, 如果从0号位置插入,表示插入在链表头部. 如果从nubmerOfEntries位置插入, 表示从尾部插入, 剩下的就需要手工拼接一下
+
+    //0号位置插入的时候如果数组为空, 和普通插入一样
+    if (newPosition == 0) {
+        if (isEmpty()) {
+            add(newEntry);
+        //如果不为空, 则就是在链表头部添加节点
+        } else {
+            Node newNode = new Node(newEntry);
+            newNode.next = firstNode;
+            firstNode = newNode;
+            numberOfEntries++;
+        }
+
+    //如果索引和当前的元素数量相等,说明是从尾部插入, 也调用add方法即可
+    } else if (newPosition == numberOfEntries) {
+        add(newEntry);
+
+    //剩下的情况表示不是头也不是尾,那么就需要找到要插入的节点的前一个元素.
+    //简单分析一下,如果数组只有一个元素,插入点不是0就是1,会掉入上边两种情况.
+    //如果数组长度为2,符合条件的是1,在1号位置插入需要获取0号位置的节点. 如果数组长度是3,符合条件的是1,2号位置, 要获取的节点位置是0,1 所以可见,从开头循环到newPosition - 1的位置即可
+    } else {
+        Node currentNode = firstNode;
+        for (int i = 0; i < newPosition - 1; i++) {
+            currentNode = currentNode.next;
+        }
+        //循环结束后, currentNode指向要插入的位置的上一个节点, 然后插入新节点
+        Node newNode = new Node(newEntry);
+        newNode.next = currentNode.next;
+        currentNode.next = newNode;
+        numberOfEntries++;
+    }
+
+}
+</pre>
+<p>有了插入方法之后, 再来编写remove方法. 这个方法要特别注意, 因为会存在删除之后数组为空, 或者删除数组的最后一个元素的情况.</p>
+<pre>
+@Override
+public T remove(int givenPosition) {
+    T result = null;
+    //像检查数组索引一样检查给出的位置是否正确.
+    if (givenPosition < 0 || givenPosition > numberOfEntries - 1) {
+        throw new RuntimeException("指定的索引超出范围");
+    }
+
+    //然后需要处理几个特例: 线性表长度为1的情况; 删除链表最后一个位置上的元素的情况
+
+    //如果删除线性表的唯一一个元素, 则直接清除即可
+    if (numberOfEntries == 1 && givenPosition == 0) {
+        result = firstNode.data;
+        initialize();
+        return result;
+    }
+
+    //numberOfEntries不为1的情况下, 删除第一个节点
+    if (givenPosition == 0) {
+        result = firstNode.data;
+        firstNode = firstNode.next;
+        numberOfEntries--;
+        return result;
+    }
+
+    //如果删除的是线性表的最后一个元素, 需要获取到上一个元素, 然后记得要把lastNode更改掉
+    if (givenPosition == numberOfEntries - 1) {
+        Node currentNode = firstNode;
+
+        while (currentNode.next != lastNode) {
+            currentNode = currentNode.next;
+        }
+        //循环结束之后, currentNode.next = lastNode, 即currentNode是lastNode的前一个节点
+
+        result = lastNode.data;
+        currentNode.next = null;
+        lastNode = currentNode;
+        numberOfEntries--;
+        return result;
+
+    //这种情况就是numberOfEntries大于1, 而且又没有删除尾节点的情况, 依然从头开始遍历到索引-1的位置, 就获取了上一个节点.
+    } else {
+        Node currentNode = firstNode;
+        for (int i = 0; i < givenPosition - 1; i++) {
+            currentNode = currentNode.next;
+        }
+        //循环结束之后, currentNode指向要删除的节点的上一个节点
+        result = currentNode.next.data;
+        currentNode.next = currentNode.next.next;
+        numberOfEntries--;
+        return result;
+    }
+
+}
+</pre>
+<p>这个remove方法主要是考虑的特殊情况比较多一些,分为线性表只有一个元素的时候删除, 超过一个元素的时候删除首节点. 以及删除尾节点的操作. 处理了特殊情况之后, 一般情况的遍历与添加节点本质上操作是相同的.</p>
+<p>剩下的方法就简单了, 都是遍历链表就行了, 挨个来实现一下:</p>
+<pre>
+@Override
+public T replace(int givenPosition, T newEntry) {
+    T result = null;
+    //检查位置的正确性
+    if (givenPosition < 0 || givenPosition > numberOfEntries - 1) {
+        throw new RuntimeException("指定的索引超出范围");
+    }
+
+    Node currentNode = firstNode;
+
+    for (int i = 0; i < givenPosition; i++) {
+        currentNode = currentNode.next;
+    }
+
+    result = currentNode.data;
+    currentNode.data = newEntry;
+    return result;
+}
+
+@Override
+public T getEntry(int givenPosition) {
+    T result;
+
+    //检查位置的正确性
+    if (givenPosition < 0 || givenPosition > numberOfEntries - 1) {
+        throw new RuntimeException("指定的索引超出范围");
+    }
+
+    Node currentNode = firstNode;
+
+    for (int i = 0; i < givenPosition; i++) {
+        currentNode = currentNode.next;
+    }
+
+    result = currentNode.data;
+    return result;
+}
+
+@Override
+public boolean contains(T anEntry) {
+    Node currentNode = firstNode;
+    while (currentNode != null) {
+        if (currentNode.data.equals(anEntry)) {
+            return true;
+        }
+        currentNode = currentNode.next;
+    }
+    return false;
+}
+
+@Override
+@SuppressWarnings("unchecked")
+public T[] toArray() {
+
+    T[] result = (T[]) new Object[numberOfEntries];
+    Node currentNode = firstNode;
+    for (int i = 0; i < numberOfEntries; i++) {
+
+        result[i] = currentNode.data;
+        currentNode = currentNode.next;
+    }
+    return result;
+}
+</pre>
+<p>这几个方法全部都是遍历数组,毫无技术含量.</p>
+<p>实现完了之后再来看一下, 各个方法的复杂度确实如我们所分析的, 对于链表, 在尾部插入和在头部删除是常数时间, 其他的所有操作全部都需要遍历链表, 就连替换和获取指定位置的元素, 也需要遍历链表, 导致复杂度比数组实现要高一些.</p>
+<p>比较之后可以得出结论:</p>
+<ol>
+    <li>如果经常使用在尾部添加和在头部删除(像一个对象),则可以考虑使用链表</li>
+    <li>如果经常需要快速替换和获取指定位置的元素, 则可以考虑数组实现.</li>
+</ol>
+<p>所以究竟选择Java类库中的ArrayList还是LinkedList,要根据实际场景而定.</p>
+<p>这样我们就实现了一个非常灵活而且通用的线性表, 适合以线性方式存放数据, 并且根据不同的操作方式, 可以模拟包, 栈, 队列这些线性数据结构的全部行为. 当然, 代价就是控制逻辑的复杂以及各个方法复杂度的提升.</p>
+<p>有了通用的线性表之后, 一般经常与线性表搭配使用的, 就是线性表的迭代器, 之后就回忆一下设计模式, 来给我们的线性表配上迭代器.</p>
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
