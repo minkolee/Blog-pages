@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 为线性表编写迭代器</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>没有迭代器的线性表, 还能够叫线性表吗. 在现代的类库里, 类似线性表这样存放数据的集合, 如果不配上一个迭代器, 那几乎就没有人用了. 原因很简单, 不好用. 使用数据结构的人要花费额外的经历去按照顺序使用其中的元素.</p>
+<p>迭代器就提供了这样一个便利的模式. 其实迭代器在之前看<a href="https://conyli.cc/archives/3152" target="_blank">设计模式</a>的时候已经学过了.</p>
+<p>现在就给我们的线性表配上迭代器, 让它成为一个成熟的迭代器...</p>
+<ol>
+    <li><a href="#con1">迭代器接口与可迭代接口</a></li>
+    <li><a href="#con2">改造数组实现的线性表</a></li>
+    <li><a href="#con3">改造链表实现的线性表</a></li>
+    <li><a href="#con4">ListIterator</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">迭代器接口与可迭代接口</h2>
+<p>我们编写的迭代器实际上可以自行实现一个接口, 不过既然是在Java语言中使用, 为了能够与语言保持一致, 还是要看看Java的迭代器接口:</p>
+<pre>
+public interface Iterator&lt;E> {
+    boolean hasNext();
+
+    E next();
+
+    default void remove() {
+        throw new UnsupportedOperationException("remove");
+    }
+
+    default void forEachRemaining(Consumer&lt;? super E> action) {
+        Objects.requireNonNull(action);
+
+        while(this.hasNext()) {
+            action.accept(this.next());
+        }
+
+    }
+}
+</pre>
+<p>这个接口有三个方法, 有一个方法默认是要抛异常, 实际上是是否允许你删除调用next之后最后返回的项, 一般都不允许通过迭代器进行删除, 实际就关注hasNext()和next()即可. 还有一个应用Consumer函数式接口的方法. 也就是对剩下的东西进行什么处理. 看来不错.一会也可以尝试一下.</p>
+<p>我们的泛型是T的情况下, 就需要给我们的线性表添加一个功能, 让其返回一个Iterator接口类型的对象. 不过这个功能叫什么不用自己想,回想一下迭代器套路, 我们的线性表既然是可以可迭代对象, 就可以去实现java提供的Iterable接口就行了, 这个接口如下:</p>
+<pre>
+public interface Iterable&lt;T> {
+    <span style="color: red">Iterator&lt;T> iterator();</span>
+
+    default void forEach(Consumer&lt;? super T> action) {
+        Objects.requireNonNull(action);
+        Iterator var2 = this.iterator();
+
+        while(var2.hasNext()) {
+            T t = var2.next();
+            action.accept(t);
+        }
+
+    }
+
+    default Spliterator&lt;T> spliterator() {
+        return Spliterators.spliteratorUnknownSize(this.iterator(), 0);
+    }
+}
+</pre>
+<p>这里就一个核心方法, 也就是标红的方法. 另外还有一个也是对每个元素应用Consumer函数的方法, 还有一个拆分的. 现在只关注前两个.</p>
+<p>这里很多人可能会发蒙, 怎么两个接口名字差不多,一个返回另一个. 实际上从名字就能看出来.Iterable表示你这个东西是可以迭代的. 要加在自行编写的类上. 实际的迭代工作, 则是由迭代器Iterator完成的. 接下来就改造一下两个线性表, 为其加上这个功能.</p>
+
+
+<h2 style="text-align: center;" id="con2">改造数组实现的线性表</h2>
+<p>改造的第一步不用说了, 肯定是先给其套上一个接口:</p>
+<pre>
+public class MyArrayList&lt;T> implements ListInterface&lt;T>, <span style="color: red">Iterable&lt;T></span> {
+</pre>
+<p>然后其中只有一个方法要实现. 在实现这个方法的时候, 就要考虑了, 返回Iterator对象, 要如何编写呢.</p>
+<p>思考我们的迭代器, 每个迭代器应该彼此独立, 比如针对一个数组创建了一个A迭代器, 用了5个数据, 创建了一个B迭代器,用了10个数据, 很显然, 两个迭代器彼此独立, 不能互相影响, 否则会出乱子.</p>
+<p>所以我们需要来编写一个迭代器类, 每个迭代器都彼此独立来记住自己迭代到了哪个元素.</p>
+<p>根据我们的需要, 迭代器只会被接口返回, 不能让外部程序直接创建, 所以我们依然把迭代器的实现写成内部类即可. 所以下一步就是先编写迭代器Iterator对象, 先搭起一个框架:</p>
+<pre>
+@Override
+public Iterator&lt;T> iterator() {
+    return new ArrayListIterator&lt;>();
+}
+
+private class ArrayListIterator&lt;T> implements Iterator&lt;T> {
+
+    private int number;
+
+    private int index = 0;
+
+    private ArrayListIterator() {
+        this.number = numberOfEntries;
+    }
+
+    @Override
+    public boolean hasNext() {
+        return false;
+    }
+
+    @Override
+    public T next() {
+        return null;
+    }
+}
+</pre>
+<p>这里在每次创建内部类对象的时候, 都会使用当前的外部类的元素数量作为一个计数. 由于我们内部是数组实现, 只需从0开始, 一直到索引位置为n-1的对象即可, 所以保存一个当前的位置和总共元素数量就可以了.</p>
+<p>之后每一个next()方法, 返回索引上的元素, 然后增加index. 而hasNext()只需要判断当前索引与numberOfEntries-1的关系即可:</p>
+<pre>
+@Override
+public boolean hasNext() {
+    return index <= numberOfEntries - 1;
+}
+
+@Override
+@SuppressWarnings("unchecked")
+public T next() {
+    T result = (T)list[index];
+    index++;
+    return result;
+}
+</pre>
+<p>使用迭代器的标准操作, 就是获取迭代对象然后通过判断进行操作:</p>
+<pre>
+Iterator&lt;String> iterator = list.iterator();
+
+int count = 1;
+while (iterator.hasNext() && count &lt; 10) {
+
+    System.out.println(iterator.next() + " | " + count);
+    count++;
+}
+</pre>
+<p>因为我们实现了Java提供的标准接口, 那么可以使用增强for循环, 这个语句内部就是上边的显式使用迭代器的原理:</p>
+<pre>
+for (String s : list ) {
+    System.out.println(s);
+}
+</pre>
+<p>这里还可以来试验一下迭代器的另外一个方法, 就是对迭代器中每一个元素应用Consumer函数式对象, 这里我们想把线性表中每个字符串都拼接起来:</p>
+<pre>
+Iterator&lt;String> iterator = list.iterator();
+
+StringBuilder stringBuilder = new StringBuilder();
+
+iterator.forEachRemaining(stringBuilder::append);
+
+System.out.println(stringBuilder.toString());
+</pre>
+
+<h2 style="text-align: center;" id="con3">改造链表实现的线性表</h2>
+<p>改造链表实现的线性表, 我们要注意的是, 如果像数组那样仅仅保存总元素数量和当前索引, 那会导致迭代器的性能大幅下降, 因为每次都需要从头遍历节点, 导致迭代器性能大幅下降, 原来的线性表是O(n), 如果每一次next()也是O(n), 那合起来就是平方级别的复杂度,非常恐怖.</p>
+<p>因此相比数组, 我们要保存的是当前指向的节点. 如果我们的线性表的逻辑没有错误的话, 甚至都不需要记录总元素数量. 因为线性表的结尾节点一定是null, 只要当前节点引用是null, 就说明再也没有下一个元素了.</p>
+<p>当然你这里也可以引入冗余数据, 比如同时再记录当前索引和元素数量, 每次迭代一边往前移动节点引用, 一边比较索引和元素数量. 但确实有点冗余.</p>
+<p>改造后的链表实现的线性表如下:</p>
+<pre>
+public class MyLinkedList&lt;T> implements ListInterface&lt;T>, Iterable&lt;T> {
+
+    @Override
+    public Iterator&lt;T> iterator() {
+        return new LinkedListIterator&lt;>();
+    }
+
+    private class LinkedListIterator&lt;T> implements Iterator&lt;T> {
+
+        private Node currentNode;
+
+        private LinkedListIterator() {
+            this.currentNode = firstNode;
+        }
+
+        @Override
+        public boolean hasNext() {
+
+            return currentNode != null;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public T next() {
+            T result = (T) currentNode.data;
+            currentNode = currentNode.next;
+            return result;
+        }
+    }
+
+    ......
+}
+</pre>
+
+
+<h2 style="text-align: center;" id="con4">ListIterator</h2>
+<p>由于最终我们还是会选择java提供的类库的成熟的线性表. 这些线性表都实现了Iterable接口, 可以放心使用.</p>
+<p>这里还需要了解一下java.util包中的另外一个接口, 就是ListIterator, 老样子看看定义:</p>
+<pre>
+public interface ListIterator&lt;E> extends Iterator&lt;E> {
+    boolean hasNext();
+
+    E next();
+
+    boolean hasPrevious();
+
+    E previous();
+
+    int nextIndex();
+
+    int previousIndex();
+
+    void remove();
+
+    void set(E var1);
+
+    void add(E var1);
+}
+</pre>
+<p>可以看到这个接口扩展了标准的迭代器Iterator&lt;E>接口, 最开始的两个方法是Iterator&lt;E>接口中的原版方法. 此外还加上了一堆东西.</p>
+<p>从名字就可以看出, 除了一套hasNext()+next(), 这接口还有一套hasPrevious()+previous(), 很显然可以双向遍历, 是一个可以在线性表里前后走来走去的迭代器.</p>
+<p>通过<a href="https://docs.oracle.com/javase/8/docs/api/java/util/ListIterator.html" target="_blank">ListIterator官方文档</a>可以看到,
+    最后的remove和set方法, 是可以删除或者替换刚刚由next() or previous()返回的对象. add则可以向线性表中添加一个对象.</p>
+<p>不过官方文档中没有提到这个接口的实现类. 实际上, List接口中定义了两个方法:</p>
+<pre>
+ListIterator&lt;E> listIterator();
+
+ListIterator&lt;E> listIterator(int var1);
+</pre>
+<p>所以List的实现类都实现了这两个方法, 点开ArrayList的源码就可以看到, 其定义了一个内部类:</p>
+<pre>
+private class ListItr extends ArrayList&lt;E>.Itr implements ListIterator&lt;E> {
+</pre>
+<p>这个迭代器的实现也不复杂, 其本质还是记录当前的索引位置. 数组前后移动索引非常方便, 要删除, 修改和添加新元素, 都可以调用外部类的方法.</p>
+<p>java的LinkedList中也是一样:</p>
+<pre>
+private class ListItr implements ListIterator&lt;E> {
+</pre>
+<p>其中保存了两个指向上一个和下一个的节点. 所以本质上也很容易编写. 这里只需要了解, 除了标准的迭代器之外, 在使用ArrayList和LinkedList的时候, 还有更灵活的选择.</p>
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
