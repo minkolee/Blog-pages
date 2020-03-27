@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 有序线性表</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>在之前的学习中, 唯一学到过的算法, 除了利用数据结构解题之外, 纯粹的算法就是排序了.</p>
+<p>现在的线性表, 已经组合了所有之前学过的线性的数据结构, 将这两者搭配起来, 可以来做一个有序表.</p>
+<p>现在就在线性表的基础上, 再制作一个有序表.</p>
+<ol>
+    <li><a href="#con1">有序表的理念</a></li>
+    <li><a href="#con2">改造数组线性表为有序表</a></li>
+    <li><a href="#con3">改造链表线性表为有序表</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">有序表的理念</h2>
+<p>这里的有序表, 可不是随便插入以后, 再用排序方法将其排一遍序. 否则开销太大. 在之前的插入排序中, 也编写过一个用一个布尔域来标记这个链表有没有排过序的支持插入排序的链表.</p>
+<p>现在来看通用的有序表, 也就是插入的时候, 就按照次序排列. 稍微想一下就可以知道, 这个复杂度, 肯定也至少是O(n)了,因为要找到插入的位置才行.</p>
+<p>那么如何实现有序表呢, 首先就必须禁止按照指定的位置插入, 因为会造成排序混乱. 我们需要保证, 每次插入之后内部数据结构都是有序的. 那么在有序表中任意删除一个位置的元素, 结果依然是有序的.</p>
+<p>所以就可以在基于线性表的基础上, 再修改一下就能得到有序表的API:</p>
+<pre>
+public interface OrderedListInterface&lt;T extends Comparable&lt;? super T>> {
+
+    //在末尾添加元素
+    void add(T entry);
+
+<span style="color: red">    //删除某个元素
+    boolean remove(T anEntry);
+
+    //查找元素的位置
+    int getPosition(T anEntry);</span>
+
+    //删除某个位置的元素
+    T remove(int givenPosition);
+
+    //清空表
+    void clear();
+
+    //替换指定位置的元素
+    T replace(int givenPosition, T newEntry);
+
+    //获取指定位置的元素
+    T getEntry(int givenPosition);
+
+    //获取全部元素
+    T[] toArray();
+
+    //是否含有某个元素
+    boolean contains(T anEntry);
+
+    //获取其中的元素数量
+    int getLength();
+
+    //是否为空
+    boolean isEmpty();
+}
+</pre>
+<p>相比线性表, 删除了在指定位置添加元素的<code>void add(int newPosition, T newEntry)</code>方法, 增加了一个查找元素的位置和删除某个元素的方法. 此外其他的方法还都留用.</p>
+
+<h2 style="text-align: center;" id="con2">改造数组线性表为有序表</h2>
+<p>在改造之前, 我们要想一想在数组内部实现的前提下, 有序表和原来的线性表到底有什么区别.</p>
+<p>很显然, 除了泛型必须支持Comparable这个明显的条件之外, 二者的最大区别就在于有序表插入的时候要给元素找到正确的位置就可以了.</p>
+<p>可见, 虽然在接口中删除了<code>void add(int newPosition, T newEntry)</code>方法, 但新的<code>void add(T entry);</code>变成了不能直接在尾部添加, 而是要在指定的位置添加的方法, 其内部应该还可以使用<code>void add(int newPosition, T newEntry)</code>方法.</p>
+<p>一旦数组本身是有序的, 从其中删除一个元素, 只需要找到删除元素的位置即可, 删除之后也不会影响到有序表的有序性, 所以改造的核心逻辑, 就是要根据排序来确定元素插入的位置.</p>
+<p>将目前已经带有迭代器的线性表复制一份, 改个名称比如MyOrderedArrayList, 然后将接口改成继承OrderedListInterface&ltT>, 注意此时的<code>void add(int newPosition, T newEntry)</code>已经不需要@Override注解, 而且无需对外开放, 我们将其改成private方法. 然后把框架撘起来:</p>
+<pre>
+public class MyOrderedArrayList&lt;T extends Comparable&lt;? super T>> implements OrderedListInterface&lt;T>, Iterable&lt;T> {
+
+    @Override
+    public void add(T entry) {
+        //这其中的内容需要全部改写
+    }
+
+    @Override
+    public boolean remove(T anEntry) {
+        return false;
+    }
+
+    @Override
+    public int getPosition(T anEntry) {
+        return 0;
+    }
+
+    <span style="color: red">private</span> void add(int newPosition, T newEntry) {
+        ......
+    }
+
+    ......
+}
+</pre>
+<p>最核心的就是这个add方法,来考虑一下其中的逻辑. 首先是一个排序的稳定性的问题, 如果数组中此时是1,2,3, 再插入3, 究竟要将3插入到位置2, 还是在数组末尾添加一个呢? 这涉及到排序是不是稳定的问题.</p>
+<p>这里我选择了保持稳定, 和书上的做法不同. 既然要保持稳定, 在新插入一个元素的情况下, 只要要插入的元素大于或者等于数组中的元素, 都要继续寻找, 终止于要么已经到尾部, 要么找到了一个位置.</p>
+<p>还是以这个1,2,3为例, 要插入一个3, 首先判断0号位置, 3>1, 继续向后判断1号位置, 3>2, 继续向后判断2号位置, 3=3, 继续向后判断3号位置. 每一次判断位置的时候, 需要检测是不是已经到达末尾, 即位置序号与元素数量相等.</p>
+<p>如果相等, 就插入到末尾, 如果不相等, 继续, 直到找到大于3的位置, 就插入在这个位置.</p>
+<p>根据这个逻辑, 就可以编写代码了:</p>
+<pre>
+@Override
+public void add(T entry) {
+
+    boolean found = false;
+
+    int currentIndex = 0;
+
+    //数组本来为空则currentIndexy一开始就等于numberOfEntries, 逻辑也是对的
+    while (!found) {
+        //如果currentIndex 已经等于元素数量, 就break
+        if (currentIndex == numberOfEntries) {
+            break;
+        }
+
+
+        //要插入元素大于等于数组某个位置的元素, 向后移动currentIndex++
+        if (entry.compareTo(list[currentIndex]) >= 0) {
+            currentIndex++;
+        } else {
+            found = true;
+        }
+    }
+
+    //循环结束之后, currentIndex要么在末尾, 要么就在第一个大于要插入的元素的位置, 也就是需要将元素插入的位置
+
+    //调用私有方法在指定位置插入即可
+    add(currentIndex, entry);
+}
+</pre>
+<p>有了add之后, 编写剩下的方法就很简单了. 先来看查找位置的方法.</p>
+<pre>
+@Override
+public int getPosition(T anEntry) {
+
+    for (int currentIndex = 0; currentIndex < numberOfEntries; currentIndex++) {
+        if (list[currentIndex].compareTo(anEntry) == 0) {
+            return currentIndex;
+        }
+    }
+    return -1;
+}
+</pre>
+<p>这个本质和寻找一个元素的方法是相同的, 只不过用-1来表示没有找到. 这个返回指定的索引, 有了索引又可以应用其他的私有方法了.比如删除.</p>
+<pre>
+@Override
+public boolean remove(T anEntry) {
+    int index = getPosition(anEntry);
+
+    if (index < 0) {
+        return false;
+    } else {
+        remove(index);
+        return true;
+    }
+
+}
+</pre>
+<p>删除一个元素首先就会通过查找取得该元素的索引, 然后判断索引, 就可以进行删除指定位置元素的操作. 也可以把删除指定位置的方法也隐藏掉, 仅仅开放删除指定元素的就可以了. 数组实现的线性表就被改造成了有序表.</p>
+<p>回头来看看这几个新方法的效率, 可以发现, 所有的方法都需要遍历数组, 因此全部都是O(n)复杂度, 比起原来的无序线性表, 主要是添加元素这个动作的时间复杂度被提升到了固定是O(n)的程度.</p>
+<p>也就是说, 对于有序线性表来说, 所有的操作, 都是O(n)复杂度了, 代价是我们得到了一个随时都保持有序的线性表.</p>
+<p>这里还需要注意的是, 由于泛型的类型改变了, 所以有序数组线性表中所有返回数组泛型的方法, 比如 <code>enlargeCapacity()</code>和<code>toArray()</code>中创建数组的时候, 泛型也要修改, 不能使用Object[]数组, 而必须是Comparable类型的数组.</p>
+<pre>
+T[] result = (T[]) new <span style="color: red">Comparable</span>[numberOfEntries];
+</pre>
+<p>这是因为Object没有实现Comparable接口, 不能强制转型, 所以就用所有T必定要实现的Comparable作为数组的类型.</p>
+
+
+<h2 style="text-align: center;" id="con3">改造数组线性表为有序表</h2>
+<p>其实改造完了数组线性表, 再改造链表也是一回事. 不过有一点要注意, 我们编写的链表线性表的<code>add(int newPosition, T newEntry)</code>方法中调用了<code>add(T entry)</code>, 以应对链表为空的添加情况, 必须将逻辑写到<code>add(int newPosition, T newEntry)</code>, 让其与<code>add(T entry)</code>独立出来.</p>
+<p>一步一步来, <code>add(int newPosition, T newEntry)</code>方法修改一下, 以完整支持各种情况, 再将其设置为private方法:</p>
+<pre>
+private void add(int newPosition, T newEntry) {
+    //添加在指定位置,显然需要先检查索引.
+    //思考最简单的例子,一个长度1的链表, 只可能添加在0或者1号位置, 所以newPosition <= numberOfEntries
+    if (newPosition > numberOfEntries) {
+        throw new RuntimeException("插入位置的索引不合法: " + newPosition);
+    }
+
+    //这里需要考虑两种情况, 如果从0号位置插入,表示插入在链表头部. 如果从nubmerOfEntries位置插入, 表示从尾部插入, 剩下的就需要手工拼接一下
+
+    //0号位置插入的时候如果数组为空, 和普通插入一样. 如果不为空, 等于在头结点插入
+    if (newPosition == 0) {
+        //0号位置插入的时候如果数组为空, 则新插入一个节点, 头尾都指向这个节点
+        if (isEmpty()) {
+            Node newNode = new Node(newEntry);
+
+            firstNode = newNode;
+            lastNode = newNode;
+            numberOfEntries++;
+        //如果不为空, 则就是在链表头部添加节点
+        } else {
+            Node newNode = new Node(newEntry);
+            newNode.next = firstNode;
+            firstNode = newNode;
+            numberOfEntries++;
+        }
+
+        //如果索引和当前的元素数量相等,说明是从尾部插入, 只需要先插入, 再设置一下lastNode即可
+    } else if (newPosition == numberOfEntries) {
+        lastNode.next = new Node(newEntry);
+        lastNode = lastNode.next;
+        numberOfEntries++;
+        //剩下的情况表示不是头也不是尾,那么就需要找到要插入的节点的前一个元素.
+        //简单分析一下,如果数组只有一个元素,插入点不是0就是1,会掉入上边两种情况.
+        //如果数组长度为2,符合条件的是1,在1号位置插入需要获取0号位置的节点. 如果数组长度是3,符合条件的是1,2号位置, 要获取的节点位置是0,1 所以可见,从开头循环到newPosition - 1的位置即可
+    } else {
+        Node currentNode = firstNode;
+        for (int i = 0; i < newPosition - 1; i++) {
+            currentNode = currentNode.next;
+        }
+        //循环结束后, currentNode指向要插入的位置的上一个节点
+        Node newNode = new Node(newEntry);
+        newNode.next = currentNode.next;
+        currentNode.next = newNode;
+        numberOfEntries++;
+    }
+
+}
+</pre>
+<p>这个新的<code>private void add(int newPosition, T newEntry)</code>就非常通用了, 可以处理在0号位置插入, 不为0的末尾插入, 以及在中间所有位置插入的情况. 修改好的类如下:</p>
+<pre>
+public class MyOrderedLinkedList&lt;T extends Comparable&lt;? super T>> implements OrderedListInterface&lt;T>, Iterable&lt;T> {
+
+    @Override
+    public void add(T entry) {
+        //需要重写其中的逻辑
+    }
+
+    @Override
+    public boolean remove(T anEntry) {
+        return false;
+    }
+
+    @Override
+    public int getPosition(T anEntry) {
+        return 0;
+    }
+
+    private void add(int newPosition, T newEntry) {
+        //完整的从指定索引位置添加的逻辑
+    }
+
+}
+</pre>
+<p>剩下的工作也是来完成这个核心的add方法, 其思路和数组完全一样, 从链表头部开始遍历, 检测是否到达尾部, 到达则在末尾添加, 否则就是在指定的索引进行添加.</p>
+<pre>
+@Override
+public void add(T entry) {
+    int currentIndex = 0;
+    Node currentNode = firstNode;
+
+    while (currentNode != null) {
+        if (entry.compareTo(currentNode.data) >= 0) {
+            currentIndex++;
+            currentNode = currentNode.next;
+        } else {
+            break;
+        }
+    }
+
+    //循环结束之后, currentIndex就是要插入的位置
+    add(currentIndex, entry);
+}
+</pre>
+<p>剩下的方法也简单了, 继续编写获取位置的方法:</p>
+<pre>
+@Override
+public int getPosition(T anEntry) {
+    Node currentNode = firstNode;
+
+    boolean found = false;
+
+    int index = 0;
+
+    while (currentNode != null) {
+        if (currentNode.data.compareTo(anEntry) == 0) {
+            found = true;
+            break;
+        } else {
+            currentNode = currentNode.next;
+            index++;
+        }
+    }
+
+    if (found) {
+        return index;
+    } else {
+        return -1;
+    }
+}
+</pre>
+<p>然后是通过获取位置来删除的方法, 要利用之前编写的在指定位置删除元素的方法:</p>
+<pre>
+@Override
+public boolean remove(T anEntry) {
+    int index = getPosition(anEntry);
+
+    if (index < 0) {
+        return false;
+    } else {
+        remove(index);
+        return true;
+    }
+}
+</pre>
+<p>至此就将线性表改造成了有序表.很显然, 所有的方法也都变成了O(n)级别, 与数组完全一样了. 线性表的链表实现和数组实现或许还有点差异, 现在二者几乎一样了.</p>
+<p>当然, 如果真的要改造线性表到有序表, 更好的方法是先设计类的体系, 线性表应该是通用的接口, 有序表是一种线性表, 但是需要扩展线性表的部分接口, 但同时可能还需要隐藏一部分API, 所以中间可能需要再设计几个抽象类. 有空可以脑子里仔细想一想.</p>
+<p>有序线性表相比排序的一大好处是, 可以不用预先知道所有的数据, 即可以对部分数据进行先行排序. 说到这里, 你是否又想起了优先队列呢, 只要操作指定的API, 有序线性表就可以当做优先队列来使用了.</p>
+<p>至此已经编写完了线性数据结构中的线性表, 以及线性表的有序和无序两个版本. 线性表的一大特点是, 对于表的很多操作, 都需要一个一个查过来.</p>
+<p>那么有没有不用查, 直接可以进行操作和返回结果的表呢, 学了这么多, 终于要来看一下哈希表了.</p>
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
