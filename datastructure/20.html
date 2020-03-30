@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 查找</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>在挺进哈希表之前, 先来一个短短的小插曲, 就是查找. 我们的有序表相比线性表, 在很多操作上的复杂度都有了提升, 然后因为有序, 有一种操作却可以大幅提升效率.</p>
+<ol>
+    <li><a href="#con1">无序表中的查找</a></li>
+    <li><a href="#con2">有序表中的查找</a></li>
+    <li><a href="#con3">改造数组线性表的查找方法</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">无序表中的查找</h2>
+<p>无序表中的查找, 其实就是实现的普通线性表中的<code>boolean contains(T anEntry)</code>方法.</p>
+<p>由于无序,只能采取遍历的方式, 很显然, 复杂度是O(n)</p>
+
+<h2 style="text-align: center;" id="con2">有序表中的查找</h2>
+<p>我们的有序表中目前有两个查找方法:</p>
+<pre>
+@Override
+public int getPosition(T anEntry) {
+
+    for (int currentIndex = 0; currentIndex < numberOfEntries; currentIndex++) {
+        if (list[currentIndex].compareTo(anEntry) == 0) {
+            return currentIndex;
+        }
+    }
+    return -1;
+}
+</pre>
+<pre>
+@Override
+public boolean contains(T anEntry) {
+
+    for (int i = 0; i < numberOfEntries; i++) {
+        if (list[i].equals(anEntry)) {
+            return true;
+        }
+    }
+    return false;
+
+}
+</pre>
+<p>这里很显然, 也是O(n). 不用说也明白, 要改造的就是这两个方法, 也就是使用二分查找.</p>
+<p>二分查找就不用说是什么了, 这里要注意控制边界的细节, 就是每次要检测start是否大于end, 大于可以返回未找到了. 这个对于1个长度, 2个长度都适用, 所以循环可以正常停止.</p>
+<p><h2 style="text-align: center;" id="con3">改造数组线性表的查找方法</h2>
+<p>改造就依据上边的说法, 每次检查firstIndex和lastIndex的关系, 然后继续查找.</p>
+<pre>
+@Override
+public boolean contains(T anEntry) {
+
+    int firstIndex = 0;
+
+    int lastIndex = numberOfEntries - 1;
+
+    while (true) {
+        if (firstIndex > lastIndex) {
+            return false;
+        }
+
+        int middle = (firstIndex + lastIndex) / 2;
+        if (list[middle].compareTo(anEntry) == 0) {
+            return true;
+        } else if (list[middle].compareTo(anEntry) < 0) {
+            firstIndex = middle + 1;
+        } else {
+            lastIndex = middle - 1;
+        }
+
+    }
+}
+</pre>
+<p>返回索引的方法也只需要稍作改造:</p>
+<pre>
+@Override
+public int getPosition(T anEntry) {
+
+    int firstIndex = 0;
+
+    int lastIndex = numberOfEntries - 1;
+
+    while (true) {
+        if (firstIndex > lastIndex) {
+            return -1;
+        }
+
+        int middle = (firstIndex + lastIndex) / 2;
+        if (list[middle].compareTo(anEntry) == 0) {
+            return middle;
+        } else if (list[middle].compareTo(anEntry) < 0) {
+            firstIndex = middle + 1;
+        } else {
+            lastIndex = middle - 1;
+        }
+
+    }
+}
+</pre>
+<p>这就是简单但超级强力的二分搜索.</p>
+<p>为什么不改造链表呢, 这是因为定位链表的中间元素, 不可避免的需要遍历链表, 所以链表实现二分查找, 即使按照算法做了, 效率也很低下.</p>
+<p>到这里, 我们的有序线性表终于成为一个成熟的线性表了. 后边就可以在线性表的基础上, 继续看哈希表了.</p>
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
