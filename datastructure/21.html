@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 散列表 - 字典</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>在上一章的查找中, 即使是二分搜索, 也要一点一点的对比过来, 有没有一种办法, 可以根据要查找的内容, 直接定位到数组中的具体一个索引, 而不是反复操作索引和进行对比.</p>
+<p>这个思想就促使了一种通常叫字典的数据结构的诞生, 就像一本字典一样, 每一个词对应着一个页码, 我无需一页一页去翻直到找到那个词语, 而是可以通过一种方式(查字典的索引), 直接得到那个页码, 再翻过去就行了.</p>
+<p>这种数据结构本质上是一个映射关系, 即将一个对象A映射到一个对象B上, 如果映射的过程或者说操作足够简单, 那么这个数据结构用来查找的效率是很高的.</p>
+
+
+<ol>
+    <li><a href="#con1">字典的接口</a></li>
+    <li><a href="#con2">无序字典的实现 - 基础设施</a></li>
+    <li><a href="#con3">无序字典的实现 - 核心方法</a></li>
+    <li><a href="#con4">无序字典的实现 - 迭代器</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">字典的接口</h2>
+<p>在设计字典之前需要想一想, 尤其是字典是否允许null值和键. 在我们之前的ADT中, 都是线性的, 可以支持放入null.但问题是字典中, 如果允许null值, 可能会导致返回null语义不清楚.</p>
+<p>按照道理, 字典中所有的键和值都要对应, 不同的键对应不同的值, 即使两个键可能对应的值相等, 这两个映射也是不同的. 如果一个值是null, 则难以区分到底是不存在对应的键, 还是键的值都是null.</p>
+<p>所以一般是不允许键和值是null的. 这个可以在向字典添加键的时候就规定好, 然后就可以相应的规定好, 如果找不到, 就返回null, 说明字典中不存在对应的键值对(即同时不存在键和对应的值).</p>
+<p>字典的接口我们可以来重新设计一下, 由于字典多出来一个键的特性, 因此需要两个泛型类型.</p>
+<pre>
+import java.util.Iterator;
+
+public interface Dictionary&lt;K, V> {
+
+    void add(K key, V value);
+
+    V remove(K key);
+
+    V getValue(K key);
+
+    boolean contains(K key);
+
+    Iterator&lt;K> getKeyIterator();
+
+    Iterator&lt;V> getValueIterator();
+
+    boolean isEmpty();
+
+    int getSize();
+
+    void clear();
+
+}
+</pre>
+<p>很显然, 这种数据结构, java也给我们提供了, 就是常见的Map类型, Map的名称也说明了这是一种基于映射的数据结构.</p>
+<p>其接口如下:</p>
+<pre>
+public interface Map&lt;K, V> {
+    int size();
+
+    boolean isEmpty();
+
+    boolean containsKey(Object var1);
+
+    boolean containsValue(Object var1);
+
+    V get(Object var1);
+
+    V put(K var1, V var2);
+
+    V remove(Object var1);
+
+    void putAll(Map&lt;? extends K, ? extends V> var1);
+
+    void clear();
+
+    Set&lt;K> keySet();
+
+    Collection&lt;V> values();
+
+    Set&lt;Map.Entry&lt;K, V>> entrySet();
+
+}
+</pre>
+<p>和我们的很相似, 还有很多默认方法, 就不列出来了.</p>
+<h2 style="text-align: center;" id="con2">无序字典的实现</h2>
+<p>我们现在手中有的数据结构, 就是线性表及其更低层次的变种. 很容易想到, 由于键值总是成对出现的, 因此可以将其封装到一个对象中(此时我们脑海中一定会同构到java提供的Map中的内部类Entry, 集异璧这书真的是厉害), 因此我们也可以创建一个内部类来装键和值.</p>
+<p>然后问题就简单了一些, 只要在线性表中保存Entry类型就行了. 但需要注意的是, 由于键是不能重复的, 因此插入操作必须要进行额外的动作才可以.</p>
+<p>然后我们就可以在一个线性表的外层再套一个壳, 来创建一个字典类. 先来搭建一些基础设施:</p>
+<pre>
+public class LinearDictionary&lt;K, V> implements Dictionary&lt;K, V> {
+
+    //实际承担字典数据结构的线性表, 里边每一个对象都是一个Entry对象
+    private MyArrayList&lt;Entry&lt;K, V>> dictionary;
+
+    private static int DEFAULT_CAPACITY = 16;
+
+    //由于线性表的基础设施已经搭建好, 所以可以直接利用基础设施.
+    public LinearDictionary() {
+        dictionary = new MyArrayList&lt;>(DEFAULT_CAPACITY);
+    }
+
+    public LinearDictionary(int size) {
+        dictionary = new MyArrayList&lt;>(size);
+    }
+
+    //内部Entry类, 非常关键
+    private class Entry&lt;K, V> {
+        K key;
+        V value;
+
+        Entry(K key, V value) {
+            this.key = key;
+            this.value = value;
+        }
+
+        @Override
+        public String toString() {
+            return "Entry{" +
+                    "key=" + key +
+                    ", value=" + value +
+                    '}';
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Entry&lt;?, ?> entry = (Entry&lt;?, ?>) o;
+            <span style="color: red">return key.equals(entry.key);</span>
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(key, value);
+        }
+    }
+
+}
+</pre>
+<p>注意, 由于Entry类现在是承载着Key和Value的核心部件, 所以要对其编写equals方法, 以用来确定两个Entry是否相等, 否则后边的方法无法正确工作. 注意红色语句, 只要Key相等, 就是相等的.</p>
+
+
+<h2 style="text-align: center;" id="con3">无序字典的实现 - 核心方法</h2>
+<p>首先, 第一个方法<code>void add(K key, V value)</code>就需要好好思考, 由于键是唯一的, 因此在将键添加到字典中的时候, 就不能简单的添加, 而是必须先进行搜索.</p>
+<p>如果搜索到了指定的键, 要做的就是更新其值, 而不是添加一个新的Entry对象, 如果没有搜索到, 再向其中添加Entry对象. 这里发现无序线性表没有编写一个查找位置的方法, 所以要给其添加一个:</p>
+<pre>
+public class MyArrayList&lt;T> implements ListInterface&lt;T>, Iterable&lt;T> {
+
+    ......
+
+    //新添加的获取指定索引的方法.
+    public int getPosition(T anEntry) {
+
+        int result = -1;
+
+        for (int i = 0; i &lt; numberOfEntries; i++) {
+            if (list[i].equals(anEntry)) {
+                result = i;
+                break;
+
+            }
+        }
+
+        return result;
+    }
+}
+</pre>
+<p>之后再来实现字典的add方法:</p>
+<pre>
+@Override
+public void add(K key, V value) {
+
+    if (key == null || value == null) {
+        throw new RuntimeException("不允许添加null.");
+    }
+
+    Entry&lt;K, V> newEntry = new Entry&lt;>(key, value);
+
+    int index = dictionary.getPosition(newEntry);
+
+    if (index == -1) {
+        dictionary.add(newEntry);
+    } else {
+        dictionary.replace(index, newEntry);
+    }
+
+}
+</pre>
+<p>这个方法会先进行查找, 如果找不到, 就新增Entry, 如果找到了, 就替换指定索引上的Entry对象.</p>
+<p><code>remove()</code>方法需要先查找, 再删除指定位置的Entry对象:</p>
+<pre>
+@Override
+@SuppressWarnings("unchecked")
+public V remove(K key) {
+
+    int index = dictionary.getPosition(new Entry&lt;K,V>(key, (V) new Object()));
+    if (index == -1) {
+        return null;
+    } else {
+        return dictionary.remove(index).value;
+    }
+}
+</pre>
+<p>由于判断只需要Key相等,所以这里组装了一个对象用于进行搜索, 如果搜到就返回那个被删除的元素的值, 如果没删除成功, 说明键不存在于字典中,就返回null.</p>
+<p>然后再来编写<code>public V getValue(K key)</code>方法, 很显然也需要先查找:</p>
+<pre>
+@Override
+@SuppressWarnings("unchecked")
+public V getValue(K key) {
+    int index = dictionary.getPosition(new Entry&lt;K, V>(key, (V) new Object()));
+    if (index == -1) {
+        return null;
+    } else {
+        return dictionary.getEntry(index).value;
+    }
+}
+</pre>
+<p>当然, 这时候会发现, 我们可以将按照Key查找这个过程抽到一个方法中来, 确实如此:</p>
+<pre>
+@SuppressWarnings("unchecked")
+private int getIndex(K key) {
+    return dictionary.getPosition(new Entry&lt;K, V>(key, (V) new Object()));
+}
+</pre>
+<p>上边两个方法remove和getValue就不用压制警告了, 修改成:</p>
+<pre>
+@Override
+public V remove(K key) {
+
+    int index = getIndex(key);
+    if (index == -1) {
+        return null;
+    } else {
+        return dictionary.remove(index).value;
+    }
+}
+
+@Override
+public V getValue(K key) {
+    int index = getIndex(key);
+    if (index == -1) {
+        return null;
+    } else {
+        return dictionary.getEntry(index).value;
+    }
+}
+</pre>
+<p>然后还有几个辅助方法就简单多了:</p>
+<pre>
+@Override
+public boolean contains(K key) {
+    return getIndex(key) != -1;
+}
+
+@Override
+public boolean isEmpty() {
+    return dictionary.getLength() == 0;
+}
+
+@Override
+public int getSize() {
+    return dictionary.getLength();
+}
+
+@Override
+public void clear() {
+    dictionary.clear();
+}
+</pre>
+<p>这样除了键和值的迭代器, 实际上我们全部都实现了. 此时可以回头来看看这些方法, 不用花时间就可以发现, 和增删改查相关的方法, 由于需要通过查找来确定唯一性, 显然全部都是O(n)的方法.</p>
+<p>实际上也很容易想明白, 内部都是线性表,我们的各个方法并没有在线性表的操作上边额外的添加新的复杂度, 只有add方法例外, 是需要遍历的, 所以基本上都是线性表的复杂度.</p>
+
+<h2 style="text-align: center;" id="con4">无序字典的实现 - 迭代器</h2>
+<p>下边就来实现迭代器, 要实现迭代器也不难, 核心思路就是需要一个个遍历过来, 而数组正好是可以根据索引遍历的. 因此在内部可以编写两个类, 先是键的迭代器:</p>
+<pre>
+@Override
+public Iterator&lt;K> getKeyIterator() {
+    return new KeyIterator();
+}
+
+private class KeyIterator implements Iterator&lt;K>{
+
+    private int index;
+
+    private int number;
+
+    KeyIterator() {
+        this.index = 0;
+        this.number = getSize();
+    }
+
+    @Override
+    public boolean hasNext() {
+        return index != number;
+    }
+
+    @Override
+    public K next() {
+        K result = dictionary.getEntry(index).key;
+        index++;
+        return result;
+    }
+}
+</pre>
+<p>值的迭代器完全相同, 就是泛型不同:</p>
+<pre>
+@Override
+public Iterator&lt;V> getValueIterator() {
+    return new ValueIterator();
+}
+
+private class ValueIterator implements Iterator&lt;V>{
+
+    private int index;
+
+    private int number;
+
+    ValueIterator() {
+        this.index = 0;
+        this.number = getSize();
+    }
+
+    @Override
+    public boolean hasNext() {
+        return index != number;
+    }
+
+    @Override
+    public V next() {
+        V result = dictionary.getEntry(index).value;
+        index++;
+        return result;
+    }
+}
+</pre>
+<p>到这里我们的实现就结束了. 实际上也可以将这个内部的线性表换成有序线性表, 不过需要注意的是, 有序线性表在插入的时候就本身就会进行O(n)的操作,倒是查找是可以进行一些优化. 这里就不再写了.</p>
+<p>链式字典可以知道, 相比数组线性表没有本质的变化.</p>
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
