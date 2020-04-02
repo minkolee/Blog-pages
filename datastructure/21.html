@@ -27,6 +27,7 @@
     <li><a href="#con4">解决冲突</a></li>
     <li><a href="#con5">装填因子</a></li>
     <li><a href="#con6">拉链法实现散列表</a></li>
+    <li><a href="#con7">添加长度变更功能</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">散列表实现的字典</h2>
 <p>对于我们的字典, 散列函数的核心思想就是: 根据传入的对象, 计算得到对象在数组中的元素下标. </p>
@@ -184,7 +185,7 @@ public void add(K key, V value) {
     Entry&lt;K, V> newEntry = new Entry&lt;>(key, value);
 
     //关键步骤, 根据键的散列码压缩下标
-    int index = Math.abs(newEntry.hashCode() % DEFAULT_CAPACITY);
+    int index = Math.abs(newEntry.hashCode() % dictionary.length);
     //如果为空就先创建线性表, 然后添加
     if (dictionary[index] == null) {
         dictionary[index] = new MyLinkedList&lt;>();
@@ -209,7 +210,7 @@ public void add(K key, V value) {
 @Override
 @SuppressWarnings("unchecked")
 public V remove(K key) {
-    int index = Math.abs(key.hashCode() % DEFAULT_CAPACITY);
+    int index = Math.abs(key.hashCode() % dictionary.length);
     System.out.println("键的散列码是: " + index);
 
     Entry&lt;K, V> target = new Entry&lt;>(key, (V) new Object());
@@ -234,7 +235,7 @@ public V remove(K key) {
 @Override
 @SuppressWarnings("unchecked")
 public V getValue(K key) {
-    int index = Math.abs(key.hashCode() % DEFAULT_CAPACITY);
+    int index = Math.abs(key.hashCode() % dictionary.length);
     Entry&lt;K, V> target = new Entry&lt;>(key, (V) new Object());
 
     if (dictionary[index] == null) {
@@ -255,7 +256,7 @@ public V getValue(K key) {
 @Override
 @SuppressWarnings("unchecked")
 public boolean contains(K key) {
-    int index = Math.abs(key.hashCode() % DEFAULT_CAPACITY);
+    int index = Math.abs(key.hashCode() % dictionary.length);
     Entry&lt;K, V> target = new Entry&lt;>(key, (V) new Object());
 
     if (dictionary[index] == null) {
@@ -393,8 +394,159 @@ private class ValueIterator implements Iterator&lt;V>{
 }
 </pre>
 <p>这样一个固定长度的字典基本上就写好了. 不过这里没有编写长度发生改变的方法. </p>
+
+<h2 style="text-align: center;" id="con7">添加长度变更功能</h2>
 <p>长度发生改变的话, 就需要在每次add方法之前, 判断装填因子是不是超过一定的数量, 也就是用<code>getSize()/dictionary.length</code>, 如果大于一个数字, 就要扩充到下一个素数的位置,
-    还会需要一些辅助的素数行列来控制大小和上限, 就不再一一写了.</p>
+    还会需要一些辅助的素数行列来控制大小和上限, 这里对原来的类进行一些修改, 在add方法添加元素之前, 增加一个扩大数组的方法.</p>
+<p>这里需要修改一下整个类的一些设施, 将原来的那个静态变量DEFAULT_CAPACITY去掉, 记录当前数组的长度(其实这个变量也可以省略, 不过为了简明, 就写出来), 然后所有很多方法压缩下标时候的语句:</p>
+<pre>int index = Math.abs(newEntry.hashCode() % <span style="color: red">dictionary.length</span>);</pre>
+<p>上边的红字表示将<code>DEFAULT_CAPACITY</code>修改成<code>dictionary.length</code>.</p>
+<p>然后就可以来编写辅助域和方法, 用于在add()添加元素之前扩大数组长度:</p>
+<pre>
+public class ZipDictionary&lt;K, V> implements Dictionary&lt;K, V> {
+
+    <span style="color: red">private int capacity = 17;
+
+    private static int[] primeNumbers = new int[]{37, 79, 151, 307, 617, 1237, 2477, 4957, 10007};</span>
+
+    @Override
+    public void add(K key, V value) {
+        if (key == null || value == null) {
+            throw new RuntimeException("不允许添加null.");
+        }
+
+        <span style="color: red">checkSize();</span>
+
+        Entry&lt;K, V> newEntry = new Entry&lt;>(key, value);
+
+        //修改所有方法中压缩下标的计算方式
+        int index = Math.abs(newEntry.hashCode() % <span style="color: red" title="其他方法中也要修改此处">dictionary.length</span>);
+
+        if (dictionary[index] == null) {
+            dictionary[index] = new MyLinkedList&lt;>();
+            dictionary[index].add(newEntry);
+        } else {
+
+            int result = dictionary[index].getPosition(newEntry);
+            if (result == -1) {
+                dictionary[index].add(0, newEntry);
+            } else {
+                dictionary[index].replace(result, newEntry);
+            }
+        }
+
+    }
+
+    @SuppressWarnings("unchecked")
+    private void checkSize() {
+        double loadFactor = (double) getSize() / dictionary.length;
+        System.out.println("当前的装填因子是: " + loadFactor);
+
+        if (loadFactor > 0.7) {
+            for (int primeNumber : primeNumbers) {
+                if (primeNumber > capacity) {
+                    capacity = primeNumber;
+                    System.out.println("将容量增大到: " + capacity);
+                    //用一个临时引用保存原来的内部数据结构
+                    MyLinkedList&lt;Entry&lt;K, V>>[] temp = dictionary;
+
+                    //然后创建一个新的数据结构作为字典
+                    dictionary = new MyLinkedList[capacity];
+
+                    //由于是散列, 不能直接复制, 所以只好一个一个把原来的散列表的内容装载到新的散列表中.
+                    loadDataToNewDictionary(temp);
+
+                    break;
+                }
+            }
+        }
+    }
+
+
+    private void loadDataToNewDictionary(MyLinkedList&lt;Entry&lt;K, V>>[] array) {
+        for (MyLinkedList&lt;Entry&lt;K, V>> list : array) {
+            if (list != null) {
+                for (Entry&lt;K, V> entry : list) {
+                    add(entry.key, entry.value);
+                }
+            }
+        }
+    }
+
+}
+</pre>
+<p><code>checkSize()</code>方法检测当前的装填因子是不是已经大于0.7, 只要大于, 就在素数表中搜索下一个大于capactiy的素数, 并将capacity设置成这个素数.</p>
+<p>然后创建一个引用指向原来的内部链表数组, 将dictionary的引用替换成新的capacity大小的空白数组, 然后使用一个辅助方法, 将原来链表数组中的所有元素, 重新添加到新的散列表中.</p>
+<p>这里可不能像之前线性表一样重新复制, 因为散列表压缩之后的下标会变化. 这个要特别注意. 上限就是10007, 即数组最大也就扩大到10007长度, 之后便不再扩大散列表了.</p>
+<p>经过了一下午, 终于完整的写出了拉链法还能够扩大的散列表了, 在扩大散列表的时候, 是一个O(n)的操作. 在正常取散列表的时候, 假设装填因子是0.7, 说明平均每个位置只有0.7个元素, 由于散列过程可以看做是常数, 所以散列表的性能相比线性表,可就非常快了.</p>
+<p>所以最后来写一个小实验, 比一下究竟两者性能差多少.</p>
+<pre>
+public static void main(String[] args) {
+
+    Random random = new Random();
+
+    ZipDictionary&lt;String, String> dictionary1 = new ZipDictionary&lt;>();
+
+    for (int i = 0; i &lt; 10000; i++) {
+        dictionary1.add(String.valueOf(i), String.valueOf(i * 3));
+    }
+
+    LinearDictionary&lt;String, String> dictionary2 = new LinearDictionary&lt;>();
+
+    for (int i = 0; i &lt; 10000; i++) {
+        dictionary2.add(String.valueOf(i), String.valueOf(i * 3));
+    }
+
+    String[] indexNumbers = new String[1024*1024];
+
+    for (int i = 0; i &lt; indexNumbers.length; i++) {
+        indexNumbers[i] = String.valueOf(random.nextInt(10000));
+    }
+
+    long start = System.currentTimeMillis();
+    for (int i = 0; i &lt; indexNumbers.length; i++) {
+        dictionary1.getValue(indexNumbers[i]);
+    }
+    long end = System.currentTimeMillis();
+
+    System.out.println("拉链法字典查找时间是: " + (end - start));
+
+    start = System.currentTimeMillis();
+    for (int i = 0; i &lt; indexNumbers.length; i++) {
+        dictionary2.getValue(indexNumbers[i]);
+    }
+    end = System.currentTimeMillis();
+    System.out.println("线性表字典查找时间是: " + (end - start));
+
+}
+</pre>
+<p>测试首先给长度10000的拉链法字典和线性表字典各装入10000个键值对, 键就是0-9999的字符串, 值是键乘以3的字符串.</p>
+<p>然后准备了长度为1M的键数组, 放了所有随机生成的键.</p>
+<p>之后让两个程序挨个搜索键数组, 比较完成这1M次数的时间.</p>
+<p>运行了几次如下:</p>
+<pre>
+拉链法字典查找时间是: 82
+线性表字典查找时间是: 28842
+
+拉链法字典查找时间是: 80
+线性表字典查找时间是: 28567
+
+拉链法字典查找时间是: 86
+线性表字典查找时间是: 29866
+</pre>
+<p>可以看到, 性能差距在350倍左右. 这确实是一个巨大的进步.</p>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
