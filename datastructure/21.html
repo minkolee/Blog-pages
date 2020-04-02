@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Java 数据结构 散列表 - 字典</title>
+    <title>Java 数据结构 散列表 - 拉链法</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -15,100 +15,130 @@
     </style>
 </head>
 <body>
-<p>在上一章的查找中, 即使是二分搜索, 也要一点一点的对比过来, 有没有一种办法, 可以根据要查找的内容, 直接定位到数组中的具体一个索引, 而不是反复操作索引和进行对比.</p>
-<p>这个思想就促使了一种通常叫字典的数据结构的诞生, 就像一本字典一样, 每一个词对应着一个页码, 我无需一页一页去翻直到找到那个词语, 而是可以通过一种方式(查字典的索引), 直接得到那个页码, 再翻过去就行了.</p>
-<p>这种数据结构本质上是一个映射关系, 即将一个对象A映射到一个对象B上, 如果映射的过程或者说操作足够简单, 那么这个数据结构用来查找的效率是很高的.</p>
-
+<p>如果把我们的字典看成一个大线性表的话, 也没有任何问题, 不过随着字典的扩大, 我们会发现, 这和现实中为了寻找一个词语的解释, 一页一页翻字典没有任何区别.</p>
+<p>也就是说, 我们的字典看上去叫字典, 也实现了字典的接口, 但是在内部, 没有实现一本字典应该有的索引功能.</p>
+<p>因此, 我们会想, 如果有一个索引函数, 我把Key放进去, 运算出来的结果就是一个索引, 然后直接操作索引位置的对象就可以了, 这才是完备的字典.</p>
+<p>这个想法确实是对的, 有这么一种函数, 就是散列函数. 当然, 也许工作的不想想象的那样完美, 但可以大大的提高查找效率.</p>
 
 <ol>
-    <li><a href="#con1">字典的接口</a></li>
-    <li><a href="#con2">无序字典的实现 - 基础设施</a></li>
-    <li><a href="#con3">无序字典的实现 - 核心方法</a></li>
-    <li><a href="#con4">无序字典的实现 - 迭代器</a></li>
+    <li><a href="#con1">散列表实现的字典</a></li>
+    <li><a href="#con2">散列函数与散列码的计算</a></li>
+    <li><a href="#con3">下标压缩</a></li>
+    <li><a href="#con4">解决冲突</a></li>
+    <li><a href="#con5">装填因子</a></li>
+    <li><a href="#con6">拉链法实现散列表</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1">字典的接口</h2>
-<p>在设计字典之前需要想一想, 尤其是字典是否允许null值和键. 在我们之前的ADT中, 都是线性的, 可以支持放入null.但问题是字典中, 如果允许null值, 可能会导致返回null语义不清楚.</p>
-<p>按照道理, 字典中所有的键和值都要对应, 不同的键对应不同的值, 即使两个键可能对应的值相等, 这两个映射也是不同的. 如果一个值是null, 则难以区分到底是不存在对应的键, 还是键的值都是null.</p>
-<p>所以一般是不允许键和值是null的. 这个可以在向字典添加键的时候就规定好, 然后就可以相应的规定好, 如果找不到, 就返回null, 说明字典中不存在对应的键值对(即同时不存在键和对应的值).</p>
-<p>字典的接口我们可以来重新设计一下, 由于字典多出来一个键的特性, 因此需要两个泛型类型.</p>
+<h2 style="text-align: center;" id="con1">散列表实现的字典</h2>
+<p>对于我们的字典, 散列函数的核心思想就是: 根据传入的对象, 计算得到对象在数组中的元素下标. </p>
+<p>所以这个函数的本质, 就是将一组事物, 映射到一排整数上去.</p>
+<p>如果每个事物都可以映射到不同的整数上去, 这个就叫做完美散列函数. 将一个事物通过散列函数计算得到的整数称为散列码.</p>
+<p>完美散列函数的一大问题是, 如果这组事物很多, 则需要的散列表空间也非常大, 至少在编号方面非常大.</p>
+<p>所以在很多时候, 可能还需要把散列码压缩到数据结构可实际使用的空间中去, 比如一个对象的散列码计算得到-10, 就不能直接用这个散列码来操作, 还需要为-10这个散列码寻找在数组中的对应位置.</p>
+<p>此外, 在计算散列码的时候(或者说直到计算出最终下标)的过程中, 有些不同的对象映射到同一个下标, 这个叫做冲突.</p>
+<p>这里先不讨论如何解决冲突, 而是肯定有一个<strong>冲突解决方案</strong>来做这个工作.</p>
+<p>这样我们就初步整理出来了使用散列表的几个核心要素:</p>
+<ol>
+    <li>散列函数和散列码</li>
+    <li>散列码换算成下标</li>
+    <li>冲突解决方案</li>
+</ol>
+<p>Java中的基类Object有一个方法叫做hashCode(), 就是散列函数, 计算得到一个int类型的整数, 就是散列码. 不过, 如果不覆盖这个方法, 默认的实现是返回这个对象所在的内存地址当做散列码.</p>
+<p>默认的内存地址不实用, 因为当指针指向另外一个对象的时候, 内存地址相同, 但对象发生了变化, 因此很难通过散列码来判断对象的相等性.</p>
+<p>Java对此有一些严格的规定, 即判断相等性equals()和hashCode()的方法, 在编写自己的类时候尤其要注意:</p>
+<ol>
+    <li>如果一个类重写了equals(),也必须重写hashCode()</li>
+    <li>如果两个对象equals()的结果是true, 则hashCode()的结果也必须相等</li>
+    <li>一个对象不管调用多少次hashCode(), 只要对象未改变, 结果都一样</li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">散列函数</h2>
+<p>由上边分析可见, 散列函数非常重要, 好的散列函数可以大大减少之后压缩下标, 解决冲突的难度.</p>
+<p>来看一下Java中是如何计算散列函数的.</p>
+<h4>字符串散列函数</h4>
+<p>字符串散列函数的Horner方法是, 反复乘再加, 不好说但是一看代码就明白. 根据这个方法, 可以选择一个常数, 来编写一个散列函数:</p>
 <pre>
-import java.util.Iterator;
+public static int hashString(String s) {
 
-public interface Dictionary&lt;K, V> {
+    //所选择的常数
+    int A = 31;
 
-    void add(K key, V value);
+    //初始hash码
+    int hash = 0;
 
-    V remove(K key);
+    for (int i = 0; i < s.length(); i++) {
 
-    V getValue(K key);
+        //每次用常数乘以hash码,再加上当前字符的unicode值
+        hash = hash * A + s.charAt(i);
+    }
+    return hash;
+}
+</pre>
+<p>这里我们的例子选择了31, 这是因为Java的String类的hashCode()方法选择的就是31. 所以我们的散列函数计算出来的结果和Java是一样的. 不信可以试试.</p>
+<h4>基本类型的散列函数</h4>
+<p>对于长度不超过int的整数类型 byte short char int, 直接可以将其转换为int就得到散列码, 数字的唯一性保证了散列码的唯一性.</p>
+<p>float类型很有意思, 由于其内部就是一个32位的二进制数表示, 因此可以直接将其转换成 32位 相同规格的int即可, 注意这和转换类型可不同.
+    需要使用<code>Float.floatToRawIntBits(a)</code>来将其转换成原样的二进制码对应的int, 这也保证了唯一性.</p>
+<p>对于long和Double,我们马上就可以判定, 如果将散列码扩展到64位, 则可以用同样的方式保证唯一性.</p>
+<p>不幸的是散列码是int类型,因此需要压缩一下, 采用的方法是将64位的前32位和后32位进行异或运算, 得到32位长度的散列码. 写成方法就是:</p>
+<pre>
+public static int hash64BitDate(long s) {
 
-    boolean contains(K key);
+    return (int) ((s >> 32) ^ s);
+}
+</pre>
+<p>对于Double类型, 则要稍微做点变更,不能直接移位, 而要先转换成原始的二进制对应的long:</p>
+<pre>
+public static int hash64BitDate(double s) {
 
-    Iterator&lt;K> getKeyIterator();
-
-    Iterator&lt;V> getValueIterator();
-
-    boolean isEmpty();
-
-    int getSize();
-
-    void clear();
+    return hash64BitDate(Double.doubleToLongBits(s));
 
 }
 </pre>
-<p>很显然, 这种数据结构, java也给我们提供了, 就是常见的Map类型, Map的名称也说明了这是一种基于映射的数据结构.</p>
-<p>其接口如下:</p>
+<p>上边的这些函数, 手工计算结果和调用包装类的hashCode方法,结果是一样的.</p>
+<p>对于普通对象的散列码, 则需要在编写对象的时候想一个方法来进行编写, 一般可以使用对象中各个数据域的散列码来进行计算.</p>
+<p>还一个常见的操作是, 因为计算散列码需要时间, 因此可以设置一个布尔变量来表示散列码是否已经被计算出来, 如果对象的数据发生变化, 则重新计算散列码, 否则直接返回已经计算好的散列码即可.</p>
+
+<h2 style="text-align: center;" id="con3">下标压缩</h2>
+<p>散列码都是int类型的值, 给了我们一个启示, 就是可以将其压缩到一个数字序列中. 只要选定一个素数, 然后取散列码除以该素数的余数, 就可以将散列码映射到 0 - (素数-1) 范围内.</p>
+<p>很容易想到, 如果选择其他数字或者偶数, 则出现重复下标的概率大大提高, 所以n要是奇数, 最好的选择就是某个素数了.</p>
+<p>知道了散列码如何计算, 以及如何将散列码压缩至下标, 剩下就需要解决一个问题, 就是两个不同的散列码压缩到同一个下标的时候, 该如何处理. 所以就来研究如何解决冲突.</p>
+
+<h2 style="text-align: center;" id="con4">解决冲突</h2>
+<p>这里我们先跳过线性探查, 而是专注于拉链法 - 即需要改变字典的内部数据结构.</p>
+<p>所谓改变结构, 也就是让线性表的每一个位置, 都可以来存入多个元素, 这只需要把线性表的每一个元素, 也改成一个存放Entry的数据结构.</p>
+<p>这个数据结构可以是之前用过的数组, 线性表, 向量等等都可以, 只要支持查找和替换操作, 一般来说, 使用链表组成的线性表会比较方便, 因为不会占用额外空间.</p>
+<p>所以实际上, 通过散列表, 有效的减少了操作一条长链的可能性, 将每个查找, 都对应到一条相比整个字典短的多的链条上, 这样查找效率就会大大提高.</p>
+<p>这样, 散列表的内部结构, 就变成了一个线性表数组, 这是很有意思的. 看起来已经可以写一个散列表了.</p>
+
+<h2 style="text-align: center;" id="con5">装填因子</h2>
+<p>这里我们依然关心拉链法. 装填因子 load factor, 就是散列表中已经存储的总项数 / 散列表中的位置数.</p>
+<p>对于拉链法来说, 散列表的位置数并不是指总的位置数, 因为链表是可伸缩的, 而是指将散列码要压缩到的范围. 所以对于拉链法来说, 可能存了100个数字, 但是依然每次只有0-16这17个下标,所以没有上限.</p>
+<p>然而, 装填因子却影响着查找效率. 拉链法下, 很显然, 设装填因子=A, 则实际上A是线性表数组每一项里边的线性表中的平均元素个数.
+    根据我们的算法, 对象会被一个常数级别的运算计算出散列码, 然后被常数级别的运算计算出下标. 之后影响性能的就是在A个元素中的查找能力. 先看第一个情况:</p>
+<h4>查找不成功</h4>
+<p>查找不成功意味着最后没有找到任何一个键和给出的键对应. 很显然, 在两个常数操作之后, 面对的平均情形就是一个长度为A的链表, 只有检查完全部节点之后, 才能得出查找不成功的结论, 所以查找不成功的次数是<code>A</code>.</p>
+<h4>查找成功</h4>
+<p>查找成功到确定下标之前, 也是常数操作, 之后面临和查找不成功一样的境地, 即一个长度为A的链表, 很显然, 要么第一个就查到, 即花费1, 要么最后一个才查到, 因此平均时间是<code>1 + A/2</code>.</p>
+<p>这样, 在给定的线性表大小和放入元素的个数之后(也就是装填因子), 就可以计算出来查找所需的时间的粗略关系.</p>
+<p>经过计算, 从A=0.1开始, 随着不断增大装填因子, (也就是线性表装的东西越来越多), 不成功查找所需的时间的增加量会大于成功查找的增加量. 一般将装填因子维持在1以内比较好, 如果超过, 则应该将线性表数组扩展到下一个素数.</p>
+<p>有了这些理论, 就可以来写出一个散列表了. 当然, 散列函数可能还是需要我们自行设计. 但是这里可以先以最常见的字符串散列表为例.</p>
+
+<h2 style="text-align: center;" id="con6">拉链法实现散列表</h2>
+<p>根据上边的需求, 自己先来编写一个简单的拉链法字典, 先搭建一个基础设施:</p>
 <pre>
-public interface Map&lt;K, V> {
-    int size();
+public class ZipDictionary&lt;K, V> implements Dictionary&lt;K, V> {
 
-    boolean isEmpty();
+    private MyLinkedList&lt;Entry&lt;K, V>>[] dictionary;
 
-    boolean containsKey(Object var1);
+    private static int DEFAULT_CAPACITY = 17;
 
-    boolean containsValue(Object var1);
+    private int numberOfEntries;
 
-    V get(Object var1);
-
-    V put(K var1, V var2);
-
-    V remove(Object var1);
-
-    void putAll(Map&lt;? extends K, ? extends V> var1);
-
-    void clear();
-
-    Set&lt;K> keySet();
-
-    Collection&lt;V> values();
-
-    Set&lt;Map.Entry&lt;K, V>> entrySet();
-
-}
-</pre>
-<p>和我们的很相似, 还有很多默认方法, 就不列出来了.</p>
-<h2 style="text-align: center;" id="con2">无序字典的实现</h2>
-<p>我们现在手中有的数据结构, 就是线性表及其更低层次的变种. 很容易想到, 由于键值总是成对出现的, 因此可以将其封装到一个对象中(此时我们脑海中一定会同构到java提供的Map中的内部类Entry, 集异璧这书真的是厉害), 因此我们也可以创建一个内部类来装键和值.</p>
-<p>然后问题就简单了一些, 只要在线性表中保存Entry类型就行了. 但需要注意的是, 由于键是不能重复的, 因此插入操作必须要进行额外的动作才可以.</p>
-<p>然后我们就可以在一个线性表的外层再套一个壳, 来创建一个字典类. 先来搭建一些基础设施:</p>
-<pre>
-public class LinearDictionary&lt;K, V> implements Dictionary&lt;K, V> {
-
-    //实际承担字典数据结构的线性表, 里边每一个对象都是一个Entry对象
-    private MyArrayList&lt;Entry&lt;K, V>> dictionary;
-
-    private static int DEFAULT_CAPACITY = 16;
-
-    //由于线性表的基础设施已经搭建好, 所以可以直接利用基础设施.
-    public LinearDictionary() {
-        dictionary = new MyArrayList&lt;>(DEFAULT_CAPACITY);
+    @SuppressWarnings("unchecked")
+    public ZipDictionary() {
+        dictionary = new MyLinkedList[DEFAULT_CAPACITY];
     }
 
-    public LinearDictionary(int size) {
-        dictionary = new MyArrayList&lt;>(size);
-    }
-
-    //内部Entry类, 非常关键
     private class Entry&lt;K, V> {
         K key;
         V value;
@@ -127,156 +157,149 @@ public class LinearDictionary&lt;K, V> implements Dictionary&lt;K, V> {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             Entry&lt;?, ?> entry = (Entry&lt;?, ?>) o;
-            <span style="color: red">return key.equals(entry.key);</span>
+            return key.equals(entry.key);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(key, value);
+            return key.hashCode();
         }
-    }
-
-}
-</pre>
-<p>注意, 由于Entry类现在是承载着Key和Value的核心部件, 所以要对其编写equals方法, 以用来确定两个Entry是否相等, 否则后边的方法无法正确工作. 注意红色语句, 只要Key相等, 就是相等的.</p>
-
-
-<h2 style="text-align: center;" id="con3">无序字典的实现 - 核心方法</h2>
-<p>首先, 第一个方法<code>void add(K key, V value)</code>就需要好好思考, 由于键是唯一的, 因此在将键添加到字典中的时候, 就不能简单的添加, 而是必须先进行搜索.</p>
-<p>如果搜索到了指定的键, 要做的就是更新其值, 而不是添加一个新的Entry对象, 如果没有搜索到, 再向其中添加Entry对象. 这里发现无序线性表没有编写一个查找位置的方法, 所以要给其添加一个:</p>
-<pre>
-public class MyArrayList&lt;T> implements ListInterface&lt;T>, Iterable&lt;T> {
-
-    ......
-
-    //新添加的获取指定索引的方法.
-    public int getPosition(T anEntry) {
-
-        int result = -1;
-
-        for (int i = 0; i &lt; numberOfEntries; i++) {
-            if (list[i].equals(anEntry)) {
-                result = i;
-                break;
-
-            }
-        }
-
-        return result;
     }
 }
 </pre>
-<p>之后再来实现字典的add方法:</p>
+<p>基础设施包括了一个数组, 每一个元素都是一个链表实现的线性表. 还有老朋友Entry. 下边一个一个来编写各个方法.</p>
+<p>首先是核心的add()方法.</p>
 <pre>
 @Override
 public void add(K key, V value) {
-
     if (key == null || value == null) {
         throw new RuntimeException("不允许添加null.");
     }
 
     Entry&lt;K, V> newEntry = new Entry&lt;>(key, value);
 
-    int index = dictionary.getPosition(newEntry);
-
-    if (index == -1) {
-        dictionary.add(newEntry);
+    //关键步骤, 根据键的散列码压缩下标
+    int index = Math.abs(newEntry.hashCode() % DEFAULT_CAPACITY);
+    //如果为空就先创建线性表, 然后添加
+    if (dictionary[index] == null) {
+        dictionary[index] = new MyLinkedList&lt;>();
+        dictionary[index].add(newEntry);
     } else {
-        dictionary.replace(index, newEntry);
+    //如果不为空, 需要先探查有没有这个东西
+
+        int result = dictionary[index].getPosition(newEntry);
+        //如果没找到, 就直接添加, 可以考虑添加在头部, 这样下一次查找会比较快
+        if (result == -1) {
+            dictionary[index].add(0, newEntry);
+        } else {
+        //如果找到了, 就替换指定位置的元素
+            dictionary[index].replace(result, newEntry);
+        }
     }
 
 }
 </pre>
-<p>这个方法会先进行查找, 如果找不到, 就新增Entry, 如果找到了, 就替换指定索引上的Entry对象.</p>
-<p><code>remove()</code>方法需要先查找, 再删除指定位置的Entry对象:</p>
+<p>接下来是remove()方法. 逻辑依然是先计算散列码再查找:</p>
 <pre>
 @Override
 @SuppressWarnings("unchecked")
 public V remove(K key) {
+    int index = Math.abs(key.hashCode() % DEFAULT_CAPACITY);
+    System.out.println("键的散列码是: " + index);
 
-    int index = dictionary.getPosition(new Entry&lt;K,V>(key, (V) new Object()));
-    if (index == -1) {
+    Entry&lt;K, V> target = new Entry&lt;>(key, (V) new Object());
+
+    if (dictionary[index] == null) {
         return null;
     } else {
-        return dictionary.remove(index).value;
+        int result = dictionary[index].getPosition(target);
+        System.out.println("具体链表的索引是: " + result);
+        if (result == -1) {
+            return null;
+        } else {
+            V value = dictionary[index].getEntry(result).value;
+            dictionary[index].remove(result);
+            return value;
+        }
     }
 }
 </pre>
-<p>由于判断只需要Key相等,所以这里组装了一个对象用于进行搜索, 如果搜到就返回那个被删除的元素的值, 如果没删除成功, 说明键不存在于字典中,就返回null.</p>
-<p>然后再来编写<code>public V getValue(K key)</code>方法, 很显然也需要先查找:</p>
+<p>然后是通过键获取值, 如出一辙:</p>
 <pre>
 @Override
 @SuppressWarnings("unchecked")
 public V getValue(K key) {
-    int index = dictionary.getPosition(new Entry&lt;K, V>(key, (V) new Object()));
-    if (index == -1) {
+    int index = Math.abs(key.hashCode() % DEFAULT_CAPACITY);
+    Entry&lt;K, V> target = new Entry&lt;>(key, (V) new Object());
+
+    if (dictionary[index] == null) {
         return null;
     } else {
-        return dictionary.getEntry(index).value;
+        int result = dictionary[index].getPosition(target);
+        if (result == -1) {
+            return null;
+        } else {
+            return dictionary[index].getEntry(result).value;
+        }
     }
+
 }
 </pre>
-<p>当然, 这时候会发现, 我们可以将按照Key查找这个过程抽到一个方法中来, 确实如此:</p>
+<p>之后是contains(), 还是一样的操作:</p>
 <pre>
+@Override
 @SuppressWarnings("unchecked")
-private int getIndex(K key) {
-    return dictionary.getPosition(new Entry&lt;K, V>(key, (V) new Object()));
-}
-</pre>
-<p>上边两个方法remove和getValue就不用压制警告了, 修改成:</p>
-<pre>
-@Override
-public V remove(K key) {
-
-    int index = getIndex(key);
-    if (index == -1) {
-        return null;
-    } else {
-        return dictionary.remove(index).value;
-    }
-}
-
-@Override
-public V getValue(K key) {
-    int index = getIndex(key);
-    if (index == -1) {
-        return null;
-    } else {
-        return dictionary.getEntry(index).value;
-    }
-}
-</pre>
-<p>然后还有几个辅助方法就简单多了:</p>
-<pre>
-@Override
 public boolean contains(K key) {
-    return getIndex(key) != -1;
-}
+    int index = Math.abs(key.hashCode() % DEFAULT_CAPACITY);
+    Entry&lt;K, V> target = new Entry&lt;>(key, (V) new Object());
 
+    if (dictionary[index] == null) {
+        return false;
+    } else {
+        return dictionary[index].getPosition(target) != -1;
+    }
+
+}
+</pre>
+<p>最后是几个辅助函数, 编写都依赖于每个链表:</p>
+<pre>
 @Override
 public boolean isEmpty() {
-    return dictionary.getLength() == 0;
-}
+    int sum = 0;
 
-@Override
-public int getSize() {
-    return dictionary.getLength();
-}
-
-@Override
-public void clear() {
-    dictionary.clear();
+    for (MyLinkedList&lt;Entry&lt;K, V>> entries : dictionary) {
+        if (entries != null) {
+            sum = sum + entries.getLength();
+        }
+    }
+    return sum == 0;
 }
 </pre>
-<p>这样除了键和值的迭代器, 实际上我们全部都实现了. 此时可以回头来看看这些方法, 不用花时间就可以发现, 和增删改查相关的方法, 由于需要通过查找来确定唯一性, 显然全部都是O(n)的方法.</p>
-<p>实际上也很容易想明白, 内部都是线性表,我们的各个方法并没有在线性表的操作上边额外的添加新的复杂度, 只有add方法例外, 是需要遍历的, 所以基本上都是线性表的复杂度.</p>
+<pre>
+@Override
+public int getSize() {
+    int sum = 0;
 
-<h2 style="text-align: center;" id="con4">无序字典的实现 - 迭代器</h2>
-<p>下边就来实现迭代器, 要实现迭代器也不难, 核心思路就是需要一个个遍历过来, 而数组正好是可以根据索引遍历的. 因此在内部可以编写两个类, 先是键的迭代器:</p>
+    for (MyLinkedList&lt;Entry&lt;K, V>> entries : dictionary) {
+        if (entries != null) {
+            sum = sum + entries.getLength();
+        }
+    }
+    return sum;
+}
+</pre>
+<pre>
+@Override
+public void clear() {
+    Arrays.fill(dictionary, null);
+}
+</pre>
+<p>现在只剩下迭代器了. 迭代器我能想到的一个方法就是遍历一遍然后组装一个数组, 让迭代器去使用. 单独控制一个数量i也可以, 但是每次要一个一个往前走, 似乎写起来非常麻烦. 这里我就组装了一个数组然后返回一个迭代器对象, 先看键迭代器:</p>
 <pre>
 @Override
 public Iterator&lt;K> getKeyIterator() {
@@ -285,13 +308,29 @@ public Iterator&lt;K> getKeyIterator() {
 
 private class KeyIterator implements Iterator&lt;K>{
 
+    private K[] array;
+
     private int index;
 
     private int number;
 
+    @SuppressWarnings("unchecked")
     KeyIterator() {
         this.index = 0;
         this.number = getSize();
+        array = (K[]) new Object[number];
+
+        int i = 0;
+
+        //这里实际上把当前所有Key都装进了新创建的数组, 然后实际上是在这个数组中迭代
+        for (MyLinkedList&lt;Entry&lt;K, V>> list : dictionary) {
+            if (list != null) {
+                for (Entry&lt;K, V> entry : list) {
+                    array[i] = entry.key;
+                    i++;
+                }
+            }
+        }
     }
 
     @Override
@@ -301,13 +340,13 @@ private class KeyIterator implements Iterator&lt;K>{
 
     @Override
     public K next() {
-        K result = dictionary.getEntry(index).key;
+        K result = array[index];
         index++;
         return result;
     }
 }
 </pre>
-<p>值的迭代器完全相同, 就是泛型不同:</p>
+<p>会编写键的迭代器了, 值的也一样:</p>
 <pre>
 @Override
 public Iterator&lt;V> getValueIterator() {
@@ -316,13 +355,28 @@ public Iterator&lt;V> getValueIterator() {
 
 private class ValueIterator implements Iterator&lt;V>{
 
+    private V[] array;
+
     private int index;
 
     private int number;
 
+    @SuppressWarnings("unchecked")
     ValueIterator() {
         this.index = 0;
         this.number = getSize();
+        array = (V[]) new Object[number];
+
+        int i = 0;
+
+        for (MyLinkedList&lt;Entry&lt;K, V>> list : dictionary) {
+            if (list != null) {
+                for (Entry&lt;K, V> entry : list) {
+                    array[i] = entry.value;
+                    i++;
+                }
+            }
+        }
     }
 
     @Override
@@ -332,14 +386,18 @@ private class ValueIterator implements Iterator&lt;V>{
 
     @Override
     public V next() {
-        V result = dictionary.getEntry(index).value;
+        V result = array[index];
         index++;
         return result;
     }
 }
 </pre>
-<p>到这里我们的实现就结束了. 实际上也可以将这个内部的线性表换成有序线性表, 不过需要注意的是, 有序线性表在插入的时候就本身就会进行O(n)的操作,倒是查找是可以进行一些优化. 这里就不再写了.</p>
-<p>链式字典可以知道, 相比数组线性表没有本质的变化.</p>
+<p>这样一个固定长度的字典基本上就写好了. 不过这里没有编写长度发生改变的方法. </p>
+<p>长度发生改变的话, 就需要在每次add方法之前, 判断装填因子是不是超过一定的数量, 也就是用<code>getSize()/dictionary.length</code>, 如果大于一个数字, 就要扩充到下一个素数的位置,
+    还会需要一些辅助的素数行列来控制大小和上限, 就不再一一写了.</p>
+
+
+
 
 
 
