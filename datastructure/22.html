@@ -23,8 +23,9 @@
     <li><a href="#con1">树和相关概念</a></li>
     <li><a href="#con2">二叉树</a></li>
     <li><a href="#con3">树的接口</a></li>
-    <li><a href="#con4">二叉树的实现 - 节点类</a></li>
-    <li><a href="#con5">二叉树的实现 - 树</a></li>
+    <li><a href="#con4">二叉树的实现 - 节点类BinaryNode</a></li>
+    <li><a href="#con5">二叉树的实现 - 组装树的方法</a></li>
+    <li><a href="#con6">二叉树的实现 - 访问器和赋值方法及辅助方法</a></li>
 
 </ol>
 <h2 style="text-align: center;" id="con1">树和相关概念</h2>
@@ -98,7 +99,7 @@ public interface BinaryTreeInterface&lt;T> extends TreeInterface&lt;T>, TreeIter
 <p>此外数据结构<strong>堆</strong>基于二叉树, 每个节点都是一个Comparable对象, 每个节点的数据对象不小于(或者不大于)其后代的所有对象, 而且是一个完全二叉树.</p>
 <p>二叉查找树则是节点中的数据大于左子树中的所有数据, 小于右子树中的所有数据(或者相反)的一棵二叉树.</p>
 
-<h2 style="text-align: center;" id="con4">二叉树的实现 - 节点类</h2>
+<h2 style="text-align: center;" id="con4">二叉树的实现 - 节点类BinaryNode</h2>
 <p>在这里, 我们把树定义为指向一棵树的根节点的数据类型. 每个节点, 我们定义一个特殊的类. 类似于链表中的节点Node, 我们这次可以将节点类BinaryNode写在包里, 而不是内部类.</p>
 <p>首先思考一下, 每个节点内部至少需要有三个数据, 一个左引用指向左节点, 一个右引用指向右节点, 还有一个引用来保存数据对象. 因此可以写出类如下:</p>
 <pre>
@@ -155,8 +156,162 @@ class BinaryNode&lt;T> {
 <p>可能后续还需要扩充这个节点的方法. 现在先来看看在节点的基础上创建二叉树数据结构.</p>
 <p>回到前边的概念, 我们将树定义为指向一棵二叉树的根节点, 所以树数据结构中, 节点只需要一个, 就是根节点.</p>
 
-<h2 style="text-align: center;" id="con5">二叉树的实现 - 树</h2>
-<p></p>
+<h2 style="text-align: center;" id="con5">二叉树的实现 - 组装树的方法</h2>
+<p>按照之前的定义, 树里边只需要一个节点即可. 先来把最基础的类和构造器写出来:</p>
+<pre>
+public class BinaryTree&lt;T> implements BinaryTreeInterface&lt;T> {
+
+    private BinaryNode&lt;T> root;
+
+    public BinaryTree() {
+        root = null;
+    }
+
+    public BinaryTree(T data) {
+        root = new BinaryNode&lt;>(data);
+    }
+
+    public BinaryTree(T data, BinaryTree&lt;T> leftTree, BinaryTree&lt;T> rightTree) {
+        privateSetTree(data, leftTree, rightTree);
+    }
+    
+    //辅助方法, 将两棵树中的根节点, 设置到当前树的根节点的左右分支上
+    private void privateSetTree(T data, BinaryTree&lt;T> leftTree, BinaryTree&lt;T> rightTree) {
+        root = new BinaryNode&lt;>(data);
+        root.setLeftNode(leftTree.root);
+        root.setRightNode(rightTree.root);
+    }
+    
+}
+</pre>
+<p>这其中仅有一个指向根节点的引用. 然后就是构造器, 由于在包中, 可以直接访问类的root对象, 所以可以编写一个私有方法, 用来辅助设置相关的节点, privateSetTree实际上就是将两棵树挂在同一个节点下, 构造一棵新树.</p>
+<p>然后需要逐个实现接口中的方法. 先是<code>BinaryTreeInterface</code>中的两个, 也可以使用这个私有方法:</p>
+<pre>
+//这个方法本质上和构造器一样, 新建一个节点. 原来的树会丢失
+@Override
+public void setTree(T rootData) {
+    root = new BinaryNode&lt;>(rootData);
+}
+
+//内部调用privateSetTree, 需要强制转型, 这个转型是安全的
+@Override
+public void setTree(T rootData, BinaryTreeInterface&lt;T> leftTree, BinaryTreeInterface&lt;T> rightTree) {
+    privateSetTree(rootData, (BinaryTree&lt;T>) leftTree, (BinaryTree&lt;T>) rightTree);
+}
+</pre>
+<p>然后这里有两个问题需要解决. 首先是复制的问题. 由于我们目前的类只是单纯连接, 可能无法阻止原来对一些树的引用, 还可能客户需要将两棵树都挂在同一棵树下边, 所以需要编写一个复制的方法.</p>
+<h4>树的复制 - 递归复制节点</h4>
+<p>所谓复制也很简单, 就是给BinaryNode中新增加一个方法, 先复制当前节点, 再复制左子树和右子树的节点, 这实际上是一个Composite模式的递归调用方法:</p>
+<pre>
+public BinaryNode&lt;T> copy() {
+    BinaryNode&lt;T> newRoot = new BinaryNode&lt;>(data);
+
+    if (leftNode != null) {
+        newRoot.setLeftNode(leftNode.copy());
+    }
+
+    if (rightNode != null) {
+        newRoot.setRightNode(rightNode.copy());
+    }
+    return newRoot;
+}
+</pre>
+<p>当这个方法被调用时, 会发生什么呢? 以一个两层三个节点的树为例, 会先创建一个和根节点的数据一样的节点, 然后根据代码, 会先执行leftNode.copy() , 得到左节点的一个新的复制对象, 然后将其设置到新节点的左, 右侧也是一样.</p>
+<p>很显然, 如果再多一层, 第二层会先创建一个以自己相同的节点, 然后继续往下复制第三层. 所以全部结束之后, 实际上得到一个复制的整颗子树的根节点引用. 可见Composite模式之妙.</p>
+<h4>避免外部访问</h4>
+<p>目前的方法, 可以组装一棵新树, 但是作为参数的leftTree或者rightTree的root节点, 也指向被连接的子树. 所以很显然, privateSetTree方法需要改进, 将一棵树连接到新树上之后, 需要将原来的树对象的root节点置为null. 这样原来的树对象无法访问新树.</p>
+<p>此外还要注意左子树和右子树不能是同一颗. 改进的privateSetTree方法如下:</p>
+<pre>
+private void privateSetTree(T data, BinaryTree&lt;T> leftTree, BinaryTree&lt;T> rightTree) {
+    root = new BinaryNode&lt;>(data);
+
+    if ((leftTree != null) && !leftTree.isEmpty()) {
+        root.setLeftNode(leftTree.root);
+    }
+
+    if ((rightTree != null) && !rightTree.isEmpty()) {
+        if (rightTree != leftTree) {
+            root.setRightNode(rightTree.root);
+        //如果左右子树是同一棵, 就复制一份挂载上去.
+        } else {
+            root.setRightNode(rightTree.root.copy());
+        }
+    }
+
+    //全部挂载完毕之后, 将参数的两个树清空, 这样便无法在外部访问新树
+    if ((leftTree != null) && leftTree != this) {
+        leftTree.clear();
+    }
+    
+    if ((rightTree != null) && rightTree != this) {
+        rightTree.clear();
+        
+    }
+
+}
+</pre>
+<p>当然, 此时还没有编写<code>.clear()</code>方法, 但是这个方法的作用是清空, 所以可以先用上.</p>
+
+<h2 style="text-align: center;" id="con6">二叉树的实现 - 访问器和赋值方法及辅助方法</h2>
+<p>这里的一些方法主要是getter和setter方法, 以及isEmpty()和isClear()方法, 主要是如下:</p>
+<pre>
+@Override
+public T getRootData() {
+    if (isEmpty()) {
+        throw new RuntimeException("树已经为空");
+    } else {
+        return root.getData();
+    }
+}
+
+public void setRootData(T rootData) {
+    root.setData(rootData);
+}
+
+@Override
+public boolean isEmpty() {
+    return root == null;
+}
+
+@Override
+public void clear() {
+    root = null;
+}
+
+public BinaryNode&lt;T> getRoot() {
+    return root;
+}
+
+public void setRoot(BinaryNode&lt;T> root) {
+    this.root = root;
+}
+</pre>
+<p>目前, 去掉迭代器的部分, 还有两个方法没有实现, 一个是<code>int getHeight()</code>, 一个是<code>int getNumberOfNodes()</code>.</p>
+<p>写到这里今天先喘口气, 在脑子里仔细想一想目前为止的树结构.</p>
+<p>可以说, 我们的关键是依赖于将BinaryNode节点有效的连接, 然后在外层包了一个指向根节点的类, 就是树.</p>
+<p>所以本质上直接操作节点, 和操作树也没有本质的区别.</p>
+<p>后边的获取高度在当时看CS61A的时候自己用Python写出来过, 回头看看, 这个嵌套列表实际上相当于一般树, 即树的每个节点都是一个列表, 第一项是值, 第二项是一个树的列表, 需要用递归的方式, 思路就是之前说的, 等于最大高度的子树加上1:</p>
+<pre>
+def height(tree):
+    # 如果没有子节点, 就是1
+    if len(branches(tree)) == 0:
+        return 1
+    # 否则返回其所有子树的最大值加上1
+    else:
+        return max([height(t) for t in branches(tree)]) + 1
+</pre>
+<p>很显然这里也需用递归的方式, 设计模式中的Composite模式最典型的就是树形结构, 只要是嵌套的同种数据类型, 都可以使用Composite模式.</p>
+<p>此外还有递归的数节点的方式, 很显然, 一个树的总节点等于左子树的节点数加上右子树的节点数再加1.</p>
+<p>这两个加上遍历树的方式, 明天再研究了, 今晚现在脑子里好好想想树, 毕竟树之后的内容都没怎么学好.</p>
+
+
+
+
+
+
+
+
+
 
 
 
