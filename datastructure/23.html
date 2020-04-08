@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 树 - 高级方法</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>接着继续来看树的一些相关的方法.</p>
+
+
+<ol>
+    <li><a href="#con1">高度和节点个数</a></li>
+    <li><a href="#con2">遍历二叉树 - 递归遍历</a></li>
+    <li><a href="#con3">遍历二叉树 - 中序迭代遍历和迭代器</a></li>
+    <li><a href="#con4">二叉树的实现 - 节点类BinaryNode</a></li>
+    <li><a href="#con5">二叉树的实现 - 组装树的方法</a></li>
+
+</ol>
+<h2 style="text-align: center;" id="con1">高度和节点个数</h2>
+<p>在开始计算之前, 要明白Tree结构是在Node外边包装了一层, 所以可以把方法写在BinaryNode中.</p>
+<p>首先是高度. 高度的计算方法很简单, 如果自己的数据是null, 就返回0, 否则返回两个子树中较高的值加上1(即自己的高度).</p>
+<p>具体来写方法的时候, 由于<code>getHeight</code>是树接口的方法, 所以可以在其中调用根节点的获取高度的方法. 所以要编写两套方法, 一个是树接口的方法, 一个是给BinaryNode增加计算高度的方法(一个公有一个私有):</p>
+<pre>
+class BinaryNode&lt;T> {
+
+    ......
+
+    public int getHeight() {
+        return getHeight(this);
+    }
+
+    private int getHeight(BinaryNode&lt;T> node) {
+        if (node == null) {
+            return 0;
+        } else {
+            return 1 + Math.max(getHeight(node.getLeftNode()), getHeight(node.getRightNode()));
+        }
+    }
+
+}
+</pre>
+<p>有了这个方法之后, 还需要在BinaryTree中加上一个调用就行了:</p>
+<pre>
+@Override
+public int getHeight() {
+    if (root == null) {
+        return 0;
+    } else {
+        return root.getHeight();
+    }
+}
+</pre>
+<p>然后是节点个数. 这个同样可以使用递归, 一棵树的总节点个数等于左树的节点个数加上右树的节点个数加上1(即自己), 所以继续在BinaryNode中编写方法:</p>
+<pre>
+class BinaryNode&lt;T> {
+
+    ......
+
+    public int getNumberOfNodes() {
+        return getNumberOfNodes(this);
+    }
+
+    private int getNumberOfNodes(BinaryNode&lt;T> node) {
+        if (node == null) {
+            return 0;
+        } else {
+            return getNumberOfNodes(node.getLeftNode()) + 1 + getNumberOfNodes(node.getRightNode());
+        }
+    }
+}
+</pre>
+<p>之后也给BinaryTree中加上一个调用:</p>
+<pre>
+@Override
+public int getNumberOfNodes() {
+    if (root == null) {
+        return 0;
+    } else {
+        return root.getNumberOfNodes();
+    }
+}
+</pre>
+<p>这样就完成了统计节点个数的方法. 靠递归操作树确实很方便.</p>
+
+<h2 style="text-align: center;" id="con2">遍历二叉树 - 递归遍历</h2>
+<p>遍历也是操作数的核心内容. 这里分成两个部分, 一个是一次性遍历树, 还有一个是创建迭代器. 先来看看一次性遍历的方式.</p>
+<p>一次性遍历之前说了四种方式, 先不考虑层序遍历, 而是先来看看三种序遍历. 这三种遍历实际上都是一样的, 可以通过递归操作.</p>
+<p>来编写一下三套遍历方法, 由于是遍历, 很显然需要做点事情, 比如获取或者显示, 这里我们可以传入一个Consumer.</p>
+<pre>
+//前序遍历的公有方法
+public void preOrderTraversal(Consumer&lt;T> consumer) {
+    this.preOrderTraversal(root, consumer);
+}
+
+//前序遍历的私有方法
+private void preOrderTraversal(BinaryNode&lt;T> node, Consumer&lt;T> consumer) {
+    if (node != null) {
+        consumer.accept(node.getData());
+        preOrderTraversal(node.getLeftNode(),consumer);
+        preOrderTraversal(node.getRightNode(),consumer);
+    }
+
+}
+
+//中序遍历的公有方法
+public void inOrderTraversal(Consumer&lt;T> consumer) {
+    this.inOrderTraversal(root, consumer);
+}
+
+
+//中序遍历的私有方法
+private void inOrderTraversal(BinaryNode&lt;T> node, Consumer&lt;T> consumer) {
+    if (node != null) {
+        inOrderTraversal(node.getLeftNode(),consumer);
+        consumer.accept(node.getData());
+        inOrderTraversal(node.getRightNode(),consumer);
+    }
+
+}
+
+//后序遍历的公有方法
+public void postOrderTraversal(Consumer&lt;T> consumer) {
+    this.postOrderTraversal(root, consumer);
+}
+
+
+//后序遍历的私有方法
+private void postOrderTraversal(BinaryNode&lt;T> node, Consumer&lt;T> consumer) {
+    if (node != null) {
+        postOrderTraversal(node.getLeftNode(),consumer);
+        postOrderTraversal(node.getRightNode(),consumer);
+        consumer.accept(node.getData());
+    }
+
+}
+</pre>
+<p>可以看看这三个方法就是递归时候的操作先后顺序不同, 写一个小测试就可以很容易看出来差异:</p>
+<pre>
+public class Test {
+
+    public static void main(String[] args) {
+
+        BinaryTree&lt;String> tree2 = new BinaryTree&lt;>("cony");
+        BinaryTree&lt;String> tree4 = new BinaryTree&lt;>("owl");
+        BinaryTree&lt;String> tree6 = new BinaryTree&lt;>("saner");
+        BinaryTree&lt;String> tree7 = new BinaryTree&lt;>("wood");
+        BinaryTree&lt;String> tree5 = new BinaryTree&lt;>("sitong", tree6, tree7);
+        BinaryTree&lt;String> tree3 = new BinaryTree&lt;>("minko", tree4, tree5);
+        BinaryTree&lt;String> tree1 = new BinaryTree&lt;>("jenny", tree3, tree2);
+
+        System.out.println("-------------------------前序遍历---------------------------");
+        tree1.preOrderTraversal(System.out::println);
+        System.out.println("---------------------------中序遍历-------------------------");
+        tree1.inOrderTraversal(System.out::println);
+        System.out.println("---------------------------后序遍历-------------------------");
+        tree1.postOrderTraversal(System.out::println);
+    }
+
+}
+</pre>
+
+<h2 style="text-align: center;" id="con3">遍历二叉树 - 中序迭代遍历和迭代器</h2>
+<p>如果树太深, 一般递归调用到1000左右, 栈就不够用了. 这个时候就需要考虑使用迭代的方式.</p>
+<p>递归可以转换成栈, 只需要用一个栈结构来进行辅助, 就可以不断的向下寻找, 然后按照顺序把节点压入栈中, 之后再取出来就可以了.</p>
+<p>所以我们的算法就是, 只要当前节点不为空, 就把自己压入栈中, 然后替换成左节点继续向下寻找. 每次弹出栈的时候, 获取其右结点, 然后再对其右节点进行相同的操作.</p>
+<pre>
+//迭代中序遍历的公有方法
+public void inOrderIterationTraversal(Consumer&lt;T> consumer) {
+    this.inOrderIterationTraversal(root, consumer);
+}
+
+//迭代中序遍历的私有方法
+private void inOrderIterationTraversal(BinaryNode&lt;T> node, Consumer&lt;T> consumer) {
+
+    LinkedListStack&lt;BinaryNode&lt;T>> stack = new LinkedListStack&lt;>();
+
+    BinaryNode&lt;T> currentNode = root;
+
+    while (!stack.isEmpty() || currentNode != null) {
+
+        //一路压到最左边的节点
+        while (currentNode != null) {
+            stack.push(currentNode);
+            currentNode = currentNode.getLeftNode();
+        }
+
+        //然后弹栈, 弹一个出来看看有没有右结点
+        if (!stack.isEmpty()) {
+            BinaryNode&lt;T> nextNode = stack.pop();
+            //弹出之后应用函数
+            consumer.accept(nextNode.getData());
+
+            //将当前节点变换成右侧节点, 继续进行相同的操作.
+            currentNode = nextNode.getRightNode();
+        }
+    }
+}
+</pre>
+<p>这里得好好体会一下这种思路, 其实就是一路到底, 然后从底部开始再选左侧一路到底,最后全部遍历完, 还需要注意栈弹出和应用函数的时点, 这个就造成了顺序的不一致.</p>
+<p>相比递归无法控制, 这里可以敏锐的发现, 外层循环:</p>
+<pre>
+while (!stack.isEmpty() || currentNode != null)
+</pre>
+<p>其实就可以充当迭代器的hasNext()判断, 然后内层每次就返回一个pop的内容, 所以可以将这个方法中的临时变量等抽取到一个迭代器类中, 编写一个内部迭代器类和相应的方法:</p>
+<pre>
+//覆盖接口中的方法
+@Override
+public Iterator&lt;T> iterator() {
+    return new BinaryTreeIterator();
+}
+
+//内部迭代器类
+private class BinaryTreeIterator implements Iterator&lt;T> {
+
+    LinkedListStack&lt;BinaryNode&lt;T>> stack = new LinkedListStack&lt;>();
+
+    BinaryNode&lt;T> currentNode = root;
+
+    //外层循环充当判断条件
+    @Override
+    public boolean hasNext() {
+        return !stack.isEmpty() || currentNode != null;
+    }
+
+    //每次返回从栈中弹出的数据, 在返回之前, 先更新currentNode
+    @Override
+    public T next() {
+        while (currentNode != null) {
+            stack.push(currentNode);
+            currentNode = currentNode.getLeftNode();
+        }
+
+        if (!stack.isEmpty()) {
+            BinaryNode&lt;T> nextNode = stack.pop();
+
+            currentNode = nextNode.getRightNode();
+            return nextNode.getData();
+        } else {
+            throw new RuntimeException("出现意外");
+        }
+    }
+}
+</pre>
+
+
+<h2 style="text-align: center;" id="con4">遍历二叉树 - 前序迭代遍历</h2>
+<p>前序遍历指的是中-左-右, 采取这样的策略:</p>
+<ol>
+    <li>先把中入栈, 然后看左节点.</li>
+    <li>如果左节点是null, 把中出栈, 然后设置当前节点是右节点, 可见栈里保存的仅仅是为了获取右结点的内容</li>
+    <li>如果左节点不是null, 就把左节点push进栈, 然后将当前设置为左节点.</li>
+</ol>
+<p>遍历操作的时机选择很重要, 由于是中在先, 在入栈之前就直接对其操作, 出栈的时候不再进行操作. 说实在这个还挺绕, 写的代码如下:</p>
+<pre>
+//迭代前序遍历的公有方法
+public void preOrderIterationTraversal(Consumer&lt;T> consumer) {
+    this.preOrderIterationTraversal(root, consumer);
+}
+
+//迭代前序遍历的私有方法
+private void preOrderIterationTraversal(BinaryNode&lt;T> node, Consumer&lt;T> consumer) {
+
+    LinkedListStack&lt;BinaryNode&lt;T>> stack = new LinkedListStack&lt;>();
+
+    BinaryNode&lt;T> currentNode = root;
+
+    while (!stack.isEmpty() || currentNode != null) {
+        //当前节点不为空直接应用Consumer, 然后入栈
+        if (currentNode != null) {
+            consumer.accept(currentNode.getData());
+            stack.push(currentNode);
+            currentNode = currentNode.getLeftNode();
+        //当前节点为空
+        } else {
+            BinaryNode&lt;T> nextNode = stack.pop();
+            currentNode = nextNode.getRightNode();
+        }
+    }
+}
+</pre>
+<p>后序迭代遍历有点难, 让我消化消化, 然后再考虑一下. <a href="https://leetcode-cn.com/problems/binary-tree-postorder-traversal/comments/334360" target="_blank">leetCode上有一个倒转实现</a>很不错. 不过要注意访问的时机要在最后倒转之后, 如果要在访问的时候做的话, 就比较麻烦了.</p>
+
+
+
+<h2 style="text-align: center;" id="con5">遍历二叉树 - 层序遍历</h2>
+<p>递归和迭代版本的层序遍历都还没有写. 这个遍历我自己想了一下, 发现迭代版本比较好写, 用队列比较好写. 实际的操作是, 首先将根节点入队列, 然后从队列中弹出根节点, 此时将其左右节点压入队列, 不断反复即可.</p>
+<pre>
+//迭代层序遍历的公有方法
+public void levelOrderIterationTraversal(Consumer&lt;T> consumer) {
+    this.levelOrderIterationTraversal(root, consumer);
+}
+
+//迭代层序遍历的私有方法
+private void levelOrderIterationTraversal(BinaryNode&lt;T> node, Consumer&lt;T> consumer) {
+
+    LinkedQueue&lt;BinaryNode&lt;T>> queue = new LinkedQueue&lt;>();
+
+    BinaryNode&lt;T> currentNode = root;
+
+    //先把根节点塞进队列
+    if (currentNode != null) {
+        queue.enqueue(root);
+    }
+
+    //然后开始出队, 每出一个队, 就应用Consumer, 然后把当前对象的两个不为空的节点压入队. 这样就保证整个队列是按照层级排序的.
+    while (!queue.isEmpty()) {
+        BinaryNode&lt;T> nextNode = queue.dequeue();
+        consumer.accept(nextNode.getData());
+        if (nextNode.getLeftNode() != null) {
+            queue.enqueue(nextNode.getLeftNode());
+        }
+
+        if (nextNode.getRightNode() != null) {
+            queue.enqueue(nextNode.getRightNode());
+        }
+    }
+}
+</pre>
+<p>递归的方法有了雏形, 但是还没有想明白. 不过有了迭代的也算方便. 到目前为止, 算是写出了一个树. 果然数据结构越到后来越复杂, 还可能会需要其他数据结构的辅助.</p>
+<p>各种遍历方法, 还有递归=栈的这种思想, 还需要好好研究一下.</p>
+<p>现在总算弄出来一个普通的树, 就像线性数据结构一样, 也是从无序的包, 一直过渡到有序线性表. 树后边的也有好多数据结构, 现在普通的二叉树, 然后是有序的二叉查找树, 然后堆, 最后就是传说中的AVL树(典型代表就是红黑树).</p>
+<p>红黑树就先看看原理吧, 可能还得找个视频看看才行.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
