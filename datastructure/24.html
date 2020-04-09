@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 树 - 二叉查找树</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>二叉查找树实际上是一种"有序"树, 虽然可能看起来不是那么直观. 我记得在看算法第四版的时候, 开头就用了数组实现树, 给我幼小的心灵造成了伤害.</p>
+<p>现在来一步一步又爬过来看到树了, 希望能爬上这棵树</p>
+
+
+<ol>
+    <li><a href="#con1">二叉查找树原理和接口</a></li>
+    <li><a href="#con2">二叉查找树 - 添加和修改元素</a></li>
+    <li><a href="#con3">二叉查找树 - 查找元素</a></li>
+    <li><a href="#con4">二叉查找树 - 删除元素 - 递归实现</a></li>
+
+</ol>
+<h2 style="text-align: center;" id="con1">二叉查找树原理和接口</h2>
+<p>二叉查找树的一大特点是, 其中的每个结点都大于左子树中的所有节点, 小于右子树中的所有节点. 这就让二叉树实际上有点像二分查找从中间不断分下去的感觉.</p>
+<p>这里暂且不讨论允许放置相同内容的树, 只考虑所有元素都不同, 如果有元素相同, 则说明找到了同一个元素, 而不是处在树不同位置的其他元素.</p>
+<p>所以不允许重复的树, 经常被用作散列类型的数据, 比如Java的HashMap, 就是数组搭配红黑树的实现.</p>
+<p>先要为二叉查找树编写一个接口, 这里很显然, 既然需要"有序", 就需要使用Comparable接口的元素类型, 所以先来创建继承了TreeInterface的接口还有迭代器接口的二叉查找树接口:</p>
+<pre>
+public interface BinarySearchTreeInterface&lt;T extends Comparable&lt;? super T>> extends TreeInterface&lt;T>, TreeIterator&lt;T> {
+
+    public boolean contains(T entry);
+
+    public T getEntry(T entry);
+
+    public T add(T newEntry);
+
+    public T remove(T entry);
+
+    Iterator&lt;T> iterator();
+}
+</pre>
+<p>这里添加了以<code>contains</code>为首的一批查找和添加删除节点的方法. 很显然, 实际上这个允许二叉树来当成字典. 当然这里只有一个泛型, 因为注重研究二叉树, 如果实际要做的话, 再外边再套一层字典数据类型才行.</p>
+<p>为了简捷, 还可以直接继承已经编写好的二叉树类, 但是要注意, 其中的setTree方法就不能直接使用了, 因为整个树必须有序. 所以我们只继承TreeInterface, 重新编写一个.</p>
+<pre>
+public class BinarySearchTree&lt;T extends Comparable&lt;? super T>> implements BinarySearchTreeInterface&lt;T> {
+
+    private BinaryNode&lt;T> root;
+
+    public BinarySearchTree() {
+        root = null;
+    }
+
+    public BinarySearchTree(T data) {
+        root = new BinaryNode&lt;>(data);
+    }
+
+    @Override
+    public T getRootData() {
+        if (isEmpty()) {
+            throw new RuntimeException("树已经为空");
+        } else {
+            return root.getData();
+        }
+    }
+
+    @Override
+    public int getHeight() {
+        if (root == null) {
+            return 0;
+        } else {
+            return root.getHeight();
+        }
+    }
+
+    @Override
+    public int getNumberOfNodes() {
+        if (root == null) {
+            return 0;
+        } else {
+            return root.getNumberOfNodes();
+        }
+    }
+
+
+    @Override
+    public boolean isEmpty() {
+        return root == null;
+    }
+
+
+    @Override
+    public void clear() {
+        root = null;
+    }
+
+    //中序遍历方法
+    public Iterator&lt;T> iterator() {
+        return new BinaryTreeIterator();
+    }
+
+    private class BinaryTreeIterator implements Iterator&lt;T> {
+
+        LinkedListStack&lt;BinaryNode&lt;T>> stack = new LinkedListStack&lt;>();
+
+        BinaryNode&lt;T> currentNode = root;
+
+        @Override
+        public boolean hasNext() {
+            return !stack.isEmpty() || currentNode != null;
+        }
+
+        @Override
+        public T next() {
+            while (currentNode != null) {
+                stack.push(currentNode);
+                currentNode = currentNode.getLeftNode();
+            }
+
+            //然后弹栈, 弹一个出来看看有没有右结点
+            if (!stack.isEmpty()) {
+                BinaryNode&lt;T> nextNode = stack.pop();
+
+                //将当前节点变换成右侧节点, 继续进行相同的操作.
+                currentNode = nextNode.getRightNode();
+                return nextNode.getData();
+            } else {
+                throw new RuntimeException("出现意外");
+            }
+        }
+    }
+}
+</pre>
+<p>值得注意的是迭代器的选择, 注意我们的二叉树是左&lt;中&lt;右的关系, 所以应该使用中序迭代器, 迭代的结果就是按照升序排序的结果, 这是一个很有意思的点.</p>
+<p>写好了TreeInterface及TreeIterator中的所有方法, 可以发现将统计树高度和节点数量安排在节点类中非常易于复用.</p>
+<p>然后来着重关心BinarySearchTreeInterface中的方法.</p>
+
+<h2 style="text-align: center;" id="con2">二叉查找树 - 添加和修改元素</h2>
+<p>添加元素首先要分两种情况, 即如果树为空, 则这个元素一定添加到根节点. 如果树不为空, 很显然用递归的方式可以很容易的添加:</p>
+<ol>
+    <li>判断根节点与要添加的元素的大小</li>
+    <li>如果相等, 返回当前节点的元素, 设置当前元素为新元素</li>
+    <li>要添加元素小于根节点, 判断有没有左节点, 没有就新创建一个挂上, 有就对其进行递归操作</li>
+    <li>要添加元素大于根节点, 判断有没有右节点, 没有就新创建一个挂上, 有就对其进行递归操作</li>
+</ol>
+<p>这里边其实也就一种特殊情况, 就是树为空, 因此编写一公一私两个方法:</p>
+<pre>
+@Override
+public T add(T newEntry) {
+    if (isEmpty()) {
+        root = new BinaryNode&lt;>(newEntry);
+        return newEntry;
+
+    } else return add(newEntry, root);
+}
+
+private T add(T newEntry, BinaryNode&lt;T> node) {
+    if (newEntry.compareTo(node.getData()) == 0) {
+        T result = node.getData();
+        node.setData(newEntry);
+        return result;
+    } else if (newEntry.compareTo(node.getData()) &lt; 0) {
+        if (node.getLeftNode() != null) {
+            return add(newEntry, node.getLeftNode());
+        } else {
+            node.setLeftNode(new BinaryNode&lt;>(newEntry));
+            return newEntry;
+        }
+    } else {
+        if (node.getRightNode() != null) {
+            return add(newEntry, node.getRightNode());
+        } else {
+            node.setRightNode(new BinaryNode&lt;>(newEntry));
+            return newEntry;
+        }
+    }
+}
+</pre>
+<p>这个递归方法就是上边思路的直接翻译,比较容易理解. 担心栈溢出的话, 还有迭代方法, 迭代方法也不难理解, 就是不断比较当前节点, 然后判断有没有左右孩子, 然后更新当前节点:</p>
+<pre>
+private T iterableAdd(T newEntry) {
+    BinaryNode&lt;T> currentNode = root;
+    boolean found = false;
+    T result = null;
+    while (!found) {
+        if (newEntry.compareTo(currentNode.getData()) == 0) {
+            result = currentNode.getData();
+            currentNode.setData(newEntry);
+            found = true;
+        } else if (newEntry.compareTo(currentNode.getData()) &lt; 0) {
+            if (currentNode.getLeftNode() != null) {
+                currentNode = currentNode.getLeftNode();
+            } else {
+                currentNode.setLeftNode(new BinaryNode&lt;>(newEntry));
+                found = true;
+            }
+        } else {
+            if (currentNode.getRightNode() != null) {
+                currentNode = currentNode.getRightNode();
+            } else {
+                currentNode.setRightNode(new BinaryNode&lt;>(newEntry));
+                found = true;
+            }
+        }
+    }
+
+    return result;
+}
+</pre>
+<p>这个迭代方法就是将递归方法每次传入的当前节点作为循环变量不断更新, 原理完全一致. 选用哪个都可以. 可以发现, 类似字典的方法, 我们的add方法同时具备了增和改的功能.</p>
+
+<h2 style="text-align: center;" id="con3">二叉查找树 - 查找元素</h2>
+<p>查找元素的思路与添加差不多, 从根节点开始, 比较当前节点, 然后根据比较结果, 选择继续前进到左或者右节点, 如果无法前进而且没找到, 则说明没有找到, 返回null.</p>
+<pre>
+@Override
+public boolean contains(T entry) {
+    if (isEmpty()) {
+        return false;
+    } else return iterFind(entry);
+}
+
+private boolean iterFind(T entry) {
+    BinaryNode&lt;T> currentNode = root;
+    boolean found = false;
+
+    while (!found) {
+        if (entry.compareTo(currentNode.getData()) == 0) {
+            found = true;
+        } else if (entry.compareTo(currentNode.getData()) &lt; 0) {
+            if (currentNode.getLeftNode() == null) {
+                break;
+            } else {
+                currentNode = currentNode.getLeftNode();
+            }
+        } else {
+            if (currentNode.getRightNode() == null) {
+                break;
+            } else {
+                currentNode = currentNode.getRightNode();
+            }
+        }
+    }
+
+    return found;
+}
+</pre>
+<p>递归的思路也是一样, 在当前节点中查找, 如果大于或者小于, 就继续在左右子树中查找:</p>
+<pre>
+private boolean recursionFind(T entry, BinaryNode&lt;T> node) {
+    if (entry.compareTo(node.getData()) == 0) {
+        return true;
+    } else if (entry.compareTo(node.getData()) &lt; 0) {
+        if (node.getLeftNode() == null) {
+            return false;
+        } else {
+            return recursionFind(entry, node.getLeftNode());
+        }
+    } else {
+        if (node.getRightNode() == null) {
+            return false;
+        } else {
+            return recursionFind(entry, node.getRightNode());
+        }
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con4">二叉查找树 - 删除元素 - 递归实现</h2>
+<p>删除元素就复杂多了, 在二叉查找树树中我们每一个节点至少有三种情况:</p>
+<ol>
+    <li>没有子代, 即是一个叶子节点, 如果要删除这个节点, 只需要将其父节点指向这个节点的引用设置为null即可.</li>
+    <li>如果只有一个子节点, 很显然, 删除之后, 需要让父节点原本指向被删除节点的引用指向被删除节点的这个唯一的子节点即可.</li>
+    <li>如果有两个子节点, 直接删除那个节点并不是一个好主意, 记住二叉树的特点很有意思, 某个左子树的最右边元素(即一直向右寻找到没有右子结点的元素)是右边整个树里最大的, 右子树的最左侧元素(即一直向左寻找到没有左子节点的元素)是右子树里最小的. 所以可以找被删除节点的前驱(或者后继)来代替掉这个节点的内容, 然后把原来的前驱或者后继删除掉.</li>
+</ol>
+<p>理论知道了. 不过写起代码来还是比较难. 这里只能先跟着书学实现了.</p>
+<p>第一步, 是一个大框架, 即需要一个公有方法:</p>
+<pre>
+public T remove(T entry) {
+    ReturnObject oldEntry = new ReturnObject(null);
+    BinaryNode&lt;T> newRoot = removeEntry(getRootNode(), entry, oldEntry);
+    setRootNode(newRoot);
+    return oldEntry.get();
+}
+</pre>
+<p>这个公有方法的意义在于, 由于删除方法是从树中删除一个节点, 这个节点可能不是根节点也可能是根节点, 如果是根节点的话, 整个树会发生变化, 所以必须时刻使用一个指向最新的树的根节点的引用, 并在完成删除之后, 将树结构的根节点重新设置为新的根节点.</p>
+<p>还需要有一个对象来保存找到的结果, 因此可以创建一个新的内部类, 就用于保存结果,这样可以在整个递归过程中使用同一个对象进行保存找到的结果.</p>
+<p><code>ReturnObject</code>内部类如下, 用于在整个递归的过程中, 保存找到的要删除的变量或者结果是null:</p>
+<pre>
+public class ReturnObject {
+    private T entry;
+
+    ReturnObject(T entry) {
+        this.entry = entry;
+    }
+
+    public void setEntry(T entry) {
+        this.entry = entry;
+    }
+
+    public T get() {
+        return this.entry;
+    }
+}
+</pre>
+<p>第二步, 很显然, 第一步中removeEntry方法没有编写. removeEntry方法将是主要的递归方法. 其中将会使用一个辅助方法removeFromRoot来删除指定子树中的项.</p>
+<pre>
+/**
+ * 在一棵树中删除指定的entry, 并且返回这棵树的根节点
+ * @param rootNode 递归删除的主方法
+ * @param entry 要删除的项目
+ * @param oldEntry 保存要删除项目的值的对象
+ * @return 根节点
+ */
+private BinaryNode&lt;T> removeEntry(BinaryNode&lt;T> rootNode, T entry, ReturnObject oldEntry) {
+
+    if (rootNode != null) {
+        //先获取根节点的数据
+        T rootData = rootNode.getData();
+
+        //然后进行比较
+        int comparison = entry.compareTo(rootData);
+
+        //当前子树的根节点就是要删除的节点
+        if (comparison == 0) {
+            //在对象中保存要删除的节点的原来的数据
+            oldEntry.setEntry(rootData);
+            //从子树中删除根节点的方法
+            rootNode = removeFromRoot(rootNode);
+            //要查找的数据小于当前根节点, 要到左子树中进行操作.
+        } else if (comparison &lt; 0) {
+            //获取左子树的根节点
+            BinaryNode&lt;T> leftChild = rootNode.getLeftNode();
+            //对左子树进行相同的操作
+            BinaryNode&lt;T> subtreeRoot = removeEntry(leftChild, entry, oldEntry);
+            //将当前节点的左子树设置到新返回的子树的根节点
+            rootNode.setLeftNode(subtreeRoot);
+
+        } else {
+            //对右侧也是同样的操作
+            BinaryNode&lt;T> rightChild = rootNode.getRightNode();
+            rootNode.setRightNode(removeEntry(rightChild, entry, oldEntry));
+        }
+    }
+    return rootNode;
+}
+</pre>
+<p>这第二步的思路还真是得好好理解一下, 在一棵树中删除指定的节点, 并且返回删除后的这棵树的子节点. 因为有了返回值, 所以就可以每次删除之后将当前节点的左右子节点各设置成递归方法返回的节点.</p>
+<p>递归的思路确实还得好好琢磨琢磨.</p>
+<p>第三步, 就是里边又用到了一个辅助方法removeFromRoot(rootNode), 这个节点表示找到了要删除的数据所在节点, 并以其作为一个子树的根节点来进行删除的操作. 这个方法就是直接对应前边三种情况的操作:</p>
+<pre>
+/**
+ * 这个方法是将三种操作都归于同一个起点, 即找到要删除的节点, 将其当做一个子树的根节点, 然后来进行操作
+ * @param rootNode 要删除的节点
+ * @return 返回删除后新的根节点
+ */
+private BinaryNode&lt;T> removeFromRoot(BinaryNode&lt;T> rootNode) {
+    //如果同时有两个子节点, 则不能简单的删除, 需要寻找前驱来替换
+    if (rootNode.getRightNode() != null && rootNode.getLeftNode() != null) {
+
+        //先获取当前节点的左子树节点
+        BinaryNode&lt;T> leftSubtreeRootNode = rootNode.getLeftNode();
+
+        //在左子树中找到其前驱节点
+        BinaryNode&lt;T> frontNode = findLargestNode(leftSubtreeRootNode);
+
+        //进行替换
+        rootNode.setData(frontNode.getData());
+
+        //更新当前节点的左侧子树为删除了前驱节点的子树
+        rootNode.setLeftNode(removeLargest(leftSubtreeRootNode));
+
+
+    //不满足上边条件, 则两个子节点至少有一个是null, 分别判断即可, 如果不是null, 只需要返回子节点, 这样上一层递归会接上当前节点的子节点, 也就相当于删除了当前节点
+
+    //左边不为空就设置为左边
+    } else if (rootNode.getLeftNode() != null) {
+        rootNode = rootNode.getLeftNode();
+    //左边为空就设置成右边, 不用管右边是不是为空, 为空也是正确的
+    } else rootNode = rootNode.getRightNode();
+
+    return rootNode;
+}
+</pre>
+<p>这个方法就是核心算法的体现, 需要好好理解. 同时还需要注意的是仅有一个节点的情况下直接将返回的根设置成其子节点即可, 这样自然就删除掉了原来的节点, 有点像从链表中删除一项.</p>
+<p>其中又有两个辅助方法<code>findLargestNode</code>和<code>removeLargest</code>, 继续来实现.</p>
+<p>findLargest很简单, 一路向右查找即可, 就可以保证是前驱节点, 也就是仅仅小于这个子树的父节点的节点, 这个方法随便写成递归或者迭代都可以:</p>
+<pre>
+private BinaryNode&lt;T> findLargestNode(BinaryNode&lt;T> rootNode) {
+    BinaryNode&lt;T> currentNode = rootNode;
+    while (currentNode.getRightNode() != null) {
+        currentNode = currentNode.getRightNode();
+    }
+    return currentNode;
+}
+</pre>
+<p>最后是删除最大节点的方法<code>removeLargest</code>, 这个的原理和之前类似, 需要返回一个当前的子树的根节点:</p>
+<pre>
+private BinaryNode&lt;T> removeLargest(BinaryNode&lt;T> rootNode) {
+    //如果没有右节点, 就返回左节点
+    if (rootNode.getRightNode() == null) {
+        return rootNode.getLeftNode();
+    //如果有右节点, 将当前节点的右节点设置成删除最大之后返回的新子树的根节点
+    } else {
+        rootNode.setRightNode(removeLargest(rootNode.getRightNode()));
+        return rootNode;
+    }
+}
+</pre>
+<p>这样就总算编写好了删除一个节点的方法. 确实够刺激.</p>
+<p>由于递归的时候需要重新组合树, 所以必须传一个对根节点的引用, 以能够正确的将整棵树重新组合起来.</p>
+<p>这个思想在第一次看算法第四版的时候功力不够, 还是看的稀里糊涂的, 这次完整的追踪了一次, 理解又深了点, 不过这种方法确实还挺拧巴, 需要再想想.</p>
+<p>好比之前的递归全排列和分硬币等操作, 就在脑子里想了好久才知道, 还有动态规划, 至今都没太想明白, 估计还得继续琢磨一下.</p>
+<p>迭代版本的等明天再研究一下, 心里再琢磨一下, 最后再把一个方法补完, 今天好歹写完了二叉查找树.</p>
+<pre>
+@Override
+public T getEntry(T entry) {
+    if (isEmpty()) {
+        return null;
+    } else {
+        T result = null;
+        BinaryNode&lt;T> currentNode = root;
+        boolean found = false;
+
+        while (!found && currentNode != null) {
+            if (entry.compareTo(currentNode.getData()) == 0) {
+                result = currentNode.getData();
+                found = true;
+            } else if (entry.compareTo(currentNode.getData()) &lt; 0) {
+                currentNode = currentNode.getLeftNode();
+            } else {
+                currentNode = currentNode.getRightNode();
+            }
+        }
+        return result;
+    }
+}
+</pre>
+<p>迭代方法等会再研究, 不知道是不是比递归好理解一些.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
