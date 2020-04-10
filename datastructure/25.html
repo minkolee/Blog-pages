@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 树 - 二叉查找树续</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>学算法现在真是越来越难了, 一杯茶, 一包烟, 一个算法想半天. 昨天看完了二叉查找树的递归删除, 晚上睡觉的时候还在想着这个东西, 最要好好理解的就是将所有的操作都变化为定位要删除的节点为根节点这一个操作, 然后在递归中每次返回新子树的根节点, 重新又把树串联起来的这个思路很重要.</p>
+<p>今天来看看迭代的方式, 是不是比递归好理解一些, 然后还要看看之前忘记看的深度优先搜索和广度优先搜索.</p>
+
+<ol>
+    <li><a href="#con1">二叉查找树 - 删除元素 - 迭代实现</a></li>
+    <li><a href="#con2">二叉查找树 - 深度优先遍历和广度优先遍历</a></li>
+
+</ol>
+<h2 style="text-align: center;" id="con1">二叉查找树 - 删除元素 - 迭代实现</h2>
+<p>迭代查找的基础思路还是一样的, 即先定位到要查找的元素节点, 然后进行删除.</p>
+<p>不过因为递归是直接返回删除后的根节点进行拼接, 所以实际上对于要删除的节点的父节点是隐含的包含在了递归过程中.</p>
+<p>在迭代中就不行了, 因为删除一个节点不可避免的涉及到对其父节点的操作, 所以要显式的获取父节点才可以.</p>
+<p>然后整体操作分为两种情况:</p>
+<ol>
+    <li>节点有不超过一个子代, 像操作链表一样获取子代引用, 设置到其父节点上</li>
+    <li>有两个孩子, 寻找前驱然后替换之后删除前驱, 这里很有趣的是, 删除前驱的情况和第一种情况是一样的</li>
+</ol>
+<p>通过分析可以知道, 删除动作其实只有一种情况, 就是删除一个不超过一个子代的节点, 只不过额外可能会有替换情况的发生.</p>
+<p>考虑一下在整个删除的过程中, 需要知道如下变量: 要删除的节点, 要删除的节点的父节点.</p>
+<p>所以可以用一个保存两个节点引用的内部类在整个操作过程中保存这些变量:</p>
+<pre>
+private class NodePair {
+    private BinaryNode&lt;T> targetNode;
+    private BinaryNode&lt;T> fatherNode;
+
+    public BinaryNode&lt;T> getTargetNode() {
+        return targetNode;
+    }
+
+    public void setTargetNode(BinaryNode&lt;T> targetNode) {
+        this.targetNode = targetNode;
+    }
+
+    public BinaryNode&lt;T> getFatherNode() {
+        return fatherNode;
+    }
+
+    public void setFatherNode(BinaryNode&lt;T> fatherNode) {
+        this.fatherNode = fatherNode;
+    }
+}
+</pre>
+<p>然后开始逐个编写方法, 首先在公有方法中写上核心逻辑:</p>
+<pre>
+public T iterRemove(T entry) {
+    //声明返回值
+    T result = null;
+
+    //这里使用一个辅助方法, 寻找到entry所在的节点及其父节点, 创建一个nodePair并返回这个对象, 以供后续使用.
+    NodePair nodePair = <span style="color: red">findNode</span>(entry);
+
+    //从NodePair中取出查找结果
+
+    //targetNode存放要删除的节点
+    BinaryNode&lt;T> targetNode = nodePair.getTargetNode();
+
+    //fatherNode是要删除的节点的父节点
+    BinaryNode&lt;T> fatherNode = nodePair.getFatherNode();
+
+    //findNode方法中, 如果没有找到, 则targetNode会是null, 不进行任何操作
+
+    //找到节点的情况下
+    if (targetNode != null) {
+
+        result = targetNode.getData();
+
+        //如果这个节点有两个子节点
+        if (targetNode.getLeftNode() != null && targetNode.getRightNode() != null) {
+
+            //需要重新定位要删除的节点及其父节点, 这里再用一个辅助函数
+            nodePair = <span style="color: red">findFrontNode</span>(targetNode);
+
+            //然后替换数据, 之后更新要删除的节点
+            targetNode.setData(nodePair.getTargetNode().getData());
+            targetNode = nodePair.getTargetNode();
+            fatherNode = nodePair.getFatherNode();
+        }
+
+        //现在所有的情况都收敛成删除至多一个子节点的节点了.用一个辅助方法删除之
+        <span style="color: red">removeTargetNode</span>(fatherNode, targetNode);
+    }
+
+    return result;
+
+}
+</pre>
+<p>下边来逐个编写辅助方法, 先是<code>findNode</code>:</p>
+<pre>
+private NodePair findNode(T entry) {
+    BinaryNode&lt;T> father = null;
+    BinaryNode&lt;T> target = root;
+    boolean found = false;
+    NodePair nodePair = new NodePair();
+
+    while (target != null && !found) {
+        if (entry.compareTo(target.getData()) == 0) {
+            nodePair.setFatherNode(father);
+            nodePair.setTargetNode(target);
+            found = true;
+        } else if (entry.compareTo(target.getData()) &lt; 0) {
+            father = target;
+            target = target.getLeftNode();
+        } else {
+            father = target;
+            target = target.getRightNode();
+        }
+    }
+
+    if (!found) {
+        nodePair.setTargetNode(null);
+        nodePair.setFatherNode(null);
+    }
+    return nodePair;
+
+}
+</pre>
+<p>这个方法如果找到, 就返回父节点和子节点组成的一个对象, 如果找不到, 对象中的两个节点都是null.</p>
+<p>之后来编写寻找前驱的方法, 这个方法从包含要删除的节点出发, 寻找其前驱节点和前驱节点的父节点:</p>
+<pre>
+private NodePair findFrontNode(BinaryNode&lt;T> startNode) {
+    //获取左子树的根节点
+    BinaryNode&lt;T> leftSubtreeNode = startNode.getLeftNode();
+
+    //然后将当前节点当成父节点, leftSubtreeNode当成子节点, 开始进行搜索
+
+    BinaryNode&lt;T> father = startNode;
+    BinaryNode&lt;T> target = leftSubtreeNode;
+
+    while (target.getRightNode() != null) {
+        father = target;
+        target = target.getRightNode();
+    }
+    //循环结束之后, target一定是一个没有右节点的节点, father是其父节点
+    //注意, 也可能父节点就是startNode, 子节点就是startNode的左子节点, 不过同样满足我们的要求.
+
+    //组装NodePair对象
+    NodePair nodePair = new NodePair();
+    nodePair.setFatherNode(father);
+    nodePair.setTargetNode(target);
+    return nodePair;
+}
+</pre>
+<p>寻找前驱的方法与递归中寻找的方法类似, 都是一直向右寻找, 只不过需要保存父节点, 而父节点可能就是原本查找到的节点, 所以这个方法要把原来的targetNode传进去.</p>
+<p>现在所有的情况都收敛了, 编写最后一个辅助方法<code>removeTargetNode</code>, 这个方法要做的事情很简单, 就是:</p>
+<pre>
+private void removeTargetNode(BinaryNode&lt;T> fatherNode, BinaryNode&lt;T> targetNode) {
+    //从前边的逻辑中可以发现, 程序能进到这个方法里, targetNode一定不会为空, 而且至多就一个子节点
+    //所以要看一下是不是根节点, 只需要重新设置根节点为其存在的那个子节点即可, 如果不是根节点, 那么father和target都存在, 删除之即可.
+
+    //找到targetNode的至多一个的子节点
+    BinaryNode&lt;T> childNode;
+    if (targetNode.getRightNode() != null) {
+        childNode = targetNode.getRightNode();
+    } else {
+        childNode = targetNode.getLeftNode();
+    }
+
+    //如果删除的就是根节点, 就把子节点当成根节点
+    if (targetNode == root) {
+        setRootNode(childNode);
+
+    //如果不是根节点, 判断targetNode是父节点的左儿子还是右女儿, 然后把childNode挂在对应位置即可
+    } else if (fatherNode.getRightNode() == targetNode) {
+        fatherNode.setRightNode(childNode);
+    } else fatherNode.setLeftNode(childNode);
+}
+</pre>
+<p>写完了之后发现, 迭代的版本确实比递归的好理解一些, 主要是显式的使用父节点, 就减少了很多思维上的重新链接.</p>
+<p>这里也学到了如果需要在不同的函数之间传递参数, 可以传递一个包裹对象, 这样会减少传递参数的数量, 代码也会更加清晰.</p>
+
+<h2 style="text-align: center;" id="con2">二叉查找树 - 深度优先遍历和广度优先遍历</h2>
+<p>深度优先遍历指的是先沿一条道全部遍历到底, 再去找另外的道路, 也就是先沿一个节点然后接着访问下一层节点, 到了底部了,再换一条路.</p>
+<p>由于已经学了各种遍历二叉树的方法, 深度优先遍历, 其实就是前序遍历, 可以看到, 前序遍历在访问当前节点之后, 立刻就访问左节点, 而访问左节点的时候, 又会继续去访问左节点, 会一直先从头到尾访问到最左侧路径, 然后立刻就会再去访问最后节点的右子节点, 然后又会一路到底.</p>
+<p>所以深度优先遍历也就是会一路去遍历叶子节点到底, 整个树的右半部分不会在左侧访问结束前向访问, 但是好处是藏得比较深的元素会被先访问到. </p>
+<p>深度优先是一种思路, 并不特指前序搜索, 比如二叉树中定位元素的寻找, 就是深度优先搜索, 因为会根据每个节点一路往下进行搜索.</p>
+<p>广度优先遍历指的是不先去往深处走, 而是横向撒网, 从一个节点开始访问之后, 接着访问下一层的所有节点, 然后再继续一层. 就像一个扩散出去的分支一样慢慢往下走.</p>
+<p>所以广度优先搜索就是层序遍历, 如果不太清楚元素的位置, 或者树无序, 就可以使用广度优先搜索试试, 可能会被深度优先更先找到元素.</p>
+<p>这两个搜索对于二叉树来说, 由于有序, 肯定是深度优先搜索快. 但是到了图算法, 二者就各有用途了.</p>
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
