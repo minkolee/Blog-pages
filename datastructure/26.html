@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 堆</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>堆是结点具有特定排列次序的完全二叉树, 即一层没铺满之前, 子节点都是从左往右铺. 由于这个特点, 堆最常见的实现是使用数组, </p>
+<p>这个堆并不是操作系统在运行程序的时候分配给程序的用于存储共享数据空间部分, 而是特指这种数据结构.</p>
+
+<ol>
+    <li><a href="#con1">堆的基础概念</a></li>
+    <li><a href="#con2">堆的实现 - 数组</a></li>
+    <li><a href="#con3">堆的实现 - add()方法</a></li>
+    <li><a href="#con4">堆的实现 - removeMax()方法</a></li>
+    <li><a href="#con5">创建堆</a></li>
+    <li><a href="#con6">堆排序</a></li>
+
+</ol>
+<h2 style="text-align: center;" id="con1">堆的基础概念</h2>
+<p>堆是一棵完全二叉树, 而且必须支持对象的比较, 因为其中的对象也是某种"有序"的. 最大堆指的是每个节点中的对象大于或者等于其后代对象, 最小堆指的是每个节点中的对象小于或者等于后代对象. 这两个没有本质区别, 因为Comparable对象只需要更改一下方法的结果就可以.</p>
+<p>可以用二叉树实现, 但由于堆的特点, 一定是从左到右排列, 由于每一层的节点数据如果满的话,是上一层的2倍, 所以可以用数组来存放. 这是一大特色.</p>
+<p>所以这里最大的思路进化就是, 树不一定需要用节点, 数据结构描述的是数据之间的关系, 而不是与具体的实现绑定在一起, 这个思路一定要仔细理解.</p>
+<p>堆的接口先创建出来:</p>
+<pre>
+public interface MaxHeapInterface&lt;T extends Comparable&lt;? super T>> {
+
+    void add(T newEntry);
+
+    T removeMax();
+
+    T getMax();
+
+    boolean isEmpty();
+
+    int getSize();
+
+    void clear();
+
+}
+</pre>
+<p>可以发现, 堆的特点是removeMax(), 而不是remove某一个元素, 这个就是堆的特点, 下边就看如何实现了.</p>
+
+<h2 style="text-align: center;" id="con2">堆的实现 - 数组</h2>
+<p>使用数组实现堆, 基于可以把堆的节点认为是连续排布这一个特性.</p>
+<p>将堆按照层序遍历的方式排布, 每一层从左到右访问, 则可以发现堆可以排列到一个数组中, 一开始是1个元素, 第二层是2个, 第三层是4个.</p>
+<p>这里一个特色是索引不再从0开始, 而是从1开始, 相对应的, 数组也空出第一个位置了. 索引从1开始有一个最大的好处, 就是非常方便的判断一个节点的父节点是谁,
+    只需要将节点的索引/2即可, 比如索引3号元素/2=1, 父节点就是1号元素, 而4号元素/2 = 2, 很显然可以知道4号元素实际上已经是第三层的第一个元素, 父节点是2号元素.</p>
+<p>反过来, 要找到一个节点的孩子, 则其孩子一定是这个节点的索引i 的 2i 和2i+1这两个值, 使用这些方法, 就可以非常快的找到对应的节点.</p>
+<p>至于根节点, 由于1/2=0, 所以可以在这种情况下定位到索引1处, 也可以在0索引的地方放一个特殊值用于指向根节点. 有了这个操作索引的方法, 就可以具体来实现堆了.</p>
+<p>依照上述思路, 先来搭建一个堆的基础设施:</p>
+<pre>
+public class MaxHeap&lt;T extends Comparable&lt;? super T>> implements MaxHeapInterface&lt;T> {
+
+    //实际实现堆的数组
+    private T[] heap;
+
+    //指向最后一个元素的索引
+    private int lastIndex;
+
+    //老套路了, 安全初始化标志
+    boolean initialized = false;
+
+    private static final int DEFAULT_CAPACITY = 25;
+
+    private static final int MAX_CAPACITY = 10000;
+
+    MaxHeap() {
+        this(DEFAULT_CAPACITY);
+    }
+
+    @SuppressWarnings("unchecked")
+    MaxHeap(int size) {
+        if (size > MAX_CAPACITY) {
+            size = MAX_CAPACITY;
+        }
+
+        if (size < DEFAULT_CAPACITY) {
+            size = DEFAULT_CAPACITY;
+        }
+
+        heap = (T[]) new Comparable[size + 1];
+        lastIndex = 0;
+        initialized = true;
+    }
+
+}
+</pre>
+<p>这里核心的变量就是一个数组, 其长度有构造器的参数决定, 实际的数组长度是用户传入的长度+1, 实际存放堆元素的时候从索引1开始.</p>
+<p>然后还一个核心的标志就是指向最后一个堆元素的索引, 在堆为空白的时候, 将其指向0. 可以发现, 这个lastIndex同时也可以当成其中的数量来使用. </p>
+<p>下边来一个一个实现接口中的方法.</p>
+
+<h2 style="text-align: center;" id="con3">堆的实现 - add()方法</h2>
+<p>add()方法从树的角度来说, 是新增一个节点, 此外要注意的是, 由于是最大堆, 父节点一定要大于等于子节点, 因此需要比较子节点与父节点, 如果大于父节点,需要将这个节点上浮.</p>
+<p>由于数组的索引已经表达了元素之间的关系, 所以落实到add()方法上, 就是先将其放到最后边, 然后不断判断其与父节点的大小, 如果大于, 就交换, 最多上浮到根节点为止, 这个过程被称为上浮.</p>
+<p>根据这个思路, 写出方法如下:</p>
+<pre>
+@Override
+public void add(T newEntry) {
+
+    //检查容量, 如果超过就需要扩大数组
+    checkCapacity();
+
+    //先把元素放入最后一格
+    lastIndex = lastIndex + 1;
+    heap[lastIndex] = newEntry;
+
+    int index = lastIndex;
+
+    //不断交换到当前索引为1为止
+    while (index != 1) {
+        if (heap[index].compareTo(heap[index / 2]) > 0) {
+            //交换
+            T temp = heap[index];
+            heap[index] = heap[index / 2];
+            heap[index / 2] = temp;
+        }
+        index = index / 2;
+    }
+
+}
+</pre>
+<p>这里可见, 由于每次交换索引, 都是向上一层, 由于是完全二叉树, 层数实际上是2的对数, 所以这个方法的复杂度是log(n), 还算是比较快的了.</p>
+
+<h2 style="text-align: center;" id="con4">堆的实现 - removeMax()方法</h2>
+<p>有了上浮自然会想到下沉, 从堆中删除最大元素那就是删除根节点, 很显然, 如果直接删除根节点, 那后边就乱套了.
+    因此删除的方法也是有技巧的, 就是将根元素和最后一个元素进行交换, 然后将其删除, 再把当前的根元素下沉到正确的位置即可.</p>
+<p>根据这个思路, 可以写出方法如下:</p>
+<pre>
+@Override
+public T removeMax() {
+    T result = null;
+
+    if (!isEmpty()) {
+        int index = 1;
+
+        //交换根元素和最后一个元素, 顺便就给result赋值, 然后将最后一个位置置为null, 之后减少lastIndex
+        result = heap[1];
+        heap[1] = heap[lastIndex];
+        heap[lastIndex] = null;
+        //然后减少lastIndex, lastIndex用于后边下沉判断
+
+        lastIndex = lastIndex - 1;
+
+        boolean done = false;
+        //还存在左节点的情况下, 找到两个子节点的较大项(也许没有右节点), 然后进行比较, 只要小于, 就交换
+        while (!done && 2 * index <= lastIndex) {
+
+            //如果存在右节点
+            if (2 * index + 1 <= lastIndex) {
+                //如果左节点大于右节点
+                if (heap[index * 2].compareTo(heap[index * 2 + 1]) > 0) {
+
+                    //要下沉节点小于左节点, 进行交换
+                    if (heap[index].compareTo(heap[index * 2]) < 0) {
+                        T temp = heap[index];
+                        heap[index] = heap[index * 2];
+                        heap[index * 2] = temp;
+                        //更新当前节点的index到左节点的位置
+                        index = index * 2;
+
+                    //下沉节点大于两个较大的, 则已经到达正确位置
+                    } else {
+                        done = true;
+                    }
+                    //如果左节点小于等于右节点, 即右节点较大
+                } else {
+                    //要下沉节点小于右节点, 进行交换
+                    if (heap[index].compareTo(heap[index * 2 + 1]) < 0) {
+
+                        T temp = heap[index];
+                        heap[index] = heap[index * 2 + 1];
+                        heap[index * 2 + 1] = temp;
+
+                        //更新当前节点的index到右节点的位置
+                        index = index * 2 + 1;
+                        //下沉节点大于两个较大的, 则已经到达正确位置
+                    } else {
+                        done = true;
+                    }
+                }
+            //如果不存在右节点, 直接比较左节点
+            } else {
+                //要下沉节点小于左节点, 进行交换
+                if (heap[index].compareTo(heap[index * 2]) < 0) {
+                    T temp = heap[index];
+                    heap[index] = heap[index * 2];
+                    heap[index * 2] = temp;
+                    //下沉节点大于两个较大的, 则已经到达正确位置
+                    index = index * 2;
+                } else {
+                    done = true;
+                }
+            }
+
+        }
+    }
+
+    return result;
+}
+</pre>
+<p>这个删除方法实际上是先获取要返回的值, 然后重新整理了一遍堆, 下沉之后的堆依然保持着原来的有序性.</p>
+<p>然后把剩下的几个方法补全:</p>
+<pre>
+@Override
+public T getMax() {
+    if (isEmpty()) {
+        return null;
+    } else {
+        return heap[1];
+    }
+}
+
+@Override
+public boolean isEmpty() {
+    return lastIndex == 0;
+}
+
+@Override
+public int getSize() {
+    return lastIndex;
+}
+
+@Override
+public void clear() {
+    for (int i = 1; i <= lastIndex; i++) {
+        heap[i] = null;
+    }
+    lastIndex = 0;
+}
+
+//为测试显示内部结构使用, 实际中不能直接返回内部数组的索引
+public T[] toArray() {
+    return heap;
+}
+</pre>
+<p>这样就实现了一个堆, 可以发现, remove方法和add方法都是logN复杂度的, 这说明性能是可以接受的. 把扩大数组容量的方法也补上:</p>
+<pre>
+@SuppressWarnings("unchecked")
+private void checkCapacity() {
+
+    //如果已经满了, 即lastIndex = MAX_CAPACITY, 抛异常
+    if (lastIndex + 1 > MAX_CAPACITY) {
+        throw new RuntimeException("数组已经达到最大长度");
+    }
+
+    if (lastIndex + 1 == heap.length) {
+        //否则需要在扩大一倍和上限之间进行选择, 实际的数组长度应该是 lastIndex*2+1 和 MAX_CAPACITY+1 两个的较小值
+        int newLength = Math.min((lastIndex * 2 + 1), MAX_CAPACITY + 1);
+
+        T[] newArray = (T[]) new Comparable[newLength];
+
+        if (lastIndex + 1 >= 0) System.arraycopy(heap, 0, newArray, 0, lastIndex + 1);
+
+        heap = newArray;
+    }
+
+}
+</pre>
+
+<h2 style="text-align: center;" id="con5">创建堆数据结构</h2>
+<p>创建堆, 很显然, 不断地调用add()方法即可. 但是由于堆内部就是一个数组, 因此如果我们有一个数组需要变成堆, 非常方便.</p>
+<p>这里我们回头看一下removeMax()方法,这个方法实际上由两部分组成, 即先交换然后删除末尾元素, 然后进行下沉的操作. </p>
+<p>这里注意这个下沉操作, 其操作的对象是一个除了根节点之外, 都已经按照堆排列好的一个还不能成为堆的堆, 这个叫做半堆.</p>
+<p>注意这样一个思考, 一个节点就是一个堆, 三个节点的话, 只要进行一次下沉操作, 得到的就是三个节点的堆. 如果一个树两个分支都是堆, 那么进行一次下沉之后, 就得到一个堆.</p>
+<p>所以很有意思的一点出现了, 我们只需要知道一个数组中倒数第二层的最右边一个节点, 反向到整个堆的根节点(从数组的某个位置反向到数组头部), 都进行一次下沉操作, 就完事了.</p>
+<p>所以我们可以把这个下沉的操作抽出来成为一个方法, 让这个方法除了用在removeMax()中, 还可以用在其他地方:</p>
+<pre>
+private void reheap(int index) {
+
+    boolean done = false;
+    //还存在左节点的情况下, 找到两个子节点的较大项(也许没有右节点), 然后进行比较, 只要小于, 就交换
+    while (!done && 2 * index <= lastIndex) {
+
+        //如果存在右节点
+        if (2 * index + 1 <= lastIndex) {
+            //如果左节点大于右节点
+            if (heap[index * 2].compareTo(heap[index * 2 + 1]) > 0) {
+
+                //要下沉节点小于左节点, 进行交换
+                if (heap[index].compareTo(heap[index * 2]) < 0) {
+                    T temp = heap[index];
+                    heap[index] = heap[index * 2];
+                    heap[index * 2] = temp;
+                    //更新当前节点的index到左节点的位置
+                    index = index * 2;
+
+                    //下沉节点大于两个较大的, 则已经到达正确位置
+                } else {
+                    done = true;
+                }
+                //如果左节点小于等于右节点, 即右节点较大
+            } else {
+                //要下沉节点小于右节点, 进行交换
+                if (heap[index].compareTo(heap[index * 2 + 1]) < 0) {
+
+                    T temp = heap[index];
+                    heap[index] = heap[index * 2 + 1];
+                    heap[index * 2 + 1] = temp;
+
+                    //更新当前节点的index到右节点的位置
+                    index = index * 2 + 1;
+                    //下沉节点大于两个较大的, 则已经到达正确位置
+                } else {
+                    done = true;
+                }
+            }
+            //如果不存在右节点, 直接比较左节点
+        } else {
+            //要下沉节点小于左节点, 进行交换
+            if (heap[index].compareTo(heap[index * 2]) < 0) {
+                T temp = heap[index];
+                heap[index] = heap[index * 2];
+                heap[index * 2] = temp;
+                //下沉节点大于两个较大的, 则已经到达正确位置
+                index = index * 2;
+            } else {
+                done = true;
+            }
+        }
+
+    }
+}
+</pre>
+<p>然后重组一下removeMax()方法:</p>
+<pre>
+@Override
+public T removeMax() {
+    T result = null;
+
+    if (!isEmpty()) {
+        int index = 1;
+
+        result = heap[1];
+        heap[1] = heap[lastIndex];
+        heap[lastIndex] = null;
+        lastIndex = lastIndex - 1;
+
+        //做完交换之后重新整理堆
+        reheap(index);
+
+    }
+
+    return result;
+}
+</pre>
+<p>好, 现在就来看看如何快速创建一个堆. 假如有一堆数据, 我们只需要创建一个比这个数据长1的数组, 然后将这些数据放入数组中, 之后对这个数组来使用这个reheap()方法, 要点就是从数组最后一个索引对应的父节点开始, 反向整理数组, 就得到了一个堆.
+    为此我们编写一个特殊的构造方法, 接受一个Comparable数组, 然后根据这个数组创建堆:</p>
+<pre>
+public MaxHeap(T[] entryArray) {
+    this(entryArray.length);
+
+    //将数组内容复制到内部数组的从1开始的位置
+    System.arraycopy(entryArray, 0, heap, 1, entryArray.length);
+
+    lastIndex = entryArray.length;
+
+    //反向重新整理堆
+    for (int index = lastIndex / 2; index >= 1; index--) {
+        reheap(index);
+    }
+}
+</pre>
+<p>使用一个小测试就可以发现这样很方便:</p>
+<pre>
+public static void main(String[] args) {
+
+    Integer[] aa = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+    System.out.println(aa.length);
+
+    MaxHeap&lt;Integer> heap = new MaxHeap&lt;>(aa);
+
+    System.out.println(Arrays.toString(heap.toArray()));
+}
+</pre>
+<p>而且相比反复调用add()方法导致的nLogN复杂度, 这个方法是O(n)的, 即最多也就交换N次, 本质还是类似于二叉树.</p>
+
+<h2 style="text-align: center;" id="con6">堆排序</h2>
+<p>刚刚想让说reheap()用在其他地方, 现在用在了新建堆的地方, 还有什么用处呢, 那就是排序.</p>
+<p>用堆排序的最直观方法就是, 先从一个数组创建一个堆, 然后不断的removeMax(),得到的就是一个降序序列, 也就是排序了. 再用栈一倒腾, 就得到升序序列.</p>
+<p>如果不使用额外的空间, 就可以对这个做法稍微改变一下, 即像下边这样, 将堆数组分开为已经排好序的部分和堆部分, 每次从堆部分拿一个元素放到已排序部分即可, 详细算法如下:</p>
+<p>继续观察, 在从一个数组创建完堆之后, 首节点上的元素一定就是整个堆里最大(或者说最大级别, 因为可能有相等的最大)的元素, 如果我们把最大元素换到最末尾去, 然后对从数组到n-1的位置再下沉一次, 可以发现又找到了一个最大值. 依次类推, 直到要操作的范围剩下一个元素, 也就排出来一个升序.</p>
+<p>根据这个思路, 我们可以写一个给Comparable数组排序的方法, 其操作思路是:</p>
+<ol>
+    <li>将这个数组使用reheap来排成堆的形状</li>
+    <li>不断交换首元素和末尾元素, 然后对0 - n-1的位置再reheap</li>
+    <li>直到 n-1 - 0 =1, 即只剩下一个元素为止.</li>
+</ol>
+<p>可见其实就两个操作, reheap()->交换, 不断循环这两个操作即可. 准备写一个静态方法来进行排序, 由于单纯的排序不像私有方法需要追踪lastIndex这种变量, 新写一个不同的reheap方法来应对数组排序, 如下:</p>
+<pre>
+//对堆的startIndex到endIndex的部分执行下沉操作
+//这个方法本质上和之前的完全一样, 只是索引发生了改变
+private static &lt;T extends Comparable&lt;? super T>> void reheap(T[] array, int startIndex, int endIndex) {
+    boolean done = false;
+    //由于这里的索引正常化, 所以左节点索引会变化
+    int leftChildIndex = 2 * startIndex + 1;
+
+    while (!done && leftChildIndex &lt;= endIndex) {
+
+        //确定那一边比较大, 获取较大的节点对应的数组索引
+        int largerChildIndex = leftChildIndex;
+        //如果有右节点
+        if (leftChildIndex + 1 &lt;= endIndex) {
+            //如果右节点是比较大的点
+            if (array[leftChildIndex + 1].compareTo(array[leftChildIndex]) > 0) {
+                largerChildIndex = leftChildIndex + 1;
+            }
+        }
+
+        //比较首节点与较大的子节点, 如果小于就交换, 然后重新设置startIndex到交换后的节点, leftChildIndex到交换后的节点的左子节点
+        if (array[startIndex].compareTo(array[largerChildIndex]) &lt; 0) {
+
+            T temp = array[startIndex];
+            array[startIndex] = array[largerChildIndex];
+            array[largerChildIndex] = temp;
+
+            startIndex = largerChildIndex;
+            leftChildIndex = largerChildIndex * 2 + 1;
+        } else {
+            done = true;
+        }
+    }
+}
+</pre>
+<p>上边这个方法只执行一次下沉, 根据之前创建堆一节中的内容, 我们还需要一个方法, 来反向把一个数组整理成堆, 很简单:</p>
+<pre>
+//从数组最右边元素的父节点开始, 到数组末尾, 依次应用下沉方法, 得到一个堆
+private static &lt;T extends Comparable&lt;? super T>> void arrangToHeap(T[] array) {
+    for (int i = array.length / 2; i >= 0; i--) {
+        reheap(array, i, array.length - 1);
+    }
+}
+</pre>
+<p>最后, 在外边套上排序方法即可:</p>
+<pre>
+public static &lt;T extends Comparable&lt;? super T>> void sort(T[] array) {
+    //首先将数组弄成堆
+    arrangToHeap(array);
+
+    //第一次交换首尾元素
+
+    T temp = array[0];
+    array[0] = array[array.length - 1];
+    array[array.length - 1] = temp;
+
+
+    int count = array.length;
+
+    //然后开始不断交换首尾元素并缩短范围
+    //由于下沉过程会自动结束, 因此无需判断实际操作的数组长度
+    for (int lastIndex = count - 2; lastIndex >= 0; lastIndex--) {
+        reheap(array, 0, lastIndex);
+        T temp2 = array[0];
+        array[0] = array[lastIndex];
+        array[lastIndex] = temp2;
+    }
+}
+</pre>
+<p>与归并排序和快排一样, 堆排序是O(nlogN)的算法, 归并排序需要额外空间, 而堆排序不需要. 一般来说, 依然首选快排.</p>
+<p>如果每次从堆中removeMax(), 这就是一种优先队列的实现. 现实中堆往往用来实现队列, 而不是进行排序.</p>
+<p>堆的意义在于把数组玩出了花, 再一次说明了数据结构可不是具体某些对象的实现, 而是只要可以组织数据并且利用数组的特性, 就可以实现很多有意思的玩意.</p>
+<p>比如用数组还可以搞出连通图. 下边就是AVL树了, 这一次看看能不能尽量再深入一点了.</p>
+<p>最后说一句, java.util.PriorityQueue的内部实现就是这样的堆, 而不像其他Queue一样是线性结构.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
