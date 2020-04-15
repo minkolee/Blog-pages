@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>删除排序数组中的重复项</title>
+</head>
+<body>
+<p>给定一个排序数组，你需要在 原地 删除重复出现的元素，使得每个元素只出现一次，返回移除后数组的新长度。
+
+    不要使用额外的数组空间，你必须在 原地 修改输入数组 并在使用 O(1) 额外空间的条件下完成。
+
+     
+
+    示例 1:
+
+    给定数组 nums = [1,1,2],
+
+    函数应该返回新的长度 2, 并且原数组 nums 的前两个元素被修改为 1, 2。
+
+    你不需要考虑数组中超出新长度后面的元素。
+    示例 2:
+
+    给定 nums = [0,0,1,1,1,2,2,3,3,4],
+
+    函数应该返回新的长度 5, 并且原数组 nums 的前五个元素被修改为 0, 1, 2, 3, 4。
+
+    你不需要考虑数组中超出新长度后面的元素。
+     
+
+    说明:
+
+    为什么返回数值是整数，但输出的答案是数组呢?
+
+    请注意，输入数组是以「引用」方式传递的，这意味着在函数里修改输入数组对于调用者是可见的。
+
+    你可以想象内部操作如下:
+
+    // nums 是以“引用”方式传递的。也就是说，不对实参做任何拷贝
+    int len = removeDuplicates(nums);
+
+    // 在函数里修改输入数组对于调用者是可见的。
+    // 根据你的函数返回的长度, 它会打印出数组中该长度范围内的所有元素。
+    for (int i = 0; i < len; i++) {
+        print(nums[i]);
+    }
+
+    来源：力扣（LeetCode）
+    链接：https://leetcode-cn.com/problems/remove-duplicates-from-sorted-array
+    著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。</p>
+<p>最开始还是用暴力的算法, 就是从数组第一个元素开始, 一直找到第一个与其不相等的元素, 记录此时的索引, 然后将其挪到第二个位置, 再继续向前. 代码如下:</p>
+<pre>
+class Solution {
+
+    /**
+     * 从数组第一个元素开始, 一直找到第一个与其不相等的元素, 记录此时的索引, 然后将其挪到第二个位置, 再继续向前
+     * @param nums
+     * @return
+     */
+    public int removeDuplicates(int[] nums) {
+        int i = 0;
+
+        while (i < nums.length) {
+
+            boolean found = false;
+            int current = nums[i];
+
+            int j;
+            //从i+1的位置向后搜索
+            for (j = i + 1; j < nums.length; j++) {
+                //如果找到下一个大于的元素, 就说明找到了, 然后j就指向那个索引
+                if (nums[j] > current) {
+                    found = true;
+                    break;
+
+                }
+            }
+
+            if (found) {
+                nums[i + 1] = nums[j];
+                i++;
+            } else {
+                break;
+            }
+        }
+
+        return i + 1;
+    }
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+
+        int[] nums = new int[]{0, 0, 1, 1, 1, 2, 2, 3, 3, 4};
+
+        System.out.println(solution.removeDuplicates(nums));
+
+    }
+
+}
+</pre>
+<p>不过提交之后只打败了8%的人, 说明还是不太行, 用的变量有点多, 然后发现其实解法是对的, 就是还没有继续优化. </p>
+<p>优化的思路是, 一次循环就可以, 在每次循环的时候更新当前已经找到的最大值的位置, 也就是i, 然后可以重新设置哨兵值, 继续向后找到大于哨兵的值, 再设置到i+1的位置, 就可以了, 其实就是精简一些变量:</p>
+<pre>
+class Solution {
+
+    /**
+     * 从数组第一个元素开始, 一直找到第一个与其不相等的元素, 记录此时的索引, 然后将其挪到第二个位置, 再继续向前
+     * @param nums
+     * @return
+     */
+    public int removeDuplicates(int[] nums) {
+
+        if (nums.length == 0) {
+            return 0;
+        }
+
+        //使用的O(1)变量就是这个
+        int i = 0;
+
+        //在循环中, 比较当前元素与上一个找到的当前最大值, 只有大于这个最大值, 才将最大值去放入i+1的位置, 然后增加i, 下一次就可以再比较新的位置, 由于i一开始是0, 最后返回i+1即可
+        for (int j = 1; j < nums.length; j++) {
+            if (nums[j] > nums[i]) {
+                nums[i + 1] = nums[j];
+                i++;
+            }
+        }
+
+        return i + 1;
+    }
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+
+        int[] nums = new int[]{0, 0, 1, 1, 1, 2, 2, 3, 3, 4};
+
+        System.out.println(solution.removeDuplicates(nums));
+
+    }
+
+}
+</pre>
+<p>这个其实就是利用了两个指针, 一个指针单独记录, 一个指针就包含在循环本身. 官方的答案就是如此. 自己能写出来感觉棒棒的.</p>
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
