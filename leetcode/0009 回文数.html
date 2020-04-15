@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>罗马数字转整数</title>
+</head>
+<body>
+<p>回文数首先要拿到这个整数的所有字符, 然后进行判断, 用队列似乎是个不错的想法</p>
+<pre>
+import java.util.LinkedList;
+
+class Solution {
+    public boolean isPalindrome(int x) {
+        if (x &lt; 0) {
+            return false;
+        }
+
+        LinkedList&lt;Integer> numbers = new LinkedList&lt;>();
+
+        while (x > 0) {
+            numbers.push(x % 10);
+            x = x / 10;
+        }
+
+        while (!numbers.isEmpty()) {
+            int i = numbers.peekFirst();
+            int j = numbers.peekLast();
+
+            if (i == j) {
+                numbers.pop();
+                if (numbers.isEmpty()) {
+                    return true;
+                } else {
+                    numbers.removeLast();
+                }
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+        boolean re = solution.isPalindrome(123321);
+        System.out.println(re);
+    }
+}
+</pre>
+<p>这个时候回想起上一道题目, 由于回文数不可能溢出, 所以只需要像刚才一样反转一次然后查看是否相等就可以.</p>
+<pre>
+class Solution {
+    public boolean isPalindrome(int x) {
+        int start = x;
+        int n = 0;
+
+        while (start > 0) {
+            n = n * 10 + start % 10;
+            start = start / 10;
+        }
+
+        System.out.println(x);
+        System.out.println(n);
+
+        return x == n;
+
+    }
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+        boolean re = solution.isPalindrome(-99999);
+        System.out.println(re);
+    }
+}
+</pre>
+<p>在这个计算过程中, 由于负数的计算结果是一个正数, 所以必然不相等, 也就直接排除了负数的情况, 确实妙啊.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

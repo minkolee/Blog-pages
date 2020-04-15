@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Two-sum</title>
+</head>
+<body>
+<p><a href="https://leetcode.com/problems/two-sum/">https://leetcode.com/problems/two-sum/</a></p>
+<p>
+    Given an array of integers, return indices of the two numbers such that they add up to a specific target.
+
+    You may assume that each input would have exactly one solution, and you may not use the same element twice.
+
+    Example:
+
+    Given nums = [2, 7, 11, 15], target = 9,
+
+    Because nums[0] + nums[1] = 2 + 7 = 9,
+    return [0, 1].
+</p>
+<p>首先想到的思路就是遍历, 也就是从2开始, 遍历到结尾, 再从第二个开始, 遍历到结尾, 复杂度是 n*n/2. </p>
+<pre>
+class Solution {
+
+    public int[] twoSum(int[] nums, int target) {
+        int[] result = new int[2];
+
+        for (int i = 0; i < nums.length; i++) {
+            for (int j = i + 1; j < nums.length; j++) {
+                if (nums[i] + nums[j] == target) {
+                    result[0] = i;
+                    result[1] = j;
+                    break;
+                }
+            }
+        }
+
+        return result;
+    }
+}
+</pre>
+
+<p>再一个想法, 将值和对应索引放入一个Map中, 然后对于数组的每一个元素, 尝试从Map中获取 target- n, 如果没有, 就尝试下一个, 这样放map和遍历一次, 就是2n的复杂度.</p>
+<p>然后发现官网的解法最好, 一次循环就可以, 每次放入一个之后, 下一个直接去判断是不是已经存在差的键. 太牛逼了.</p>
+<pre>
+import java.util.HashMap;
+import java.util.Map;
+
+class Solution {
+
+    private Map&lt;Integer, Integer> numberIndexMap = new HashMap&lt;>();
+
+    public int[] twoSum(int[] nums, int target) {
+
+        numberIndexMap.clear();
+
+        int[] result = new int[2];
+
+        for (int i = 0; i &lt; nums.length; i++) {
+
+            if (numberIndexMap.get(target - nums[i]) != null && numberIndexMap.get(target - nums[i]) != i) {
+                result[1] = i;
+                result[0] = numberIndexMap.get(target - nums[i]);
+                break;
+            }
+
+            numberIndexMap.put(nums[i], i);
+        }
+        return result;
+
+    }
+}
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

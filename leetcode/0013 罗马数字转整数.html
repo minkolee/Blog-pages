@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>罗马数组转整数</title>
+</head>
+<body>
+<p>
+    罗马数字包含以下七种字符: I， V， X， L，C，D 和 M。
+
+    字符          数值
+    I             1
+    V             5
+    X             10
+    L             50
+    C             100
+    D             500
+    M             1000
+    例如， 罗马数字 2 写做 II ，即为两个并列的 1。12 写做 XII ，即为 X + II 。 27 写做  XXVII, 即为 XX + V + II 。
+
+    通常情况下，罗马数字中小的数字在大的数字的右边。但也存在特例，例如 4 不写做 IIII，而是 IV。数字 1 在数字 5 的左边，所表示的数等于大数 5 减小数 1 得到的数值 4 。同样地，数字 9 表示为 IX。这个特殊的规则只适用于以下六种情况：
+
+    I 可以放在 V (5) 和 X (10) 的左边，来表示 4 和 9。
+    X 可以放在 L (50) 和 C (100) 的左边，来表示 40 和 90。 
+    C 可以放在 D (500) 和 M (1000) 的左边，来表示 400 和 900。
+    给定一个罗马数字，将其转换成整数。输入确保在 1 到 3999 的范围内。
+
+    示例 1:
+
+    输入: "III"
+    输出: 3
+    示例 2:
+
+    输入: "IV"
+    输出: 4
+    示例 3:
+
+    输入: "IX"
+    输出: 9
+    示例 4:
+
+    输入: "LVIII"
+    输出: 58
+    解释: L = 50, V= 5, III = 3.
+    示例 5:
+
+    输入: "MCMXCIV"
+    输出: 1994
+    解释: M = 1000, CM = 900, XC = 90, IV = 4.
+
+    来源：力扣（LeetCode）
+    链接：https://leetcode-cn.com/problems/roman-to-integer
+    著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+</p>
+<p>其实罗马数字的写法和1-9有对应关系, 因此可以直接进行字符串的解析, 从千位开始匹配, 匹配成功之后匹配下一段字符串. </p>
+<p>这中间用了一个内部类在不同的解析函数之间传递当前剩余的字符串.</p>
+<pre>
+import java.util.HashMap;
+import java.util.Map;
+
+class Solution {
+
+    private static Map&lt;String, Integer> map1;
+    private static Map&lt;String, Integer> map2;
+    private static Map&lt;String, Integer> map3;
+    private static Map&lt;String, Integer> map4;
+
+    static {
+        map1 = new HashMap&lt;>();
+
+        map1.put("I", 1);
+        map1.put("II", 2);
+        map1.put("III", 3);
+        map1.put("IV", 4);
+        map1.put("V", 5);
+        map1.put("VI", 6);
+        map1.put("VII", 7);
+        map1.put("VIII", 8);
+        map1.put("IX", 9);
+
+        map2 = new HashMap&lt;>();
+
+        map2.put("X", 1);
+        map2.put("XX", 2);
+        map2.put("XXX", 3);
+        map2.put("XL", 4);
+        map2.put("L", 5);
+        map2.put("LX", 6);
+        map2.put("LXX", 7);
+        map2.put("LXXX", 8);
+        map2.put("XC", 9);
+
+        map3 = new HashMap&lt;>();
+        map3.put("C", 1);
+        map3.put("CC", 2);
+        map3.put("CCC", 3);
+        map3.put("CD", 4);
+        map3.put("D", 5);
+        map3.put("DC", 6);
+        map3.put("DCC", 7);
+        map3.put("DCCC", 8);
+        map3.put("CM", 9);
+
+        map4 = new HashMap&lt;>();
+        map4.put("M", 1);
+        map4.put("MM", 2);
+        map4.put("MMM", 3);
+
+    }
+
+    private class Result {
+        int result = 0;
+        String remainingString;
+
+    }
+
+    public int romanToInt(String s) {
+        Result result = new Result();
+        result.remainingString = s;
+        return parseString(result);
+    }
+
+    private int parseString(Result result) {
+
+        int a = parseThousand(result);
+        int b = parseHundred(result);
+        int c = parseTen(result);
+        int d = parseSingle(result);
+
+        return a * 1000 + b * 100 + c * 10 + d;
+    }
+
+    private int parseThousand(Result result) {
+        String s = result.remainingString;
+
+        if (s.startsWith("M")) {
+            int i;
+
+            for (i = 0; i &lt; s.length(); i++) {
+                if (s.charAt(i) != 'M') {
+                    break;
+
+                }
+            }
+
+            int re = map4.get(s.substring(0, i));
+
+            result.remainingString = s.substring(i);
+
+            return re;
+        } else {
+            return 0;
+        }
+    }
+
+    private int parseHundred(Result result) {
+        String s = result.remainingString;
+
+        if (s.startsWith("C") || s.startsWith("D")) {
+            int i;
+            for (i = 0; i &lt; s.length(); i++) {
+                if (s.charAt(i) != 'C' && s.charAt(i) != 'D' && s.charAt(i) != 'M') {
+                    break;
+                }
+            }
+
+            int re = map3.get(s.substring(0, i));
+            result.remainingString = s.substring(i);
+            return re;
+
+        } else {
+            return 0;
+        }
+
+    }
+
+    private int parseTen(Result result) {
+        String s = result.remainingString;
+
+        if (s.startsWith("X") || s.startsWith("L")) {
+            int i;
+            for (i = 0; i &lt; s.length(); i++) {
+                if (s.charAt(i) != 'X' && s.charAt(i) != 'L' && s.charAt(i) != 'C') {
+                    break;
+                }
+            }
+
+            int re = map2.get(s.substring(0, i));
+            result.remainingString = s.substring(i);
+            return re;
+
+        } else {
+            return 0;
+        }
+
+    }
+
+    private int parseSingle(Result result) {
+        String s = result.remainingString;
+        if (s.startsWith("I") || s.startsWith("V")) {
+            return map1.get(s);
+        } else {
+            return 0;
+        }
+    }
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+        System.out.println(solution.romanToInt("III"));
+        System.out.println(solution.romanToInt("IV"));
+        System.out.println(solution.romanToInt("IX"));
+        System.out.println(solution.romanToInt("LVIII"));
+        System.out.println(solution.romanToInt("MCMXCIV"));
+
+    }
+
+}
+</pre>
+<p>由于罗马数字和对应的1-9其实是一一对应的, 因此关键问题就在于解析字符串.</p>
+<p>答案先创建了4个Map用来存放四个位置的字符串-数字的映射关系.</p>
+<p>然后从字符串左侧按照千位解析, 每解析成功, 就拿那一串字符串去Map中找到对应的值, 然后将字符串截断并交给下一个方法去解析.</p>
+<p>解析字符串的方法, 观察可以知道, 千位一定是以M开头, 结束于不等于M的位置, 百位开始于C或者D字符, 结束于CDM字符, 以此类推, 每次截断字符串交给下一个方法.</p>
+<p>只要罗马数字是正确的拼写, 这个方法就可以得到正确的结果.</p>
+<p>执行用时 :
+    7 ms
+    , 在所有 Java 提交中击败了
+    53.79%
+    的用户</p>
+<p>提交之后发现打败了一半的用户, 还凑合吧.</p>
+<p>然后看了一下最快的答案, 发现罗马数字转字符的规律是, 从左往右, 不断读入一个字符然后翻译成对应的数字, 然后比较下一个字符, 如果比下一个字符小, 就从结果里减去当前字符, 如果等于或者大于, 就加上当前字符对应的结果.</p>
+<p>果然还是要了解窍门才能写出更快的算法, 那就写一个改进版的.</p>
+<pre>
+class Solution2 {
+
+    private static Map&lt;Character, Integer> map;
+
+
+    static {
+        map = new HashMap&lt;>();
+
+        map.put('I', 1);
+        map.put('V', 5);
+        map.put('X', 10);
+        map.put('L', 50);
+        map.put('C', 100);
+        map.put('D', 500);
+        map.put('M', 1000);
+
+    }
+
+
+    public int romanToInt(String s) {
+        int result = 0;
+
+        for (int i = 0; i &lt; s.length(); i++) {
+            if (i == s.length() - 1) {
+                result = result + map.get(s.charAt(i));
+            } else {
+                if (map.get(s.charAt(i)) >= map.get(s.charAt(i + 1))) {
+                    result = result + map.get(s.charAt(i));
+                } else {
+                    result = result - map.get(s.charAt(i));
+                }
+            }
+        }
+        return result;
+
+    }
+
+    public static void main(String[] args) {
+        Solution2 solution = new Solution2();
+        System.out.println(solution.romanToInt("III"));
+        System.out.println(solution.romanToInt("IV"));
+        System.out.println(solution.romanToInt("IX"));
+        System.out.println(solution.romanToInt("LVIII"));
+        System.out.println(solution.romanToInt("MCMXCIV"));
+
+    }
+
+}
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

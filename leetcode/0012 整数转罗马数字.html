@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>整数转罗马数字</title>
+</head>
+<body>
+<p>这个直接把原来exercism.io的类拿过来修改一下就成了.</p>
+<pre>
+class Solution {
+ private int nubmer;
+
+    private static Map&lt;Integer, Map&lt;Integer, String>> map;
+
+    static {
+        map = new HashMap&lt;>();
+
+        Map&lt;Integer, String> map1 = new HashMap&lt;>();
+        map1.put(1, "I");
+        map1.put(2, "II");
+        map1.put(3, "III");
+        map1.put(4, "IV");
+        map1.put(5, "V");
+        map1.put(6, "VI");
+        map1.put(7, "VII");
+        map1.put(8, "VIII");
+        map1.put(9, "IX");
+
+        map.put(1, map1);
+
+        Map&lt;Integer, String> map2 = new HashMap&lt;>();
+        map2.put(1, "X");
+        map2.put(2, "XX");
+        map2.put(3, "XXX");
+        map2.put(4, "XL");
+        map2.put(5, "L");
+        map2.put(6, "LX");
+        map2.put(7, "LXX");
+        map2.put(8, "LXXX");
+        map2.put(9, "XC");
+
+        map.put(2, map2);
+
+        Map&lt;Integer, String> map3 = new HashMap&lt;>();
+        map3.put(1, "C");
+        map3.put(2, "CC");
+        map3.put(3, "CCC");
+        map3.put(4, "CD");
+        map3.put(5, "D");
+        map3.put(6, "DC");
+        map3.put(7, "DCC");
+        map3.put(8, "DCCC");
+        map3.put(9, "CM");
+
+        map.put(3, map3);
+
+        Map&lt;Integer, String> map4 = new HashMap&lt;>();
+        map4.put(1, "M");
+        map4.put(2, "MM");
+        map4.put(3, "MMM");
+
+        map.put(4, map4);
+
+    }
+
+
+
+    private String parseRoman(int nubmer, int digit) {
+        if (nubmer == 0) {
+            return "";
+        }
+
+        return parseRoman(nubmer / 10, digit + 1) + getSingleDigital(digit, nubmer % 10);
+    }
+
+
+    private String getSingleDigital(int digits, int number) {
+
+        if (number == 0) {
+            return "";
+        } else {
+            return map.get(digits).get(number);
+        }
+    }
+
+
+    public String intToRoman(int num) {
+        this.nubmer = num;
+        return parseRoman(nubmer, 1);
+    }
+}
+</pre>
+<p>不过又是打败了一半的人, 其实还有更快的方法.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

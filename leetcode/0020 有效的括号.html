@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>最长公共前缀</title>
+</head>
+<body>
+<p>这个题目初看又是要进行循环, 即从0开始不断的比较所有字符串的那个位置的东西, 如果越界了就结束, 每次如果比较成功, 就添加那个字符. 想了一下就是暴力解法了:</p>
+<pre>
+class Solution {
+
+    public String longestCommonPrefix(String[] strs) {
+
+        if (strs.length == 0) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        boolean isEnd = false;
+
+        int i = 0;
+
+        while (!isEnd) {
+            for (String s : strs) {
+                if (s.isEmpty()) {
+                    return "";
+                }
+
+                if (i > s.length() - 1) {
+                    isEnd = true;
+                }
+            }
+            if (!isEnd) {
+                if (!isSameAtLocation(strs, i)) {
+                    isEnd = true;
+                } else {
+                    sb.append(strs[0].charAt(i));
+                }
+                i++;
+            }
+
+        }
+
+        return sb.toString();
+    }
+
+    private boolean isSameAtLocation(String[] strs, int index) {
+        char c = strs[0].charAt(index);
+
+        boolean result = true;
+
+        for (String s : strs) {
+            if (s.charAt(index) != c) {
+                result = false;
+                break;
+            }
+        }
+        return result;
+    }
+
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+
+        System.out.println(solution.longestCommonPrefix(new String[]{"flower", "flow", "flight"}));
+
+    }
+}
+</pre>
+<p>但实际上这种方法可以优化, 也就是让结果等于第一个字符串, 然后不断的与后边的字符串进行运算得到共同的地方就可以了, 这样只需一遍循环. 再写一个看看:</p>
+<pre>
+class Solution {
+
+    public String longestCommonPrefix(String[] strs) {
+
+        if (strs.length == 0) {
+            return "";
+        }
+
+        String samePart = strs[0];
+
+        for (int i = 1; i < strs.length; i++) {
+            samePart = findSamePart(samePart, strs[i]);
+        }
+
+        return samePart;
+
+    }
+
+    private String findSamePart(String s1, String s2) {
+
+        if (s1.isEmpty() || s2.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < Math.min(s1.length(), s2.length()); i++) {
+            if (s1.charAt(i) == s2.charAt(i)) {
+                sb.append(s1.charAt(i));
+            } else {
+                break;
+            }
+        }
+
+
+        return sb.toString();
+
+    }
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+        String[] re = new String[]{"abc", "cba"};
+
+        System.out.println(solution.longestCommonPrefix(re));
+    }
+
+}
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
