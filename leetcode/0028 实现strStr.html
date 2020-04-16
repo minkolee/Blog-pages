@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>移除指定元素</title>
+</head>
+<body>
+<p>实现 strStr() 函数。
+
+    给定一个 haystack 字符串和一个 needle 字符串，在 haystack 字符串中找出 needle 字符串出现的第一个位置 (从0开始)。如果不存在，则返回  -1。
+
+    示例 1:
+
+    输入: haystack = "hello", needle = "ll"
+    输出: 2
+    示例 2:
+
+    输入: haystack = "aaaaa", needle = "bba"
+    输出: -1
+    说明:
+
+    当 needle 是空字符串时，我们应当返回什么值呢？这是一个在面试中很好的问题。
+
+    对于本题而言，当 needle 是空字符串时我们应当返回 0 。这与C语言的 strstr() 以及 Java的 indexOf() 定义相符。
+
+    来源：力扣（LeetCode）
+    链接：https://leetcode-cn.com/problems/implement-strstr
+    著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。</p>
+<p>用暴力方法写了出来, 通过了所有测试用例, 结果发现超时了.</p>
+<pre>
+class Solution {
+
+    public int strStr(String haystack, String needle) {
+        if (needle.length() == 0) {
+            return 0;
+        }
+
+        int i = 0;
+
+        while (i < haystack.length()) {
+
+            int result = findStringFrom(i, needle, haystack);
+
+
+            if (result == -1) {
+                i = i + 1;
+            } else {
+                break;
+            }
+
+        }
+
+        if (i >= haystack.length()) {
+            return -1;
+        } else {
+            return i;
+        }
+
+    }
+
+    private int findStringFrom(int index, String target , String longString) {
+
+
+        boolean found = true;
+
+        for (int i = index, j = 0; j < target.length(); i++, j++) {
+
+            if (i >= longString.length()) {
+                found = false;
+                break;
+            } else {
+                if (target.charAt(j) != longString.charAt(i)) {
+                    found = false;
+                    break;
+                }
+            }
+        }
+
+        if (found) {
+            return index;
+        } else {
+            return -1;
+        }
+    }
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+
+        System.out.println(solution.strStr("aaaa", "bba"));
+    }
+}
+</pre>
+<p>后来想了一下, 其实是可以返回上一次的j, 然后往后跳几个位置的. 所以可以修改一下代码:</p>
+<pre>
+
+</pre>
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
