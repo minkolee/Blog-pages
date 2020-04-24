@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>Java 数据结构 图</title>
+    <title>Java 数据结构 图 - 顶点类</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -26,8 +26,10 @@
     <li><a href="#con1">图的表示方法 - 邻接矩阵</a></li>
     <li><a href="#con2">图的表示方法 - 邻接表</a></li>
     <li><a href="#con3">设计顶点和边的类</a></li>
-    <li><a href="#con4">平衡二叉查找树的实现 - remove方法</a></li>
-    <li><a href="#con5">测试</a></li>
+    <li><a href="#con4">顶点类的实现 - 框架</a></li>
+    <li><a href="#con5">顶点类的实现 - 两个connect方法</a></li>
+    <li><a href="#con6">顶点类的实现 - 迭代器</a></li>
+    <li><a href="#con7">顶点类的实现 - 其他方法</a></li>
 
 </ol>
 <h2 style="text-align: center;" id="con1">图的表示方法 - 邻接矩阵</h2>
@@ -67,16 +69,16 @@
 import java.util.Iterator;
 
 public interface VertexInterface&lt;T> {
-    
+
     //返回这个顶点的label, 这个根据具体的数据, 可以是一个标识符, 也可以是这个顶点存放的数据.
     T getLabel();
-    
+
     //标识该订单已经被访问过
     void visit();
 
     //取消该顶点的访问标记
     void unvisit();
-    
+
     //很显然, 搭配前两个方法, 可以实现一些路径相关的查找, 内部需要有一个布尔值存放访问状态
     boolean isVisited();
 
@@ -86,38 +88,38 @@ public interface VertexInterface&lt;T> {
     //注意, 如果是无向图, 这个连接应该是相互的, 即连接之后, endVertex也连接到当前点.
     //如果是有向图, 则这个方法仅仅表示当前顶点有一条连接到endVertex的边, endVertex可不一定会连接到当前顶点
     boolean connect(VertexInterface&lt;T> endVertex, double edgeWeight);
-    
+
     //这是上一个版本的无权图重载
     boolean connect(VertexInterface&lt;T> endVertex);
-    
+
     //获取当前点所有的邻接点组成的迭代器, 所以很显然, 我们得有一个内部数据结构用来存放邻接点
     Iterator&lt;VertexInterface&lt;T>> getNeighborIterator();
-    
+
     //获取由权重组成的迭代器, 用于有权图计算
     Iterator&lt;Double> getWeightIterator();
-    
+
     //有至少邻接点吗?
     boolean hasNeighbor();
 
     //返回一个未访问的邻接点, 如果全部邻接点都访问过了, 返回null.
     //很显然这个方法也是为了寻路等操作
     VertexInterface&lt;T> getUnvisitedNeighbor();
-    
+
     //设置当前节点的前驱节点, 很显然也是用于寻路. 在有向图中寻路, 可以通过这个找到路径中指向当前顶点的点
     void setPredecessor(VertexInterface&lt;T> predecessor);
-    
+
     //获取前驱节点, 没有就返回null
     VertexInterface&lt;T> getPredecessor();
-    
+
     //是否含有前驱节点, 这三个方法配合起来使用, 很显然, 内部又得有一个数据结构存放前驱顶点
     boolean hasPredecessor();
-    
-    //设置顶点的数据
+
+    //设置顶点的cost, 这个对于一些算法有用
     void setCost(double Newcost);
-    
-    //获取顶点的数据
+
+    //获取顶点的cost
     double getCost();
-    
+
 }
 </pre>
 <p>有了接口还没完, 我们想想还需要放什么, 很显然, 无权图可以在邻接表中直接存放另外一个顶点, 因为无权重. 但是有权图需要同时保存权重. 因此可以考虑弄一个类, 把权重和顶点封装起来, 所以可以创建一个边类.</p>
@@ -145,12 +147,279 @@ private class Edge{
 </pre>
 <p>有了这个Edge类的辅助, 在实现Vertex的时候, 通过上边的接口分析, 内部的数据至少包含如下内容:</p>
 <ol>
+    <li>存放T类型数据的域</li>
     <li>一个布尔值表示访问与否</li>
     <li>存放相邻顶点及权重的集合, 即一个Edge类的集合</li>
     <li>一个存放前驱节点的引用</li>
     <li>一个存放cost值的域</li>
 </ol>
 <p>好, 剩下就来实现Vertex类了. 写到这里的时候是4月23号晚上, 话说2020年开年真的是刺激, 疫情到现在没结束不说, 金三胖竟然也挂了. 今晚早点休息, 明天再来继续一鼓作气干完图算法.</p>
+
+<h2 style="text-align: center;" id="con4">顶点类的实现 - 框架</h2>
+<p>只要实现出了顶点类, 然后配置好每个顶点类的边, 那么图就可以表示成为顶点类对象的集合.</p>
+<p>根据上一节的分析, 先来搭出框架.</p>
+<pre>
+import java.util.Collection;
+import java.util.Iterator;
+
+public class Vertex&lt;T> implements VertexInterface&lt;T> {
+
+    //存放T类型数据的域
+    private T label;
+
+    //布尔值
+    private boolean visited;
+
+    //存放相连的顶点(边)的集合, 使用了之前自行编写的带迭代器的链表
+    private MyLinkedList&lt;Edge> edgeList;
+
+    //前驱顶点
+    private VertexInterface&lt;T> previousVertex;
+
+    //cost
+    private double cost;
+
+    //Edge内部类, 仅仅使用构造器创建对象, 是一个不可变对象
+    private class Edge{
+        private VertexInterface&lt;T> vertex;
+        private double weight;
+
+        protected Edge(VertexInterface&lt;T> vertex, double weight) {
+            this.vertex = vertex;
+            this.weight = weight;
+        }
+
+        protected VertexInterface&lt;T> getEndVertex() {
+            return vertex;
+        }
+
+        protected double getWeight() {
+            return weight;
+        }
+    }
+
+    //创建一个新顶点的构造器
+    public Vertex(T vertexLabel) {
+        this.label = vertexLabel;
+        this.edgeList = new MyLinkedList<>();
+        this.visited = false;
+        this.previousVertex = null;
+        this.cost = 0;
+    }
+}
+</pre>
+<p>基础设施好了, 现在开始一个一个看方法的实现.</p>
+
+<h2 style="text-align: center;" id="con5">顶点类的实现 - 两个connect方法</h2>
+<p>connect方法是非常核心的一个方法. 按照我们的设想, 如果要创建一个图, 只需要先创建所有的顶点, 然后使用connect方法描述顶点之间的关系, 最后返回顶点的集合, 就得到一幅图.</p>
+<p>由于我们定义了两个connect方法用于有权图和无权图的连接, 所以先编写有权图的连接, 无权其实就是权重为0的连接.</p>
+<p>思考一下connect方法的逻辑, 其实很简单, 首先不能自己连接到自己, 然后不能重复, 因此在每次操作的时候, 都需要判断这两种情况, 如果成功通过判断, 就创建Edge对象然后添加到链表中.</p>
+<pre>
+@Override
+public boolean connect(VertexInterface&lt;T> endVertex, double edgeWeight) {
+    boolean result = false;
+
+    //判断要连接的顶点不是自己
+    if (!this.equals(endVertex)) {
+
+        //再通过遍历邻接的顶点对象判断顶点是否已经连接
+
+        boolean connected = false;
+
+        for (Edge edge : this.edgeList) {
+            if (edge.vertex.equals(endVertex)) {
+                connected = true;
+                break;
+            }
+        }
+
+        //没有连接过, 创建新Edge对象加入邻接表, 同时设置结果为true
+        if (!connected) {
+            this.edgeList.add(new Edge(endVertex, edgeWeight));
+            result = true;
+        }
+    }
+
+    return result;
+}
+</pre>
+<p>另外一个connect方法就可以简单的套用了:</p>
+<pre>
+@Override
+public boolean connect(VertexInterface&lt;T> endVertex) {
+    return connect(endVertex, 0);
+}
+</pre>
+<p>写完了这两个方法之后, 来看一下复杂度. 很显然, 添加一个顶点需要扫描所有的邻接点, 一个图最多的邻接点也就是n-1个, 外加还需要判断一次是不是自己, 所以判断是不是邻接就是O(n)复杂度.</p>
+<p>还需要考虑插入的性能, 我们这里使用的是链表, 即在头部插入, 操作是O(1), 否则还会更慢. 不过一般是稀疏图, 所以实际性能还可以.</p>
+
+<h2 style="text-align: center;" id="con6">顶点类的实现 - 迭代器</h2>
+<p>迭代器有两个, 一个是所有相邻顶点的迭代器, 一个是所有cost的迭代器. 由于存放相邻顶点的数据结构是实现了迭代器接口的MyLinkedList, 因此获取Edge类的迭代器很方便, 在上边包装两个类就可以了..</p>
+<p>先来创建的迭代器的两个内部类:</p>
+<pre>
+//迭代器要使用的两个内部类完成
+private class NeighborIterator implements Iterator&lt;VertexInterface&lt;T>> {
+    private Iterator&lt;Edge> edges;
+
+    //构造器在内部使用edgeList的迭代器
+    NeighborIterator() {
+        this.edges = edgeList.iterator();
+    }
+
+    //这两个方法都是包装, 实际上还是从edges这个迭代器中取结果
+    @Override
+    public boolean hasNext() {
+        return edges.hasNext();
+    }
+
+    @Override
+    public VertexInterface&lt;T> next() {
+
+        if (edges.hasNext()) {
+            return edges.next().vertex;
+        } else {
+            throw new NoSuchElementException();
+        }
+    }
+}
+
+//这个类和上边一样
+private class CostIterator implements Iterator&lt;Double> {
+    private Iterator&lt;Edge> edges;
+
+    CostIterator() {
+        this.edges = edgeList.iterator();
+    }
+
+    @Override
+    public boolean hasNext() {
+        return edges.hasNext();
+    }
+
+    @Override
+    public Double next() {
+        if (edges.hasNext()) {
+            return edges.next().vertex.getCost();
+        } else {
+            throw new NoSuchElementException();
+        }
+    }
+}
+</pre>
+<p>然后是两个方法, 返回新创建的迭代器即可:</p>
+<pre>
+@Override
+public Iterator&lt;VertexInterface&lt;T>> getNeighborIterator() {
+    return new NeighborIterator();
+}
+
+@Override
+public Iterator&lt;Double> getWeightIterator() {
+    return new CostIterator();
+}
+</pre>
+<p>有了迭代器之后, 还有一个方法与迭代器相关, 就是返回下一个没有访问的顶点, 这个需要在内部使用迭代器来操作, 因此一起写上了:</p>
+<pre>
+@Override
+public VertexInterface&lt;T> getUnvisitedNeighbor() {
+    VertexInterface&lt;T> result = null;
+
+    //获取相邻顶点迭代器
+    Iterator&lt;VertexInterface&lt;T>> neighbors = getNeighborIterator();
+
+    //逐项检查如果没有被访问过, 就中止循环然后返回这个点.
+    while (neighbors.hasNext()) {
+        if (!neighbors.next().isVisited()) {
+            result = neighbors.next();
+            break;
+        }
+    }
+
+    return result;
+}
+</pre>
+
+<h2 style="text-align: center;" id="con7">顶点类的实现 - 其他方法</h2>
+<p>剩下基本都是一些getter和setter, 没什么太复杂的, 要先把hash和equals写了才行:</p>
+<pre>
+//其他方法 hash and equals
+@Override
+public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Vertex&lt;?> vertex = (Vertex&lt;?>) o;
+    return Objects.equals(label, vertex.label);
+
+}
+
+@Override
+public int hashCode() {
+    return Objects.hash(label, visited, edgeList, previousVertex, cost);
+}
+</pre>
+<p>然后就是一堆简单方法的批发:</p>
+<pre>
+@Override
+public T getLabel() {
+    return label;
+}
+
+@Override
+public void visit() {
+    this.visited = true;
+}
+
+@Override
+public void unvisit() {
+    this.visited = false;
+}
+
+@Override
+public boolean isVisited() {
+    return visited;
+}
+
+//是否有邻居, 只要检查链表是不是为空, 为空就是没有邻居
+@Override
+public boolean hasNeighbor() {
+    return !edgeList.isEmpty();
+}
+
+@Override
+public void setPredecessor(VertexInterface&lt;T> predecessor) {
+    this.previousVertex = predecessor;
+}
+
+@Override
+public VertexInterface&lt;T> getPredecessor() {
+    return previousVertex;
+}
+
+@Override
+public boolean hasPredecessor() {
+    return this.previousVertex != null;
+}
+
+@Override
+public void setCost(double newCost) {
+    this.cost = newCost;
+}
+
+@Override
+public double getCost() {
+    return cost;
+}
+</pre>
+<p>这样就写好了一个顶点类, 内部包含一个Edge类和两个迭代器类. 有了这个类就可以来创建图和实现算法了.</p>
+
+
+
+
+
+
+
+
+
 
 
 
