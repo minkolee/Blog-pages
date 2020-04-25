@@ -18,23 +18,263 @@
 <p>写了半天顶点, 最后终于要组成一个图了. 其实图很容易, 由于无向图是特殊的一种有向图, 无权图是权重为0的有权图, 所以只需要实现一个一般的有权有向图就可以了, 无向图和有权有向图只不过是在准备图数据的阶段需要进行的操作不同而已.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
-    <li><a href="#con7"></a></li>
-    <li><a href="#con8"></a></li>
+    <li><a href="#con1">图类的接口</a></li>
+    <li><a href="#con2">图的实现 - 添加顶点和边</a></li>
+    <li><a href="#con3">图的实现 - 其他方法</a></li>
+    <li><a href="#con4">图的实现 - 重置顶点状态</a></li>
+    <li><a href="#con5">测试</a></li>
 
 </ol>
 <h2 style="text-align: center;" id="con1">图类的接口</h2>
+<p>一个图很显然, 可以向其中添加顶点和边来组成一个图, 然后就是一些辅助方法和计算当前图的性质的方法. 我们准备把图的算法另外弄成一个接口, 这样就可以有效区分出组成图和计算图的两种功能.</p>
+<pre>
+public interface GraphInterface&lt;T> {
+
+    //向图中添加一个标识为T的顶点
+    boolean addVertex(T vertexLabel);
+
+    //向图中添加一条从start到end的边, 带权
+    boolean addEdge(T start, T end, double weight);
+
+    //添加一条无权边
+    boolean addEdge(T begin, T end);
+
+    //检测从begin到end是否有一条边相连
+    boolean hasEdge(T begin, T end);
+
+    //是否图为空
+    boolean isEmpty();
+
+    //图的总顶点数
+    int getNumberOfVertices();
+
+    //图的总边数
+    int getNumberOfEdges();
+
+    //清空图
+    void clear();
+}
+</pre>
+<p>这个接口很好理解, 现在就来实现一下图, 一个首要的问题就是在内部以何种数据形式保存顶点类.</p>
+<p>之前说了, 如果用序号来标识顶点的话, 可以采用天然带有顺序的线性表结构, 如果用更复杂的标识符来标记顶点的话, 则可以使用Map类型的结构.</p>
+<p>这里本来想使用自己编写的拉链法字典, 但是考虑Java的HashMap, 由于内部是红黑树, 比我们的数组加链表要稍微快一些.</p>
+<p>下边就来搭起来一个有权有向图类的框架:</p>
+<pre>
+public class DirectWeightedGraph&lt;T> implements GraphInterface&lt;T> {
+
+    private Map&lt;T, VertexInterface&lt;T>> vertices;
+
+    private int edgeCount;
+
+    public DirectWeightedGraph() {
+        this.vertices = new HashMap&lt;>();
+        edgeCount = 0;
+    }
+}
+</pre>
+<p>这里使用自行编写的Dictionary接口, 在构造器中, 实际类型是ZipDictionary. 可以看到, 我们一路使用自己创建的数据结构, 不断的搭建起新的数据结构, 我觉得这是这本书最精彩的地方.</p>
+<p>这里的统计边数使用了一个简单的内部变量, 而不是每次去汇总所有顶点的邻接表中的项目数, 只要逻辑正确而且不是多线程, 也是可以的.</p>
+<p>然后来一个一个实现接口中的方法.</p>
 
 
-<h2 style="text-align: center;" id="con2">图类的框架</h2>
+<h2 style="text-align: center;" id="con2">图的实现 - 添加顶点和边</h2>
+<p>图要解决的首要问题也就是这两个问题. 添加顶点很简单, 需要创建一个新的顶点, 然后添加进去, 无需设置任何边.</p>
+<pre>
+@Override
+public boolean addVertex(T vertexLabel) {
+    VertexInterface&lt;T> vertex = new Vertex&lt;>(vertexLabel);
+
+    VertexInterface&lt;T> result = vertices.put(vertexLabel, vertex);
+
+    return result != null;
+    
+}
+</pre>
+<p>这个方法用HashMap的方法, 如果添加成功, 会返回vertex, 如果不等于null, 就是添加成功.</p>
+<p>然后是添加边, 添加边首先需要按照标记获取两个点, 如果两个点都存在, 才可以添加边. 添加边的实际是调用顶点的添加边的方法, 内部就是把一个Edge对象添加到某个顶点的邻接表中.</p>
+<pre>
+@Override
+public boolean addEdge(T start, T end, double weight) {
+    //获取两个顶点
+    VertexInterface&lt;T> startVertex = vertices.get(start);
+    VertexInterface&lt;T> endVertex = vertices.get(end);
+
+    boolean result = false;
+
+    //只有两个顶点都存在的情况下, 才能添加边
+    if (startVertex != null && endVertex != null) {
+        //添加边是否成功保存在result中
+        result = startVertex.connect(endVertex, weight);
+        //如果添加成功就增加边的计数
+        if (result) {
+            edgeCount++;
+        }
+
+    }
+
+    return result;
+}
+
+@Override
+public boolean addEdge(T begin, T end) {
+    return addEdge(begin, end, 0);
+}
+</pre>
+<p>这两个方法就编写完毕了, 有了这两个方法, 实际上就可以来创建一个图了.</p>
+
+<h2 style="text-align: center;" id="con3">图的实现 - 其他方法</h2>
+<p>其他方法里, 有一个比较重要的方法就是判断一条边是否存在, 其逻辑和添加边类似, 必须两个顶点都存在才行, 然后从startVertext的顶点的邻接顶点中寻找是否存在endVertex即可.</p>
+<pre>
+@Override
+public boolean hasEdge(T begin, T end) {
+    boolean result = false;
+
+    VertexInterface&lt;T> startVertex = vertices.get(begin);
+    VertexInterface&lt;T> endVertex = vertices.get(end);
+    
+    //两个顶点都存在才能进行后续
+    if (startVertex != null && endVertex != null) {
+        
+        //遍历相邻的点寻找是否有边
+        Iterator&lt;VertexInterface&lt;T>> vertexIterator = startVertex.getNeighborIterator();
+
+        while (vertexIterator.hasNext()) {
+            if (vertexIterator.next().equals(endVertex)) {
+                result = true;
+                break;
+            }
+        }
+    }
+
+    return result;
+    
+}
+</pre>
+<p>剩下的方法就比较简单了, 批发如下:</p>
+<pre>
+@Override
+public boolean isEmpty() {
+    return vertices.isEmpty();
+}
+
+@Override
+public int getNumberOfVertices() {
+    return vertices.size();
+}
+
+@Override
+public int getNumberOfEdges() {
+    return edgeCount;
+}
+
+@Override
+public void clear() {
+    vertices.clear();
+    edgeCount = 0;
+}
+</pre>
+
+<h2 style="text-align: center;" id="con4">图的实现 - 重置顶点状态</h2>
+<p>还需要添加一个特别的方法. 一个图的顶点, 边, 权重是固定的. 但是可以发现Vertex类还有几个域其实是辅助算法的, 即visited, cost和前驱节点, 这几个数据的状态其实是由具体算法维护的.</p>
+<p>因此需要用一个方法来将其统一重置, 这样就可以针对这个图采用新的图算法, 编写代码也很简单. 我们可以把这个方法也加入接口:</p>
+<pre>
+@Override
+public void resetVertices() {
+    for (VertexInterface&lt;T> vertex : vertices.values()) {
+        vertex.unvisit();
+        vertex.setCost(0);
+        vertex.setPredecessor(null);
+    }
+}
+</pre>
+
+<h2 style="text-align: center;" id="con5">测试</h2>
+<p>来写个小例子测试一下. 有一个图如下:</p>
+<pre>
+A -> B -> C
+|    \
+|     >D -> E -> F
+|--------------/
+
+A->B的权重是3
+B->C的权重是2
+B->D的权重是6
+D->E的权重是1
+E->F的权重是4
+A->F的权重是7
+</pre>
+<p>为了测试, 可以给Vertex, Edge和Graph都增加toString()方法, 然后编写一个Graph类的showAll()方法:</p>
+<pre>
+public void showAll() {
+    for (VertexInterface&lt;T> vertex : vertices.values()) {
+        System.out.println(vertex);
+    }
+}
+</pre>
+<p>用字符来标识顶点, 创建如下的图, 然后添加边, 然后可以用debug来跟踪数据结构看一看:</p>
+<pre>
+public class GraphTest {
+
+    public static void main(String[] args) {
+
+        //创建新图
+        DirectWeightedGraph&lt;Character> graph = new DirectWeightedGraph&lt;>();
+
+        //添加6个顶点
+        graph.addVertex('A');
+        graph.addVertex('B');
+        graph.addVertex('C');
+        graph.addVertex('D');
+        graph.addVertex('E');
+        graph.addVertex('F');
+
+        System.out.println(graph.getNumberOfEdges());
+        System.out.println(graph.getNumberOfVertices());
+        graph.showAll();
+        System.out.println();
 
 
-<h2 style="text-align: center;" id="con3">方法实现</h2>
+        //添加边
+        graph.addEdge('A', 'B', 3);
+        graph.addEdge('B', 'C', 2);
+        graph.addEdge('B', 'D', 6);
+        graph.addEdge('D', 'E', 1);
+        graph.addEdge('E', 'F', 4);
+        graph.addEdge('A', 'F', 7);
+
+        System.out.println(graph.getNumberOfEdges());
+        System.out.println(graph.getNumberOfVertices());
+        graph.showAll();
+    }
+}
+</pre>
+<p>经过测试, 图可以正常工作了, 现在就可以来开始编写具体的算法了. 算法也可以使用一个接口, 然后按照每个算法编写一个方法的方式来看一下.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
