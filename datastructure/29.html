@@ -87,7 +87,7 @@ public boolean addVertex(T vertexLabel) {
     VertexInterface&lt;T> result = vertices.put(vertexLabel, vertex);
 
     return result != null;
-    
+
 }
 </pre>
 <p>这个方法用HashMap的方法, 如果添加成功, 会返回vertex, 如果不等于null, 就是添加成功.</p>
@@ -131,10 +131,10 @@ public boolean hasEdge(T begin, T end) {
 
     VertexInterface&lt;T> startVertex = vertices.get(begin);
     VertexInterface&lt;T> endVertex = vertices.get(end);
-    
+
     //两个顶点都存在才能进行后续
     if (startVertex != null && endVertex != null) {
-        
+
         //遍历相邻的点寻找是否有边
         Iterator&lt;VertexInterface&lt;T>> vertexIterator = startVertex.getNeighborIterator();
 
@@ -147,7 +147,7 @@ public boolean hasEdge(T begin, T end) {
     }
 
     return result;
-    
+
 }
 </pre>
 <p>剩下的方法就比较简单了, 批发如下:</p>
@@ -249,9 +249,6 @@ public class GraphTest {
 }
 </pre>
 <p>经过测试, 图可以正常工作了, 现在就可以来开始编写具体的算法了. 算法也可以使用一个接口, 然后按照每个算法编写一个方法的方式来看一下.</p>
-
-
-
 
 
 

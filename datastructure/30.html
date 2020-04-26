@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Java 数据结构 图 - 图算法</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>第二次来图算法了, 这次比原来的理解程度又要深一些了, 当然还有一些连通图问题可能用数组等其他方式来解决也可以.</p>
+
+<ol>
+    <li><a href="#con1">图算法类的接口</a></li>
+    <li><a href="#con2">图算法 - 广度优先遍历</a></li>
+    <li><a href="#con3">图算法 - 深度优先遍历</a></li>
+    <li><a href="#con4">图算法 - 寻最短路径</a></li>
+    <li><a href="#con5">图算法 - 寻最优路径</a></li>
+
+</ol>
+<h2 style="text-align: center;" id="con1">图算法类的接口</h2>
+<p>每种算法就是一个图的一个方法, 因此可以用一个接口来表示. 接口中的方法则取决于我们想要采用的算法. 主要有如下的内容:</p>
+<ol>
+    <li>广度优先遍历</li>
+    <li>深度优先遍历</li>
+    <li>拓扑序</li>
+    <li>最短路线</li>
+    <li>最优路线</li>
+</ol>
+<pre>
+public interface GraphAlgorithms&lt;T> {
+
+    QueueInterface&lt;T> getBreadthFirstTraversal(T origin);
+
+    QueueInterface&lt;T> getDepthFirstTraversal(T origin);
+
+    Stack&lt;T> getTopologicalOrder();
+
+    int getShortestPath(T begin, T end, Stack&lt;T> path);
+
+    double getCheapestPath(T begin, T end, Stack&lt;T> path);
+
+}
+</pre>
+<p>这其中都使用了之前编写的数据结构, 使用Java提供的也可以.</p>
+<p>下边就来一点一点看一下如何实现.</p>
+
+<h2 style="text-align: center;" id="con2">图算法 - 广度优先遍历</h2>
+<p>在遍历树的时候, 已经采取过了广度优先遍历, 由于树是特殊的有向图, 不会存在环或者说无向, 那么在遍历的时候, 就不用管是否已经访问过, 一个树的子节点是无论如果也不可能先于父节点被放入队列,</p>
+<p>遍历图就不行了, 从起点开始, 必须对周围的点放入队列后进行标记, 然后再继续对没有放入队列的点进行同样的操作, 这个方法还是挺简单的.</p>
+<pre>
+@Override
+public QueueInterface&lt;T> getBreadthFirstTraversal(T origin) {
+
+    //第一个队列, 用于存放顶点
+    QueueInterface&lt;VertexInterface&lt;T>> temp = new ArrayQueue&lt;>();
+    //第二个队列, 用于返回队列标识给客户, 不能直接返回VertexInterface类.
+    QueueInterface&lt;T> result = new ArrayQueue&lt;>();
+
+    //获取初始顶点
+    VertexInterface&lt;T> start = vertices.get(origin);
+    //标记为已访问
+    start.isVisited();
+    //放入队列
+    temp.enqueue(start);
+
+    //开始弹出队列, 只要不为空就反复弹, 每次弹的时候将T放入result, 然后将弹出的顶点的所有unvisited的邻接点放入temp队列中.
+    while (!temp.isEmpty()) {
+        //从队列中弹出一个顶点
+        VertexInterface&lt;T> currentVertex = temp.dequeue();
+
+        //检测所有邻居, 如果未访问过, 标记为已经访问然后放入队列
+        Iterator&lt;VertexInterface&lt;T>> neighbors = currentVertex.getNeighborIterator();
+
+        while (neighbors.hasNext()) {
+            VertexInterface&lt;T> aNeighbor = neighbors.next();
+            if (!aNeighbor.isVisited()) {
+                //这个地方是关键, 如果要对顶点进行一些操作, 就可以写在这个代码里. 我们这里进行的操作就是记录遍历的顶点顺序.
+
+                aNeighbor.visit();
+                temp.enqueue(aNeighbor);
+            }
+        }
+
+        result.enqueue(currentVertex.getLabel());
+
+    }
+
+    //得到了结果之后, 重置图状态, 这个也可以不写在里边, 由客户手工调用.
+    resetVertices();
+
+    //当temp弹完的时候, result里应该都进去了, 因为这个循环是每次从temp中拿一个, 再放入result中一个.
+    return result;
+
+}
+</pre>
+<p>广度优先遍历对于有环和无环图都是可以用的, 即使图分割为几个不连通的部分, 也可以适用, 只不过只能得到与该顶点相连接的图.</p>
+
+<h2 style="text-align: center;" id="con3">图算法 - 深度优先遍历</h2>
+<p>与深度遍历树类似的是, 要一直去找到遍历到某一个路径的最末尾, 也就是不包含任何邻居的点或者包含邻居但全部被访问完毕. 这里还需要注意的是, 遍历只是一个顺序, 取决于何时进行操作.</p>
+<p>考虑与广度优先不同的做法, 即不能一次塞完全部的邻居, 而是每新到一个点都要立刻再去访问邻居, 如果没有了再去访问另外一个邻居.</p>
+<p>具体来实现的时候, 很像树的做法, 先把一个顶点入栈, 然后将其所有未访问邻居入栈, 直到某个顶点没有未访问的邻居, 就将其出栈. 实际的访问顺序发生在入栈的时候.</p>
+<p>来写一下:</p>
+<pre>
+@Override
+public QueueInterface&lt;T> getDepthFirstTraversal(T origin) {
+
+    //第一个栈, 用于存放顶点
+    Stack&lt;VertexInterface&lt;T>> temp = new LinkedListStack&lt;>();
+
+    //第二个队列, 用于返回结果, 每次入栈的时候, 把那个顶点标签放入到result中.
+    QueueInterface&lt;T> result = new ArrayQueue&lt;>();
+
+    //先把起点的标签放入结果队列中
+    result.enqueue(origin);
+
+    //获取初始顶点
+    VertexInterface&lt;T> start = vertices.get(origin);
+    //标记为已访问
+    start.isVisited();
+    //放入栈中
+    temp.push(start);
+
+    //只要栈不空
+    while (!temp.isEmpty()) {
+        //寻找栈顶的顶点
+        VertexInterface&lt;T> currentVertex = temp.peek();
+
+        //将所有未访问的点标记为已访问然后入栈, 每入栈一个, 在result中进行记录.
+        //如果全部都已经访问, 则需要弹出当前点
+        Iterator&lt;VertexInterface&lt;T>> neighbors = currentVertex.getNeighborIterator();
+
+        boolean allVisited = true;
+
+        while (neighbors.hasNext()) {
+            VertexInterface&lt;T> aNeighbor = neighbors.next();
+
+            //注意这里, 只要放入一个就足够了, 然后立刻break
+            if (!aNeighbor.isVisited()) {
+                allVisited = false;
+                aNeighbor.visit();
+                temp.push(aNeighbor);
+                result.enqueue(aNeighbor.getLabel());
+                break;
+            }
+        }
+
+        //如果循环跑完了一个都没放进去, 则弹出当前顶点
+        if (allVisited) {
+            temp.pop();
+        }
+    }
+
+    //栈空之后, 所有的顶点及其邻居都进来过了, 返回 result即可
+    resetVertices();
+
+    return result;
+
+}
+</pre>
+<p>利用了栈, 就可以实现回溯, 一定要记住这个结论. 每次只放入一个点, 然后就立刻对栈执行操作, 就可以起到进入分支但是还可以回溯的效果.</p>
+
+<h2 style="text-align: center;" id="con4">图算法 - 寻最短路径</h2>
+<p>很多算法都是搭建在深度优先和广度优先基础上的, 比如这个寻最短路径.</p>
+<p>想一想, 如果要寻最短路径该如何寻找呢, 从一个点出发, 将其所有的邻居的前驱节点标记上自己, 然后将距离标记1. 然后继续对每个点进行如此的操作. 每次距离都是前驱节点的距离+1.</p>
+<p>然后可能会通过若干个点都能连接到目标路径, 就将这若干个点先暂时放着, 直到遍历结束.</p>
+<p>此时比较一下这若干个点自己的距离如何, 选取其中距离最小的点, 这就是通往最终目标的最后一个点, 然后返回完整的路径即可.</p>
+<p>来尝试自己写一下看看:</p>
+<pre>
+//获取最短路径长度和路径栈
+@Override
+public int getShortestPath(T begin, T end, Stack&lt;T> path) {
+
+    //只需要用到一个队列
+    QueueInterface&lt;VertexInterface&lt;T>> temp = new ArrayQueue&lt;>();
+
+    //获取初始顶点
+    VertexInterface&lt;T> start = vertices.get(begin);
+    VertexInterface&lt;T> endVertex = vertices.get(end);
+
+    //进行初始判断, 是不是相同. 相同就往栈中加入开始节点的标签, 然后结束
+    if (start.equals(endVertex)) {
+        path.push(endVertex.getLabel());
+        resetVertices();
+        return 0;
+    }
+
+    //标记为已访问
+    start.isVisited();
+    //这里将距离当成cost, 起点相距起点自然是0
+    start.setCost(0);
+
+    //把起点放入队列
+    temp.enqueue(start);
+
+    //开始进行广度优先搜索
+    while (!temp.isEmpty()) {
+        //从队列中弹出一个顶点
+        VertexInterface&lt;T> currentVertex = temp.dequeue();
+
+        //有了前边的判断, 顶点一定不是要找的点, 就开始找邻居
+        Iterator&lt;VertexInterface&lt;T>> neighbors = currentVertex.getNeighborIterator();
+
+        //对于每个邻居顶点, 如果就是目标, 则要填充栈并返回, 如果不是, 则要设置前驱节点然后增加路径长度
+        while (neighbors.hasNext()) {
+            VertexInterface&lt;T> aNeighbor = neighbors.next();
+
+            //这里进行判断, 如果某个邻居节点就是要找的点, 直接返回邻居的路径长度+1即可
+            //还需要在栈中装载整条路径, 这个类似链表, 不断把节点标签写入即可.
+            if (aNeighbor.equals(endVertex)) {
+                int length = (int) (currentVertex.getCost() + 1);
+                path.push(aNeighbor.getLabel());
+                while (currentVertex != null) {
+                    path.push(currentVertex.getLabel());
+                    currentVertex = currentVertex.getPredecessor();
+                }
+
+                resetVertices();
+
+                return length;
+            }
+
+            //如果不是要找到的点, 需要额外添加一些步骤
+            if (!aNeighbor.isVisited()) {
+                aNeighbor.visit();
+
+                //这里需要增加一些步骤:
+
+                //设置新入队的顶点的前驱节点是刚弹出队的顶点
+                aNeighbor.setPredecessor(currentVertex);
+
+                //设置新入队的顶点的距离是前驱节点+1
+                aNeighbor.setCost(currentVertex.getCost() + 1);
+
+                temp.enqueue(aNeighbor);
+            }
+        }
+    }
+
+    //能走到这一步, 说明整个遍历过程都没有找到, 重置状态然后返回-1即可
+    resetVertices();
+
+    return -1;
+}
+</pre>
+
+<h2 style="text-align: center;" id="con5">图算法 - 寻最优路径</h2>
+<p>在广度优先遍历寻找最短路径的时候, 无需去统计所有可以通向这个节点的路径, 因为是最短而且无权, 只要是先找到的一条路, 就必定是最短的, 无需再去寻找其他的路径.</p>
+<p>但是加上权就不是了, 这个算法就别自己想了, 看一下经典的Dijkstra算法, 需要使用一个优先队列, 然后从第一个点开始, 不断使用优先队列排列所有最短路径的点, 然后按这个顺序继续出队入队.</p>
+<p>每次入队的时候, 需要将前驱节点设置为上一个点, 每次出队的时候, 需要更新那个点才可以. 到最后找到目标点, 就找到了路径.</p>
+<p>为了实现这个算法,先要创建一个内部类, 用来封装顶点, 到这个顶点的权重, 以及前驱节点, 然后这个内部类就是优先队列中装的元素.</p>
+<p>优先队列的排序原则是, 内部类中权重越小就排在越优先的位置. 正好符合我们的要求. 先逐个创建需要的东西.</p>
+<p>首先是一个从顶点获取其到某个顶点的边的权重的方法, 这个方法可以将其加在VertexInterface中, 然后给实现出来.</p>
+<pre>
+public interface VertexInterface&lt;T> {
+    //获取当前顶点到指定点的权重
+    double getWeightToVertex(VertexInterface&lt;T> target);
+}
+</pre>
+<p>然后给实现出来:</p>
+<pre>
+public double getWeightToVertex(VertexInterface&lt;T> target) {
+
+    for (Edge edge : edgeList) {
+        if (edge.vertex.equals(target)) {
+            return edge.weight;
+        }
+    }
+    return -1;
+}
+</pre>
+<p>这个方法说明我们的权重不能为负数. 这也是Dijkstra算法的要求. 由于我们一定是在Neighbor中查找, 所以这个方法肯定可以返回权重, 而不是找不到对应的点.</p>
+<p>然后在<code>DirectWeightedGraph&lt;T></code>类中准备一个内部类, 用于之前说的放入到优先队列的数据结构中:</p>
+<pre>
+private class Entry implements Comparable&lt;Entry> {
+    private VertexInterface&lt;T> currentVertext;
+    private double totalWeight;
+    private VertexInterface&lt;T> predecessor;
+
+    public Entry(VertexInterface&lt;T> currentVertext, double totalWeight, VertexInterface&lt;T> predecessor) {
+        this.currentVertext = currentVertext;
+        this.totalWeight = totalWeight;
+        this.predecessor = predecessor;
+    }
+
+    @Override
+    public String toString() {
+        return "Entry{" +
+                "currentVertext=" + currentVertext +
+                ", totalWeight=" + totalWeight +
+                ", predecessor=" + predecessor +
+                '}';
+    }
+
+    //这个方法很关键, Java的PriorityQueue默认是优先移除小的, 即按照升序排列
+    @Override
+    public int compareTo(Entry entry) {
+        return (int) (this.totalWeight - entry.totalWeight);
+    }
+}
+</pre>
+<p>在上边的两个东西的辅助之下, 就可以来写算法了:</p>
+<pre>
+//最优路线 - Dijkstra算法
+@Override
+public double getCheapestPath(T begin, T end, Stack&lt;T> path) {
+    //创建一个优先队列
+    PriorityQueue&lt;Entry> entries = new PriorityQueue&lt;>();
+
+    //先获取起点, 然后包装一个类扔进优先队列
+    VertexInterface&lt;T> startVertex = vertices.get(begin);
+    VertexInterface&lt;T> endVertex = vertices.get(end);
+    Entry firstEntry = new Entry(startVertex, 0, null);
+    entries.add(firstEntry);
+
+    //寻找标志
+    boolean found = false;
+
+    //只要还没找到并且entries不为空
+    while (!found && !entries.isEmpty()) {
+
+        //从优先队列里弹出一项
+        Entry anEntry = entries.remove();
+
+        //如果这一项其中的顶点还没有被访问过
+        if (!anEntry.currentVertext.isVisited()) {
+
+            VertexInterface&lt;T> currentVertex = anEntry.currentVertext;
+            //先标记访问, 然后将Entry中的总权重和前驱都给这个顶点设置上
+            currentVertex.visit();
+            currentVertex.setCost(anEntry.totalWeight);
+            currentVertex.setPredecessor(anEntry.predecessor);
+
+            //如果优先队列里弹出来的就是目标, 设置好前驱后, 这个分支直接就导致循环结束了
+            if (currentVertex.equals(endVertex)) {
+                found = true;
+            } else {
+                //遍历这个顶点的所有邻居, 如果被访问过, 就忽略; 如果没有访问过, 需要计算当前点的cost加到邻居的权重, 两个相加算出那个邻居的总权重, 然后包装一个新的对象扔进去
+                Iterator&lt;VertexInterface&lt;T>> neighbors = currentVertex.getNeighborIterator();
+                while (neighbors.hasNext()) {
+                    VertexInterface&lt;T> anNeighbor = neighbors.next();
+
+                    if (!anNeighbor.isVisited()) {
+                        //获取权重
+                        double totalWeight = currentVertex.getWeightToVertex(anNeighbor) + currentVertex.getCost();
+                        //将邻居节点, 到这个邻居节点的总权重, 前驱节点=当前节点包装对象扔进优先队列.
+                        Entry newEntry = new Entry(anNeighbor, totalWeight, currentVertex);
+                        entries.add(newEntry);
+                    }
+
+                }
+            }
+
+        }
+
+    }
+
+    //运行到这里检测是否寻找到
+    if (found) {
+        double weight = endVertex.getCost();
+        while (endVertex != null) {
+            path.push(endVertex.getLabel());
+            endVertex = endVertex.getPredecessor();
+        }
+        return weight;
+    } else {
+        return -1;
+    }
+
+}
+</pre>
+<p>这里有意思的是, 如果当前节点扔到优先队列的总权重, 比某些节点也扔了同样的节点, 但是权重更高的会排在前边, 一旦访问了, 权重更高的那个节点就会被舍弃. 这就是优先队列的好处.</p>
+<p>虽然用脑子很难想出来多节点的时候怎么办, 不过确实能够计算出来结果, 确实有意思. Dijkstra算法适用于单源的有向无向带权图.</p>
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
