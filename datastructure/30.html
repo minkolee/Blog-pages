@@ -23,6 +23,7 @@
     <li><a href="#con3">图算法 - 深度优先遍历</a></li>
     <li><a href="#con4">图算法 - 寻最短路径</a></li>
     <li><a href="#con5">图算法 - 寻最优路径</a></li>
+    <li><a href="#con6">图算法 - 寻找拓扑序</a></li>
 
 </ol>
 <h2 style="text-align: center;" id="con1">图算法类的接口</h2>
@@ -377,7 +378,97 @@ public double getCheapestPath(T begin, T end, Stack&lt;T> path) {
 }
 </pre>
 <p>这里有意思的是, 如果当前节点扔到优先队列的总权重, 比某些节点也扔了同样的节点, 但是权重更高的会排在前边, 一旦访问了, 权重更高的那个节点就会被舍弃. 这就是优先队列的好处.</p>
-<p>虽然用脑子很难想出来多节点的时候怎么办, 不过确实能够计算出来结果, 确实有意思. Dijkstra算法适用于单源的有向无向带权图.</p>
+<p>虽然用脑子很难想出来多节点的时候怎么办, 不过确实能够计算出来结果, 确实有意思. Dijkstra算法适用于单源的有向/无向带权图.</p>
+
+
+<h2 style="text-align: center;" id="con6">图算法 - 寻找拓扑序</h2>
+<p>拓扑序就是指将顶点排成一行, 其中每个边都指向其后边的某个结点. 所以有环图是没有拓扑序的, 一般拓扑序用于有向无环图. 对于同一个图, 未必只有一种拓扑序.</p>
+<p>拓扑序反向来看, 排在末尾的一定是没有任何邻居(或者说后续顶点)的顶点, 然后是所有的邻居都被访问的未访问顶点, 然后一直反向推回去.</p>
+<p>所以可以从任意一个点开始, 只要这个点没有邻居或者所有邻居都访问过了, 就将其压入栈, 否则继续执行下一个顶点, 直到所有顶点都压入了栈, 此时栈中就是拓扑序.</p>
+<p>来写成代码试试:</p>
+<pre>
+//获取有向无环图的拓扑序
+@Override
+public Stack&lt;T> getTopologicalOrder() {
+    //创建结果栈
+    Stack&lt;T> result = new LinkedListStack&lt;>();
+
+    //获取顶点的个数.
+    int count = vertices.size();
+
+    //只要还有顶点没有压完就一直循环着
+    while (count != 0) {
+        //每次循环都遍历一次全部的顶点, 只要这个顶点没有被访问, 并且无邻居或者邻居全部被访问完, 就标记访问并压入栈.
+        for (VertexInterface&lt;T> vertex : vertices.values()) {
+            if (!vertex.isVisited() && isAllNeighborVisited(vertex)) {
+                vertex.visit();
+                result.push(vertex.getLabel());
+                count--;
+            }
+        }
+
+    }
+
+    return result;
+
+}
+
+
+//判断一个顶点的所有邻居都已经被访问或者无邻居的辅助方法
+private boolean isAllNeighborVisited(VertexInterface&lt;T> vertex) {
+    boolean result = true;
+    
+    //没有邻居也返回true
+    if (!vertex.hasNeighbor()) {
+        return true;
+    }
+    
+    Iterator&lt;VertexInterface&lt;T>> interfaceIterator = vertex.getNeighborIterator();
+
+    while (interfaceIterator.hasNext()) {
+        if (!interfaceIterator.next().isVisited()) {
+            result = false;
+            break;
+        }
+    }
+
+    return result;
+}
+</pre>
+<p>这样就可以得到一种拓扑序, 如果顶点比较多的话, 顶点的排列顺序其实会影响实际所得的拓扑序, 不过任意一种拓扑序都能解决问题.</p>
+<p>至此为止又把Java的数据结构和算法过了一遍, 其中的散列表的线性探查法和红黑树还没有仔细看, 不过这一遍一过, 数据结构有所加强.</p>
+<p>剩下就是要把算法设计手册第二版再过一下, 然后遇到一些高级的算法和技巧注意掌握和总结了.</p>
+<p>另外也可以考虑C语言的算法了, 不过还是先过了目前要去新公司接班这段时间吧. 自己醒的晚也就不要奢求什么好事都落在自己身上了, 也唯有继续努力和坚持才有希望, 如果想着逃跑, 那么还是会遇到同样的问题.</p>
+<p>也许人生就是在这种痛苦中不断过来的, 我想要爱上财务也许不可能, 不过可以尽量让自己多了解多看一下, 同时在工作中, 尽量从核算中脱开吧.</p>
+<p>今天给女儿摇了宝山世外, 不管最后结果如何, 博一把还是对的, 写完这篇博文的时候女儿已经熟睡, 希望她能成功摇中. 晚安, 我亲爱的老婆和女儿.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
