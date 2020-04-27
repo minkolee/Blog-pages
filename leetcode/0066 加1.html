@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>移除指定元素</title>
+</head>
+<body>
+<p>给定一个由整数组成的非空数组所表示的非负整数，在该数的基础上加一。
+
+    最高位数字存放在数组的首位， 数组中每个元素只存储单个数字。
+
+    你可以假设除了整数 0 之外，这个整数不会以零开头。
+
+    示例 1:
+
+    输入: [1,2,3]
+    输出: [1,2,4]
+    解释: 输入数组表示数字 123。
+    示例 2:
+
+    输入: [4,3,2,1]
+    输出: [4,3,2,2]
+    解释: 输入数组表示数字 4321。
+</p>
+<p>这个题目一开始是硬算的, 即像进位一样, 不断的加上去. 写出来如下:</p>
+<pre>
+class Solution {
+public int[] plusOne(int[] digits) {
+        if (digits.length == 0) {
+            return digits;
+        }
+
+        boolean isCarry = false;
+
+        for (int i = digits.length - 1; i >= 0; i--) {
+
+            if (i == digits.length - 1 && i != 0) {
+                int j = digits[i] + 1;
+                isCarry = j >= 10;
+                if (j >= 10) {
+                    digits[i] = j - 10;
+                } else {
+                    digits[i] = j;
+                }
+
+            } else if (i != 0) {
+                if (isCarry) {
+                    int j = digits[i] + 1;
+                    isCarry = j >= 10;
+                    if (j >= 10) {
+                        digits[i] = j - 10;
+                    } else {
+                        digits[i] = j;
+                    }
+
+                }
+            } else {
+                //此时i = 0, 判断是否进位
+                if (isCarry || digits.length == 1) {
+                    int j = digits[i] + 1;
+                    if (j == 10) {
+                        digits[i] = 0;
+                        int[] array = new int[digits.length + 1];
+                        array[0] = 1;
+                        System.arraycopy(digits, 0, array, 1, array.length - 1);
+                        return array;
+                    } else {
+                        digits[i] = j;
+                    }
+                }
+            }
+
+
+
+        }
+
+        return digits;
+
+    }
+}
+</pre>
+<p>后来看了题解之后发现, 其实就是确定要加在哪一位, 由于一定要先加在处理, 比较傻. 其实直接可以强行给最后一位加1, 然后如果有进位, 直接给上一位加上1, 再去以相同的逻辑处理即可.</p>
+<p>最后只要检测第一位存放的数字是不是0就行:</p>
+<pre>
+public int[] plusOne(int[] digits) {
+    int length = digits.length;
+    for (int i = length - 1; i >= 0; i--) {
+        if (digits[i] == 9) {
+            digits[i] = 0;
+        } else {
+            digits[i] += 1;
+            break;
+        }
+    }
+    int[] res;
+    if (digits[0] == 0) {
+        res = new int[length+1];
+        res[0] = 1;
+    } else return digits;
+    return res;
+}
+</pre>
+<p>这个算法很巧妙, 如果当前数字是9, 就置成0, 如果不是, 就加1然后就break了. 如果置成0之后, 检查下一位, 是9就还置成0, 反正只能进1, 再对下一位操作.</p>
+<p>最后只要检查首位是不是0就行了, 如果是0就返回一个长度是加1的数组, 不是则一定不是. 数组如果要变长一位, 很显然只有9, 99, 999之类才行, 而这种的结果就是全部变成0.</p>
+<p>这个思路果然还得好好体会一下.</p>
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

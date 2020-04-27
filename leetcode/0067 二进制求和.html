@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>移除指定元素</title>
+</head>
+<body>
+<p>给你两个二进制字符串，返回它们的和（用二进制表示）。
+
+    输入为 非空 字符串且只包含数字 1 和 0。
+
+    示例 1:
+
+    输入: a = "11", b = "1"
+    输出: "100"
+    示例 2:
+
+    输入: a = "1010", b = "1011"
+    输出: "10101"
+     
+
+    提示：
+
+    每个字符串仅由字符 '0' 或 '1' 组成。
+    1 <= a.length, b.length <= 10^4
+    字符串如果不是 "0" ，就都不含前导零。
+</p>
+<p>这个题目的思路首先想到的就是字符逆向遍历, 不断求和进位, 然后将结果放入栈中.最后反向拼合成字符串. 当然利用库那是另外一回事情了, 还需要保持进位.</p>
+<p>另外就是需要判断两个字符串的长度, 以谁来进行基础遍历才可以.</p>
+<pre>
+import java.util.Stack;
+
+class Solution {
+
+    public String addBinary(String a, String b) {
+
+        if (a.length() == 0 && b.length() == 0) {
+            return "0";
+        } else if (a.length() == 0) {
+            return b;
+        } else if (b.length() == 0) {
+            return a;
+        }
+
+        //让i等于两个字符串比较短的长度
+        int i = Math.min(a.length(), b.length()) - 1;
+
+        Stack&lt;Character> stack = new Stack&lt;>();
+
+        boolean carry = false;
+
+        while (i >= 0) {
+
+
+            char cAta;
+            char cAtb;
+
+            if (a.length() > b.length()) {
+                cAta = a.charAt(i + a.length() - b.length());
+                cAtb = b.charAt(i);
+            } else {
+                cAta = a.charAt(i);
+                cAtb = b.charAt(i + b.length() - a.length());
+            }
+
+
+            System.out.println("cata=" + cAta);
+            System.out.println("catb=" + cAtb);
+            System.out.println("进位吗:" + carry);
+
+            if (carry) {
+                if (cAta == '1' && cAtb == '1') {
+                    stack.push('1');
+                    carry = true;
+                } else if (cAta == '1' && cAtb == '0') {
+                    stack.push('0');
+                    carry = true;
+                } else if (cAta == '0' && cAtb == '1') {
+                    stack.push('0');
+                    carry = true;
+                } else {
+                    stack.push('1');
+                    carry = false;
+                }
+            } else {
+                System.out.println("走的不进位分支");
+                if (cAta == '1' && cAtb == '1') {
+                    stack.push('0');
+                    carry = true;
+                } else if (cAta == '0' && cAtb == '1') {
+                    stack.push('1');
+                    carry = false;
+                } else if (cAta == '1' && cAtb == '0') {
+                    stack.push('1');
+                    carry = false;
+                } else {
+                    stack.push('0');
+                    carry = false;
+                }
+            }
+            i--;
+            System.out.println(stack);
+
+        }
+
+
+        //如果字符串相等, 处理完毕
+        if (a.length() == b.length()) {
+            if (carry) {
+                stack.push('1');
+
+            }
+
+            StringBuilder stringBuilder = new StringBuilder();
+            while (!stack.isEmpty()) {
+                stringBuilder.append(stack.pop());
+            }
+            return stringBuilder.toString();
+            //如果a比b长, a剩余长度是a-b, 所以索引开始的地方是a-b-1
+
+        } else if (a.length() > b.length()) {
+
+            for (int j = a.length() - b.length() - 1; j >= 0; j--) {
+                if (carry) {
+                    if (a.charAt(j) == '1') {
+                        stack.push('0');
+                        carry = true;
+                    } else {
+                        stack.push('1');
+                        carry = false;
+                    }
+                } else {
+                    stack.push(a.charAt(j));
+                }
+            }
+
+            if (carry) {
+                stack.push('1');
+            }
+
+            StringBuilder stringBuilder = new StringBuilder();
+            while (!stack.isEmpty()) {
+                stringBuilder.append(stack.pop());
+            }
+            return stringBuilder.toString();
+        } else {
+            System.out.println("进了这个分支");
+            for (int j = b.length() - a.length() - 1; j >= 0; j--) {
+                if (carry) {
+                    if (b.charAt(j) == '1') {
+                        stack.push('0');
+                        carry = true;
+                    } else {
+                        stack.push('1');
+                        carry = false;
+                    }
+                } else {
+                    stack.push(b.charAt(j));
+                }
+            }
+
+            if (carry) {
+                stack.push('1');
+            }
+            StringBuilder stringBuilder = new StringBuilder();
+            while (!stack.isEmpty()) {
+                stringBuilder.append(stack.pop());
+            }
+            return stringBuilder.toString();
+        }
+
+
+    }
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+
+        System.out.println(solution.addBinary("100", "110010"));
+
+    }
+
+}
+</pre>
+<p>根据这个思路, 写出了一个程序, 用栈来装载每次计算之后的字符, 计算完成所有位数之后, 再检查一下是不是有进位, 最后再加一位进去.</p>
+<p>整个方式基本上就是一个逻辑电路顺序进位的方式, 结果一提交, 去掉打印语句之后, 发现击败32.48%的用户, 似乎还不是最棒的算法...</p>
+<p>这道题目其实可以进行优化, 就是同时控制两个循环变量, 都从各自结尾开始运算, 代码会简洁好多, 就不继续改了.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

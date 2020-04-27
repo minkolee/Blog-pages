@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>移除指定元素</title>
+</head>
+<body>
+<p>x 的平方根</p>
+<p>求x的平方根有很多种办法, 牛顿法就是不断逼近, 用递归迭代都可以.</p>
+<pre>
+class Solution {
+
+    public int mySqrt(int x) {
+
+        double y = x / 2.0;
+
+
+        while (Math.abs(y * y - x) > 0.001) {
+            y = (y + x / y) / 2;
+        }
+
+        return (int)y;
+    }
+}
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
