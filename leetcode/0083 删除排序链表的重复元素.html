@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>删除排序链表的重复元素</title>
+</head>
+<body>
+给定一个排序链表，删除所有重复的元素，使得每个元素只出现一次。
+
+示例 1:
+
+输入: 1->1->2
+输出: 1->2
+示例 2:
+
+输入: 1->1->2->3->3
+输出: 1->2->3
+
+<p>这个采用双指针的方法.</p>
+<p>第一个s一开始指向链表头, 第二个w指向链表的next位置.</p>
+<p>然后进行判断, 如果w的数据等于s, 则这个节点应该删除掉, 就用 s.next = w.next. 然后凭单s.next如果是null, 就结束了. 如果不是null,则w需要等于s.next,此时两个指针还是紧挨着.</p>
+<p>如果w的数据与s不相等, 那么这个节点需要保留, 将s和w都前进一位即可.</p>
+<p>除了空链表, 这个操作都是适用的. 而且只删除节点, 因此最后返回指向头部的引用即可.</p>
+<pre>
+/**
+ * Definition for singly-linked list.
+ * public class ListNode {
+ *     int val;
+ *     ListNode next;
+ *     ListNode(int x) { val = x; }
+ * }
+ */
+
+class Solution {
+    public ListNode deleteDuplicates(ListNode head) {
+        //空链表返回空
+        if (head == null) {
+            return head;
+        }
+
+        //start是第一个指针
+        ListNode start = head;
+        //worker是第二个指针
+        ListNode worker = head.next;
+
+        //只要worker不为空
+        while (worker != null) {
+            //如果worker的数值与start相等. 说明需要删除worker节点
+            if (worker.val == start.val) {
+
+                //这一行删除worker节点
+                start.next = worker.next;
+
+                //如果删除之后到了null, 说明到结尾了, 返回head
+                if (start.next == null) {
+                    return head;
+                } else {
+                    //删除之后下一个节点不是null, 让worker指向这个节点
+                    //这样操作完成后, start和worker依然指向两个相邻的节点
+                    worker = start.next;
+                }
+            } else {
+                //如果两个值不相等, 说明两个节点都要保留, 所以将start和worker都前进一个位置, 再去进行下一次循环.
+                start = start.next;
+                worker = worker.next;
+            }
+        }
+        return head ;
+    }
+}
+</pre>
+<p>官方更牛逼, 单指针也是可以的, 确实如此.</p>
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

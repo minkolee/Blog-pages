@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>爬楼梯</title>
+</head>
+<body>
+假设你正在爬楼梯。需要 n 阶你才能到达楼顶。
+
+每次你可以爬 1 或 2 个台阶。你有多少种不同的方法可以爬到楼顶呢？
+
+注意：给定 n 是一个正整数。
+
+示例 1：
+
+输入： 2
+输出： 2
+解释： 有两种方法可以爬到楼顶。
+1.  1 阶 + 1 阶
+2.  2 阶
+示例 2：
+
+输入： 3
+输出： 3
+解释： 有三种方法可以爬到楼顶。
+1.  1 阶 + 1 阶 + 1 阶
+2.  1 阶 + 2 阶
+3.  2 阶 + 1 阶
+<p>这个应该说是经典的递归或者动态规划的题目了.</p>
+<p>1 有 1种方法, 2有两种方法. 3, 只要理解成, 倒数第二步要么是1要么是2, 所以f(3) = f(3-2) + f(3-1)</p>
+<p>然后就可以用递归或者尾递归来计算了. 只需要保存两个数据就可以知道下一个.其实是斐波那契数列, 用尾递归, 数列 都可以.</p>
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
