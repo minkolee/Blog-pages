@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>对称二叉树</title>
+</head>
+<body>
+<p>对称二叉树</p>
+<p>这个我递归想到了办法, 也就是从两个节点一左一右开始, 两个节点的值如果不同, 或者不同时是null, 就返回false. 否则就比较左节点的左是不是等于右节点的右以及左节点的右是不是等于右节点的左.</p>
+<p>这个方法就在于启动递归必须是比较根节点的两个子树, 所以不能直接在第一层启动递归, 必须自己编写一个方法. 两个子树是镜像, 则整个树就是镜像.</p>
+<pre>
+/**
+ * 检查对称.
+ * 从最左侧深度优先遍历, 和从最右侧深度优先遍历, 如果每次值都相等, 那么就是对称的.
+ */
+class Solution {
+    public boolean isSymmetric(TreeNode root) {
+
+        if (root == null) {
+            return true;
+        }
+
+        return isMirror(root.left, root.right);
+
+    }
+
+
+    private boolean isMirror(TreeNode leftNode, TreeNode rightNode) {
+        if (leftNode == null && rightNode == null) {
+            return true;
+        } else if (leftNode == null || rightNode == null) {
+            return false;
+        } else if (leftNode.val != rightNode.val) {
+            return false;
+        } else {
+            return isMirror(leftNode.right, rightNode.left) && isMirror(leftNode.left, rightNode.right);
+        }
+
+    }
+}
+</pre>
+<p>所以就写出了递归, 这个递归不是尾递归, 所以执行起来还是挺可怕的.</p>
+<p>迭代的方式我想到的是, 针对左右子树, 分别进行两个方向相反的遍历, 只要遍历过程中每一次比较都成功, 最后就可以成功. 比如左侧采用深度优先前序遍历, 右侧就要采用后序遍历.</p>
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>
