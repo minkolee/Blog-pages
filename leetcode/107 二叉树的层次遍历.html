@@ -28,8 +28,117 @@
 
 </p>
 <p>我发现算法能力确实有进步, 这个题目一看就知道采用优先队列加上广度优先搜索.</p>
+<pre>
+
+import java.util.*;
+
+/**
+ * Definition for a binary tree node.
+ * public class TreeNode {
+ *     int val;
+ *     TreeNode left;
+ *     TreeNode right;
+ *     TreeNode(int x) { val = x; }
+ * }
+ */
+
+class Solution {
+    public List&lt;List&lt;Integer>> levelOrderBottom(TreeNode root) {
+        // 类似于图算法的广度优先搜搜, 但是每一层可以在顶点上进行标记.
+
+        List&lt;List&lt;Integer>> result = new ArrayList&lt;>();
+
+        if (root == null) {
+            return result;
+        }
+
+        Stack&lt;Wrapper> stack = new Stack&lt;>();
+
+        Queue&lt;Wrapper> queue = new LinkedList&lt;>();
+
+        int startLevel = 1;
+
+        queue.add(new Wrapper(root, startLevel));
+        while (!queue.isEmpty()) {
 
 
+            Wrapper ejectedNode = queue.remove();
+
+
+            stack.push(ejectedNode);
+
+            if (ejectedNode.node.left != null) {
+                queue.offer(new Wrapper(ejectedNode.node.left, ejectedNode.level + 1));
+            }
+
+            if (ejectedNode.node.right != null) {
+                queue.offer(new Wrapper(ejectedNode.node.right, ejectedNode.level + 1));
+            }
+
+
+        }
+
+
+        //然后就是从队列中收集元素.
+
+
+
+        int lastLevel = stack.peek().level;
+
+
+
+        while (lastLevel != 0) {
+            List&lt;Integer> templist = new ArrayList&lt;>();
+
+//            System.out.println(lastLevel);
+//            System.out.println(priorityQueue);
+
+
+
+            while (stack.peek().level == lastLevel) {
+
+//                System.out.println(priorityQueue.peek().level);
+
+                templist.add(0,stack.pop().node.val);
+                if (stack.isEmpty()) {
+                    break;
+                }
+            }
+            result.add(templist);
+            lastLevel--;
+        }
+
+        return result;
+
+    }
+
+    private class Wrapper implements Comparable&lt;Wrapper> {
+
+        private TreeNode node;
+        private int level;
+
+        public Wrapper(TreeNode node, int level) {
+            this.node = node;
+            this.level = level;
+        }
+
+        @Override
+        public int compareTo(Wrapper wrapper) {
+            return this.level - wrapper.level;
+        }
+
+        @Override
+        public String toString() {
+            return "Wrapper{" +
+                    "node=" + node.val +
+                    ", level=" + level +
+                    '}';
+        }
+    }
+
+}
+</pre>
+<p>结果优先队列后添加的相同元素在前边, 就老实改用栈来存储了. 是不是可以优化到在每次遍历的时候就直接生成当前行.</p>
 
 
 

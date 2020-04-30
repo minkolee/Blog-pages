@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>平衡二叉树</title>
+</head>
+<body>
+<p>110. 平衡二叉树
+    给定一个二叉树，判断它是否是高度平衡的二叉树。
+
+    本题中，一棵高度平衡二叉树定义为：
+
+    一个二叉树每个节点 的左右两个子树的高度差的绝对值不超过1。
+
+    示例 1:
+
+    给定二叉树 [3,9,20,null,null,15,7]
+
+    3
+    / \
+    9  20
+    /  \
+    15   7
+    返回 true 。
+
+    示例 2:
+
+    给定二叉树 [1,2,2,3,3,null,null,4,4]
+
+    1
+    / \
+    2   2
+    / \
+    3   3
+    / \
+    4   4
+    返回 false 。
+
+<p>这题目比较简单, 所有节点都要相同, 所以先比较自己, 然后递归比较所有节点:</p>
+<pre>
+
+class Solution {
+    public boolean isBalanced(TreeNode root) {
+
+
+        //先判断自己是否左右两边相等, 如果不相等, 不用继续了, 就是false
+        //自己左右两边相等再判断两个子节点
+        if (root == null) {
+            return true;
+        } else if (!isSameHeight(root)) {
+            return false;
+        } else {
+            return isBalanced(root.right) && isBalanced(root.left);
+
+        }
+    }
+
+
+    private int getHeight(TreeNode node) {
+        if (node == null) {
+            return 0;
+        } else {
+            return 1 + Math.max(getHeight(node.right), getHeight(node.left));
+        }
+    }
+
+    private boolean isSameHeight(TreeNode root) {
+        if (root == null) {
+            return true;
+        } else {
+            return Math.abs(getHeight(root.left) - getHeight(root.right)) <= 1;
+
+        }
+
+
+    }
+}
+</pre>
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</body>
+</html>

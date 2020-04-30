@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>111. 二叉树的最小深度</title>
+</head>
+<body>
+<p>给定一个二叉树，找出其最小深度。
+
+    最小深度是从根节点到最近叶子节点的最短路径上的节点数量。
+
+    说明: 叶子节点是指没有子节点的节点。
+
+    示例:
+
+    给定二叉树 [3,9,20,null,null,15,7],
+
+    3
+    / \
+    9 20
+    / \
+    15 7
+    返回它的最小深度  2.
+
+<p>这个题目就是广度优先遍历, 每一层只要遍历到叶子节点, 就返回当前层数即可.</p>
+<pre>
+import java.util.Stack;
+
+class Solution {
+    public int minDepth(TreeNode root) {
+        return getHeight(root);
+    }
+
+    //广度优先遍历
+
+    private int getHeight(TreeNode node) {
+        if (node == null) {
+            return 0;
+        }
+
+        if (isLeaf(node)) {
+            return 1;
+        }
+
+        Stack&lt;TreeNode> treeNodeList = new Stack&lt;>();
+        treeNodeList.push(node);
+        int start = 1;
+
+        Stack&lt;TreeNode> inner = new Stack&lt;>();
+        while (true) {
+            //把队列中的玩意装入到一个临时队列
+
+            while (!treeNodeList.isEmpty()) {
+
+                TreeNode node2 = treeNodeList.pop();
+
+                if (isLeaf(node2)) {
+                    return start;
+                }
+
+                inner.push(node2);
+            }
+
+            //把临时队列给消耗掉, 取出一个元素, 判断如果其子就是null 那就返回当前层数
+            //如果左右都不是, 把子元素放进去, 直到全部放完这一层
+            //这个循环消耗掉inner, 每次消耗完毕之后, 层数+1
+            while (!inner.isEmpty()) {
+                TreeNode node1 = inner.pop();
+                if (isLeaf(node1)) {
+                    return start;
+                }
+
+                if (node1.left != null) {
+                    if (isLeaf(node1.left)) {
+                        return start + 1;
+                    } else {
+                        treeNodeList.push(node1.left);
+                    }
+                }
+
+                if (node1.right != null) {
+                    if (isLeaf(node1.right)) {
+                        return start + 1;
+                    } else {
+                        treeNodeList.push(node1.right);
+                    }
+                }
+            }
+            start++;
+
+        }
+
+    }
+
+    static boolean isLeaf(TreeNode node) {
+        return node != null && node.right == null && node.left == null;
+    }
+
+}
+</pre>
+<p>这里用了两个集合, A 集合A用于塞满一层新的节点, B用于暂存上一次遍历的一层节点. 每次从A取出来元素放到B的时候,检查这个元素是不是叶子节点, 是就返回层数. </p>
+<p>本质就是广度优先遍历的时候记录层数, 只要找到叶子节点, 就返回层数即可.</p>
+<p>这题用递归也有思路.</p>
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</p></body>
+</html>
