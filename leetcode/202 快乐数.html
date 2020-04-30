@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>112. 路径总和</title>
+</head>
+<body>
+<p>编写一个算法来判断一个数 n 是不是快乐数。
+
+    「快乐数」定义为：对于一个正整数，每一次将该数替换为它每个位置上的数字的平方和，然后重复这个过程直到这个数变为 1，也可能是 无限循环 但始终变不到 1。如果 可以变为  1，那么这个数就是快乐数。
+
+    如果 n 是快乐数就返回 True ；不是，则返回 False 。
+
+     
+
+    示例：
+
+    输入：19
+    输出：true
+    解释：
+    12 + 92 = 82
+    82 + 22 = 68
+    62 + 82 = 100
+    12 + 02 + 02 = 1
+
+    来源：力扣（LeetCode）
+    链接：https://leetcode-cn.com/problems/happy-number
+    著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+
+<p>我的思路是, 每次计算出来下一个值后, 先去一个集合中找一下, 是否已经存在这个数字, 如果存在, 说明进入了循环, 是false. 如果不存在, 就将当前数设置为计算的下一个数, 然后直到算成1.</p>
+<pre>
+import java.util.ArrayList;
+import java.util.List;
+
+class Solution {
+
+
+    public boolean isHappy(int n) {
+
+        List&lt;Integer> a = new ArrayList&lt;>();
+        a.add(n);
+
+
+        while (n != 1) {
+            int next = change(n);
+            if (a.contains(next)) {
+                return false;
+            } else {
+                a.add(next);
+                n = next;
+            }
+        }
+        return true;
+
+
+    }
+
+    private int change(int n) {
+
+        int sum = 0;
+
+        while (n != 0) {
+            sum = sum + (n % 10) * (n % 10);
+            n = n / 10;
+        }
+
+        return sum;
+
+    }
+
+    public static void main(String[] args) {
+        Solution solution = new Solution();
+
+        System.out.println(solution.isHappy(19));
+        ;
+
+
+    }
+
+
+}
+</pre>
+<p>提交之后3 ms, 在所有 Java 提交中击败了 19.27% 的用户, 看来是没有发现快乐数的规律啊...</p>
+<p>.</p>
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</p</p></body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>112. 路径总和</title>
+</head>
+<body>
+<p>给定一个二叉树和一个目标和，判断该树中是否存在根节点到叶子节点的路径，这条路径上所有节点值相加等于目标和。
+
+    说明: 叶子节点是指没有子节点的节点。
+
+    示例: 
+    给定如下二叉树，以及目标和 sum = 22，
+
+    5
+    / \
+    4 8
+    / / \
+    11 13 4
+    / \ \
+    7 2 1
+    返回 true, 因为存在目标和为 22 的根节点到叶子节点的路径 5->4->11->2。
+
+<p>我的思路还是遍历, 只要每次遍历的时候更新子节点的val, 然后查找满足条件的即可. 第一版代码如下:</p>
+<pre>
+import java.util.Stack;
+
+/**
+ * 广度优先, 每次遍历, 把节点合计数加上上一个节点的数量, 直到找到叶子节点的和等于指定的target
+ */
+class Solution {
+
+
+    public boolean hasPathSum(TreeNode root, int sum) {
+        Stack&lt;TreeNode> stack1 = new Stack&lt;>();
+        Stack&lt;TreeNode> stack2 = new Stack&lt;>();
+
+        if (root == null) {
+            return false;
+        }
+
+        int start = root.val;
+
+        stack1.push(root);
+
+        boolean found = false;
+
+        while (!stack1.isEmpty() && !found) {
+
+            //从stack1中取出所有东西放入stack2中
+            while (!stack1.isEmpty()) {
+
+                TreeNode cNode = stack1.pop();
+
+                if (cNode.val == sum && isLeaf(cNode)) {
+                    found = true;
+                    break;
+                } else {
+                    stack2.push(cNode);
+                }
+
+            }
+
+            //然后从stack2中取出东西, 将其左右节点的val设置成父节点的金额, 放入到stack1中
+
+            while (!stack2.isEmpty()) {
+                TreeNode fatherNode = stack2.pop();
+                int fatherNodeVal = fatherNode.val;
+
+                //如果左子元素不为0, 则更新其val为自己的val加上父元素的val
+                if (fatherNode.left != null) {
+                    fatherNode.left.val = fatherNode.left.val + fatherNodeVal;
+                    stack1.push(fatherNode.left);
+                }
+
+                if (fatherNode.right != null) {
+                    fatherNode.right.val = fatherNode.right.val + fatherNodeVal;
+                    stack1.push(fatherNode.right);
+                }
+
+            }
+        }
+
+        return found;
+    }
+
+
+    private boolean isLeaf(TreeNode node) {
+        return node.left == null && node.right == null;
+    }
+
+}
+</pre>
+<p>还是双栈来回倒 ,结果提交之后执行用时 :
+    2 ms
+    , 在所有 Java 提交中击败了
+    10.11%
+    的用户, 后来想了想根本不需要双栈啊,就一个队列, 按顺序遍历就可以了. 于是修改如下:</p>
+<pre>
+import java.util.LinkedList;
+import java.util.Queue;
+
+/**
+ * 广度优先, 每次遍历, 把节点合计数加上上一个节点的数量, 直到找到叶子节点的和等于指定的target
+ */
+class Solution {
+
+
+    public boolean hasPathSum(TreeNode root, int sum) {
+        Queue&lt;TreeNode> stack1 = new LinkedList&lt;>();
+
+        if (root == null) {
+            return false;
+        }
+
+        stack1.add(root);
+
+        boolean found = false;
+
+        while (!stack1.isEmpty() && !found) {
+
+            //队列最头的元素
+            TreeNode currentNode = stack1.remove();
+
+            //进行判断
+
+            if (currentNode.val == sum && isLeaf(currentNode)) {
+                found = true;
+            } else {
+                //判断不是的, 更新子节点的val然后放进去
+                int fatherNodeVal = currentNode.val;
+
+                //如果左子元素不为0, 则更新其val为自己的val加上父元素的val, 然后放入队列
+                if (currentNode.left != null) {
+                    currentNode.left.val = currentNode.left.val + fatherNodeVal;
+                    stack1.add(currentNode.left);
+                }
+
+                if (currentNode.right != null) {
+                    currentNode.right.val = currentNode.right.val + fatherNodeVal;
+                    stack1.add(currentNode.right);
+                }
+
+            }
+
+        }
+
+
+        return found;
+    }
+
+
+    private boolean isLeaf(TreeNode node) {
+        return node.left == null && node.right == null;
+    }
+
+}
+</pre>
+<p>这次提交是  :    1 ms    , 在所有 Java 提交中击败了    20.21%    的用户, 略微进步了一些.</p>
+<p>还有没有更好的算法呢. 我突然想到, 如果一个节点的金额已经大于了sum, 其子节点完全不需要放入, 这样就快了一些. 结果发现这样不行, 因为节点会有负数. 所以只能老老实实搜索.</p>
+<p>然后看到递归的方法, 确实妙, 在子树中查找, 其实sum要减去父节点的大小, 什么时候减到0 然后 节点是叶子节点, 就说明找到了, 否则还是没有找到.</p>
+<p>自己没想到递归的方式, 赶快把递归方法补一下.</p>
+<pre>
+/**
+ * 递归思想, 如果当前是空, 返回false
+ * 如果sum==与当前节点的值相同, 而且为叶子节点的时候, 返回 true
+ * 如果不为空, 在两颗子树中按照sum-父节点的val 之后的数字寻找路径
+ */
+class Solution {
+
+
+    public boolean hasPathSum(TreeNode root, int sum) {
+        if (root == null) {
+            return false;
+        }
+        else if (isLeaf(root) && sum == root.val) {
+            return true;
+        } else {
+            return hasPathSum(root.left, sum - root.val) || hasPathSum(root.right, sum - root.val);
+        }
+
+    }
+
+
+    private boolean isLeaf(TreeNode node) {
+        return node.left == null && node.right == null;
+    }
+
+}
+</pre>
+<p>递归的速度确实快, 因为二叉树, 其实上也不用太担心递归的深度问题, 而是会先增长再收缩.</p>
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+</p</p></body>
+</html>
