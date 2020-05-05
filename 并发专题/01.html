@@ -23,7 +23,7 @@
 <ol>
     <li><a href="#con1">老生常谈, 并发问题</a></li>
     <li><a href="#con2">POSIX下的线程API</a></li>
-    <li><a href="#con3"></a></li>
+    <li><a href="#con3">锁</a></li>
     <li><a href="#con4"></a></li>
     <li><a href="#con5"></a></li>
     <li><a href="#con6"></a></li>
@@ -178,6 +178,59 @@ int main(int argc, char *argv[]) {
 <p>实在记不住, 就记住将获取结果的指针强制转型成 void** 即可.</p>
 
 
+<h2 style="text-align: center;" id="con3">锁</h2>
+<p>使用锁需要先声明一个锁变量, 这个锁变量的类型是<code>pthread_mutex_t</code>, 从名字可以看出来这是一个互斥锁.</p>
+<p>然后有两个函数用来获取和释放锁, 很显然, 需要在进入临界区的时候用锁保护:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+#include &lt;unistd.h>
+#include &lt;fcntl.h>
+#include &lt;sys/wait.h>
+#include &lt;pthread.h>
+
+
+<span style="color: red">pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;</span>
+
+static volatile int counter = 0;
+
+void *mythread(void *arg) {
+    printf("%s\n", (char *) arg);
+
+    int i = 0;
+    for (i = 0; i &lt; 100000000; i++) {
+        if (i & 0x1) {
+            <span style="color: red">pthread_mutex_lock(&lock);</span>
+            counter = counter + 1;
+            <span style="color: red">pthread_mutex_unlock(&lock);</span>
+        }
+    }
+
+    return NULL;
+}
+
+
+int main(int argc, char *argv[]) {
+
+    pthread_t p1, p2;
+    int rc;
+
+    printf("main:begin\n");
+
+    rc = pthread_create(&p1, NULL, mythread, "A");
+    rc = pthread_create(&p2, NULL, mythread, "B");
+
+    rc = pthread_join(p1, NULL);
+    rc = pthread_join(p2, NULL);
+
+    printf("main:end and counter = %d\n", counter);
+
+    return 0;
+
+};
+</pre>
+<p>锁在使用之前必须先初始化, 不能仅仅声明. 这里的锁初始化直接用了一个宏. 如果是用代码初始化, 则是调用<code>pthread_mutex_init(&lock, NULL)</code>.</p>
+<p>这里的程序的问题是, 获取锁的时候可能出现失败, 导致多个线程进入临界区, 所以一般应该来检查结果.</p>
 
 
 
@@ -197,7 +250,22 @@ int main(int argc, char *argv[]) {
 
 
 
-<h2 style="text-align: center;" id="con3"></h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con4"></h2>
 
