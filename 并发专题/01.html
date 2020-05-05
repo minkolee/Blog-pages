@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>并发专题</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>在之前的算法中写出了Dijkstra算法, 后来发现这个人是并发领域的先驱, 很多专有名词都是这个人搞出来的. 又把数据结构过了一遍的今天, 我leetcode也刷了30多题了, 感觉后边一个要好好的看看并发, 一个要好好的看一下网络编程.</p>
+<p>之前试着看了一下经典的 Java并发编程实战, 发现还是有点难度的, 正好按照自学计算机的进度, 也需要看一下操作系统了.</p>
+<p>这时候正好发现<a href="https://item.jd.com/12535621.html" target="_blank">Operating Systems Three Easy Pieces</a>这本书有了中文版, 赶快买回来看看, 发现讲解确实比现代操作系统好多了.</p>
+<p>于是现在就准备跟着操作系统先看一遍并发基础理论, 然后通过On Java 8 以及Core Java看一下Java的并发基础部分, 然后逐步再看Java并发实战了.</p>
+
+<ol>
+    <li><a href="#con1">老生常谈, 并发问题</a></li>
+    <li><a href="#con2">POSIX下的线程API</a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">老生常谈, 并发问题</h2>
+<p>这一段程序:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+#include &lt;unistd.h>
+#include &lt;fcntl.h>
+#include &lt;sys/wait.h>
+#include &lt;pthread.h>
+
+static volatile int counter = 0;
+
+void *mythread(void *arg) {
+    printf("%s\n", (char *) arg);
+
+    int i = 0;
+    for (i = 0; i &lt; 100000000; i++) {
+        if (i & 0x1) {
+            counter = counter + 1;
+        }
+    }
+
+    return NULL;
+}
+
+
+int main(int argc, char *argv[]) {
+
+    pthread_t p1, p2;
+    int rc;
+
+    printf("main:begin\n");
+
+    rc = pthread_create(&p1, NULL, mythread, "A");
+    rc = pthread_create(&p2, NULL, mythread, "B");
+
+    rc = pthread_join(p1, NULL);
+    rc = pthread_join(p2, NULL);
+
+    printf("main:end and counter = %d\n", counter);
+
+    return 0;
+
+};
+</pre>
+<p>在Linux下必须使用<code>gcc main.c -lpthread</code>来使用POSIX标准的线程库来进行编译. 可以发现, 每次运行结果都未必相同, 原因其实都知道了, 就是counter = counter + 1这个语句并非是原子操作.</p>
+
+<h2 style="text-align: center;" id="con2">POSIX下的线程API</h2>
+<p>首先来看创建线程的函数: </p>
+<pre>pthread_create(pthread_t *thread, const pthread_attr_t *attr, void * (*start_routine)(void *), void *arg);</pre>
+<p>第一个参数是一个pthread_t类型的指针, 创建线程的函数会往这个结构中放入数据, 以便后续跟踪该线程.</p>
+<p>第二个参数是属性, 用于设置该线程的一些属性, 一般可以设置为NULL, 详细的情况就需要看手册.</p>
+<p>第三个参数是线程开始运行的函数, 是一个函数指针, 默认就是一个接受参数是void *, 返回 void* 的函数指针, 这也意味这个函数接受任意类型的指针, 返回任意类型的指针, 因此非常灵活.</p>
+<p>第四个参数就是实际要传递给函数的参数.</p>
+<p>来启动一个线程随便做点事情:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+
+//定义一个结构用于传参数
+typedef struct myarg {
+    int a;
+    int b;
+} myarg_t;
+
+//线程函数
+void *mythread(void *arg) {
+
+    //把arg强制转换, 然后从其中取出参数
+    myarg_t *i = (myarg_t *) arg;
+    printf("%c|%c\n", i->a, i->b);
+
+    return (void *) 6666;
+}
+
+
+int main(int argc, char *argv[]) {
+
+    //准备线程标记
+    pthread_t new_thread;
+
+    int rc;
+
+    //准备参数
+    myarg_t args;
+    args.a = 99;
+    args.b = 101;
+
+    //创建线程, 其中第四个参数使用参数结构的指针
+    rc = pthread_create(&new_thread, NULL, mythread, &args);
+
+    printf("RC is %d\n", rc);
+
+    //等待线程结束
+    pthread_join(new_thread, NULL);
+
+    printf("end");
+};
+
+</pre>
+<p>上边这个例子里, 线程函数想返回一个6666的int值, 然而是不能够直接返回值的, 更不能够返回指向线程栈中的变量, 否则不知道会是什么样子, 一般是要将结果放入一个已经声明好的结构或者值中.
+    注意, 我们将 int 转换成了 void *, 即一个指针, 要从其中取出6666, 绝对不能使用*参数, 而是要使用指向指针的指针参数才行.</p>
+<p>来看一个上边返回整数的改动:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+
+typedef struct myarg {
+    int a;
+    int b;
+} myarg_t;
+
+
+
+
+void *mythread(void *arg) {
+
+    myarg_t *i = (myarg_t *) arg;
+    printf("%c|%c\n", i->a, i->b);
+
+    return (void *) 6666;
+}
+
+
+int main(int argc, char *argv[]) {
+
+    pthread_t new_thread;
+
+    int rc;
+
+    myarg_t args;
+    args.a = 99;
+    args.b = 101;
+
+    rc = pthread_create(&new_thread, NULL, mythread, &args);
+
+    printf("RC is %d\n", rc);
+
+<span style="color: red">    int result;
+
+    pthread_join(new_thread, (void **) &result);</span>
+
+    printf("end with result = %d", result);
+
+};
+</pre>
+<p>这个如何理解, pthread_join的第二个参数是一个指向指针的指针, 由于线程返回的是一个指针, 因此这里接受一个指向指针的指针, 供函数将返回值(指针)写入到指针的地址中. 这里返回的是一个指向6666地址的指针, 将这个指针的值, 写入到 &result中, 实际上就是把6666写入到rc中.</p>
+<p>实在记不住, 就记住将获取结果的指针强制转型成 void** 即可.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
