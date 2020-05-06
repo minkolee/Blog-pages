@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>并发专题</title>
+    <title>并发专题 多线程API</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -24,9 +24,7 @@
     <li><a href="#con1">老生常谈, 并发问题</a></li>
     <li><a href="#con2">POSIX下的线程API</a></li>
     <li><a href="#con3">锁</a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con4">条件变量</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">老生常谈, 并发问题</h2>
 <p>这一段程序:</p>
@@ -230,7 +228,48 @@ int main(int argc, char *argv[]) {
 };
 </pre>
 <p>锁在使用之前必须先初始化, 不能仅仅声明. 这里的锁初始化直接用了一个宏. 如果是用代码初始化, 则是调用<code>pthread_mutex_init(&lock, NULL)</code>.</p>
-<p>这里的程序的问题是, 获取锁的时候可能出现失败, 导致多个线程进入临界区, 所以一般应该来检查结果.</p>
+<p>这里的程序的问题是, 获取锁的时候可能出现失败, 导致多个线程进入临界区, 所以一般应该来检查结果, 获取锁正常返回的结果是0, 失败的结果是非零.</p>
+<p>在实际程序中, 如果获取锁失败, 则必须要进行一些处理, 想办法继续让不同的线程隔离是好事情.</p>
+
+<h2 style="text-align: center;" id="con4">条件变量</h2>
+<p>锁是用于只能让一个线程处于临界区内, 而线程之间没有什么交互, 就是去争抢那个锁, 抢到就执行.</p>
+<p>在很多情况下, 如果线程之间需要发生某种信号, 如果一个线程等待另外一个线程之类, 条件变量就很有用了.</p>
+<p>使用条件变量主要是两个函数:</p>
+<ol>
+    <li><code>int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)</code></li>
+    <li><code>int pthread_cond_signal(pthread_cond_t *cond)</code></li>
+</ol>
+<p>很显然, 已经知道pthread_mutex_t类型是一个互斥锁, 则可以理解pthread_cond_t是一个条件锁. 很显然, 这两个函数表明了需要使用条件锁的时候, 必须持有另外一个与条件锁相关的互斥锁, 以免在更新条件锁的时候出现问题. 这两个函数都需要在持有锁的情况下进行调用.</p>
+<p>第一个函数的具体作用是让当前线程休眠, 并且去等待这个条件. 第二个函数的具体作用是向所有休眠的线程中发送一个信号, 以期望能够唤醒其他线程进行工作.</p>
+<p>典型的用法如下:</p>
+<ol>
+    <li>线程需要休眠的时候:
+    <pre>
+    //初始化两个锁, 一个互斥锁, 一个条件锁对象(在全局变量中)
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER
+    pthread_cond_t cond = PTHREAD_COND_INITIALIZER
+
+    //等待判断条件的时候, 必须先持有锁
+    pthread_mutex_lock(&lock);
+    //判断某个标志
+    while(signal == 0)
+        //线程进入等待状态(这里为什么传入&lock), 是因为要去释放互斥锁. 线程到这里就被挂起了, 如果不释放, 就要完蛋.
+        //在被唤醒之后, 这个函数就返回, 此时会重新先去获得互斥锁, 所以之后的代码依然是在互斥锁中的
+        pthread_cond_wait(&cond, &lock);
+
+    //在互斥锁的保护下执行与共享变量有关的业务代码
+    do something
+
+    //业务执行完毕释放锁
+    pthread_mutext_unlock(&lock);
+    </pre>
+
+    </li>
+</ol>
+<p>注意, 一定需要用条件变量, 切不可让一个线程反复自旋(即用while)判断来判断一个条件然后进行工作, 因为普通的自旋也可能会同时读取共享变量导致错误.</p>
+
+<p>虽然知道了这些原理, 但离编写出真正可用的多线程程序还有很长的路要走. 虽然之前看CSAPP的时候, 使用<a href="https://conyli.cc/archives/3032">多进程</a>和<a href="https://conyli.cc/archives/3035">多线程</a>写了一些例子, 但是CSAPP是站在应用程序员的角度, 即比操作系统要高一个层次.</p>
+<p>但操作系统导论就比CSAPP的层次要低了, 讨论了锁的实现. 就继续一路看下去吧, 虽然很难. 下一步就是锁的实现.</p>
 
 
 
@@ -251,26 +290,6 @@ int main(int argc, char *argv[]) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con4"></h2>
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
