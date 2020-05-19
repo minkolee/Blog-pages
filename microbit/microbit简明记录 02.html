@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Microbit - 按键编程</title>
+</head>
+<body>
+<p>Microbit有两个按键,在主板上用A和B标记, 按键A对应引脚5, 按键B对应引脚11. </p>
+<p>针对按键编写程序, 就可以在按下按键的时候触发程序, 这样可以实现控制或者类似于事件一样的机制.</p>
+<p>microbit命名空间中有两个特殊的名称 button_a 和 button_b 用来指代两个按键. 然后提供了一系列函数:</p>
+<pre>
+# 按键是否被按下
+button_a.is_pressed()
+# 按键是否被按过
+button_a.was_pressed()
+# 获取按键的情况
+button_a.get_presses()
+</pre>
+<p>下边就来看一下如何使用这些方法针对按键编程.</p>
+
+<ol>
+    <li><a href="#con1">按键</a></li>
+    <li><a href="#con2">加速度计</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">按键</h2>
+<p>按键按下, 如果是专门针对按键的程序, 可以使用 <code>button_a.is_pressed()</code> 方法, 在一个循环中检测, 比如:</p>
+<pre>
+from microbit import *
+
+while True:
+    if button_a.is_pressed() and button_b.is_pressed():
+        display.show(Image.GIRAFFE)
+
+    elif button_a.is_pressed():
+        display.show(Image.PACMAN)
+
+    elif button_b.is_pressed():
+        break;
+
+display.show(Image.SWORD)
+
+display.clear()
+</pre>
+<p>这是一个同时按下两个按键, 显示长颈鹿, 单独按A显示吃豆人, 单独按B退出的程序.</p>
+<p><code>button_a.was_pressed()</code>是按过之后返回True:</p>
+<pre>
+from microbit import *
+
+while True:
+    if button_a.was_pressed():
+        display.show(Image.PACMAN)
+
+    elif button_b.was_pressed():
+        break;
+
+    else:
+
+        display.show(Image.TORTOISE)
+    sleep(3000)
+
+
+
+display.show(Image.SWORD)
+
+sleep(1000)
+
+display.clear()
+</pre>
+<p>这个代码正常的时候显示乌龟, 然后睡眠3秒钟, 这3秒钟之内如果按了A, 下一次循环的时候就会进入显示吃豆人的分支, 如果按了B就会进入结束分支.</p>
+<p>最后一个<code>get_presses()</code>是返回一段时间内按键的次数, 这会被记录在某一个地方:</p>
+<pre>
+from microbit import *
+
+while True:
+    sleep(5000)
+
+    display.scroll(str(button_a.get_presses()))
+</pre>
+
+<h2 style="text-align: center;" id="con2">加速度计</h2>
+<p>内置的加速度计可以检测microbit在三个方向上的加速度. 其x表示的是正对LED阵列时候的左右方向. 而y表示上下方向, z表示垂直于microbit所在平面的方向.</p>
+<p>使用accelerometer对象即可获取这三个方向上的读数, 可以单独读取也可以读成一个tuple:</p>
+<pre>
+while True:
+    x = accelerometer.get_x()
+    y = accelerometer.get_y()
+    z = accelerometer.get_z()
+    display.scroll(str(x))
+    sleep(500)
+
+while True:
+    result = accelerometer.get_values()
+    print("Values:", result)
+    sleep(500)
+</pre>
+<p>这里的print()需要结合MU 编辑器来使用, 可以实时打印出检测到的结果.</p>
+
+
+
+
+</body>
+</html>

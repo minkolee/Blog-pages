@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Microbit - 基本显示操作</title>
+</head>
+<body>
+<p>昨天在家整理东西, 翻出来了2018年底买的一个Microbit开发板, 当时买了也没用多久就吃灰了. 后来就不知道放到哪里去了.</p>
+<p>正好翻出来, 就对着官方的教程迅速总结一下, 万一哪天小孩要玩了, 也可以翻一下博客立刻上手.</p>
+
+<ol>
+    <li><a href="#con1">显示内容和操作LED阵列</a></li>
+    <li><a href="#con2">显示图片</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">显示内容和操作LED阵列</h2>
+<p>MB的基础显示命令是 <code>display.scroll(字符串, delay=毫秒, loop=True/False)</code> </p>
+<p>LED 是一个5*5的阵列, 从左上角横向是 0-4 , 竖向是 0-4</p>
+<p>使用 display.set_pixel(x,y, int brightness) 来设置某一个LED, 亮度数值可以取0-9</p>
+<p>写一个程序测试一下亮度0-9的变化:</p>
+<pre>
+# Add your Python code here. E.g.
+from microbit import *
+
+i = 0
+
+while True:
+
+    display.set_pixel(2,2,i)
+
+    i = i+1
+
+    if i ==10:
+        i= 0
+
+    sleep(1000)
+
+    display.set_pixel(2,2,0)
+    sleep(300)
+
+</pre>
+<p>可以获取当前某个LED的亮度, 用 <code>pixel_brightness = display.get_pixel(3,2)</code> 获取当前亮度</p>
+
+<p><code>display.show()</code>用于固定显示, 而不卷动.</p>
+<p><code>display.clear()</code>将所有的LED的亮度设置为0</p>
+<p><code>display.off()</code>用来关闭显示, 有五个引脚连到LED阵列的每一列, 关闭显示之后, 这五个引脚可以用来做其他用途. 如果不关闭, 改变显示的时候这五个引脚也会强制被改变, 就不能用来编程了.</p>
+<p><code>display.on()</code>则是重新用来打开显示. <code>display.is_on()</code>则用来判断.</p>
+
+<h2 style="text-align: center;" id="con2">显示图片</h2>
+<p>Mircobit有一系列内置的图片, 可以使用Image.XXXX来直接进行显示. 搭配display.show(), 就可以显示图片了.</p>
+<pre>
+Image.HEART
+Image.HEART_SMALL
+Image.HAPPY
+Image.SMILE
+Image.SAD
+Image.CONFUSED
+Image.ANGRY
+Image.ASLEEP
+Image.SURPRISED
+Image.SILLY
+Image.FABULOUS
+Image.MEH
+Image.YES
+Image.NO
+Image.CLOCK12
+Image.CLOCK11
+Image.CLOCK10
+Image.CLOCK9
+Image.CLOCK8
+Image.CLOCK7
+Image.CLOCK6
+Image.CLOCK5
+Image.CLOCK4
+Image.CLOCK3
+Image.CLOCK2
+Image.CLOCK1
+Image.ARROW_N
+Image.ARROW_NE
+Image.ARROW_E
+Image.ARROW_SE
+Image.ARROW_S
+Image.ARROW_SW
+Image.ARROW_W
+Image.ARROW_NW
+Image.TRIANGLE
+Image.TRIANGLE_LEFT
+Image.CHESSBOARD
+Image.DIAMOND
+Image.DIAMOND_SMALL
+Image.SQUARE
+Image.SQUARE_SMALL
+Image.RABBIT
+Image.COW
+Image.MUSIC_CROTCHET
+Image.MUSIC_QUAVER
+Image.MUSIC_QUAVERS
+Image.PITCHFORK
+Image.XMAS
+Image.PACMAN
+Image.TARGET
+Image.TSHIRT
+Image.ROLLERSKATE
+Image.DUCK
+Image.HOUSE
+Image.TORTOISE
+Image.BUTTERFLY
+Image.STICKFIGURE
+Image.GHOST
+Image.SWORD
+Image.GIRAFFE
+Image.SKULL
+Image.UMBRELLA
+Image.SNAKE
+</pre>
+<p>想显示东西的时候记得先来找一找有没有对应的图片. 对于内置图片有两个特殊的集合, 叫做 <code>ALL_ CLOCKS</code>和 <code>ALL_ARROWS</code>.</p>
+<p>显示这两个集合的时候, 就是按照顺序显示其中的所有元素, display.show()方法同样可以指定delay和loop, 这样就可以简单的显示一个时钟, 比如:</p>
+<pre>
+display.show(Image.ALL_CLOCKS, delay = 500, loop = True)
+</pre>
+<p>由于这实际上是两个集合, 所以可以用索引来取得其中具体的某个箭头或者时间. 而且可以发现, display.show不仅可以显示单个图片, 还可以显示列表. 因此自制一个列表也可以:</p>
+<pre>
+imagelist = [Image.SURPRISED, Image.MUSIC_CROTCHET, Image.MUSIC_QUAVER, Image.MUSIC_QUAVERS, Image.PITCHFORK, Image.XMAS, Image.ROLLERSKATE]
+display.show(imagelist, delay = 500, loop = True)
+</pre>
+<p>如果需要自己创建图片, 按照行, 分割成五个字符串, 前四个以亮度作为字符串内容,冒号结尾. 最后一个无需冒号. </p>
+<p>然后使用Image()创建新的图片对象, 例如:</p>
+<pre>
+FISH = Image ("00500:""04405:""55555:""04405:""00500")
+display.show(FISH)
+</pre>
+<p>有了图片显示, 加上时间控制, 就可以作出动画效果来了:</p>
+<pre>
+while True:
+    display.show(Image.HEART)
+    sleep(500)
+    display.show(Image.HEART_SMALL)
+    sleep(500)
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
