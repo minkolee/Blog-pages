@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>并发专题 - 信号量</title>
+    <title>并发 - 信号量</title>
     <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
     <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
     <style>
@@ -18,158 +18,185 @@
 <p>信号量在CSAPP中已经看过了,本质就是一个整数变量, 只要操作这个整数变量, 就必须要使用P操作和V操作.</p>
 <ol>
     <li><a href="#con1">信号量</a></li>
-    <li><a href="#con2">条件变量</a></li>
-    <li><a href="#con3">锁和条件变量进化到信号量</a></li>
+    <li><a href="#con2">信号量作为锁</a></li>
+    <li><a href="#con3">信号量作为条件变量</a></li>
+    <li><a href="#con4">信号量与锁配合使用实现生产者-消费者模型</a></li>
+    <li><a href="#con5">读者与写者锁</a></li>
+    <li><a href="#con6">如何实现信号量</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">信号量</h2>
-<p>一种比较常见的操作就是主线程要执行某个任务的时候, 启动一个子线程或者若干个子线程去执行任务, 然后自己继续执行其他的任务, 到了一定的时刻, 就需要等待子线程执行任务完成之后再继续向下执行.</p>
-<p>由于主线程可能还负责其他工作, 不能简单的使用一个共享变量锁, 大家都去修改这个状态来表示工作是否完成, 这样可能会让主线程阻塞, 在没有条件变量的时候, 假如只有一主一副两个线程如下:</p>
+<p>信号量由Dijkstra及其同事发明, 综合了条件变量和锁的特性, 可以作为与同步有关的所有工作的唯一原语, 也就是仅仅使用信号量, 就可以完成所有并发的编程工作, 即完成锁或者条件变量的功能.</p>
+<p>信号量就不是一个简单的整数了, 而是一个类似于struct结构体或者说是一个对象, 其中有整数变量, 也有类似于线程队列的数据结构, 用来唤醒. 可以说信号量综合了普通锁与条件变量的特点.</p>
+<p>unix 的信号量库是<code>&lt;semaphore.h></code>, 信号量的数据类型是<code>sem_t</code> , 初始化方法是<code>sem_init(%s, n1, n2)</code>.</p>
+<p>初始方法的%s就是信号量的地址, 第二个参数始终为0, 表示这个信号量仅仅在当前进程中使用, 如果跨进程使用, 就不能设置为0, 这是更高级的用法了. 这里仅仅看同一个进程中的信号量.</p>
+<p>有了之前CSAPP的知识, 一看到信号量就会知道P操作和V操作, P操作就是<code>sem_wait(sem_t *s);</code>, V操作是<code>sem_post(sem_t *s)</code>.</p>
+<p>从技术上讲, P操作和V操作都是原子操作, P操作把信号量中的整数减1, 然后检测如果为负数, 自己就睡眠. V操作把信号量中的整数加1, 然后唤醒等待在这个信号量上的线程(如果有的话).</p>
+<p>所以可以发现, 信号量对象中似乎有一个整数变量, 一个条件变量, 此外肯定还有一个控制读写信号量的互斥锁对象.</p>
+
+<h2 style="text-align: center;" id="con2">信号量作为锁</h2>
+<p>锁的核心就是互斥, 既然是互斥, 信号量就只能在0-1之间变换, 不允许多个线程同时进入临界区. 这里要把信号量的初始值设置成为1.</p>
+<p>取最极端的情况: 第一个线程执行P操作的时候, 信号量就成为0, 然后进入临界区. 这时候第二个线程也执行P操作, 信号量会变成-1, 但是就会睡眠.</p>
+<p>在第一个线程执行V操作的时候, 会将信号量重新设置为0, 然后退出唤醒第二个线程, 第二个线程检查信号量已经是0, 不阻塞, 然后继续执行, 执行完之后将信号量恢复为1.</p>
+<p>将信号量作为锁的时候, 只需要用P操作和V操作环绕着临界区即可. 所以将信号量设置为1的时候, P就相当于lock 而V相当于unlock</p>
+<p>只在0-1之间变换的信号量就是二元信号量, 二元信号量只允许一个线程进入临界区, 所以就起到了锁的作用. 当然, 如果只是想使用锁, 之前单独的锁可能效率更高. 但信号量更加通用.</p>
+
+<h2 style="text-align: center;" id="con3">信号量作为条件变量</h2>
+<p>因为P操作中会检测值, 而V操作中会唤醒变量, 所以信号量还可以作为条件变量来使用.</p>
+<p>在之前使用一个单独的整数以及一个条件变量来实现线程互相等待的操作, 就可以用信号量来略微简化:</p>
 <pre>
 #include &lt;stdio.h>
 #include &lt;stdlib.h>
 #include &lt;unistd.h>
+#include &lt;semaphore.h>
 #include &lt;pthread.h>
 
+sem_t sem;
 
-void *mythread(void *arg) {
+void * child(void * arg){
+    printf("This is child \n");
+    sem_post(&sem);
+    return NULL;
 
-    int i = 0;
+}
 
-    for (i = 0; i &lt; 100; i++) {
-        printf("This is child thread working...\n");
-    }
+int main(void){
+    sem_init(&sem, 0, 0);
+
+    printf("child thread begins\n");
+
+    pthread_t c;
+
+    pthread_create(&c, NULL, child, NULL);
+
+    sem_wait(&sem);
+
+    printf("child thread ends \n");
+
+    return 0;
+
+}
+</pre>
+<p>作为条件变量的时候, 要将其初始化为0. 这是因为初始的时候, 如果父线程执行到P操作但是子线程只是创建还没有执行, 一定要保证父线程能够睡眠.</p>
+<p>所以P操作将其减1, 减去之后为负数, 必定会睡眠. 如果子线程先执行完, 由于子线程只执行一个V操作, 执行完以后, 父线程就能够通过P操作继续执行. 这样就保证了只要子线程不执行完毕, 父线程就睡眠.</p>
+<p>这里还可以扩展一下, 如果有父线程需要等待多个子线程完成工作, 可不能直接把信号量初始化成0或者N, 因为一个子线程完成工作并唤醒后, 可能唤醒父线程, 然后直接结束.</p>
+<p>有几个线程, 就可以用几个信号量作为条件变量即可. 比如创建两个子线程, 父线程等待两个子线程:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+#include &lt;unistd.h>
+#include &lt;semaphore.h>
+#include &lt;pthread.h>
+
+sem_t sem;
+sem_t sem2;
 
 
+void * child(void * arg){
+    printf("This is child \n");
+    sem_post(&sem);
     return NULL;
 }
 
 
-int main(int argc, char *argv[]) {
-
-
-    printf("parent thread starts\n");
-
-    pthread_t c;
-
-    printf("parent thread starts a child thread to do something\n");
-
-    pthread_create(&c, NULL, mythread, "A");
-
-//    need to wait child thread
-    
-    printf("child threads ends\n");
-    
-    return 0;
-
-};
-</pre>
-<p>这里代码的目的是主线程需要等待副线程的工作完成之后才能继续工作. 如果直接执行这个代码, 很显然主线程不会等待副线程. 要实现这个效果, 可以发现需要设置某个条件, 很容易就可以想到, 加上一个标记, 副线程干完活之后设置这个标记, 主线程去检查就可以了:</p>
-<p>代码就可以修改成:</p>
-<pre>
-#include &lt;stdio.h>
-#include &lt;stdlib.h>
-#include &lt;unistd.h>
-#include &lt;pthread.h>
-
-
-void *mythread(void *arg) {
-
-    int i = 0;
-
-    for (i = 0; i &lt; 100; i++) {
-        printf("This is child thread working...\n");
-    }
-
-    <span style="color: red">*(int*) arg = 1;</span>
-
+void * child2(void * arg){
+    printf("This is child2 \n");
+    sem_post(&sem2);
     return NULL;
+
 }
 
-
-int main(int argc, char *argv[]) {
-
-    <span style="color: red">int completed = 0;</span>
-
-    printf("parent thread starts\n");
-
+int main(void){
+    sem_init(&sem, 0, 0);
+    sem_init(&sem2, 0, 0);
+    printf("child thread begins\n");
     pthread_t c;
+    pthread_t c2;
+    pthread_create(&c, NULL, child, NULL);
+    pthread_create(&c2, NULL, child2, NULL);
 
+    sem_wait(&sem);
+    sem_wait(&sem2);
 
-    printf("parent thread starts a child thread to do something\n");
-
-    pthread_create(&c, NULL, mythread, &completed);
-
-//    need to wait child thread
-
-    <span style="color: red">while (completed != 1) {}</span>
-
-    printf("child threads ends\n");
-
+    printf("child thread ends \n");
     return 0;
-
-};
-</pre>
-<p>观察代码红色部分, 子线程在完成工作后会将completed设置为1. 主线程会一直自旋在判断completed是否为1上, 只有通过了才会继续执行. 这个代码可以实现主线程等待副线程的效果.</p>
-<p>在之前已经说过, 不加控制的自旋等待共享变量, 其实是会出问题的. 这里很显然只有副线程会修改completed变量, 这样父线程即使在读取while的时候出现失误, 下一次读取的时候还是会读到正确结果. 因此可以保证子线程任务执行完之后父线程才会执行.</p>
-<p>但是如果有多个线程呢? 如果只有一个锁共享变量, 则难以知道到底谁完成了工作, 或者可以使用锁共享变量, 将其设置为一个数量, 计数每次完成工作的线程数量. 然而如果多个线程不是像文中这样一次性运行, 而是每到某个阶段就必须同步一次或者协作一次, 那么就要设置不固定的多个变量.</p>
-<p>外加还有一个自旋, 自旋非常浪费CPU时间, 而且不加锁的自旋就是错误的多线程方式. 所以就需要引入更好的方式, 就是子线程工作的时候, 如果父线程需要等待子线程了, 就干脆让父线程休眠, 子线程完成工作了再去叫醒父线程.</p>
-
-
-<h2 style="text-align: center;" id="con2">条件变量</h2>
-<p>条件变量最早还是D老大提出的私有信号量的概念. 后来变成了条件变量.</p>
-<p>条件变量可以像上一篇文章里提到的成熟的锁, 即自旋几下就去休眠的锁自带的队列一样, 条件变量内部带有一个队列和一个互斥变量. </p>
-<p>当某些条件满足的时候, 线程就可以在条件变量中的互斥变量上进行操作, 然后发一个信号, 启动队列中的等待中(休眠)的线程; 如果条件没满足, 线程就会让自己休眠然后将自己加入到条件变量的队列中.</p>
-<p>回想一下最开始的线程API, 主线程等待副线程的时候并没有像刚才一样使用自旋, 而是使用了<code>pthread_join(new_thread, NULL);</code>, 其实我们就是在学习这个join的机制.</p>
-<p>有了条件变量之后, 子线程在完成工作之后, 就需要在条件变量上发一个信号. 而父线程在启动子线程之后, 就需要等待条件变量. 因此会多出两个方法. 这两个方法的C伪代码如下:</p>
-<pre>
-#include &lt;stdio.h>
-#include &lt;stdlib.h>
-#include &lt;unistd.h>
-#include &lt;pthread.h>
-
-//额外标记, 用于可能产生冲突的地方
-int done = 0;
-//互斥变量
-pthraed_mutex_t m = PTHREAD_MUTEX_INITIALIZER
-//条件变量
-pthread_cond_t c = PTHREAD_COND_INITIALIZER
-
-void job_complete(){
-
-    lock(&m);
-    
-    done = 1;
-
-    signal(&c);
-
-    unlock(&m);
 }
+</pre>
+<p>这里分别等待两个信号量即可, 主线程等待哪一个信号量的顺序没有关系, 因为各个线程的信号量彼此独立. 不管父线程在哪个信号量上睡眠, 都可以保证等待所有的子线程.</p>
 
-void join(){
-    lock(&m);
+<h2 style="text-align: center;" id="con4">信号量与锁配合使用实现生产者-消费者模型</h2>
+<p>将信号量设置为N的时候, 其实际效果就是同时允许N个线程进入一段区域, 在这段区域中再加锁, 就实现了一个有界缓冲区. 有界缓冲区实际上就是生产者消费者模型的正式名称.</p>
+<p>这里的代码就不再放了, <a href="https://conyli.cc/archives/3035#con8" target="_blank" >这里</a>写过了.</p>
+<p>核心思想是, 用两个信号量一个代表空的槽位数量, 用于控制消费者, 一个代表有数据的槽位数量, 用于控制生产者. 生产者和消费者都先P操作控制自己的信号量, 表示有一个生产者或者消费者进入了临界区
+    之后获取共享缓冲区的锁, 读或者写完成之后, V操作对方的信号量, 表示可读或者可生产的数据增加了, 同时唤醒对方类型的线程.</p>
+<p>这样共享缓冲区无论是全满还是全空, 都会让另外一种线程开始执行,不会锁掉.</p>
+<p>这个套路只要记住就行了, 这是多线程程序的常用模式之一. 类似于事件队列的方式, 都基于这个模式.</p>
 
-    while (done == 0) {
-        wait(&c, &m);
+<h2 style="text-align: center;" id="con5">读者与写者锁</h2>
+<p>这个也是老生常谈了, 就是看谁优先. 读写缓冲区肯定是需要一个互斥锁的. 此外还需要一个东西来控制读者或者写者的数量. 哪个优先, 则哪个类型的线程就可以释放对方的锁, 让对方负责进行.</p>
+<p>读写模型通常用于读者比较多, 而写者较少的场景, 如果读写差不多, 实际上可以采用类似于生产者与消费者模型, 如果写者较多, 则一般还是读优先, 否则可能会出现长时间无法读取的情况.</p>
+
+<h2 style="text-align: center;" id="con6">如何实现信号量</h2>
+<p>之前铺垫了很久, 信号量中会有一个整数, 一个条件变量. 再加上一个互斥锁用来保护更新信号量, 就组成一个信号量对象. 如下:</p>
+<pre>
+type struct mysem_t {
+    int value;
+    pthread_cont_t cond;
+    pthread_mutex_t lock;
+} mysem_t;
+</pre>
+<p>其中的value就是初始化其要设置的值, cond实际上带有队列, lock则用来保护自己.</p>
+<p>一个一个来实现函数, 首先是初始化, 这个比较容易, 因为只执行一次, 不用考虑线程安全:</p>
+<pre>
+void mysem_init(struct mysem_t *mysem, int value){
+    mysem->value = value;
+//    调用另外的初始化方法, 初始化条件变量和互斥锁
+    cond_init(mysem->cond);
+    mutex_init(mysem->lock);
+}
+</pre>
+<p>这个value根据之前的作为锁, 作为条件变量, 共享缓冲区等形式, 可以设置为不同的值.</p>
+<p>然后是P操作, 先把value减少1, 然后检测如果value<0, 就睡眠. 可以编写如下:</p>
+<pre>
+void P(struct mysem_t *mysem){
+
+    //获取互斥锁, 为了保证更新信号量的安全
+    lock(mysem->lock);
+
+    //将信号量的value-1
+    mysem->value = mysem->value - 1;
+
+    //判断value ,小于0就休眠
+    while (mysem->value < 0) {
+        wait(&mysem->cond, &mysem->lock);
     }
 
-    unlock(&m);
+    //释放互斥锁
+    unlock(mysem->lock);
 }
 </pre>
-<p>首先由一个互斥锁保护了一个done变量, 子线程在完成工作的时候, 会去获取互斥锁, 然后修改done=1, 之后会执行 signal(&c) 方法, 这个方法会唤醒条件变量内部队列上所有休眠的线程.</p>
-<p>join()方法也是先获取锁, 如果条件没有满足, 就同时等待c和m两个锁, 根据上一篇文章的内容, 我猜到了这个方法会释放互斥锁m, 然后将自己加入到条件变量的队列中, 同时让出CPU. 当从其中恢复的时候, 又会持有互斥锁m.</p>
-<p>这个方法与上一章讲的等待锁的实现有些类似, 可以看到, 条件变量的底层实际上还是依赖更底层的锁机制, 包括一个由互斥锁保护的done变量.</p>
-<p>这只是伪代码, 在多线程API中, pthread_join内部的本质, 就是一个条件变量, 所以才会等待子线程结束. 要等待哪个, 就传入等待的线程号即可, 这就说明, 当执行这个方法的时候, 一定在哪里有一个互斥变量及一个队列来放入自己和某个线程, 然后执行类似伪代码这样的代码.</p>
+<p>P操作先用互斥量保护自己, 然后将信号量中的整数减少1, 之后检测这个value, 如果小于0就休眠, 休眠的时候使用条件变量, 释放互斥锁, 让其他线程有机会进行P或者V操作.</p>
+<p>V操作也可以写出了:</p>
+<pre>
+void V(struct mysem_t *mysem){
+    //获取互斥锁, 为了保证更新信号量的安全
+    lock(mysem->lock);
+
+    //给信号量的value+1
+    mysem->value = mysem->value + 1;
+
+    //唤醒条件变量上睡眠的线程
+    signal(&mysem->cond);
+
+    //释放互斥锁
+    unlock(mysem->lock);
+}
+</pre>
+<p>以后争取就多用信号量写一些东西吧.</p>
 
 
-<h2 style="text-align: center;" id="con3">再看生产者与消费者问题</h2>
-<p>我当时读APP的时候, 关于并发其实没有介绍锁的实现内容, 当然也就不知道其底层的汇编指令, 只是介绍了信号量与P操作和V操作. 现在看来, CSAPP这书对于边界的把握是非常准确的. 因为CSAPP面向的就是应用程序员, 虽然介绍了计算机的硬件基础, 但是对于实际代码部分, 很好的控制了边界, 没有深入到操作系统.</p>
-<p>如果说使用互斥锁的线程可以看成是"同类"的话, 生产者和消费者中的两类线程, 显然就不是同类, 如果仅仅对缓冲区的操作使用互斥锁, 等待线程互相竞争的话, 如果两类线程的比例悬殊, 可能会产生长时间等待的问题.</p>
-<p>思考下列问题: 一个长度为100的缓冲区, 有99个生产者线程和1个消费者线程. 假如没有条件变量, 大家全靠争抢缓冲区的一把大锁来读写.</p>
-<p>当生产者写满之后, 消费者线程得到的机会依然很小, 这样就可能导致总是生产者来争抢锁, 但是抢到锁之后又让出去, 而消费者一直无法消费的情况.</p>
-<p>有了条件变量之后, 生产者和消费者就可以等待两个不同的条件变量, 在更新共享缓冲区之后, 消费者去唤醒生产者, 生产者唤醒消费者; 如果无法更新缓冲区, 就在自己的条件变量上睡眠, 这样就可以实现二者的协作了, 即使两者的数量悬殊, 也绝对不会产生问题.</p>
-<p>关于这个代码其实没有什么好放的, 就是在原本对共享缓冲区的操作代码中, 两个类型的线程在wait()的时候等待在自己的条件变量上, 在signal()的时候唤醒对方的条件变量中等待的线程即可.</p>
-<p>之后锁和条件变量, 就抽象成了信号量.</p>
-<p>如果信号量在0-1之间变化, 单个信号量就是一个互斥锁. 如果信号量在0-N之间变化, 那么一组信号量就可以用来当成一组线程的条件变量, 使用多个信号量, 就可以来实现线程协作. 之后就来看看信号量.</p>
+
+
+
 
 
 
