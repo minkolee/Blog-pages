@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Microbit - 按键编程</title>
+    <title>Microbit - 使用设备</title>
 </head>
 <body>
 <p>Microbit有两个按键,在主板上用A和B标记, 按键A对应引脚5, 按键B对应引脚11. </p>
@@ -21,6 +21,8 @@ button_a.get_presses()
 <ol>
     <li><a href="#con1">按键</a></li>
     <li><a href="#con2">加速度计</a></li>
+    <li><a href="#con3">罗盘</a></li>
+    <li><a href="#con4">音乐</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">按键</h2>
@@ -94,9 +96,139 @@ while True:
     print("Values:", result)
     sleep(500)
 </pre>
-<p>这里的print()需要结合MU 编辑器来使用, 可以实时打印出检测到的结果. 实际尝试了一下, 确实可以, 之后就可以用MU编辑器来写东西了.</p>
+<p>这里的print()需要结合MU 编辑器来使用, 可以实时打印出检测到的结果. 实际尝试了一下, 首先把程序写入Microbit, 然后打开REPL界面, 之后重启Microbit, 就可以正常显示了.</p>
+<p>还有手势, 这个是什么意思, 看一下代码:</p>
+<pre>
+from microbit import *
+
+last_gesture = ""
+
+while True:
+    current_gesture = accelerometer.current_gesture()
+    sleep(100)
+    if current_gesture is not last_gesture:
+        last_gesture = current_gesture
+        print('>{g:s}<'.format(g=current_gesture))
+</pre>
+<p>原来这个就是可以显示face up, face down, 左和右等Microbit的姿态.</p>
+<p>姿态名称有:</p>
+<pre>
+up
+down
+left
+right
+face up
+face down
+freefall
+shake
+3g
+6g
+8g
+</pre>
+<p>可以直接用字符串来判断是否是指定的姿势:</p>
+<pre>
+from microbit import *
+
+last_gesture = ""
+
+while True:
+    current_gesture = accelerometer.current_gesture()
+
+    if current_gesture == 'face up':
+        display.show(Image.HAPPY)
+    else:
+        display.show(Image.ANGRY)
+</pre>
+<p>也可以直接使用<code>accelerometer.is_gesture("face up")</code>来进行判断.</p>
+<pre>
+from microbit import *
+gestList = []
+while True:
+    gestures = accelerometer.get_gestures()
+    print(len(gestures))
+    if len(gestures) == 1:
+        gestList.append(gestures[0])
+        sleep(500)
+
+    print("History: "+str(gestList))
+</pre>
+<p>还可以记录手势历史. 可以使用一些特别的玩意.</p>
 
 
+<h2 style="text-align: center;" id="con3">罗盘</h2>
+<p>罗盘设备的名称是compass, microbit的罗盘是磁力罗盘, 类似于真正的指南针一样. 可以读出X和Y的值. 罗盘的名称是compass.</p>
+<p><code>calibrate()</code>方法会启动校准程序, 将Microbit拿在手里绕圈, 直到LED阵列全部变红即可. </p>
+<p>读出x和y的值:</p>
+<pre>
+from microbit import *
+
+compass.calibrate()
+while True:
+    x = compass.get_x()
+    y = compass.get_y()
+    print("x reading: ", x, ", y reading: ", y)
+    sleep(500)
+</pre>
+<p>会打印出实际的数值, 如果要获取具体角度, 则需要进行数学运算, 北方是0:</p>
+<pre>
+import math
+from microbit import *
+compass.calibrate()
+while True:
+    x = compass.get_x()
+    y = compass.get_y()
+    angle = math.atan2(y,x) *180/math.pi
+    print("x", x, " y", y)
+    print("Direction: ", angle)
+    sleep(500)
+</pre>
+<p>可以使用<code>compass.heading()</code>来直接得到角度. 如果需要校准, 则会返回 -1004:</p>
+<pre>
+from microbit import *
+
+while True:
+    heading = compass.heading()
+    print("heading: ", heading)
+    sleep(500)
+</pre>
+<p>不过还是不大能搞明白方向和数值之间的关系, 抄了一个显示北方的函数:</p>
+<pre>
+while True:
+    sleep(100)
+    needle = ((15 - compass.heading()) // 30) % 12
+    display.show(Image.ALL_CLOCKS[needle])
+</pre>
+<p>在水平持有Microbit的时候, 指针指向的方位就是北方.</p>
+
+<h2 style="text-align: center;" id="con4">播放曲子和编写曲子</h2>
+<p>Microbit的0号引脚可以发出声音信号, 将喇叭的正极连接到Microbit的0号引脚, 负极连接到GND, 耳机也可以.</p>
+<p>要播放音乐, 需要导入 micropython的music库. 然后播放音乐:</p>
+<pre>
+from microbit import *
+import music
+music.play(music.BIRTHDAY, loop=True)
+</pre>
+<p>我的鳄鱼夹耳机接口还没到, 所以只能先把代码记录下来.</p>
+<p>此外还可以指定具体的引脚, 比如:</p>
+<pre>
+music.play(music.BIRTHDAY, pin=pin1, loop=True)
+</pre>
+<p>就需要将线连接到1号引脚.</p>
+<p>还可以编写曲子, <code>music.play()</code>除了可以播放music对象中存储好的音乐, 还可以具体来播放指定的音. 规则如下:</p>
+<ol>
+    <li>可以使用单个字符 'CDEFGAB' 来播放指定的音, 默认播放的是中央C开始的7个音</li>
+    <li>Microbit支持四组音高, 分别从2-5, 用音名+数字来表示, <code>music.play('c3')</code>就是低八度的中央C, 如果不加数字, 默认就是4.</li>
+    <li>升降调用小写的'b'和'#'号来表示, 加在音名之后, 这样Microbit实际上能模拟</li>
+    <li>设置节奏, 可以设置一分钟多少拍, 也就是bpm. 使用<code>music.set_tempo(bpm=180)</code></li>
+    <li>还可以设置一个tick, <code>music.set_tempo(ticks=8)</code>表示一个拍可以分成8份. tick是电子乐器中计量最短时间的一个单位, 可以不用设置.</li>
+    <li>设置一个音演奏几拍(duration), 可以使用: <code>music.play('C4:3')</code>, 默认一个音演奏四拍.</li>
+    <li><code>music.pitch(440, 1000)</code>,用来直接演奏指定的频率, 比如440赫兹就是中央C, 第二个参数是毫秒表示的时间长度. 如果要一直播放, 可以设置为-1.</li>
+</ol>
+<p>有了这些操作, 就可以演奏音乐了, 不过由于Microbit无法演奏和弦, 所以表现力还是不太行.</p>
+<p>节奏可以通过<code>tempo = music.get_tempo()</code>获取.</p>
+<p>调用<code>music.reset()</code>可以将music相关的所有设置复原, 默认的tick=4, bpm=120, duration=4, octave=4</p>
+<p>有了这个东西, 加上播放器, 似乎可以自己来做点音乐播放一下了. 不过不知道Microbit能不能蓝牙播放...</p>
+<p>剩下基本上就是看一下无线设备如何使用了.</p>
 
 
 </body>
