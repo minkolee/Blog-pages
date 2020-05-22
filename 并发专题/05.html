@@ -15,26 +15,249 @@
     </style>
 </head>
 <body>
-<p>到这里</p>
+<p>并发的原语看完, 套路总结一下, 基本有如下三种基本类型:</p>
+<ol>
+    <li>各个线程读写同一个共享变量, 此时需要使用锁. 各个线程就像是汇聚到一个点的各种线一样.</li>
+    <li>线程需要互相协作, 在某些点上完成之后再进入到下一个阶段. 有点像本来各个线程是平行线, 然后在会在一个固定的地方交汇, 然后再到下一阶段, 再在固定的地方交汇</li>
+    <li>线程之间不交汇, 而是通过共享缓冲区操作, 就像两个车间之间通过一条传送带传送数据, 两个车间中各种一批线程在运行</li>
+</ol>
+<p>这些并发的内容, 都使用到了阻塞这个词语, 阻塞实际上是操作系统选择不调度这个线程让其运行, 带给我们的假象. </p>
+<p>下边就来看一下, 常见的并发问题, 毕竟有了编写并发的工具, 但还要知道避免常见的问题才可以.</p>
 
 <ol>
-    <li><a href="#con1"></a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con1">违反原子性缺陷</a></li>
+    <li><a href="#con2">违反顺序缺陷</a></li>
+    <li><a href="#con3">死锁</a></li>
 </ol>
-<h2 style="text-align: center;" id="con1"></h2>
+<h2 style="text-align: center;" id="con1">违反原子性缺陷</h2>
+<p>这种缺陷往往是预期要原子性执行一个代码, 但是实际代码却没有考虑到原子性问题. 这个问题常见于多个线程对同一个变量进行操作, 想要避免这个问题, 很显然需要加锁.</p>
+<p>这种代码的例子就不举了, 因为很多直接将单线程程序改成多线程, 就会遇到这种问题</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
 
-<h2 style="text-align: center;" id="con3"></h2>
+<h2 style="text-align: center;" id="con2">违反顺序缺陷</h2>
+<p>这种常见于各个线程的操作实际上是有顺序的, 但是忽视了这种顺序, 我自己编写了一段程序:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+#include &lt;unistd.h>
+#include &lt;semaphore.h>
+#include &lt;pthread.h>
 
-<h2 style="text-align: center;" id="con4"></h2>
+sem_t sem;
+sem_t sem1;
 
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
+typedef struct my {
+    int a;
+    int *b;
+} my_struct;
+
+void *init(void *arg) {
+    printf("This is child \n");
+
+    my_struct *new_arg = (my_struct *) arg;
+
+    new_arg->a = 0;
+    new_arg->b = &new_arg->a;
+
+    printf("init completed\n");
+
+    sem_post(&sem);
+
+    return NULL;
+}
+
+void *child2(void *arg) {
+    printf("This is child2 \n");
+
+    my_struct *new_arg = (my_struct *) arg;
+
+    if (new_arg->b == NULL) {
+        printf("pointer is null , forbidden to read");
+    } else {
+        printf("b is %d\n", *(new_arg->b));
+
+    }
+
+    printf("child2 ends\n");
+
+    sem_post(&sem1);
+
+    return NULL;
+}
+
+int main(void) {
+
+    sem_init(&sem, 0, 0);
+    sem_init(&sem1, 0, 0);
+    my_struct * cc = malloc(sizeof(struct my));
+    printf("child thread begins\n");
+    pthread_t c;
+    pthread_t c2;
+
+
+    pthread_create(&c, NULL, child2, cc);
+    pthread_create(&c2, NULL, init, cc);
+
+    sem_wait(&sem);
+    sem_wait(&sem1);
+
+    printf("Child threads ends\n");
+
+    return 0;
+}
+</pre>
+<p>这段程序中, 定义了两个线程, 一个线程init用来初始化struct中的a 和 b两个变量, 另外一个B程序去读结构体中b指针指向的值. 主线程等待这两个线程工作都结束之后再向下执行.</p>
+<p>从语义上看, 本来的目的是要先初始化结构体, 然后再用另外一个线程去读写, 但是这里仅仅创建了两个线程, 却没有规定好顺序. 这就可能导致在尚未初始化之前, 线程就去读b指针的值, 但由于b指针的值不可知, 所以可能会产生segment fault.</p>
+<p>对于需要顺序的工作, 就可以使用信号量来让线程互相等待. 在之前可以知道, 每一个设置成0的信号量, 就可以让一个线程等待另一个线程的结束.</p>
+<p>于是在这里, 我们应该让主线程等待child2线程, 而child2线程去等待init线程, 这样就可以保证正确的顺序, 代码修改如下:</p>
+<pre>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+#include &lt;unistd.h>
+#include &lt;semaphore.h>
+#include &lt;pthread.h>
+
+sem_t sem;
+sem_t sem1;
+
+typedef struct my {
+    int a;
+    int *b;
+} my_struct;
+
+
+void *init(void *arg) {
+    printf("This is init \n");
+
+    my_struct *new_arg = (my_struct *) arg;
+
+    new_arg->a = 0;
+    new_arg->b = &new_arg->a;
+
+    printf("init completed\n");
+
+    //init线程执行结束之后, 对sem信号量执行V操作
+    <span style="color:red">sem_post(&sem);</span>
+
+    return NULL;
+}
+
+
+void *child2(void *arg) {
+
+    //child2等待init1结束再开始进行动作
+    <span style="color:red">sem_wait(&sem);</span>
+
+    printf("This is child2 \n");
+
+    my_struct *new_arg = (my_struct *) arg;
+
+    printf("b is %d\n", *(new_arg->b));
+
+    printf("child2 ends\n");
+
+    //init线程执行结束之后, 对sem1信号量执行V操作
+    <span style="color:red">sem_post(sem1)</span>
+    
+    return NULL;
+}
+
+int main(void) {
+
+    sem_init(&sem, 0, 0);
+    sem_init(&sem1, 0, 0);
+
+    my_struct * cc = malloc(sizeof(struct my));
+
+
+    printf("child thread begins\n");
+
+    pthread_t c;
+    pthread_t c2;
+
+
+    pthread_create(&c, NULL, child2, cc);
+    pthread_create(&c2, NULL, init, cc);
+
+    //主线程等待sem1信号量
+    <span style="color:red">sem_wait(&sem1);</span>
+
+    printf("Child threads ends\n");
+
+    return 0;
+}
+</pre>
+<p>如此修改之后, child2线程会等待init线程完成工作后才开始工作, 主线程则会等到child2线程完成工作后才会工作. 这样就完成了想要的顺序.</p>
+
+
+<h2 style="text-align: center;" id="con3">死锁</h2>
+<p>死锁发生在复数互斥资源被竞争的时候, 如果一个线程需要多个互斥资源才能够运作的话, 那么多个线程就可能会产生死锁, 死锁有四个必要条件:</p>
+<ol>
+    <li>互斥: 线程对于需要的资源进行互斥访问</li>
+    <li>持有并等待: 线程持有一个互斥资源, 同时等待获取其他互斥资源</li>
+    <li>资源被抢占后除非主动放弃, 否则无法再被抢占</li>
+    <li>循环等待: 线程之间存在一个环路, 环路上的每个线程都持有其他线程等待的资源.</li>
+</ol>
+<p>这四个条件必须同时具备才会产生死锁, 只要消除任意一个条件, 就可以解除死锁. 解除死锁的方法主要有:</p>
+
+<h3>解除死锁 - 循环等待</h3>
+<p>循环等待的问题主要是获取资源的顺序问题. 最简单的方法, 就是指定获取锁的顺序. 比如我们设计了两个锁L1和L2, 在每次的调用的时候, 都按照先获取L1才能获取L2的顺序调用, 就不会出现死锁.</p>
+<p>有一些函数, 根据传入锁的地址的大小来进行获取锁的操作, 这是一种比较有趣的防止死锁的办法.</p>
+<p>当然, 在锁和其他东西混用的时候, 操作就要当心一些了, 尤其是信号量背后是条件变量或者锁, 与普通锁使用的时候, 要注意其中的逻辑</p>
+
+<h3>解除死锁 - 持有并等待</h3>
+<p>避免持有并等待的方法, 就是要么抢到全部的锁, 要么就抢不到任何锁. 这样就不会让任何线程处于持有并等待的过程中.</p>
+<p>因为锁本身就是控制互斥, 所以可以用一把大锁把其他锁保护起来, 这样同时只能有一个线程去抢锁, 就避免了持有并等待, 不过这样会降低并发效率, 因为实际上强制所有线程进行同步. </p>
+
+<h3>解除死锁 - 非抢占</h3>
+<p>非抢占的话, 就要改变目前抢占锁的策略, 在之前提到过操作系统提供的<code>try_lock()</code>函数, 当抢锁失败的时候, 会返回-1.</p>
+<p>这样就可以采用一个策略, 即如果抢锁失败, 就释放自己的锁, 让其他线程去工作, 比如在一个两个锁的情况下:</p>
+<pre>
+while true:
+    lock(&L1);
+    if (trylock(L2) == -1:
+        unlock(L1);
+    else:
+        do_something()
+        unlock(L2)
+        unlock(L1)
+
+</pre>
+<p>线程首先会去尝试获取L1, 在拿到L1之后, 会尝试获取L2, 如果L2已经被别人拿走了, 则会返回-1, 此时线程就把L1锁也释放掉.</p>
+<p>这样这个线程就会立刻返回到没有持有任意锁的状态, 这实际上是把L2变成了允许别人抢占的东西, 所以不会产生死锁, 即两个线程互相阻塞.</p>
+<p>然后这会产生活锁, 如果A线程抢到L1, B线程抢到L2, 然后A一看抢不到L2, 就彻底放飞自我, B抢不到L1, 也放飞自我, 结果在下一轮, 两个线程又各自抢到一个锁. 于是不会阻塞, 但是两个线程会反复运行.</p>
+<p>这种情况叫做活锁, 避免活锁的方式是延迟一个线程一段时间, 让其他线程有机会连续拿到锁. 活锁的真正问题还不在于此, 而是在抢第二个锁失败的时候, 如何返回到初始状态, 在一些包装的比较深的函数中, 就比较难以做到这一点.</p>
+
+<h3>解除死锁 - 互斥</h3>
+<p>这里其实没有太多的例子, 只给出了一些导向性的方法, 比如使用硬件的支持来进行操作. 比如比较并交换, 假如如下函数是原子的:</p>
+<pre>
+int compare_and_swap(int *address, int expected, int new){
+    if (*address == expected){
+        *address = new;
+        return 1;
+    }
+    return 0;
+}
+</pre>
+<p>这个函数比较address位置的值与expected位置的值, 如果相等, 就把new放到address位置中. 如果一个线程去循环执行这个方法的话, 只要其他的线程修改了address位置的值, 交换就不会进行.</p>
+<p>比如下列:</p>
+<pre>
+void AtomicIncrement(int *value, int amount){
+    do {
+        int old = *value
+    } while(compare_and_swap(value, old, old+amount) == 0)
+}
+</pre>
+<p>这个线程会先读出原来的值, 然后不断尝试去替换, 如果读出到替换之间被修改, 就继续会尝试下一次读出值然后比较并替换. 这样即使不用锁, 迟早(也未必, 可能会成为活锁)能够更新成功.</p>
+
+<h3>解除死锁 - 调度</h3>
+<p>这个东西我理解了一下, 由于现代处理器可以同时运行多个线程, 实际上操作系统只要做到让会产生冲突的线程不在同一个时间并发运行就可以了.</p>
+
+<h3>解除死锁 - 检查和恢复</h3>
+<p>这里突然变成了心理学教材, 即不要追求完美. 不是所有值得做的事情都值的做好. 当然这不是说对于自己需要做好的事情就可以随便对待, 而是总体情况可以接受的情况下寻找适当的策略.</p>
+<p>比如操作系统偶尔也会崩溃, 那么就愉快的重启就可以了.</p>
+<p>这里很多理论听上去还是比较容易的, 不过稍微一想就会发现写起来并不容易. 此外这些原语在Java中如何体现, 还是要好好的看一下Java并发编程.</p>
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
