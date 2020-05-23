@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>并发 - 事件驱动的并发</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>又回到事件驱动了, 这次对事件驱动的理解会更深一些. 事件驱动也叫基于事件的并发, 这其实是依赖了操作系统提供的功能, 处理事件的服务器并不一定需要使用多线程.</p>
+<p>基于事件驱动的程序, 就不像多线程程序, 其中必须要有一个线程时刻运行, 整个进程不能被长时间挂起, 而基于事件的服务器最大的区别就是整个进程可以被挂起, 直到某些事件发生.</p>
+
+<ol>
+    <li><a href="#con1">基本理论</a></li>
+    <li><a href="#con2">违反顺序缺陷</a></li>
+    <li><a href="#con3">死锁</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">操作系统提供的事件API</h2>
+<p>基于事件驱动的理论, 与现实世界的联系更加紧密, 比如人常常就是事件驱动的, 睡觉休息, 需要做事情的时候喊一声, 做完了之后继续睡觉. 就相当于一个休眠的程序, 被外界通知了, 就开始做事情.</p>
+<p>一个典型的基于事件的服务器的伪代码如下, 注意这个是单线程的, 不会强制使用多线程:</p>
+<pre>
+while(1){
+    // 获取所有的事件
+    events = getEvents();
+
+    for event in events:
+        processEvent(event)
+
+}
+</pre>
+<p>重点就是每次事件由谁来提供, 一个事件服务器中的事件可以由外界来提供, 也可以像有界缓冲区那样, 一个线程作为事件服务器,而另外一些线程用于提供事件.</p>
+<p>服务器经常针对的是I/O操作, 这里的向事件服务器提供事件的函数, 是由操作系统实现的.</p>
+<p>类UNIX系统提供了select()函数, 应用程序调用这个系统调用的时候, 一旦调用, 就会被挂起, 如果有任何的IO返回, 操作系统就会将描述符准备好, 然后唤醒休眠的进程, 这样就好像在这个期间内应用程序睡眠了, 一有事件, 就醒了.</p>
+<p>详细的select函数如下:</p>
+<pre>
+int select(
+    int nfds, 一个数量, 检查每个集合中的描述符的数量
+    fd_set *readfds  准备好读取的描述符集合
+    fd_set *writefds 准备好写入的描述符集合
+    fd_set *errorfds 有异常待处理的描述符集合
+    struct timeval *timeout
+    )
+</pre>
+<p>每次执行select函数的时候, 需要传入nfds, select会检查每个描述符集合中不超过这个nfds数量的描述符. 三个描述符集合被传入的时候, 应该是所有要监听的描述符集合, 在执行了select之后, 这三个描述符集合会被替换成可用的描述符集合.</p>
+<p>如果没有任何IO操作, 应用程序执行select就会进入休眠. 如果休眠时间超过timeout, 就会报错. 如果将timeout设置成NULL, 会导致只要没有描述符可用, 操作系统就会一直让应用程序休眠在select调用上.</p>
+<p>如果将select设置为0, 则方法会立刻返回, 不管有没有描述符可用, 没有可用的描述符就返回0, 有可用的描述符则select不会返回0.</p>
+<p>这就提供了一个基础的非阻塞事件循环的方法. 即先准备好要监听哪些描述符, 然后需要更新描述符到一个新的结构中, 之后针对描述符来调用select函数. 可以选择让select阻塞还是直接返回.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
