@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Pr2020 - 基础操作</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>因为最近开始在B站连载<a href="https://www.bilibili.com/video/BV1kT4y1u7AK/" target="_blank">专题</a>, 就是用Python+Openpyxl操作excel的专题, 目的就是把Python+Openpyxl一起教了, 让灰头土脸的老财们可以轻松一点操作Excel.
+    不过发现自己的剪辑水平还不是太高, 就找了一份Pr的教程来学习一下. 这个教程还挺新, 用的是Adobe Premier Pro CC 2020, 同时也自带了所有学习用的素材, 非常方便.</p>
+<p>如果女儿后边持续学习音乐的话, 怕是乐理和编曲软件也要自己学起来了, 果然是学无止境啊....</p>
+<p>这里记录一下自己学习Pr的过程, 相信不久的将来, 能看到我的剪辑应该可以提高一个层次吧. 剩下的还要解决一个录音的问题, 这个就等后边如果能成功搬家再说吧.</p>
+
+<ol>
+    <li><a href="#con1">启动Pr 2020</a></li>
+    <li><a href="#con2">左下方 素材窗口</a></li>
+    <li><a href="#con3">左上方 素材监视器窗口</a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">启动Pr 2020</h2>
+<p>启动之后, 选择新建项目. 可以进入一个全新的项目.</p>
+
+<p>在顶部, 有学习, 组件, 编辑, 颜色, 效果, 音频 图形 库 Editin等. 这一排实际上是不同的workspace, 不同的工作空间, 面板会呈现不同的排列, 工具也会有所不同. 这些工作空间都可以具体针对某一个项目.
+    实际上工作空间可以认为是不同的工具组合和排列, 并不是指不同的项目. 现在选择编辑.</p>
+<p>然后会看到一个面板的组合. 左下方是 Project Panel, 这个面板里会列出项目所使用的素材, 是非常常用的窗口.</p>
+<p>左上方是source monitor 素材窗口, 用来观看准备要编辑的素材.</p>
+<p>右下角是时间轴, 也是主要的编辑面板, 由于视频就是一帧一帧图像在时间轴上的反应, 所以所有的编辑工作最后都是反应在时间轴和画面中.</p>
+<p>项目监视器 program monitor 位于右上角, 这个是实时预览编辑后的成品视频的窗口.</p>
+<p>可以打开多个项目, 项目会排列在Project Panel和素材窗口的标题上, 可以拖动, 点击旁边的菜单按钮选择关闭可以关闭对应项目.</p>
+<p>尝试着同时创建一个新项目Bakery Demo然后再打开一个素材提供的完整项目, 再关闭, 都OK.</p>
+
+<h2 style="text-align: center;" id="con2">左下方 素材窗口</h2>
+<p>素材窗口用来导入. 操作系统中的文件夹, 在Pr里叫做Bin. 导入的就是一个Bin 或者叫做资源箱, 里边还有其他的资源.</p>
+<p>窗口可以通过按`来切换是否全屏, 可以自由排列视频的元数据列, 然后可以切换视图, 有列表, 固定和自由视图, 鼠标移动到视频资源上, 可以快速浏览视频.</p>
+
+<h2 style="text-align: center;" id="con3">左上方 素材监视器窗口</h2>
+<p>在左下的窗口里双击一个视频资源, 左上方的窗口中就会显示出视频资源.</p>
+<p>视频下方是进度条, 然后是一排按键. 中间的播放和停止按键自不必说.</p>
+<p>观看视频的时候JKL三个键可以用于快速向后, 停止, 向前来操作视频.反复按JL可以提高向后快进的速度. 同时按下K+J或者K+L, 是向前或者向后慢速播放.</p>
+<p>一排按钮上的第二个和第三个, 类似花括号的, 用于标记入点也出点, 也就是对视频感兴趣的点, 也是之后Pr操作的很多基础. 标记入点是i, 标记出点是o.</p>
+<p>使用shift+o和i可以快速跳跃到出入点. 使用ctrl+shift+空格可以播放一次出点到入点中间的片段, 这是一个很有用的功能.</p>
+
+<h2 style="text-align: center;" id="con4">右下方 timeLine窗口</h2>
+<p>在左上方标记了入点和出点之后, 直接将素材拖入时间线, 就可以仅仅把入点和出点之间的部分拖进去, 这是一个小技巧, 否则会把整个素材拖进去.</p>
+<p>用小键盘+-可以缩放, 然后按\可以让整个视频进度适合窗口, 就不用总是拖下边那个条拖来拖去了.</p>
+<p>可以重复上边的操作, 再拖动一个其他视频的出入点到时间线上了, 目前可以粘性拼接到视频的末尾.</p>
+<p>这个粘性拼接可以修改掉, 就变成可以任意覆盖, 按S即可关闭, 或者在时间线窗口左上角的时间下边的磁铁按钮可以关闭或者打开. 用上下箭头可以在时间线上的这些切片之间来回移动.</p>
+<p>可以拉轨道线之间的线来调整轨道的高度, 高度高就可以预览一些视频的画面. 也可以按住Ctrl+Alt, 然后鼠标在轨道头上滚动来增加或者减少高度.</p>
+<p>窗口不见了都可以通过菜单的窗口找回, 如果工作空间的布局打乱了, 可以通过窗口 - 工作区 - 重置为保存的布局 来恢复成默认状态.</p>
+<p>窗口菜单中的所有窗口, 就是所有可用的工具. 可以自行定义工具的布局. 编辑好之后, 另存为新的工作区, 就可以创建自定义的工作区了. 拖动工具到其他工具窗口中, 会将其变成那个窗口中的一个菜单栏, 这可以有效的节约空间.</p>
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
