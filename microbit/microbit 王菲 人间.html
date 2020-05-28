@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Microbit - 简谱转换</title>
+</head>
+<body>
+<p>今天突然想到Microbit的音乐功能, 虽然只能输出蜂鸣声, 不过可以写点谱子来试试.
+    以后等女儿大了,我也得学点音乐和编曲软件, 不然没法教小孩用了.</p>
+<p>一开始写了一个简单的转换函数, 后来发现这首歌的后半部分进行了转调, 所以打算编写一个完整的转调, 这个等后边再编写, 先把代码放出来:</p>
+<p>另外我发现microbit支持的高音不止到5, 更高的6和7也是可以的. 实际可以听的范围2实在是太低, 基本也就在3-7之间.</p>
+
+<ol>
+    <li><a href="#con1">播放代码</a></li>
+    <li><a href="#con2">转换函数</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">播放代码</h2>
+<p>曲子分为两部分, 第一部分是C大调版本, 第二部分是D大调版本, 剩下的过场还有转bE=C小调的方法, 待我一点点写一个转换函数.</p>
+<pre>
+from microbit import *
+import music
+
+music.set_tempo(bpm=130)
+
+list1 = ['A:4', 'C:4', 'B3:4', 'A:4', 'G:4', 'B3:4', 'A3:4', 'G:4', 'F:4',
+         'A3:4', 'G3:4', 'F:4', 'E:8', 'C:4', 'C:1', 'D:1', 'E:1', 'G:1',
+         'A:12', 'B:2', 'C5:2', 'G:6', 'C:6', 'G:4', 'F:4', 'E:4', 'D:4',
+         'C:4', 'D:24', 'E:4', 'F:4', 'G:48', 'G:2', 'E:2', 'E:2', 'D:2',
+         'D:2', 'C:2', 'C:2', 'G3:2', 'G3:2', 'A3:2', 'C:2', 'D:2', 'E:8',
+         'A:2', 'G:2', 'G:2', 'E:2', 'E:2', 'D:2', 'C:2', 'D:2', 'A3:8',
+         'R:4', 'G3:2', 'A3:2', 'C:12', 'D:2', 'C:2', 'E:4', 'G:4', 'R:6',
+         'E:2', 'D:4', 'C:4', 'C:2', 'E:6', 'D:16', 'G:2', 'E:2', 'E:2',
+         'D:2', 'D:2', 'C:2', 'C:2', 'G3:2', 'G3:2', 'A3:2', 'C:2', 'D:2',
+         'E:8', 'A:2', 'G:2', 'G:2', 'E:2', 'E:2', 'D:2', 'C:2', 'D:2', 'A3:8',
+         'R:4', 'G3:2', 'A3:2', 'C:10', 'D:4', 'C:2', 'E:4', 'G:4', 'R:6', 'E:2',
+         'D:4', 'C:4', 'A3:4', 'C:4', 'C:16', 'R:8', 'R:8',
+         'E:2', 'G:4', 'E:2', 'G:4', 'E:4', 'A:16', 'E:2',
+         'G:4', 'E:2', 'G:4', 'E:4', 'A3:16', 'D:2', 'E:4', 'C:2', 'D:4', 'E:4',
+         'E:2', 'G:4', 'E:2', 'G:8', 'C5:4', 'B:4', 'A:4', 'G:2', 'A:18', 'D:2',
+         'E:4', 'C:2', 'D:4', 'E:4', 'E:2', 'G:4', 'E:2', 'G:8', 'C5:4', 'B:4', 'A:4', 'G:2', 'A:18','R:16']
+
+list2 = ['F#:8', 'E:6', 'D:2', 'E:8', 'R:4', 'E:2', 'F#:2', 'G:4', 'F#:4', 'F#:4', 'E:4',
+    'F#:8', 'R:4', 'D:2', 'D:2', 'G:6', 'A:6', 'B:4', 'A:6', 'D:6', 'A:4', 'G:4',
+    'F#:4', 'E:4', 'D:2', 'E:18', 'F#:8', 'E:6', 'D:2', 'E:8', 'R:4', 'E:2', 'F#:2',
+    'G:4', 'F#:4', 'A#:4', 'C#5:4', 'E:4', 'D:2', 'D:2', 'R:4', 'D:2', 'D:2', 'G:6',
+    'A:6', 'B:4', 'A:6', 'D:6', 'A:4', 'G:4', 'F#:4', 'E:4', 'D:2', 'D:18']
+
+    ['F#4:8', 'E4:6', 'D4:2', 'E4:8', 'R4:4', 'E4:2', 'F#4:2', 'G4:4', 'F#4:4', 'F#4:4', 'E4:4',
+    'F#4:8', 'R4:4', 'D4:2', 'D4:2', 'G4:6', 'A4:6', 'B4:4', 'A4:6', 'D4:6', 'A4:4', 'G4:4',
+    'F#4:4', 'E4:4', 'D4:2', 'E4:18', 'F#4:8', 'E4:6', 'D4:2', 'E4:8', 'R4:4', 'E4:2', 'F#4:2',
+    'G4:4', 'F#4:4', 'A#4:4', 'C#5:4', 'E4:4', 'D4:2', 'D4:2', 'R4:4', 'D4:2', 'D4:2', 'G4:6',
+    'A4:6', 'B4:4', 'A4:6', 'D4:6', 'A4:4', 'G4:4', 'F#4:4', 'E4:4', 'D4:2', 'D4:18']
+
+
+
+def play_nin_gan():
+    for each in list1:
+        music.play(each)
+    for each in list2:
+        music.play(each)
+    for each in list2:
+        music.play(each)
+
+
+while True:
+    if button_a.is_pressed():
+        play_nin_gan()
+
+</pre>
+<p>这里解释一下, 由于这首歌的最小单位是32分之一音符, 所以bpm设置的比较高, 然后长度2代表十六分之一音符, 4代表八分之一音符, 8代表四分音符, 16代表二分音符.</p>
+<p>这个歌的简谱是每拍一个四分音符, 一小节有两拍. 不过钢琴曲是4/4的, 反正差不多了. 由于microbit不能演奏和弦, 所以表现力差了点, 以后学会了musescore大概就可以谱钢琴曲了.</p>
+
+<h2 style="text-align: center;" id="con2">转换函数</h2>
+<p>转换函数的思路来自 <a href="https://www.zhihu.com/question/19702261/answer/12700676"> 音乐中「C 调」、「D 调」等的含义是什么？ - 米叔的回答 - 知乎</a>:</p>
+<pre>
+C → 无升降号→ 1 2 3 4 5 6 7 →a小调
+G → 1升（#4）→ 5 6 7 1 2 3 #4  →e小调
+D → 2升（#4 #1）→2 3 #4 5 6 7 #1 →b小调
+A → 3升（#4 #1 #5）→ 6 7 #1 2 3 #4 #5 →#f小调
+E → 4升（#4 #1 #5 #2）→ 3 #4 #5 6 7 #1 #2 →#c小调
+B → 5升（#4 #1 #5 #2 #6）→ 7 #1 #2 3 #4 #5 #6 →#g小调
+#F→ 6升（#4 #1 #5 #2 #6 #3）→ #4 #5 #6 7 #1 #2 #3 →#d小调
+#C→ 7升（#4 #1 #5 #2 #6 #3 #7）→ #1 #2 #3 #4 #5 #6 #7 →#a小调
+F → 1降（b7）→ 4 5 6 b7 1 2 3 →d小调
+bB→ 2降（b7 b3）→ b7 1 2 b3 4 5 6 →g小调
+bE→ 3降（b7 b3 b6）→ b3 4 5 b6 b7 1 2 →c小调
+bA→ 4降（b7 b3 b6 b2）→ b6 b7 1 b2 b3 4 5 →f小调
+bD→ 5降（b7 b3 b6 b2 b5）→ b2 b3 4 b5 b6 b7 1 →bb小调
+bG→ 6降（b7 b3 b6 b2 b5 b1）→ b5 b6 b7 b1 b2 b3 4 →be小调
+bC→ 7降（b7 b3 b6 b2 b5 b1 b4）→ b1 b2 b3 b4 b5 b6 b7 →ba小调
+</pre>
+<p>考虑到Microbit只有2345四个Octave, 还真的不怎么好办. 只能想办法根据map来编写一下了. 一般简谱如果加两个八度就没用了, 所以只能加减一个八度.</p>
+<p>好在Microbit播放音高的时候先是音符号加上升降调号, 然后才是音高, 所以编写逻辑还是挺方便的.</p>
+<p>这次就使用了Java来编写, 先粗略的编写了一个简单的版本, 使用了三个类, 一个类是Note, 相当于简谱的一个音符, 一个类MicrobitMusicChanger是用于将音符转换成Microbit的字符串.</p>
+<p>还有一个工厂类, 用于启动几个不同调号的工厂进行翻译. 我试验了几段都没问题, 把代码贴出来, 只要不是特别刁钻的简谱, 只是在原音名上升降号, 应该没有问题.</p>
+<pre>
+class Note {
+
+    private int note;
+    private int length;
+    private int octave;
+    private int upOrDown = 0;
+
+    public Note(int note, int octave, int length, int upOrDown) {
+        this.note = note;
+        this.length = length;
+        this.octave = octave;
+        this.upOrDown = upOrDown;
+    }
+
+    public int getNote() {
+        return note;
+    }
+
+    public void setNote(int note) {
+        this.note = note;
+    }
+
+    public int getLength() {
+        return length;
+    }
+
+    public void setLength(int length) {
+        this.length = length;
+    }
+
+    public int getOctave() {
+        return octave;
+    }
+
+    public void setOctave(int octave) {
+        this.octave = octave;
+    }
+
+    public int getUpOrDown() {
+        return upOrDown;
+    }
+
+    public void setUpOrDown(int upOrDown) {
+        this.upOrDown = upOrDown;
+    }
+
+    @Override
+    public String toString() {
+        return "Note{" +
+                "note=" + note +
+                ", length=" + length +
+                ", octave=" + octave +
+                ", upOrDown=" + upOrDown +
+                '}';
+    }
+}
+
+</pre>
+<p>Note类很简单, 其中保存四个int类型的数值, 第一个是音名也就是1234567和0, 0对应Microbit中的休止符'R'.</p>
+<p>然后是MicrobitMusicChanger, 数据都存在这里, 之后感觉可以再整理一下, 把数据都拉出来.</p>
+<pre>
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+class MicrobitMusicChanger {
+
+    //默认的声音水平, microbit默认就是4, 可以听得范围在2-7, 也就是从中央c可以升3个八度, 降2个八度, 一般足够了
+    private int octave = 4;
+    //使用哪个大调
+    private String tone = "CTONE";
+
+    //大调与1234567的对应关系
+    public static final String[] CTONE = {"C", "D", "E", "F", "G", "A", "B", "7"};
+    public static final String[] GTONE = {"G", "A", "B", "C", "D", "E", "F#", "3"};
+    public static final String[] DTONE = {"D", "E", "F#", "G", "A", "B", "C#", "6"};
+    public static final String[] ATONE = {"A", "B", "C#", "D", "E", "F#", "G#", "2"};
+    public static final String[] ETONE = {"E", "F#", "G#", "A", "B", "C#", "D#", "5"};
+    public static final String[] BTONE = {"B", "C#", "D#", "E", "F#", "G#", "A#", "1"};
+    public static final String[] FUTONE = {"F#", "G#", "A#", "B", "C#", "D#", "F", "4"};
+    public static final String[] CUTONE = {"C#", "D#", "F", "F#", "G#", "A#", "C", "6"};
+    public static final String[] FTONE = {"F", "G", "A", "Bb", "C", "D", "E", "4"};
+    public static final String[] bBTONE = {"Bb", "C", "D", "Eb", "F", "G", "A", "1"};
+    public static final String[] bETONE = {"Eb", "F", "G", "Ab", "Bb", "C", "D", "5"};
+    public static final String[] bATONE = {"Ab", "Bb", "C", "Db", "Eb", "F", "G", "2"};
+    public static final String[] bDTONE = {"Db", "Eb", "F", "Gb", "Ab", "Bb", "C", "6"};
+    public static final String[] bGTONE = {"Gb", "Ab", "Bb", "B", "Db", "Eb", "F", "4"};
+    public static final String[] bCTONE = {"B", "Db", "Eb", "E", "Gb", "Ab", "Bb", "1"};
+
+    //存储调号与字符串的对应关系, 以及单个音符升降的关系
+    private static final Map&lt;String, String[]> notes = new HashMap&lt;>();
+    private static final Map&lt;String, String> noteToUpperNote = new HashMap&lt;>();
+    private static final Map&lt;String, String> noteToLowerNote = new HashMap&lt;>();
+
+    static {
+        noteToUpperNote.put("C", "C#");
+        noteToUpperNote.put("D", "D#");
+        noteToUpperNote.put("E", "F");
+        noteToUpperNote.put("F", "F#");
+        noteToUpperNote.put("G", "G#");
+        noteToUpperNote.put("A", "A#");
+        noteToUpperNote.put("B", "C");
+        noteToUpperNote.put("C#", "D");
+        noteToUpperNote.put("D#", "E");
+        noteToUpperNote.put("F#", "G");
+        noteToUpperNote.put("G#", "A");
+        noteToUpperNote.put("A#", "B");
+
+        noteToLowerNote.put("C", "B");
+        noteToLowerNote.put("D", "Db");
+        noteToLowerNote.put("E", "Eb");
+        noteToLowerNote.put("F", "E");
+        noteToLowerNote.put("G", "Gb");
+        noteToLowerNote.put("A", "Ab");
+        noteToLowerNote.put("B", "Bb");
+
+        notes.put("CTONE", CTONE);
+        notes.put("GTONE", GTONE);
+        notes.put("DTONE", DTONE);
+        notes.put("ATONE", ATONE);
+        notes.put("ETONE", ETONE);
+        notes.put("BTONE", BTONE);
+        notes.put("FUTONE", FUTONE);
+        notes.put("CUTONE", CUTONE);
+        notes.put("FTONE", FTONE);
+        notes.put("bBTONE", bBTONE);
+        notes.put("bETONE", bETONE);
+        notes.put("bATONE", bATONE);
+        notes.put("bDTONE", bDTONE);
+        notes.put("bGTONE", bGTONE);
+        notes.put("bCTONE", bCTONE);
+    }
+
+
+    public String getTone() {
+        return tone;
+    }
+
+    public void setTone(String tone) {
+        this.tone = tone;
+    }
+
+    //核心方法, 读入一个aNote对象, 然后根据其四个属性进行操作
+    public String translateNumberedMusicalNotationToMicrobitMusicString(Note aNote) {
+        StringBuilder result = new StringBuilder();
+
+        //如果是0就返回休止符
+        String singleNote;
+        if (aNote.getNote() == 0) {
+            singleNote = "R";
+        } else {
+            singleNote = notes.get(tone)[aNote.getNote() - 1];
+        }
+
+        //升降号之后的音直接去查表
+        if (aNote.getUpOrDown() == 1) {
+            singleNote = noteToUpperNote.get(singleNote);
+        } else if (aNote.getUpOrDown() == -1) {
+            singleNote = noteToLowerNote.get(singleNote);
+        }
+
+        result.append(singleNote);
+
+        //这里要判断一下, 如果音符不等于0, 需要找到原来音符是否要抬高一个调号的位置, 然后加上合理的octave就可以了.
+        if (aNote.getNote() == 0) {
+            result.append(octave + aNote.getOctave());
+        } else {
+            int numberToRise = Integer.parseInt(notes.get(tone)[7]);
+            if (aNote.getNote() > numberToRise) {
+                result.append((octave + aNote.getOctave() + 1));
+            } else {
+                result.append(octave + aNote.getOctave());
+            }
+        }
+
+        result.append(":" + aNote.getLength());
+        return "'" + result.toString() + "'";
+    }
+}
+</pre>
+<p><code>MicrobitMusicChanger</code>的方便之处是默认设置翻译C大调, 但是可以更改采用哪个大调进行翻译.</p>
+<p>最后一个类是NoteFactory, 纯粹是为了不把MicrobitMusicChanger暴露在外边而使用的类. </p>
+<pre>
+public class NoteFactory {
+
+    private MicrobitMusicChanger changer = new MicrobitMusicChanger();
+    private String tone = "CTONE";
+    public String getTone() {
+        return tone;
+    }
+
+    public void setTone(String tone) {
+        this.tone = tone;
+    }
+
+    public List&lt;String> makeMusicFromArray(int[][] music) {
+
+        List&lt;String> result = new ArrayList&lt;>();
+        changer.setTone(this.tone);
+
+        for (int[] aSingleNotes : music) {
+            Note newNote = new Note(aSingleNotes[0], aSingleNotes[1], aSingleNotes[2], aSingleNotes[3]);
+            result.add(changer.translateNumberedMusicalNotationToMicrobitMusicString(newNote));
+        }
+
+        return result;
+    }
+
+    
+}
+</pre>
+<p>在写这篇博客的时候想到, 其实也不太需要包装一个Note类, 直接读入数组也是可以的. 也就懒得改了.</p>
+<p>在实际使用的时候, 好比王菲的《人间》这首歌, 副歌之前的部分是C大调, 副歌是D大调, 因此可以启动两个Factory, 一个用于翻译C大调, 一个用于翻译D大调, 然后获取结果字符串, 就可以直接粘贴到Microbit的代码中使用:</p>
+<pre>
+public static void main(String[] args) {
+
+    //简谱前三小节
+    int[][] mu = {
+            {6, 0, 4, 0}, {1, 0, 4, 0}, {7, -1, 4, 0}, {6, 0, 4, 0},
+            {5, 0, 4, 0}, {7, -1, 4, 0}, {6, -1, 4, 0}, {5, 0, 4, 0},
+            {4, 0, 4, 0}, {6, -1, 4, 0}, {5, -1, 4, 0}, {4, 0, 4, 0},
+            {3, 0, 8, 0}, {1, 0, 4, 0}, {1, 0, 1, 0}, {2, 0, 1, 0}, {3, 0, 1, 0}, {5, 0, 1, 0},
+            {6, 0, 12, 0}, {7, 0, 2, 0}, {1, 1, 2, 0}
+    };
+
+    //使用默认转换C大调的工厂
+    NoteFactory factoryC = new NoteFactory();
+    List&lt;String> music = factoryC.makeMusicFromArray(mu);
+    System.out.println(music);
+
+    //副歌 天上人间 如果真值得歌颂 也是因为有你 才会变得闹哄哄
+    int[][] muD = {
+            {3, 0, 8, 0}, {2, 0, 6, 0}, {1, 0, 2, 0},
+            {2, 0, 8, 0}, {0, 0, 4, 0}, {2, 0, 2, 0}, {3, 0, 2, 0},
+            {4, 0, 4, 0}, {3, 0, 4, 0}, {3, 0, 4, 0}, {2, 0, 4, 0},
+            {3, 0, 8, 0}, {0, 0, 4, 0}, {1, 0, 2, 0}, {1, 0, 2, 0},
+            {4, 0, 6, 0}, {5, 0, 6, 0}, {6, 0, 4, 0},
+            {5, 0, 6, 0}, {1, 0, 6, 0}, {5, 0, 4, 0},
+            {4, 0, 4, 0}, {3, 0, 4, 0}, {2, 0, 4, 0},{1, 0, 2, 0},{2, 0, 18, 0}
+    };
+
+    NoteFactory factoryD = new NoteFactory();
+    factoryD.setTone("DTONE");
+
+    List&lt;String> music2 = factoryD.makeMusicFromArray(muD);
+
+    System.out.println(music2);
+}
+</pre>
+<p>打印出来的结果是就不放了, 和刚才手工编写的是一样的.</p>
+<p>这个程序目前除了某些地方比如从C降到第一级的B这种不好处理, 只能将乐曲分段, 手工调整一下changer.octave, 其他普通的简谱应该都没有问题了.</p>
+
+
+
+
+
+</body>
+</html>
