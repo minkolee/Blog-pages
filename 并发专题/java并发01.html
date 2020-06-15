@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>并发 - Java并发</title>
+</head>
+<body>
+<p>美女朋友给我看了<a href="https://www.bilibili.com/video/BV1yV411k7A7" target="_blank">马未都的一段视频</a>, 说的确实不错, 不羡慕谁, 不嘲笑谁, 不嫉妒谁. 只有这样, 才能让自己自由自在的生活.</p>
+<p>我细细琢磨了一下, 其实这三句话, 说到底都归结为最后一句话, 也就是不嫉妒谁. 说白了就是为什么别人有的我没有, 我也要有. 这种动机不能说有错, 但实际上很多时候会导致错误的结果.</p>
+<p>不管生活怎么艰难, 毕竟都要脚踏实地的走下去. 这个星期女儿重返校园, 然后也收到了世外的录取通知, 生活就是这样一步步的前进, 无所谓好坏, 只有自己的心里怎么看待.</p>
+<p>前后大概中断了有一个月的开发, 现在还得继续捡起来, 等把并发也看完, 大概就可以重新再去写点什么玩意了.</p>
+<p>经过看了操作系统的并发基本原理实现, 对于锁, 条件变量, 信号量都有了更深的了解, 而且对于阻塞也有了更深的了解. 现在就可以来看一下俺的主力语言:Java里是怎么来用这些并发概念的了.</p>
+
+<ol>
+    <li><a href="#con1">Java的多线程类 Thread</a></li>
+    <li><a href="#con2">终于弄清楚了打断</a></li>
+    <li><a href="#con3">wait和notify</a></li>
+    <li><a href="#con4">操作系统提供的事件API</a></li>
+    <li><a href="#con5">select与异步IO合用</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Java的多线程类 Thread</h2>
+<p>这个不是什么新鲜的玩意了. Thread类就是线程类, 然后有静态方法和创建实例. </p>
+<p>创建Thread实例既可以直接使用匿名类来覆盖run()方法, 也可以给构造器传递一个实现Runnable接口的对象都行.</p>
+<p>启动线程则是调用.start()方法, 相比基础的C语言, 由于Thread可以写在一个类里边, 所以给线程传递变量更方便.</p>
+<p>Thread真正好用的还是一系列静态方法:</p>
+<ol>
+    <li><code>Thread.currentThread()</code>, 获取当前线程的引用</li>
+    <li><code>Thread.sleep()</code>, 让当前线程睡眠(阻塞), 这个方法不会交出监视器锁, 也就是不会释放任何竞争资源</li>
+    <li><code>Thread.yield()</code>, 交出当前线程控制权, 但不会阻塞该线程, 只是将线程暂停一下. 应该优先使用sleep()方法.</li>
+    <li><code>Thread.join()</code>, 调用这个方法的线程会阻塞到参数中的线程运行结束为止.</li>
+</ol>
+<p>后边都会逐渐使用到这些方法.</p>
+
+
+<h2 style="text-align: center;" id="con2">终于弄清楚了打断</h2>
+<p>有本好书还是不错的, 《Java高并发程序设计》很短的篇幅就讲清楚了线程的打断. 打断我个人理解, 可以认为是给线程传递一个消息, 即设置一个打断变量.</p>
+<p>如果线程有逻辑来处理打断变量, 则就可以通过这个来让线程实现协作.</p>
+<p>首先是看一下打断相关的方法:</p>
+<ol>
+    <li><code>interrupt()</code>, 设置一个线程的打断标志, 是实例方法</li>
+    <li><code>isInterrupted()</code>, 检测一个线程的中断标志, 是实例方法</li>
+    <li><code>Thread.interrupted()</code>, 检测一个线程的中断标志, 同时清除掉中断标志, 这是个静态方法</li>
+</ol>
+<p>这里关键要理解, <code>interrupt()</code>只是设置线程一个标志, 如果线程没有处理这个标志的程序, 那么打断就没有用.</p>
+<p>如果想要用打断, 就必须添加处理打断的程序才行, 也就是检测打断标记.</p>
+<p>这里比较特殊的是, 打断阻塞的线程(比如sleep), 会抛出一个受检异常<code>InterruptedException</code>, 这个异常在被catch的时候, 会<span style="color: red">清除打断标志</span></p>
+<p>所以通过打断来控制线程的时候, 除了在线程循环中检测打断标志的时候, 还必须妥善的处理在阻塞的过程中被打断的方法, 一般就是catch异常, 然后重新设置打断标志. 这样就可以利用中断去做一些事情.</p>
+<pre>
+public static void main(String[] args) throws InterruptedException {
+    Thread t1 = new Thread(){
+        @Override
+        public void run() {
+            while (true) {
+
+                if (Thread.currentThread().isInterrupted()) {
+                    System.out.println("发现中断标志位");
+                    break;
+                } else {
+                    System.out.println("未发现中断标志位");
+
+                }
+
+                try{
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    //Sleep中被打断, 会抛异常并清除中断标志位
+                    System.out.println("Interrupted when sleep");
+                    Thread.currentThread().interrupt();
+                }
+
+                Thread.yield();
+            }
+        }
+    };
+
+    t1.start();
+    Thread.sleep(10000);
+    System.out.println("主线程打断T1");
+    t1.interrupt();
+
+}
+</pre>
+<p>例子里新创建一个线程, 然后进入循环, 每次检测打断标志, 然后睡2秒. 如果睡眠过程被打断, 就会重新设置自己的打断标志, 下一次循环的时候就会退出.</p>
+<p>这里如果不是重新设置标志位, 则根本无法通过打断来让t1停止工作.</p>
+
+
+<h2 style="text-align: center;" id="con3">wait和notify</h2>
+<p>这个东西现在也清晰多了, 说白了就是一个条件变量, 只不过这个条件变量从属于一个对象, 所以wait()和notify()是Object的方法, 这样只要选择正确的对象=正确的条件变量, 就可以让一批线程来进行想条件变量一样的等待和唤醒操作.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con4">违反原子性缺陷</h2>
+<h2 style="text-align: center;" id="con5">违反原子性缺陷</h2>
+
+
+
+
+
+</body>
+</html>
