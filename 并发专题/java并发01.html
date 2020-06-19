@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>并发 - Java并发</title>
+    <title>并发 - Java并发基础知识1</title>
 </head>
 <body>
 <p>美女朋友给我看了<a href="https://www.bilibili.com/video/BV1yV411k7A7" target="_blank">马未都的一段视频</a>, 说的确实不错, 不羡慕谁, 不嘲笑谁, 不嫉妒谁. 只有这样, 才能让自己自由自在的生活.</p>
@@ -22,8 +22,8 @@
     <li><a href="#con1">Java的多线程类 Thread</a></li>
     <li><a href="#con2">终于弄清楚了打断</a></li>
     <li><a href="#con3">wait和notify</a></li>
-    <li><a href="#con4">操作系统提供的事件API</a></li>
-    <li><a href="#con5">select与异步IO合用</a></li>
+    <li><a href="#con4">join等待某个线程执行结束</a></li>
+    <li><a href="#con5">volatile</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">Java的多线程类 Thread</h2>
@@ -93,7 +93,8 @@ public static void main(String[] args) throws InterruptedException {
 
 <h2 style="text-align: center;" id="con3">wait和notify</h2>
 <p>这个东西现在也清晰多了, 说白了就是一个条件变量, 只不过这个条件变量从属于一个对象, 所以wait()和notify()是Object的方法, 这样只要选择正确的对象=正确的条件变量, 就可以让一批线程来进行想条件变量一样的等待和唤醒操作.</p>
-<p>这里用书上的例子来自己改一下, 只要在同一个对象上进行wait()和notify(), 就相当于在同一个条件变量上进行等待.</p>
+<p>条件变量必须外边有一个互斥锁, 在Java中, 就体现在wait()和notify()必须先获得一个对象监视器(可以认为就是一个互斥锁), 然后再被执行.</p>
+<p>这里用书上的例子来自己改一下, 只要在同一个对象上进行wait()和notify(), 就相当于在同一个条件变量上进行等待. 由于有了条件变量的知识, 可以知道wait()的时候实际上会释放互斥锁, 这样被notify()的线程会先获取锁, 然后再执行操作.</p>
 <pre>
 public class WaitAndNotify {
 
@@ -169,25 +170,53 @@ public class WaitAndNotify {
 <p>同样从上边这个例子可以发现, Thread.sleep()不会释放竞争资源, 只是让线程暂时挂起, 而wait()方法就是真正的等待条件变量, 即会释放锁.</p>
 
 
+<h2 style="text-align: center;" id="con4">join等待某个线程执行结束</h2>
+<p>这个在之前操作系统的锁原理中也接触过了, 一个线程如果要等待另外一个线程, 就可以使用pthread_join(线程号).</p>
+<p>对于面向对象的Java来说, 在一个线程中获取另外一个线程的引用, 然后调用该线程的.join()方法就可以等待那个线程结束之后再进行操作.</p>
+<p>写一个简单的小例子就是:</p>
+<pre>
+public class Join {
+
+    public volatile static int i = 0;
+
+    public static class Thread1 extends Thread {
+        @Override
+        public void run() {
+            for (; i < 10000000; i++) {
+            }
+        }
+    }
 
 
+    public static void main(String[] args) throws InterruptedException {
+        Thread1 thread1 = new Thread1();
+        thread1.start();
+        System.out.println(i);
+
+    }
+}
+
+</pre>
+<p>这里主线程会打印i的值, 如果主线程不等待Thread1, 那么在i开始自增不久就会输出i的值, 会是一个很小的值.</p>
+<p>但是如果加上join:</p>
+<pre>
+public static void main(String[] args) throws InterruptedException {
+    Thread1 thread1 = new Thread1();
+    thread1.start();
+    <span style="color: red">thread1.join();</span>
+    System.out.println(i);
+
+}
+</pre>
+<p>则可以保证会打印出10000000. join的本质是让当前线程在要等待的线程上wait(), 所以使用join()需要添加受检异常InterruptedException, 可以参考之前被打断的线程的处理方式.</p>
+<p>这个wait()和notify()的对象实际上就是被等待的线程自己, 被等待的线程自己在执行完毕的时候会唤醒所有等待其自身的线程. 可见面向对象就是用面向对象的思想封装了一层多线程, 其本质实际上就是把等待这个线程的所有线程通过一个条件变量来控制.</p>
 
 
+<h2 style="text-align: center;" id="con5">volatile</h2>
+<p>volatile实际上做的事情就是让虚拟机强制在每次读取和更新该变量的时候, 都从内存中更新和读取, 而不是通过高速缓存, 以免造成不可见.</p>
+<p>所以volatile解决的就是可见性问题, 而不是原子性问题. 如果一个变量确定要被多线程更新和读取, 就将其设置为volatile即可.</p>
 
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con4"></h2>
-<h2 style="text-align: center;" id="con5"></h2>
-
-
-
-
+<p>目前的知识都是比较基础的Java多线程知识, 下一期补一点很少接触的多线程基础知识.</p>
 
 </body>
 </html>
