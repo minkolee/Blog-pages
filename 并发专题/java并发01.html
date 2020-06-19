@@ -95,8 +95,78 @@ public static void main(String[] args) throws InterruptedException {
 <p>这个东西现在也清晰多了, 说白了就是一个条件变量, 只不过这个条件变量从属于一个对象, 所以wait()和notify()是Object的方法, 这样只要选择正确的对象=正确的条件变量, 就可以让一批线程来进行想条件变量一样的等待和唤醒操作.</p>
 <p>这里用书上的例子来自己改一下, 只要在同一个对象上进行wait()和notify(), 就相当于在同一个条件变量上进行等待.</p>
 <pre>
+public class WaitAndNotify {
 
+    final static Object object = new Object();
+
+    public static class Thread1 extends Thread {
+        @Override
+        public void run() {
+            synchronized (object) {
+                System.out.println(System.currentTimeMillis() + ": Thread1 start!");
+                try {
+                    System.out.println(System.currentTimeMillis() + ": Thread1 wait for object");
+                    object.wait();
+
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                System.out.println(System.currentTimeMillis() + ": Thread1 ends");
+            }
+        }
+    }
+
+    public static class Thread2 extends Thread {
+        @Override
+        public void run() {
+            synchronized (object) {
+                System.out.println(System.currentTimeMillis() + ": Thread2 start! To notifyall");
+
+
+                object.notifyAll();
+                System.out.println(System.currentTimeMillis() + ": Thread2 ends");
+
+                try {
+                    Thread.sleep(2000);
+
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        Thread1 thread1 = new Thread1();
+        Thread2 thread2 = new Thread2();
+
+        thread1.start();
+        thread2.start();
+    }
+}
 </pre>
+<p>这里的1号线程会先去获得object的锁, 然后在object上进行等待, 这就是java的条件变量的使用方法. 和基础的条件变量是由一个锁和一个条件变量组成是一样的.</p>
+<p>2号线程则会先尝试获取object的锁, 然后进行唤醒, 会唤醒在object上等待的T1, 然而T1必须等待T2释放object锁才能继续运行.</p>
+<p>运行的结果可能出现两种情况, 一是如下所示:</p>
+<pre>
+1592558548766: Thread1 start!
+1592558548782: Thread1 wait for object
+1592558548782: Thread2 start! To notifyall
+1592558548782: Thread2 ends
+1592558550789: Thread1 ends
+</pre>
+<p>T1先获得object锁, 然后睡眠, 睡眠的时候会自动释放object锁. 之后T2开始运行, 等到T2完全结束之后, T1会从wait()方法中返回, 此时重新持有object锁, 然后就可以继续运行了.</p>
+<p>也可能出现T2先拿到锁的情况:</p>
+<pre>
+1592558818118: Thread2 start! To notifyall
+1592558818133: Thread2 ends
+1592558820137: Thread1 start!
+1592558820137: Thread1 wait for object
+</pre>
+<p>由于此时已经没有可以notify的Thread2, 所以Thread1会一直睡下去, 这个时候程序就会死锁.</p>
+<p>同样从上边这个例子可以发现, Thread.sleep()不会释放竞争资源, 只是让线程暂时挂起, 而wait()方法就是真正的等待条件变量, 即会释放锁.</p>
 
 
 
@@ -112,12 +182,8 @@ public static void main(String[] args) throws InterruptedException {
 
 
 
-
-
-
-
-<h2 style="text-align: center;" id="con4">违反原子性缺陷</h2>
-<h2 style="text-align: center;" id="con5">违反原子性缺陷</h2>
+<h2 style="text-align: center;" id="con4"></h2>
+<h2 style="text-align: center;" id="con5"></h2>
 
 
 
