@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>并发 - Java并发基础知识续</title>
+</head>
+<body>
+<p>昨晚看完了毛姆的《人生的枷锁》.毛姆的语言虽然简单直白, 但是抽象和概况的太准确了, 我相信所有的人都能在主人公菲利普身上找到自己的影子, 毕竟作者通过一个人, 就写出了人生本身.</p>
+<p>书结束的太突然, 我在用kindle读书的时候从来都尽量避免去看下边的进度条, 结果书在我以为很普通的一章后突然就翻不动了. 菲利普做出了决定, 为了和莎莉结婚放弃了自己周游世界的想法.</p>
+<p>看完这本书, 我又去翻了翻一些对于这个书的书评, 也明白了为什么一千个人的心中有一千个哈姆雷特. 很多书评都在借着成书的背景甚至资本主义社会主义之分来先套帽子, 非常可笑, 反倒是普通网友的书评才真的是平凡中见真知.</p>
+<p>我觉得毛姆借主人公的想法和那块波斯地毯表达的想法很明确:人生无意义. 也许很多人, 包括我自己, 都隐隐觉得这个观点并不是很正确, 但是让我说出人生的意义是什么, 我也说不出来.</p>
+<p>后来我想了一下, 又记起了GEB里的哥德尔不完备定理, 如果只在枷锁中生活, 可能永远不知道自己被套上了枷锁, 被枷锁驱赶, 甚至追求自己想要的东西也是一种被设置的枷锁.</p>
+<p>而认识到人生无意义, 并不是虚无主义和对世界漠不关心, 相反, 却提供了一个从更高的机会看待自己身上的枷锁的机会, 和浑然不知不同, 意识到自己的人生无法摆脱一些枷锁, 以及很多境遇都充满了偶然性, 这不是对命运的屈服, 而是对命运的接受和真正挑战的开始.</p>
+<p>不知道枷锁的存在也许是幸福的, 但知道了自己背负的枷锁, 超越幸福与不幸福, 开心与不开心的纠结, 仍然能够按照内心做出选择, 才是真正的人生猛士.</p>
+<p>读完这本书, 我才明白一些读者的留言, 说读完这本书, 开始让自己脚踏实地的生活, 让自己精神为之一振, 甚至还有人说整个人性情都变化, 我现在也有点理解了.</p>
+<p>毛姆用犀利的笔锋直接刺破读者的心防, 看到菲利普自己琢磨出来生命无意义, 其实是让读者首先超脱的看待这个世界, 如果你接受作者的说法, 一切都无意义, 都是随机的结果, 就不会再盲目自信或者自卑, 而是可以用一个平和的态度看待身边所有人, 我与他们并没有什么区别, 无论有钱没钱,身体残疾与否, 长相美丑, 地位高下, 这都是随机性的结果.</p>
+<p>这好像比一些心理学去治疗自卑或者自信更加有效, 因为毛姆直接写出了真实, 接受真实的话一切都变得真实了.</p>
+<p>之后作者通过最后菲利普的境遇, 让我们不再为了人有我无, 追逐名利而烦恼, 不要生活在期待中, 而是生活在现实中, 看清自己身上不可能卸下的枷锁, 然后继续努力生活, 活的踏实.</p>
+<p>虽然最终我们都逃不出人生的枷锁, 但是戴着枷锁平静而自知的生活, 这就是人生的意义.</p>
+
+<ol>
+    <li><a href="#con1">线程组</a></li>
+    <li><a href="#con2">守护线程</a></li>
+    <li><a href="#con3">线程优先级</a></li>
+    <li><a href="#con4">synchronized的用法</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">线程组</h2>
+<p>线程组在此前很少接触过, 实际可以用一个线程组管理一批线程:</p>
+<pre>
+public class ThreadGroupTest {
+
+    //定义一个线程类
+    public static class NormalThread implements Runnable {
+        @Override
+        public void run() {
+            while (true) {
+                System.out.println("I am " + Thread.currentThread().getName());
+
+                //让主线程来打断抓一下异常玩玩
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    System.out.println("主线程尝试打断线程组");
+                }
+            }
+        }
+    }
+
+
+    public static void main(String[] args) throws InterruptedException {
+
+        //创建一个线程组对象
+        ThreadGroup tg = new ThreadGroup("FirstGroup");
+
+        //使用重载的Thread构造器, 传入一个线程组, Runnable对象以及名称
+        Thread thread1 = new Thread(tg, new NormalThread(), "T1");
+        Thread thread2 = new Thread(tg, new NormalThread(), "T2");
+
+        //启动两个线程
+        thread1.start();
+        thread2.start();
+
+        //打印此时线程组的活动线程数
+        System.out.println(tg.activeCount());
+
+        //列出所有的线程清单
+        tg.list();
+
+        Thread.sleep(4000);
+
+        //打断线程组中所有线程
+        tg.interrupt();
+
+    }
+
+}
+</pre>
+<p>线程组可以同时管理一批线程, 比如打断就可以打断一个组的线程, 而不是单个.</p>
+
+
+<h2 style="text-align: center;" id="con2">守护线程</h2>
+<p>启动一个Java多线程程序的时候, 除了main函数所在的线程, 所有启动的线程默认都是业务线程, 即只要一个业务线程不结束, 整个进程还都存在.</p>
+<p>可以将业务线程的类型换成守护线程, 所谓守护线程, 就是在后台默默工作的线程, 不能单独存在, 如果业务线程全部结束, 守护线程也会关闭, 进程就会结束.</p>
+<p>要设置守护线程, 需要在其启动之前进行设置, 启动之后进行设置就会报错, 写一个简单的例子:</p>
+<pre>
+public class DaemonThread {
+
+    //守护线程类
+    public static class MyDaemonThread extends Thread {
+        @Override
+        public void run() {
+            while (true) {
+                System.out.println("守护线程 " + Thread.currentThread().getName() + " 工作中...");
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    //工作线程类
+    public static class MyWorkerThread extends Thread {
+        @Override
+        public void run() {
+            for (int i = 0; i < 100; i++) {
+                System.out.println(Thread.currentThread().getName() + " is working: " + i);
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        //创建三个线程对象
+        MyDaemonThread thread1 = new MyDaemonThread();
+        MyWorkerThread thread2 = new MyWorkerThread();
+        MyWorkerThread thread3 = new MyWorkerThread();
+
+        //设置thread1为守护线程
+        thread1.setDaemon(true);
+
+        //启动三个线程
+        thread1.start();
+        thread2.start();
+        thread3.start();
+    }
+
+}
+</pre>
+<p>在thread2和thread3运行完毕之后, 整个程序就会结束, 因为thread1虽然是一个无限循环, 但其线程性质是守护线程. 如果不将其设置为守护线程, 则三个线程都是业务线程, 程序就会一直运行下去.</p>
+
+<h2 style="text-align: center;" id="con3">线程优先级</h2>
+<p>这个接触的不多, 不过原理知道, 就是不能全部依赖线程优先级, 必须自行调度线程. 各个操作系统对于线程的优先级的编码是不同的, Java反正底层有虚拟机跨平台, 所以问题不大.</p>
+<p>线程的优先级在Thread源码中有如下规定:</p>
+<pre>
+/**
+ * The minimum priority that a thread can have.
+ */
+public static final int MIN_PRIORITY = 1;
+
+/**
+ * The default priority that is assigned to a thread.
+ */
+public static final int NORM_PRIORITY = 5;
+
+/**
+ * The maximum priority that a thread can have.
+ */
+public static final int MAX_PRIORITY = 10;
+</pre>
+<p>也就是规定了1-10的优先级范围, 5为普通.</p>
+<pre>
+public class PriorityThread {
+
+    public static class High extends Thread {
+        @Override
+        public void run() {
+            for (int i = 0; i < 100; i++) {
+                synchronized (PriorityThread.class) {
+                    System.out.println(Thread.currentThread().getName() + " is working: " + i);
+                    try {
+                        Thread.sleep(50);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        High thread1 = new High();
+        High thread2 = new High();
+
+        thread1.setPriority(10);
+        thread2.setPriority(1);
+
+        thread1.start();
+        thread2.start();
+    }
+}
+</pre>
+<p>创建两个线程, 去通过<code>synchronized (PriorityThread.class)</code>拿一个同步锁, 然后来执行输出, 下一次循环又得去拿这个锁, 多运行几次就可以发现, 线程0比线程1通常都要先计算完毕, 这就是因为在抢锁的时候, 由于就两个线程, 哪个线程先被调度, 哪个线程就会拿到锁再算一下.</p>
+<p>当然, 也有两个线程差距很小的时候, 所以不能完全依赖线程优先级.</p>
+
+<h2 style="text-align: center;" id="con4">synchronized的用法</h2>
+<p>这里总结一下synchronized的用法:</p>
+<ol>
+    <li>当成普通语句使用, 需要加上一个对象, 就和上边的例子一样: <br>
+    <pre>
+    synchronized (PriorityThread.class) {
+        System.out.println(Thread.currentThread().getName() + " is working: " + i);
+        try {
+            Thread.sleep(50);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+    </pre>
+    这其中的对象就是需要获得给定对象的内置同步锁, 如果一批线程要在一个锁上等待, 这个后边的对象也必须是同一个对象. 注意有些对象是不可变的, 如果引用更改, 可能会指向新创建的一个对象</li>
+    <li>修饰实例方法, 此时这个方法默认要获得实例的内置同步锁</li>
+    <li>修饰静态方法, 此时这个方法默认要获得所在类的内置同步锁, 注意类也是一个对象.</li>
+</ol>
+<p>这里要注意的就是后两种情况, 千万不要把锁加在错误的对象上, 看如下例子:</p>
+<pre>
+public class WrongLock {
+
+    public static volatile int i = 0;
+
+    public static class Worker extends Thread {
+        @Override
+        public void run() {
+            int j = 0;
+            while (j < 100000) {
+                synchronized (<span style="color: red">this</span>) {
+                    i = i + 1;
+                }
+                j++;
+            }
+        }
+    }
+
+
+    public static void main(String[] args) throws InterruptedException {
+        Worker worker1 = new Worker();
+        Worker worker2 = new Worker();
+
+        worker1.start();
+        worker2.start();
+        worker1.join();
+        worker2.join();
+
+        System.out.println("i=" + i);
+
+    }
+}
+</pre>
+<p>注意我们给临界区也就是 i = i + 1的部分加了synchronized, 但是加锁的对象是this. 在创建两个线程对象的时候, 实际上每个线程都尝试获取自己的锁, 而不是一个共同的锁, 所以这个代码打印出i的结果很难是200000整, 代码需要修改成一个共同的锁才可以:</p>
+<pre>
+    public static class Worker extends Thread {
+        @Override
+        public void run() {
+            int j = 0;
+            while (j < 100000) {
+                synchronized (<span style="color: red">WrongLock.class</span>) {
+                    i = i + 1;
+                }
+                j++;
+            }
+        }
+    }
+</pre>
+
+
+
+
+</body>
+</html>
