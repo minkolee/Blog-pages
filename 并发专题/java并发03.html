@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>并发 - Java并发工具</title>
+</head>
+<body>
+<p>简单总结完了Java里边与并发相关的原语和基础知识, 现在用Java写点小玩意问题不大了, 而且由于面向对象的思路, 传递参数要比C语言底层方便一些.</p>
+<p>继续来看看Java的并发工具包<code>java.util.concurrent</code>中提供的一些工具, 就是专门用于多线程并发的类.</p>
+
+<ol>
+    <li><a href="#con1">可重入锁的lock()与unlock()</a></li>
+    <li><a href="#con2">可重入锁的带中断响应加锁</a></li>
+    <li><a href="#con3">可重入锁的限时等待</a></li>
+    <li><a href="#con4">可重入锁的公平与否</a></li>
+    <li><a href="#con5">显式的条件变量 - 来自重入锁</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">可重入锁</h2>
+
+<p>这个时候就能看到面向对象的思路要比面向过程封装更高一层的优势, 就是可以把锁也做成各种具体形态, 而不是通过之前的操作系统那种低层的形式去监听一个锁变量.</p>
+<p>所以在面向对象的理念下, 锁真的从一个变量变成一个锁对象, 越来越像真实的锁.</p>
+<p>可重入锁可以认为是一个最标准的锁, 也是synchronized关键字的替代品. 其本质都是互斥锁, 即只能同时让一个线程进入临界区.</p>
+<p>可重入锁相比synchronized的用法更加灵活, 并且是显式操作. 当然, 要控制一批线程, 则加锁对象也必须是同一个.
+    所谓可重入, 就是指持有某个可重入锁的线程, 可以继续获得该锁, 当然释放的时候也必须释放对应的次数. 不持有该锁的线程, 则无法直接获取可重入锁, 必须其他线程释放锁之后去抢占.</p>
+<p>重入锁位于 <code>java.util.concurrent.locks.ReentrantLock</code>中, 要创建一个可重入锁, 只需要创建一个新的<code>ReentrantLock</code>对象即可.</p>
+<p>如果是在一个程序当中, 则一般用一个静态属性, 这样这个锁可以被这个类中所有的程序共享:</p>
+<pre>
+import java.util.concurrent.locks.ReentrantLock;
+
+public class ReenterLock implements Runnable {
+    private static ReentrantLock lock = new ReentrantLock();
+
+    public static int i = 0;
+
+    @Override
+    public void run() {
+        for (int j = 0; j < 10000; j++) {
+            lock.lock();
+            try {
+                i++;
+            } finally {
+                lock.unlock();
+            }
+
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        ReenterLock reenterLock = new ReenterLock();
+
+        Thread thread1 = new Thread(reenterLock);
+        Thread thread2 = new Thread(reenterLock);
+        Thread thread3 = new Thread(reenterLock);
+
+        thread1.start();
+        thread2.start();
+        thread3.start();
+
+        thread1.join();
+        thread2.join();
+        thread3.join();
+
+        System.out.println("执行完毕之后i=" + i);
+
+    }
+}
+</pre>
+<p>显式使用锁的时候, 一定要注意临界区必须要包含在try中, 而且finally中必须要解除锁, 否则出现异常但是锁没释放(其实就是没有把锁变量更新), 那会导致后边的线程全部都拿不到锁.</p>
+<p>此外就是要注意, Thread可以单独创建, 也可以使用Runnable对象创建, 使用Runnable对象的时候, 一定要注意加锁的对象是同一个, 就像例子中一样, 三个线程都使用同一个Runnable对象, 而Runnable类使用同一个静态变量锁.</p>
+<p>如果创建三个Runnable对象, 由于锁是加在静态变量上的, 所以依然有效, 如下:</p>
+<pre>
+ReenterLock reenterLock = new ReenterLock();
+ReenterLock reenterLock1 = new ReenterLock();
+ReenterLock reenterLock2 = new ReenterLock();
+
+Thread thread1 = new Thread(reenterLock);
+Thread thread2 = new Thread(reenterLock1);
+Thread thread3 = new Thread(reenterLock2);
+</pre>
+<p>但如果把lock改成实例变量<code>private ReentrantLock lock = new ReentrantLock();</code>, 这就会出问题了, 因为每个线程是独立的锁, 等于没有任何临界区控制.</p>
+
+<h2 style="text-align: center;" id="con2">可重入锁的带中断响应加锁</h2>
+<p>可重入锁如果使用另外一个加锁方式, 则可以在等待锁的时候响应中断, 因为等待锁的时候本质上也会挂起, 因此会响应中断.</p>
+<p>只要对中断的处理进行合理的设置, 则可以避免无尽的等待, 也可以解决死锁问题. 常见的做法就是在被打断的时候, 立刻放弃自己手中的锁, 这样会消除固定的造成死锁的情况.</p>
+<p>来看一个书上的例子, 这个例子写的确实不错, 我进行了一下改编, 初始代码如下:</p>
+<pre>
+import java.util.concurrent.locks.ReentrantLock;
+
+public class ReentrantWithInterrupt {
+
+    //设置两个公用的重入锁
+    public static ReentrantLock lock1 = new ReentrantLock();
+    public static ReentrantLock lock2 = new ReentrantLock();
+
+    //这个线程类先获取lock1, 再获取lock2, 然后进行工作
+    public static class MyThreadOnLock1 extends Thread {
+        @Override
+        public void run() {
+            lock1.lock();
+            System.out.println("线程1 获取了 lock1");
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            lock2.lock();
+            System.out.println("线程1 获取了 lock2");
+            try {
+                System.out.println("线程1获取了两个锁, 可以工作了.");
+            }finally {
+                lock2.unlock();
+                lock1.unlock();
+            }
+        }
+    }
+
+    //这个线程类先获取lock2, 再获取lock1, 然后进行工作
+    public static class MyThreadOnLock2 extends Thread {
+        @Override
+        public void run() {
+            lock2.lock();
+            System.out.println("线程2 获取了 lock2");
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            lock1.lock();
+            System.out.println("线程2 获取了 lock1");
+            try {
+                System.out.println("线程2获取了两个锁, 可以工作了.");
+            }finally {
+                lock1.unlock();
+                lock2.unlock();
+            }
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        Thread thread1 = new MyThreadOnLock1();
+        Thread thread2 = new MyThreadOnLock2();
+
+        thread1.start();
+        thread2.start();
+
+        System.out.println("从两个线程的死锁中脱离");
+    }
+}
+</pre>
+<p>这个程序运行之后会陷入死锁, 两个线程互相等待对方持有的锁, 然后才能开始工作和释放锁, 所以会一直死锁.</p>
+<p>现在对MyThreadOnLock2进行一些改进, 让其加锁的时候, 不使用简单的<code>lock()</code>方法, 而是使用<code>lockInterruptibly</code>方法, 在等待锁的时候将其打断, Thread2会释放自己的锁然后结束, 让Thread1完成工作:</p>
+<pre>
+//这个线程类先获取lock2, 再获取lock1, 然后进行工作
+public static class MyThreadOnLock2 extends Thread {
+    @Override
+    public void run() {
+        <span style="color: red">try {</span>
+            lock2.lockInterruptibly();
+            System.out.println("线程2 获取了 lock2");
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            lock1.lockInterruptibly();
+            System.out.println("线程2 获取了 lock1");
+            try {
+                System.out.println("线程2获取了两个锁, 可以工作了.");
+            } finally {
+                lock1.unlock();
+                lock2.unlock();
+            }
+        <span style="color: red">} catch (InterruptedException e) {
+            System.out.println("等待锁的过程被打断, 释放锁");
+            if (lock1.isHeldByCurrentThread()) {
+                lock1.unlock();
+            }
+            if (lock2.isHeldByCurrentThread()) {
+                lock2.unlock();
+            }
+        }</span>
+    }
+}
+</pre>
+<p>做了如此修改之后, 原本的死锁, lock1.lockInterruptibly()会在视图获取锁的地方进行等待, 这个时候在外层(红色部分)加上的try-catch就用来获取等待锁的时候被打断的异常处理.</p>
+<p>在异常处理中检测lock1和lock2是不是已经持有, 如果持有就释放掉, 之后Thread2会因为打断而结束工作, Thread1正常结束, 运行情况如下:</p>
+<pre>
+线程2 获取了 lock2
+线程1 获取了 lock1
+(主线程2秒后执行打断)
+从两个线程的死锁中脱离(主线程执行完毕)
+等待锁的过程被打断, 释放锁(Thread2的异常处理, 之后Thread2交出锁)
+线程1 获取了 lock2(Thread1获取lock2)并正常结束
+线程1获取了两个锁, 可以工作了.
+</pre>
+<p>这个例子是以放弃Thread2的工作来让Thread1进行工作, 当然还是不要出现死锁比较好, 因为打断之后很难继续让原来的线程进行工作.</p>
+
+<h2 style="text-align: center;" id="con3">可重入锁的限时等待</h2>
+<p>这个就想起了之前操作系统的线程库的tryLock(), 可重入锁的函数名称也叫做tryLock(), 然后还区分带不带参数, 如果不带参数, 则会立刻返回是否获得锁</p>
+<p>如果带参数, 则参数是等待的时间, 到了指定的时间之后, 就会返回是否获得锁的结果.</p>
+<p>通过这个函数, 就可以继续来修改上述代码, 让两个线程都能够正常结束, 修改如下:</p>
+<pre>
+public static class MyThreadOnLock2 extends Thread {
+    @Override
+    public void run() {
+        while (true) {
+            lock2.lock();
+            System.out.println("线程2 获取了 lock2");
+            //尝试等待1秒的锁
+            try {
+                //如果1秒内获得锁
+                if (lock1.tryLock(1, TimeUnit.SECONDS)) {
+                    System.out.println("线程2 获取了两个锁, 开始工作");
+                    //正常结束
+                    lock1.unlock();
+                    lock2.unlock();
+                    break;
+                } else {
+                    System.out.println("线程2 获取锁失败, 释放全部锁, 进入下一次循环");
+                    if (lock1.isHeldByCurrentThread()) {
+                        lock1.unlock();
+                    }
+                    if (lock2.isHeldByCurrentThread()) {
+                        lock2.unlock();
+                    }
+                }
+            } catch (InterruptedException e) {
+                System.out.println("线程2 等待过程被中断, 释放所有锁, 进入下一次循环");
+                if (lock1.isHeldByCurrentThread()) {
+                    lock1.unlock();
+                }
+                if (lock2.isHeldByCurrentThread()) {
+                    lock2.unlock();
+                }
+            }
+        }
+
+    }
+}
+
+public static void main(String[] args) throws InterruptedException {
+
+    Thread thread1 = new MyThreadOnLock1();
+    Thread thread2 = new MyThreadOnLock2();
+
+    thread1.start();
+    thread2.start();
+
+    //此时主线程就可以自信的等待两个线程都执行完毕
+    thread1.join();
+    thread2.join();
+
+    System.out.println("两个线程都执行完毕");
+}
+</pre>
+<p>有了tryLock之后, 就可以在循环中反复等待一个锁, 如果一定时间没有等到锁, 就自己让出所有锁, 然后在此尝试从头开始获取锁.</p>
+<p>这段程序执行的时候, Thread2在1秒钟之内等待不到锁的话, 就会自动放弃两个锁, 然后在此尝试获得锁. 根据操作系统的调度, 此时又可能Thread2又继续获得2锁然后等待1锁, 也有可能是Thread1拿到2锁.</p>
+<p>如果在Thread2放弃锁之后加上一个小小的等待, 会更加明显, 如果不加等待, 执行情况可能是在若干次2拿不到锁后, 1才拿到锁, 1执行完毕之后, 2就成功执行, 最终主线程成功等待2个线程完成. 一次执行的输出如下:</p>
+<pre>
+线程1 获取了 lock1
+线程2 获取了 lock2
+线程2 获取锁失败, 释放全部锁, 进入下一次循环
+线程2 获取了 lock2
+线程2 获取锁失败, 释放全部锁, 进入下一次循环
+线程2 获取了 lock2
+线程2 获取锁失败, 释放全部锁, 进入下一次循环
+线程2 获取了 lock2
+线程2 获取锁失败, 释放全部锁, 进入下一次循环
+线程2 获取了 lock2
+线程2 获取锁失败, 释放全部锁, 进入下一次循环
+线程2 获取了 lock2
+线程2 获取锁失败, 释放全部锁, 进入下一次循环
+线程2 获取了 lock2
+线程2 获取锁失败, 释放全部锁, 进入下一次循环
+线程1 获取了 lock2
+线程1获取了两个锁, 正常工作.
+线程2 获取了 lock2
+线程2 获取了两个锁, 开始工作
+两个线程都执行完毕
+</pre>
+<p>可以发现, 操作系统的调度确实倾向与申请过锁的线程再次去拿到锁.</p>
+
+<h2 style="text-align: center;" id="con4">可重入锁的公平与否</h2>
+<p>在默认的情况下, 可重入锁是不公平的, 即锁让出来之后, 大家凭运气和操作系统的调度来抢占. synchronized默认是非公平锁.</p>
+<p>如果要改成公平锁, 就使用带一个boolean值的重入锁的构造函数即可. 在公平的情况下, 一旦一个线程放弃锁, 是没有办法紧接着再拿到锁的.</p>
+<p>但注意, 可重入锁实际上内部有一个有序队列, 因此其效率相比非公平锁会下降, 一般情况下, 其实没有必要特别去使用公平锁.</p>
+<p>第三部分中, Thread1先拿到lock1然后是lock2, Thread2先拿到lock2然后是lock1, 通过运行结果可以知道, Thread2放弃了两个锁之后, 很容易就会再次取得lock2, 而此时线程1还没有动作.</p>
+<p>如果将lock2改成公平锁来试试:</p>
+<pre>public static ReentrantLock lock2 = new ReentrantLock(true);</pre>
+<p>只需要修改上述一行, 运行的结果就总是:</p>
+<pre>
+线程1 获取了 lock1
+线程2 获取了 lock2
+线程2 获取锁失败, 释放全部锁, 进入下一次循环
+线程1 获取了 lock2
+线程1获取了两个锁, 正常工作.
+线程2 获取了 lock2
+线程2 获取了两个锁, 开始工作
+两个线程都执行完毕
+</pre>
+<p>这是因为线程2释放了lock2之后, lock2上的有序队列会将线程2放到后边, 因此下一个拿到lock2的必定是已经在等待(也是除了线程2之外唯一在等待lock2的线程1)lock2的线程1, 线程1一旦拿到lock2就会完成工作并释放两个锁, 那么其后的线程2也必然跟着结束了工作.</p>
+
+<h2 style="text-align: center;" id="con5">显式的条件变量 - 来自重入锁</h2>
+<p>一个条件变量的内容包含一个互斥变量(即一个可重入锁)和一个队列. 两个东西组合才成为条件变量.</p>
+<p>所以条件变量对象Condition也可以从一个重入锁中派生出来, 使用<code>lock.newCondition()</code>就可以生成一个条件变量. 读过了操作系统的锁实现, 再读高层的东西真的是爽啊.</p>
+<p>这个有如下方法可以使用:</p>
+<ol>
+    <li><code>void await()</code>,相当于wait(), 在调用这个方法的时候, 会释放其中的互斥锁, 然后就进入阻塞, 从阻塞返回的时候, 会重新获得锁. 在阻塞的过程中, 会被中断</li>
+    <li><code>void awaitUninterruptibly</code>, 这个方法不会响应打断的<code>await()</code>.</li>
+    <li><code>long awaitNanos(long nanosTimeout)</code>, 等待指定长度的纳秒时间, 一般不用这个</li>
+    <li><code>boolean await(long time, TimeUnit unit)</code>, 这个也会常用, 等待指定时间的条件变量.</li>
+    <li><code>boolean awaitUntil(Date deadline)</code>, 一直等待到某个时间为止.</li>
+    <li><code>void signal()</code>, 唤醒在等待队列上的一个线程.</li>
+    <li><code>void signalAll()</code>, 唤醒在等待队列上的全部线程.</li>
+</ol>
+<p>就如同可重入锁与</p>
+
+
+
+
+
+</body>
+</html>
