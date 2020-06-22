@@ -314,10 +314,73 @@ public static void main(String[] args) throws InterruptedException {
     <li><code>void signal()</code>, 唤醒在等待队列上的一个线程.</li>
     <li><code>void signalAll()</code>, 唤醒在等待队列上的全部线程.</li>
 </ol>
-<p>就如同可重入锁与</p>
+<p>就如同可重入锁与synchronized的关系一样, Condition也是标准版的wait-notify组合, 而且其创建方式就恰好说明了来自一个互斥变量+队列就可以组成一个条件变量.</p>
+<p>来写点代码使用以下:</p>
+<pre>
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.Condition;
+
+public class MyCondition implements Runnable {
+
+    public static ReentrantLock lock = new ReentrantLock();
+
+    public static Condition condition = lock.newCondition();
 
 
+    @Override
+    public void run() {
 
+        System.out.println(Thread.currentThread().getName() + "干活啦...");
+        try {
+            lock.lock();
+            condition.await();
+        } catch (InterruptedException e) {
+            System.out.println("被打断了, 没事");
+        }finally {
+            lock.unlock();
+        }
+        System.out.println(Thread.currentThread().getName() + "干完活了");
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        MyCondition myCondition1 = new MyCondition();
+        MyCondition myCondition2 = new MyCondition();
+        MyCondition myCondition3 = new MyCondition();
+
+        Thread thread1 = new Thread(myCondition1);
+        Thread thread2 = new Thread(myCondition2);
+        Thread thread3 = new Thread(myCondition3);
+
+        thread1.start();
+        thread2.start();
+        thread3.start();
+
+        System.out.println("主线程去唤醒其他线程");
+
+        Thread.sleep(1000);
+
+        lock.lock();
+        condition.signalAll();
+        lock.unlock();
+
+    }
+}
+</pre>
+<p>这里创建了三个线程, 都在condition条件变量上等待, 注意等待条件变量之前一定要获得互斥锁, 否则就会报异常.</p>
+<p>主线程启动三个线程之后, 休眠1秒钟后取得互斥锁并唤醒全部线程, 然后三个线程都被唤醒, 从await()的地方继续执行, 当然只有一个获取锁的线程可以回来, 执行完之后其他线程再尝试获得锁并执行.</p>
+<p>执行结果如下:</p>
+<pre>
+主线程去唤醒其他线程
+Thread-0干活啦...
+Thread-1干活啦...
+Thread-2干活啦...
+Thread-2干完活了
+Thread-1干完活了
+Thread-0干完活了
+</pre>
+<p>反复执行可以发现每次顺序都有区别, 这是因为每次唤醒之后拿到锁的线程不同. 在条件变量上休眠的线程与互斥锁争抢不同, 如果是互斥锁争抢的线程, 在主线程睡眠的一秒钟内, 三个线程早就完成了工作. 但是在条件变量上, 调用await()然后又没有signal()的线程看上去是主动让出了运行权力, 全身心的进行等待.</p>
+<p>在唤醒之后, 这些线程虽然有的依然阻塞在await()中, 但其内部已经变成了要争抢锁, 所以一个signalAll就唤醒了所有线程, 一旦醒了就去抢锁了.</p>
+<p>所以条件变量的等待, 与互斥的争抢等待, 是有本质区别的.</p>
 
 
 </body>
