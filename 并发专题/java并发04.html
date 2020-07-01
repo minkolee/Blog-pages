@@ -14,6 +14,7 @@
     <li><a href="#con2">读写锁 ReentrantReadWriteLock</a></li>
     <li><a href="#con3">线程计数器 CountDownLatch</a></li>
     <li><a href="#con4">循环栅栏 CyclicBarrier</a></li>
+    <li><a href="#con5">阻塞工具 LockSupport</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">信号量</h2>
@@ -319,13 +320,57 @@ public class CyclicBarrierTest {
 <p>而同一个CyclicBarrier对象就会在内部进行控制, 每次计数到10的时候就让一批线程进行工作, 然后再进行计数.</p>
 <p>这里的异常还需要注意一下, 除了通用的打断异常之外, 还有一个<code>BrokenBarrierException</code>, 表示当前的栅栏已经破损. 一般如果一批线程已经集中在一个栅栏里, 然后有一个线程出现了异常, 剩下的线程都会得到一个BrokenBarrierException, 因为这个时候栅栏失效就很可能无法继续了.</p>
 
+<h2 style="text-align: center;" id="con5">阻塞工具 LockSupport</h2>
+<p>这个阻塞工具就是之前操作系统里提到的, 线程调用过一个停止阻塞的方法之后, 再去阻塞, 也不会阻塞而是直接继续执行. 这样就避免了线程继续执行指令和阻塞指令乱序的问题.</p>
+<p>这个阻塞工具类LockSupport只有静态方法可用, 方法如下:</p>
+<ol>
+    <li><code>park(Thread thread)</code>, 阻塞当前线程</li>
+    <li><code>unpark(Thread thread)</code>, 让当前线程停止阻塞</li>
+</ol>
+<p>这两个方法调用的前后顺序没有关系, 如果park()在先, unpark()会让线程停止阻塞. 如果unpark()在先, 则park()调用的时候不会阻塞, 而会直接往下继续运行.</p>
+<p>这其中的机制在操作系统那里看到过, 实际上相当于给每个线程一个信号量一样的东西, park()调用会去修改那个信号量, unpark()也会. 这样无论先后, 两个函数都会知道当前的状态, 因此选择是阻塞还是继续执行.</p>
+<p>一个简单的例子如下:</p>
+<pre>
+import java.util.concurrent.locks.LockSupport;
 
+public class LockSupportTest {
 
+    public static class MyThread implements Runnable {
+        @Override
+        public void run() {
+            System.out.println("准备一秒钟后调用阻塞方法");
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            <span style="color: red">LockSupport.park();</span>
+        }
+    }
 
+    public static void main(String[] args) throws InterruptedException {
+        Thread thread = new Thread(new MyThread());
 
+        thread.start();
+        System.out.println("主线程尝试在启动副线程后就将其unpark()");
+        <span style="color: red">LockSupport.unpark(thread);</span>
 
+        thread.join();
 
+        System.out.println("全部线程执行完毕");
 
+    }
+}
+</pre>
+<p>这两个的用法其实是针对已经不太使用的<code>thread.suspend()</code>和<code>thread.resume()</code>来说的, 这两个方法必须严格的前后调用, 否则会导致线程挂起但没人唤醒.</p>
+<p>而LockSupport就无需这种担心, 主线程可以保证一定会让副线程继续运行. 将上边的两行红色部分分别换成:</p>
+<pre>
+Thread.currentThread().suspend();
+thread.resume();
+</pre>
+<p>程序就会卡死, 这是因为主线程先调用了副线程resume, 之后副线程再进入suspend, 就没法被唤醒了. 使用IDEA的话会发现, 这两个方法已经标记为废弃.</p>
+
+<p>今天是7月1日啦, 一年一年时间过的好快, 未来还不知道有什么等着自己, 总之目前就继续做吧.</p>
 
 
 
