@@ -6,124 +6,108 @@
 </head>
 <body>
 <p>很多原来的数据结构, 在并发编程中无法直接使用, 因为没有特别的针对多线程进行过优化, 或者因为没有锁, 直接就不适合在多线程中使用.</p>
-<p>虽然可以通过加一把大锁来让所有对于原来的数据结构的操作变成支持并发, 你想让</p>
+<p>可以通过加一把大锁来让所有对于原来的数据结构的操作变成支持并发, java就提供了这样一种方法, 现在就来看一看并发容器</p>
 
 
 <ol>
-    <li><a href="#con1">Fork/Join的核心类</a></li>
-    <li><a href="#con2">使用例子</a></li>
+    <li><a href="#con1">并发容器概览</a></li>
+    <li><a href="#con2">将非线程安全的容器转换成线程安全</a></li>
+    <li><a href="#con3">阻塞队列与跳表</a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1">Fork/Join的核心类</h2>
-<p>回想Linux就知道, fork()用于启动一个新进程. 在java里的Fork/Join则是启动新线程, join是等待, 也就是等待返回结果, 然后组装.</p>
-<p>涉及的主要类有:</p>
+<h2 style="text-align: center;" id="con1">并发容器概览</h2>
+<p>容器基本上都在java.util.concurrent包中, 说明都是并发工具</p>
+<p>涉及的主要工具有:</p>
 <ol>
-    <li><code>java.util.concurrent.ForkJoinPool</code>, 这是在F/J中实际负责工作的线程池, 要向其中提交分解后的任务</li>
-    <li><code>java.util.concurrent.ForkJoinTask&lt;V></code>, 带泛型的任务类, 是抽象类, 向FJ线程池中提交的任务必须是这个类型</li>
-    <li><code>java.util.concurrent.RecursiveTask&lt;V></code>, 这个是ForkJoinTask的一个子类, 也是抽象类, 表示带有返回值的任务</li>
-    <li><code>java.util.concurrent.RecursiveAction</code>, 也是ForkJoinTask的一个子类, 也是抽象类, 表示不带有返回值的任务, 因此无泛型</li>
+    <li><code>ConcurrentHashMap&lt;K, V></code>, 线程安全的HashMap</li>
+    <li><code>CopyOnWriteArrayList&lt;V></code>, 并发安全的List, 比Vector的性能要好很多. 还有一个亲戚<code>CopyOnWriteArraySet&lt;E></code></li>
+    <li><code>ConcurrentLinkedQueue&lt;V></code>, 单向队列, 还有一个亲戚双端队列<code>ConcurrentLinkedDeque</code>.</li>
+    <li><code>BlockingQueue&lt;E></code>, 这是一个接口, 表示阻塞队列, 有一个亲戚<code>BlockingDeque&lt;E></code>, 阻塞(也有不阻塞方法), 实现类有<code>ArrayBlockingQueue, DelayQueue, LinkedBlockingDeque, LinkedBlockingQueue, LinkedTransferQueue, PriorityBlockingQueue, SynchronousQueue</code>等一堆.</li>
+    <li><code>ConcurrentSkipListMap&lt;K,V></code>, 这是一个特别的数据结构叫做跳表, 本质是一个多层链表, 实现的功能类似于Map, 实际中性能还不错.</li>
 </ol>
-<p>ForkJoinPool的核心方法就一个, 就是<code>public &lt;T> ForkJoinTask&lt;T> submit(ForkJoinTask&lt;T> task)</code>, 即向线程池中提交一个任务(可以是分解也可是不分解的)</p>
+<p>另外java.util.vector是线程安全的, 不过现在基本上也没人用了.</p>
 
-<h2 style="text-align: center;" id="con2">使用例子</h2>
-<p>使用FJ的核心在于, 先要合理的分解任务, 然后将任务进行提交, 最后等待任务.</p>
-<p>一般需要按照如下流程进行操作:</p>
+<h2 style="text-align: center;" id="con2">将非线程安全的容器转换成线程安全</h2>
+<p>除了并发容器之外, java提供了将原来非线程安全的容器转换成线程安全容器的方法, 就是Collection对应的工具类Collections中提供的一系列方法:</p>
 <ol>
-    <li>创建任务, 即对ForkJoinTask的两个子类进行继承, 并重写其中的compute()方法, 如果带有返回值, 则返回值应该与泛型一致.</li>
-    <li>在compute()方法中, 如果任务需要分解, 则创建新的任务对象, 同时调用 invokeAll()方法将所有的新任务作为参数传入, 表示启动新任务</li>
-    <li>启动新任务之后, 立刻调用新任务的.join()方法, 获取结果, 然后对结果进行必要的计算并且返回.</li>
+    <li><code>synchronizedList</code></li>
+    <li><code>synchronizedMap</code></li>
+    <li><code>synchronizedSet</code></li>
+    <li><code>synchronizedCollection</code></li>
 </ol>
-<p>以二分法计算一个比较大的数组的FJ写法如下:</p>
+<p>这些方法都接受对应的接口类型, 然后返回这个接口类型的一个对象, 其本质是用一个大锁对所有操作加锁, 自然就线程安全了, 但是效率也变得低下. 写个简单的例子:</p>
 <pre>
-import java.util.concurrent.RecursiveTask;
-//通过继承创建一个带返回值的任务类
-public class ArraySumTask extends RecursiveTask&lt;Long> {
+import java.util.*;
 
-    public long[] array;
+public class ConcurrentTools {
 
-    public int startIndex;
+    public static Map&lt;String, Integer> unsafeMap = new HashMap&lt;>();
 
-    public int endIndex;
-
-    public ArraySumTask(long[] array, int startIndex, int endIndex) {
-        this.array = array;
-        this.startIndex = startIndex;
-        this.endIndex = endIndex;
-    }
-
-    //核心, 必须覆盖compute()方法
-    @Override
-    protected Long compute() {
-        //如果要计算的数组范围小于等于100个, 就直接计算
-        if (endIndex - startIndex <= 99) {
-
-            System.out.println("索引差100, start");
-
-            long sum = 0;
-
-            for (int i = startIndex; i <= endIndex; i++) {
-                sum = sum + array[i];
+    //线程类, 从unsafeMap中读一个键, 如果没有读到就设置为0, 读到就将其增加1
+    public static class Worker implements Runnable {
+        @Override
+        public void run() {
+            if (unsafeMap.containsKey("saner")) {
+                unsafeMap.put("saner", unsafeMap.get("saner") + 1);
+            } else {
+                unsafeMap.put("saner", 0);
             }
-            return sum;
-            //如果要计算的数字范围大于100个, 就从中间拆分
-        } else {
-            //像二分法一样拆出中间的索引, 然后用这个索引将数组分为两部分
-            int middleIndex = (startIndex + endIndex) / 2;
-            System.out.println("启动startIndex=" + startIndex + " endIndex=" + (middleIndex - 1) + "的新任务");
-            ArraySumTask task1 = new ArraySumTask(array, startIndex, middleIndex - 1);
-            System.out.println("启动startIndex=" + middleIndex + " endIndex=" + endIndex + "的新任务");
-            ArraySumTask task2 = new ArraySumTask(array, middleIndex, endIndex);
-
-            //启动分出来的两个任务
-            invokeAll(task1, task2);
-
-            //获取任务的返回值, 然后相加得到全部的结果
-            Long result1 = task1.join();
-            Long result2 = task2.join();
-
-            return result1 + result2;
         }
     }
+
+
+    public static void main(String[] args) throws InterruptedException {
+
+        List&lt;Thread> threads = new ArrayList&lt;>();
+
+        for (int i = 0; i &lt; 20000; i++) {
+            Thread thread = new Thread(new Worker());
+            threads.add(thread);
+        }
+
+        for (Thread t : threads) {
+            t.start();
+        }
+
+        for (Thread t : threads) {
+            t.join();
+        }
+
+        System.out.println(unsafeMap.get("saner"));
+    }
+
 }
 </pre>
-<p>有了任务类后, 创建线程池然后提交任务:</p>
+<p>这里如果单线程执行, 结果应该是19999. 但是多线程情况下很难得到19999, 大部分时候都会出现问题. 现在改用Collections方法:</p>
 <pre>
-import java.util.Random;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
-
-public class ForkAndJoinModeTest {
-
-    public static Random random = new Random();
-
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
-
-        // 创建2000个随机数组成的数组:
-        long[] array = new long[2000];
-        long expectedSum = 0;
-        for (int i = 0; i < array.length; i++) {
-            array[i] = random.nextInt(100);
-            expectedSum += array[i];
+public static Map&lt;String, Integer> unsafeMap = Collections.synchronizedMap(new HashMap&lt;>());
+</pre>
+<p>这个时候惊奇的发现, 依然还是有问题(换成ConcurrentHashMap一样有问题), 这是因为并发容器的每个方法虽然都加了锁, 但依然无法让两个线程能够每次都读取到变化后的结果.</p>
+<p>所以实际上, 还是得加锁, 要修改成:</p>
+<pre>
+public void run() {
+    <span style="color: red">synchronized (unsafeMap)</span> {
+        if (unsafeMap.containsKey("saner")) {
+            unsafeMap.put("saner", unsafeMap.get("saner") + 1);
+        } else {
+            unsafeMap.put("saner", 0);
         }
-        System.out.println("Expected sum: " + expectedSum);
-
-        //创建池子
-        ForkJoinPool pool = new ForkJoinPool();
-        //创建最初的任务
-        ArraySumTask task = new ArraySumTask(array, 0, 1999);
-        //提交任务
-        Long result = pool.submit(task).get();
-
-        System.out.println(result);
     }
 }
 </pre>
-<p>可以看到这个例子本质上有点像递归, 当然也可以按照线性来区分, 比如固定的步长, 都可以.</p>
-<p>使用FJ的时候一定要注意线程数量, 不要分的过分多, 否则性能会严重下降.</p>
-<p>这里注意的是《Java高并发程序设计》中使用了subTask.fork(), 这种方法是将任务交给另外一个线程, 但自己不干活.</p>
-<p>所以这里的例子实际上来自于廖雪峰的网站上的例子, 使用invoke来提交, 这样会自动将n-1个线程交给其他线程, 留一个自己干活, 就充分利用了FJ模式. 关于这个问题的讲解可以看<a href="https://www.liaoxuefeng.com/article/1146802219354112" target="_blank">这里</a>.</p>
+<p>所以相比加大锁的方式, 还是使用并发包中提供的比较好, 并发数据容器都进行了特殊的优化, 还是直接使用比较好.</p>
 
-
-
+<h2 style="text-align: center;" id="con3">阻塞队列与跳表</h2>
+<p>并发的其他容器没有什么太多好说的, 只是可以避免结构被多线程破坏, 但是使用的时候依然要注意更新的时候加锁.</p>
+<p>这里特别要提到阻塞对象BlockingQueue, 这个实现有很多种, 但不管各种实现的具体形态, 这个接口有几个方法要知道:</p>
+<ol>
+    <li><code>offer()</code>,非阻塞的添加元素, 如果满了会立刻返回false</li>
+    <li><code>put()</code>,添加元素, 如果队列满了会阻塞, 知道生产者消费者模型中的中间队列数据结构, 就会知道这其中使用了两个条件变量, put()就是让线程在其中一个上进行等待, 被拿取线程唤醒.</li>
+    <li><code>poll()</code>,非阻塞的获取元素, 如果队列为空直接会返回null.</li>
+    <li><code>take()</code>, 阻塞的获取元素, 如果队列为空, 会一直等待, 直到被放入线程放入之后唤醒.</li>
+</ol>
+<p>生产者消费者果然是一大模型, 这个阻塞队列其中就是生产消费的原理, 也就是使用这个阻塞队列, 就可以模拟生产者消费者模型了, 而且同时提供非阻塞和阻塞的方法, 也非常方便.</p>
+<p>还一个值的一看的就是跳表, 这个跳表我也是第一次听说. 原来就是一个合理组织过的多层链表. 同时不像普通的HashMap, 这玩意的遍历竟然还是有序的.</p>
+<p>跳表相比树, 最大的好处就是可以使用局部锁而不是全局锁来进行操作, 但是会维护额外的多层链表, 因此是一种以时间换空间的做法.</p>
 </body>
 </html>
