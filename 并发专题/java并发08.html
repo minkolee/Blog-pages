@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>并发 - Java并发工具 并发容器</title>
+</head>
+<body>
+<p>最近又是折腾工作又是卖房子, 不过不管怎么说, 一切还是向着好的方向发展, 至于工作就慢慢来吧. 反正水平在, 不怕的.</p>
+<p>这个夏天看来必定是不能安心的继续看开发了, 不过有空还是要抓紧学习. 毕竟开发这一行业, 日新月异的速度可比财务这种就是在原地打转的行业要高太多了.</p>
+
+
+<ol>
+    <li><a href="#con1">Java虚拟机对锁的一些策略</a></li>
+    <li><a href="#con2">ThreadLocal</a></li>
+    <li><a href="#con3">无锁操作</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Java虚拟机对锁的一些策略</h2>
+<p>想要使用好锁, 就要了解虚拟机, 现在逐渐深入了就会知道确实要了解虚拟机, 包括内存模型等, 确实很有用处.</p>
+<p>Java对更高效的使用锁, 做出了一些努力:</p>
+<ol>
+    <li>锁偏向, 即一个线程如果拿到锁, 就会倾向于再次拿到锁, 这个在锁竞争不激烈的程序里, 就好比之前的各个例子里, 很普遍.</li>
+    <li>轻量级锁, 这个感觉书里写的不是很明白, 还得自己再研究. 先了解一下, 争抢锁的时候会有从轻量级到普通锁的一个扩展</li>
+    <li>自旋锁, 所谓自旋就是while循环. 如果一个线程拿不到锁, 就会让其进行几个自旋, 赌一下会拿到锁. 自旋以后真的拿不到锁, 则会真实的把线程在操作系统层面挂起.</li>
+    <li>锁消除, 指的是虚拟机会在不存在并发竞争的情况下, 进行逃逸分析, 如果一个函数用到的变量全部都是本地变量, 则不会加锁.</li>
+    <li><code>ConcurrentSkipListMap&lt;K,V></code>, 这是一个特别的数据结构叫做跳表, 本质是一个多层链表, 实现的功能类似于Map, 实际中性能还不错.</li>
+</ol>
+<p>另外java.util.vector是线程安全的, 不过现在基本上也没人用了.</p>
+
+<h2 style="text-align: center;" id="con2">ThreadLocal</h2>
+<p>锁的思路来源于保护共享变量. 而ThreadLocal来自于以空间来降低复杂度, 也就是经典的给10个人每人发一个篮球的笑话.</p>
+<p>如果线程需要反复取用局部变量, 而这个局部变量在每个线程中是不同的, 那么就可以使用ThreadLocal当做容器, 注意, 存入容器的对象必须是由应用来保证是对每个线程独立的, 否则就跟不加锁一样, 取出来(就是一个指针)还是一样会造成错误.</p>
+<p>既然是局部变量, 其实本身也就没有多线程问题了, 这个只不过是多个线程可以复用同一个ThreadLocal对象, 比较方便而已. 看一个例子:</p>
+<pre>
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class ThreadLocalTest {
+
+    private static final SimpleDateFormat sdf = new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss"));
+
+    public static class ParseDate implements Runnable {
+
+        int i = 0;
+
+        public ParseDate(int i) {
+            this.i = i;
+        }
+
+        @Override
+        public void run() {
+            try {
+                Date t = sdf.parse("2020-07-07 16:42:" + i % 60);
+                System.out.println(i + ":" + t);
+            } catch (ParseException e) {
+                e.printStackTrace();
+
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        ExecutorService executorService = Executors.newFixedThreadPool(10);
+
+        for (int i = 0; i < 100; i++) {
+            executorService.submit(new ParseDate(i));
+        }
+
+        executorService.shutdown();
+
+    }
+
+}
+</pre>
+<p>这段代码, 让SimpleDateFormat对象作为共享变量, 然后去调用其的parse()方法, 由于所有线程固定parse的都是2020-07-07 16:42开始的字符串, 所以可以预期解析结果会差不多.</p>
+<p>但是实际结果很有意思:</p>
+<pre>
+0:Sat Oct 07 16:42:00 CST 2220
+86:Sun Sep 12 08:00:26 CST 2106
+97:Sat Sep 12 13:44:17 CST 2020
+57:Tue Jul 07 16:07:57 CST 2020
+</pre>
+<p>会发现有些日期和有些时间都是不应出现的情况, 这是因为parse()方法不支持多线程. 这里的解决办法就是加锁即可.</p>
+<p>但是如果想以空间换效率的话, 其实就不需要让线程去抢锁, 而是每个线程发一个独立的sdf对象即可, ThreadLocal就一个get和一个set方法, 放进去什么取出来什么.</p>
+<p>修改一下代码:</p>
+<pre>
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class ThreadLocalTest {
+
+    private final static ThreadLocal&lt;SimpleDateFormat> data = new ThreadLocal&lt;>();
+
+    public static class ParseDate implements Runnable {
+
+        int i = 0;
+
+        public ParseDate(int i) {
+            this.i = i;
+        }
+
+        @Override
+        public void run() {
+            try {
+                if (<span style="color: red">data.get()</span> == null) {
+                    <span style="color: red">data.set(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));</span>
+                }
+                Date t = <span style="color: red">data.get().parse("2020-07-07 17:02:" + i % 60);</span>
+                System.out.println(i + ":" + t);
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        ExecutorService executorService = Executors.newFixedThreadPool(10);
+
+        for (int i = 0; i < 100; i++) {
+            executorService.submit(new ParseDate(i));
+        }
+        executorService.shutdown();
+    }
+}
+</pre>
+<p>这里其实是说明, 每个线程虽然都对同一个ThreadLocal对象执行操作, 但是放进去和取出来的就是彼此不同的. 其隔离是在ThreadLocal内部完成的.</p>
+<p>当然, 如果不是新创建, 而是每个线程依然放入同一个SDF对象, 那依然会出问题.</p>
+<p>可见如果有100个线程, 实际上ThreadLocal中就存放了100个不同的SDF对象, 对空间的占用还是相当大的, 而且创建对象也会有花费, 因此需要定期清理.</p>
+<p>执行<code>data.remove();</code>就可以将ThreadLocal中对应当前线程内容的部分清空.</p>
+<p>如果要清空整个ThreadLocal, 可以将其设置为null, 但千万要注意其他线程就不要再使用ThreadLocal对象了.</p>
+<p>ThreadLocal对于性能的帮助, 主要在于加锁解锁会比较耗性能, 线程竞争激烈的情况下, 这种时候为每个线程创建一个不怎么消耗资源的对象, 可能比抢共享变量效率更高.</p>
+<p>如果对象用完就可以舍弃, 那么整体而言在计算过程中可能内存占用就较高, 然后内存就会恢复到计算之前的状态.</p>
+
+<h2 style="text-align: center;" id="con3">无锁操作</h2>
+<p>无锁操作就是之前在看操作系统的时候, 提到的比较并交换的原子操作.</p>
+
+
+
+</body>
+</html>
