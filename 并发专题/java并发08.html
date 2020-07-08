@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>并发 - Java并发工具 并发容器</title>
+    <title>并发 - Java并发工具 ThreadLocal与Atomic类</title>
 </head>
 <body>
 <p>最近又是折腾工作又是卖房子, 不过不管怎么说, 一切还是向着好的方向发展, 至于工作就慢慢来吧. 反正水平在, 不怕的.</p>
@@ -12,7 +12,10 @@
 <ol>
     <li><a href="#con1">Java虚拟机对锁的一些策略</a></li>
     <li><a href="#con2">ThreadLocal</a></li>
-    <li><a href="#con3">无锁操作</a></li>
+    <li><a href="#con3">无锁操作-CAS</a></li>
+    <li><a href="#con4">AtomicInterger</a></li>
+    <li><a href="#con5">AtomicReference与AtomicStampedReference</a></li>
+    <li><a href="#con6">其他原子类</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">Java虚拟机对锁的一些策略</h2>
@@ -137,33 +140,194 @@ public class ThreadLocalTest {
 <p>ThreadLocal对于性能的帮助, 主要在于加锁解锁会比较耗性能, 线程竞争激烈的情况下, 这种时候为每个线程创建一个不怎么消耗资源的对象, 可能比抢共享变量效率更高.</p>
 <p>如果对象用完就可以舍弃, 那么整体而言在计算过程中可能内存占用就较高, 然后内存就会恢复到计算之前的状态.</p>
 
-<h2 style="text-align: center;" id="con3">无锁操作</h2>
+<h2 style="text-align: center;" id="con3">无锁操作-CAS</h2>
 <p>无锁操作就是之前在看操作系统的时候, 提到的比较并交换的原子操作. 实际上就是很多锁的内部使用的CPU指令.因为是单条指令, 所以可以确保原子性.</p>
 <p>自旋锁是测试并交换, 比较并交换说是无锁, 其实是Java层面的无需创建锁, 在<a href="https://conyli.cc/archives/3691#con3" target="_blank">这里</a>就可以看到使用比较并交换实现的锁.</p>
-<p>只不过使用无锁操作, 其实线程就不用显式的去获取互斥锁, 而是使用一个while循环, 其实本质还是等待一个0-1的互斥锁.</p>
+<p>比较并交换还会返回真实的当前值, 所以可以用真实的当前值再去比较并交换, 一直到可以更新成新的数字为止.</p>
+<p>Java的并发包中提供了一个<code>java.util.concurrent.atomic</code>包, 这个包实际上在内部就使用了CAS, 也就是说如果操作这个包中的对象, 可以不用加锁, 等于内部使用CAS给加上锁了. 文档可以看
+    <a href="https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/atomic/package-summary.html" target="_blank">Package
+    java.util.concurrent.atomic</a>, 其中的主要类有:</p>
+<ol>
+    <li><code>AtomicBoolean</code></li>
+    <li><code>AtomicInteger</code></li>
+    <li><code>AtomicIntegerArray</code></li>
+    <li><code>AtomicIntegerFieldUpdater&lt;T></code></li>
+    <li><code>AtomicLong</code></li>
+    <li><code>AtomicLongArray</code></li>
+    <li><code>AtomicLongFieldUpdater&lt;T></code></li>
+    <li><code>AtomicMarkableReference&lt;V></code></li>
+    <li><code>AtomicReference&lt;V></code></li>
+    <li><code>AtomicReferenceArray&lt;E></code></li>
+    <li><code>AtomicReferenceFieldUpdater&lt;T,V></code></li>
+    <li><code>AtomicStampedReference&lt;V></code></li>
+    <li><code>DoubleAccumulator</code></li>
+    <li><code>DoubleAdder</code></li>
+    <li><code>LongAccumulator</code></li>
+    <li><code>LongAdder</code></li>
+</ol>
+<p>这其中的Atomic+基本类型, 就可以当成一个多线程安全的基础变量来操作. FieldUpdater则用是基于反射技术, 更新一个指定的或者自行编写的类的volatile标识的域.</p>
+<p>Reference指的是对象, 用于原子性的更新一个对象的相关内容. StampedReference则是在内部维护了一个每次更新的记录(一个整数值)与一个要更新的对象, 每次会比较这个整数值然后更新对象.</p>
+<p>后边的累加器用于一个或多个变量共同维护一个其他的变量的情况, 具体我还没仔细了解过. 常用的就是上边的两大类.</p>
+
+<h2 style="text-align: center;" id="con4">AtomicInterger</h2>
+<p>文档看<a href="https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/atomic/AtomicInteger.html" target="_blank">这里.</a></p>
+<p>构造方法有两个, 一个没有参数, 即默认构造一个内部值为0. 如果带参数, 参数是一个int, 内部值就设置为这个int值.</p>
+<p>主要的方法大概可以分为如下几个类型:</p>
+<ol>
+    <h3>采用函数式接口可以进行自定义计算</h3>
+    <li><code>getAndAccumulate(int x, IntBinaryOperator accumulatorFunction)</code>, 这个和accumulateAndGet唯一不同的是返回更新前的值.</li>
+    <li><code>accumulateAndGet(int x, IntBinaryOperator accumulatorFunction)</code>, 这个方法使用给出的参数x和AtomicInterger的当前值, 将两个值通过IntBinaryOperator函数式接口计算完之后的结果去更新AtomicInterger, 然后返回更新后的值.</li>
+    <li><code>getAndUpdate(IntUnaryOperator updateFunction)</code>, 获取当前值, 交给IntUnaryOperator运算后, 将结果设置为新值, 返回旧值.</li>
+    <li><code>updateAndGet(IntUnaryOperator updateFunction)</code>, 与getAndUpdate不同的是返回新值.</li>
+    <h3>普通的获取值和设置值</h3>
+    <li><code>get()</code>, 获取当前值.</li>
+    <li><code>getAndSet(int newValue)</code>, 设置为新值, 并返回旧值.</li>
+    <li><code>void set(int newValue)</code>, 设置为当前值,返回值是void.</li>
+    <li><code>void lazySet(int newValue)</code>, 最终设置为新值, 可能不会立刻设置, 注意返回值是void.</li>
+    <h3>自增自减和增加/减少指定数值</h3>
+    <li><code>getAndAdd(int delta)</code>, 增加delta, 但是返回旧值. 注意get在前的都返回旧值, 操作在前的, 都返回操作后的值也就是新值.</li>
+    <li><code>addAndGet(int delta)</code>, 向当前值增加delta, 返回更新后的值.</li>
+    <li><code>getAndDecrement()</code>, 减1并返回旧值.</li>
+    <li><code>decrementAndGet()</code>, 将当前值减1, 返回新值.</li>
+    <li><code>getAndIncrement()</code>, 加1并返回旧值.</li>
+    <li><code>incrementAndGet()</code>, 加1并返回新值.</li>
+    <h3>CAS方法</h3>
+    <li><code>compareAndSet(int expect, int update)</code>, 标准的CAS方法, 如果当前值与expect值相等, 则将当前值设置为update值.</li>
+    <li><code>weakCompareAndSet(int expect, int update)</code>, 弱版本CAS.</li>
+    <h3>简便取值并转换</h3>
+    <li><code>intValue()</code>, 返回int类型的当前值.</li>
+    <li><code>longValue()</code>, 返回当前值转换为long类型后的结果.</li>
+    <li><code>doubleValue()</code>, 获取当前值并将其转换为double类型返回.</li>
+    <li><code>floatValue()</code>, 获取当前值并将其转换为float类型返回.</li>
+</ol>
+<p>有了这个类型之后, 就可以来更改一下最经典的抢锁更新同一个共享变量的代码了:</p>
+<pre>
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class AtomicIntergerTest {
+
+    private static <span style="color: red">AtomicInteger integer = new AtomicInteger();</span>
+
+    private static <span style="color: red">int j = 0;</span>
+
+    public static class MyThread implements Runnable {
+        @Override
+        public void run() {
+            for (int i = 0; i < 10000; i++) {
+                integer.getAndAdd(1);
+                j++;
+            }
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        for (int i = 0; i < 6; i++) {
+            new Thread(new MyThread()).start();
+        }
+        Thread.sleep(2000);
+
+        System.out.println("AtomicInteger = " + integer.get());
+        System.out.println("NormalInteger = " + j);
+    }
+}
+</pre>
+<p>这段程序运行之后, 一个结果如下:</p>
+<pre>
+AtomicInteger = 60000
+NormalInteger = 37277
+</pre>
+<p>这说明同样无锁, AtomicInteger实际上用内部的CAS锁保护了共享变量. 而NormalInteger因为没有任何保护, 所以是多线程不安全的.</p>
 
 
+<h2 style="text-align: center;" id="con5">AtomicReference与AtomicStampedReference</h2>
+<p>基本类型可以直接使用上边的<code>AtomicInteger</code>及类似的类, 而<code>AtomicReference</code>则是用来原子性操作对象的, 文档在<a href="https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/atomic/AtomicReference.html" target="_blank">这里</a>.</p>
+<p>既然是对象, 所以可以看到这个类有泛型, 需要使用具体的对象引用. 无参构造器则内部引用初始是null, 有参的话, 内部引用就是那个对象的引用.</p>
+<p>其中的方法就不看了, 本质还是将V作为一个数据类型来操作的, 比如使用<code>AtomicReference&lt;Integer></code>就和直接使用<code>AtomicInteger</code>差不多.</p>
+<p>不过这里有一个问题就是, 内部其实是使用equals方法进行比较, 但只能比较对象的两个瞬间的状态, 无法知道对象是否曾经被修改过. 所以对于状态复杂的对象, 会使用<code>AtomicStampedReference</code>类.</p>
+<p><code>AtomicStampedReference</code>类在内部增加一个时间戳, 也提供了与其相关的新的API, 可以在更新的时候考虑时间戳的影响. </p>
+<p>或者也可以将时间戳理解为版本. 比如一个对象只能被更新一次, 那么在编写多线程程序的时候, 初始将时间戳设置为0, 更新完毕的时候, 就将时间戳设置为1. 然后线程更新程序中会判断时间戳, 如果是0才更新, 1就不更新. 这样就会保证对象只被更新一次.</p>
+<p>具体的API就不放了, 有了版本控制, 就可以实现一些更复杂的功能.</p>
 
+<h2 style="text-align: center;" id="con6">其他原子类</h2>
+<p>有了基本类型, 还有基本类型的数组, 也可以无锁操作. 这个直接查阅文档即可.</p>
+<p><code>FieldUpdater</code>类型则是用于更新已经编写的类, 让其多线程安全. 这个需要通过反射的方法获取类和变量名称, 而且域必须要以volatile声明才可以.</p>
+<p>先看一个例子, 假设我们有一个计数器, 这个计数器实际上是线程不安全的, 如下:</p>
+<pre>
+public class UnsafeCounter {
 
+    volatile int counter = 0;
 
+    public int getCounter() {
+        return counter;
+    }
 
+    public void setCounter(int counter) {
+        this.counter = counter;
+    }
 
+    public void increment() {
+        counter = counter + 1;
+    }
+}
 
+</pre>
+<p>这里IDE会提示volatile变量没有使用原子操作, 很显然多线程的话会出问题, 写一个操作计数器的类如下:</p>
+<pre>
+public class AtomicIntergerTest {
+    public static void main(String[] args) throws InterruptedException {
+        UnsafeCounter unsafeCounter = new UnsafeCounter();
 
+        for (int i = 0; i < 10; i++) {
+            new Thread() {
+                @Override
+                public void run() {
+                    for (int j = 0; j < 1000; j++) {
+                        unsafeCounter.increment();
+                    }
+                }
+            }.start();
+        }
 
+        Thread.sleep(2000);
+        System.out.println("计数器是: " + unsafeCounter.getCounter() + " 应该是: 10000");
+    }
+}
+</pre>
+<p>运行结果类似于:</p>
+<pre>
+计数器是: 8690 应该是: 10000
+</pre>
+<p>现在来改造一下这个操作类, Updater通过反射获取计数器的参数, 通过Updater来操作实际的值.</p>
+<pre>
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
+public class AtomicIntergerTest {
 
+    public static final <span style="color: red">AtomicIntegerFieldUpdater&lt;UnsafeCounter> updater = AtomicIntegerFieldUpdater.newUpdater(UnsafeCounter.class, "counter");</span>
 
+    public static void main(String[] args) throws InterruptedException {
+        UnsafeCounter unsafeCounter = new UnsafeCounter();
 
+        for (int i = 0; i &lt; 10; i++) {
+            new Thread() {
+                @Override
+                public void run() {
+                    for (int j = 0; j &lt; 1000; j++) {
+                        <span style="color: red">updater.incrementAndGet(unsafeCounter);</span>
+                    }
+                }
+            }.start();
+        }
 
+        Thread.sleep(2000);
 
+        System.out.println("计数器是: " + unsafeCounter.getCounter() + " 应该是: 10000");
 
-
-
-
-
-
-
+    }
+}
+</pre>
+<p>红色部分是关键, 先是调用静态方法, 传入类型和属性名称, 创建一个updater对象, 然后用这个对象的incrementAndGet方法, 参数是实际的计数器对象.</p>
+<p>这个打印出来的结果就没有问题, 相当于给原来计数器的counter域加上了一个线程安全的包装, 这个适用于侵入性不是很强的情况下修改原来的类.</p>
 
 </body>
 </html>
