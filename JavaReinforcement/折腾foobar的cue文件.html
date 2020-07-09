@@ -6,6 +6,13 @@
 </head>
 <body>
 <p>最近终于把接手的工作梳理完毕, 虽然积重难返, 但是很多地方还是我重新做了规矩, 比较方便. </p>
+
+<ol>
+    <li><a href="#con1">处理cue文件</a></li>
+    <li><a href="#con2">递归一次性干完</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">lambda表达式</h2>
 <p>前两天给女儿听歌的时候, 找了王菲的无损专辑, 顺便还把老婆的最爱 - 孙燕姿的无损专辑找了下来.</p>
 <p>听无损当然首选还是foobar了, 到foobar官网发现这个软件还在更新, 这都20多年了, 确实还是有人维护.</p>
 <p>下了最新版之后, 把cue文件导入, 发现一个问题就是乱码, 而且只有中文乱码, 打开cue文件发现cue文件都是UTF-8格式的, 那么可能foobar显示的时候是用windows默认的GBK来解析, 所以就出现问题.</p>
@@ -18,8 +25,7 @@ import java.io.*;
 public class ProcessCueFile {
 
     //处理方法
-    public void process(String path) throws IOException {
-        //参数是文件路径
+    public void process(String path, boolean override) throws IOException {
         File file = new File(path);
 
         //获取文件名
@@ -35,11 +41,18 @@ public class ProcessCueFile {
         //将Java内部编码的字符串按照GB2312编码成字节数组
         byte[] toWrite = changedString.getBytes("GB2312");
 
-        //按照原来文件生成新的cue文件名称
-        String newFileName = file.getParent() +"\\new" + fileName;
+        //根据是否覆盖来生成新的文件名
+        String newFileName;
+        //如果不覆盖, 生成new开头的新文件名
+        if (!override) {
+            newFileName = file.getParent() + "\\new" + fileName;
+        //如果覆盖, 就是原来文件名
+        } else {
+            newFileName = path;
+        }
         FileOutputStream fileOutputStream = new FileOutputStream(newFileName);
 
-        //将GB2312的字节数组写入到文件中
+        //将GBK编码的字节数组写入到文件中
         fileOutputStream.write(toWrite);
         fileOutputStream.close();
         System.out.println("已经将文件写入至: " + newFileName);
@@ -56,7 +69,34 @@ public class ProcessCueFile {
 </pre>
 <p>如果到网上去搜, 这个解决办法就太费劲了, 需要将cue文件改名成txt, 复制到浏览器里, 转换编码, 会得到乱码, 再把乱码复制到txt里, 手工把中文字乱码改掉......</p>
 <p>上边这段程序运行后, 就会在源cue文件的相同位置生成一个GB2312编码的cue文件, 其实也完全可以替换原来文件直接写入, 不过还是保险一点. 这可比手工更改需要替换乱码要高效的多了.</p>
-<p>每天解决一些小问题, 确实很好.</p>
+
+<h2 style="text-align: center;" id="con2">递归一次性干完</h2>
+<p>处理这种玩意, 当然是要一次性搞完才行, 所以就继续编写遍历目录的函数, 找到其中所有的cue文件进行处理:</p>
+<pre>
+private void recursionProcessFiles(String path, boolean override) throws IOException {
+        File currentPath = new File(path);
+        //是文件就判断cue文件然后处理, 默认是覆盖
+        if (currentPath.isFile()) {
+            if (currentPath.getName().endsWith(".cue")) {
+                System.out.println("当前处理的是: " + currentPath);
+                //调用处理路径的方法
+                process(currentPath.getAbsolutePath(), override);
+            }
+        //不是文件就递归处理, 将其中所有路径遍历然后继续处理
+        } else {
+            File[] fileList = currentPath.listFiles();
+            if (fileList == null) {
+                return;
+            }
+            for (File f : fileList) {
+                recursionProcessFiles(f.getAbsolutePath(), override);
+            }
+        }
+    }
+</pre>
+<p>这递归函数和我录制过的视频中的遍历所有xlsx文件如出一辙, 都是一样的套路, 就不再多说了.</p>
+<p>然后拖了几张王菲的专辑进来, 将foobar的媒体库设置成存放目录, 一开始都乱码, 使用覆盖执行了一次, 瞬间全部搞定, 妥妥的.</p>
+<p>每天能解决一些小问题的感觉确实很好.</p>
 
 
 </body>
