@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>自动转换cue文件字符编码</title>
+</head>
+<body>
+<p>最近终于把接手的工作梳理完毕, 虽然积重难返, 但是很多地方还是我重新做了规矩, 比较方便. </p>
+<p>前两天给女儿听歌的时候, 找了王菲的无损专辑, 顺便还把老婆的最爱 - 孙燕姿的无损专辑找了下来.</p>
+<p>听无损当然首选还是foobar了, 到foobar官网发现这个软件还在更新, 这都20多年了, 确实还是有人维护.</p>
+<p>下了最新版之后, 把cue文件导入, 发现一个问题就是乱码, 而且只有中文乱码, 打开cue文件发现cue文件都是UTF-8格式的, 那么可能foobar显示的时候是用windows默认的GBK来解析, 所以就出现问题.</p>
+<p>然后就尝试了一下, 将UTF-8文件通过notepad++打开, 强制转换成GB2312, 结果发现乱码显示的部分和foobar果然是一致的.</p>
+<p>那么要解决的问题就很清楚了, 就是把一个UTF-8编码的文件读入之后, 再以GBK的格式写入一个新文件就可以了, foobar就可以正常读取了. 这里正好再回头练一下Java的老IO库.</p>
+<p>实际写出的代码如下:</p>
+<pre>
+import java.io.*;
+
+public class ProcessCueFile {
+
+    //处理方法
+    public void process(String path) throws IOException {
+        //参数是文件路径
+        File file = new File(path);
+
+        //获取文件名
+        String fileName = file.getName();
+
+        //InputStream, 用于从其中读取全部的字节数组
+        FileInputStream inputStream = new FileInputStream(path);
+        byte[] result = inputStream.readAllBytes();
+
+        //用UTF-8格式解析字符串, 在内部, Java会用UTF-8解析读入的字符数组, 然后又会将其转换成Java的内部编码UTF-16字符的字符串
+        String changedString = new String(result, StandardCharsets.UTF_8);
+
+        //将Java内部编码的字符串按照GB2312编码成字节数组
+        byte[] toWrite = changedString.getBytes("GB2312");
+
+        //按照原来文件生成新的cue文件名称
+        String newFileName = file.getParent() +"\\new" + fileName;
+        FileOutputStream fileOutputStream = new FileOutputStream(newFileName);
+
+        //将GB2312的字节数组写入到文件中
+        fileOutputStream.write(toWrite);
+        fileOutputStream.close();
+        System.out.println("已经将文件写入至: " + newFileName);
+    }
+
+
+    public static void main(String[] args) throws IOException {
+        String path = "D:\\downloads\\music\\王菲\\1997《王菲 同名专辑》97内地引进版\\王菲 - 同名专辑.cue";
+        ProcessCueFile processor = new ProcessCueFile();
+        processor.process(path);
+    }
+
+}
+</pre>
+<p>如果到网上去搜, 这个解决办法就太费劲了, 需要将cue文件改名成txt, 复制到浏览器里, 转换编码, 会得到乱码, 再把乱码复制到txt里, 手工把中文字乱码改掉......</p>
+<p>上边这段程序运行后, 就会在源cue文件的相同位置生成一个GB2312编码的cue文件, 其实也完全可以替换原来文件直接写入, 不过还是保险一点. 这可比手工更改需要替换乱码要高效的多了.</p>
+<p>每天解决一些小问题, 确实很好.</p>
+
+
+</body>
+</html>
