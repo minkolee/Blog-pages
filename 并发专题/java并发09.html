@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>并发 - Java并发工具 Future模式与Callable线程</title>
+</head>
+<body>
+<p>Future模式就是纯粹的异步, 先提交一个任务, 然后过一会再去检查任务是否完成. 被调用的Future会立刻返回.</p>
+<p>下个月慢慢的要准备搬家了, 要换地方住了, 还有点舍不得呢, 毕竟现在的房子是从结婚之后就一直住的.</p>
+
+
+<ol>
+    <li><a href="#con1">Future模式的整体使用</a></li>
+    <li><a href="#con2">例子</a></li>
+    <li><a href="#con2">API</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Future模式的整体使用</h2>
+<p>还记得之前线程池中有两个方法, submit和execute, 都接受Runnable和Callable的对象, 但是这两个方法有区别, 区别就是submit会返回一个Future对象, 而execute只是执行而已.</p>
+<p>Java对更高效的使用锁, 做出了一些努于给原来计数器的counter域加上了一个线程安全的包装, 这个适用于侵入性不是很强的情况下修改原来的类.</p>
+<p>使用Future模式的主要顺序是:</p>
+<ol>
+    <li>创建一个Callable对象, Callable带有泛型, 就是要返回的结果.</li>
+    <li>使用Callable对象创建异步任务, 这个异步任务不是简单的Thread对象, 而是一个FutureTask&lt;V>对象, 其中的泛型也就是返回的结果类型. FutureTask对象的构造器接受Callable类型.</li>
+    <li>将异步任务进行提交, 比如向一个线程池中提交.</li>
+    <li>等待需要FutureTask的结果的时候, 调用FutureTask的方法检查是否完成, 直到完成后获取数据.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">例子</h2>
+<p>按照上边的步骤来试验一下, 先创建一个Callable对象, 模拟需要花费很多时间的工作:</p>
+<pre>
+import java.util.concurrent.Callable;
+
+public class MyTask implements Callable&lt;String> {
+    @Override
+    public String call() throws Exception {
+        StringBuilder stringBuilder = new StringBuilder();
+
+        for (int i = 0; i < 10; i++) {
+            Thread.sleep(1000);
+            stringBuilder.append(i);
+            stringBuilder.append(" ");
+        }
+
+        return stringBuilder.toString();
+    }
+}
+</pre>
+<p>这个任务模拟了一个10秒钟生成一个字符串的任务. 然后使用这个Callable对象来创建一个FutureTask对象:</p>
+<pre>
+public static void main(String[] args) {
+    FutureTask&lt;String> futureTask = <span style="color: red">new FutureTask&lt;>(new MyTask())</span>;
+}
+</pre>
+<p>这里有一个继承关系, FutureTask同时继承Runnable和Future接口, 而Future接口就是要包装的异步结果的对象, 使用.get()方法就可以获取结果.</p>
+<p>之后创建线程池, 然后提交这个任务, 之后只要找这个FutureTask对象要结果即可:</p>
+<pre>
+public static void main(String[] args) throws InterruptedException, ExecutionException {
+
+    //上一步的创建FutureTask的内容
+    FutureTask&lt;String> futureTask = new FutureTask&lt;>(new MyTask());
+
+    //创建线程池
+    ExecutorService pool = Executors.newCachedThreadPool();
+
+    //把futureTask提交给线程池, 与提交不带返回值的Runnable类似
+    pool.submit(futureTask);
+
+    pool.shutdown();
+
+    //主线程不会阻塞在提交任务上, 而且用来判断是否完成也不会阻塞
+    while (!futureTask.isDone()) {
+
+        System.out.println(System.currentTimeMillis() + " 还没有完成任务.");
+
+        Thread.sleep(1000);
+    }
+
+    //直到完成了任务, 才会显示出结果
+    System.out.println("完成任务了, 结果 = " + futureTask.get());
+
+}
+</pre>
+<p>这段程序运行的时候, 显示如下:</p>
+<pre>
+1594461850067 还没有完成任务.
+1594461851087 还没有完成任务.
+1594461852087 还没有完成任务.
+1594461853088 还没有完成任务.
+1594461854088 还没有完成任务.
+1594461855088 还没有完成任务.
+1594461856089 还没有完成任务.
+1594461857089 还没有完成任务.
+1594461858089 还没有完成任务.
+1594461859089 还没有完成任务.
+完成任务了, 结果 = 0 1 2 3 4 5 6 7 8 9
+</pre>
+<p>可以看到, 每次去询问是否完成任务, 都不会阻塞, 主线程可以自己做自己的事情. 需要注意的就是把任务提交后, 依然直接使用任务对象去拿结果就可以了.</p>
+<p>这就是Callable加上Future模式的威力, Callable其实本来就是做这个用途的.</p>
+
+
+<h2 style="text-align: center;" id="con3">FutureTask的API</h2>
+<p>FutureTask的常用API有:</p>
+<ol>
+    <li><code>get()</code>, 获取结果</li>
+    <li><code>get(long time, TimeUnit timeUnit)</code>, 带时间的获取</li>
+    <li><code>isDone()</code>, 是否任务完成或者被取消, 这里特别注意, 如果取消的话, isDone()也返回true ,所以这个的意思应该是Future任务得到了一个确定的结果, 即要么计算成功要么取消.</li>
+    <li><code>cancel(boolean isI)</code>, 撤销任务, 里边的参数是一个布尔值</li>
+    <li><code>isCancelled()</code>, 是否已经被取消</li>
+</ol>
+<p>这里要注意的是, isDone()在成功和取消的时候都会返回true, 所以一般需要搭配isCancelled()来使用.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
