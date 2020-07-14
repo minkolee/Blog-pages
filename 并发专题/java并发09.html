@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>并发 - Java并发设计模式</title>
+</head>
+<body>
+<p>Java毕竟还是偏工程和设计, 搞完一个基础理论, 接着就得上模式, 这里就跟着书外加自己写写来上点模式看看.</p>
+
+
+<ol>
+    <li><a href="#con1">流水线模式</a></li>
+    <li><a href="#con2">ThreadLocal</a></li>
+    <li><a href="#con3">无锁操作-CAS</a></li>
+    <li><a href="#con4">AtomicInterger</a></li>
+    <li><a href="#con5">AtomicReference与AtomicStampedReference</a></li>
+    <li><a href="#con6">其他原子类</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">流水线模式</h2>
+<p>流水线模式的核心是一个流水线, 与现实生活中一整条流水线, 各道工序同时加工不同, 线程的流水线不能这么长, 否则线程可能要等待很久, 而且也不好同步这么多线程.</p>
+<p>书里的流水线模式是每个线程分配一个阻塞队列. 从第一个线程开始, 将业务数据扔进第一个线程的流水线. 第一个线程在启动后就会尝试从阻塞队列中读取数据, 如果读不到, 就会阻塞.</p>
+<p>一旦读到, 就会进行处理, 并将处理完的数据扔到下一个线程的阻塞队列中. 下一个线程也一直在等待阻塞队列产生结果.</p>
+<p>就这样一个一个线程下去, 直到最后处理完毕.</p>
+<p>来尝试自己编写一下吧. 任务很简单, 送一个任意字符串进流水线, 然后在后边添加上"第一道工序", "第二道工序"之类的, 最后返回拼接后的字符串.</p>
+<p>要编写的话, 每个线程类先编写好, 这就统一用内部类的方式写了. 先写一个传递数据的类:</p>
+<pre>
+public static class ProductMessage {
+    String message;
+
+    public ProductMessage(String message) {
+        this.message = message;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+}
+</pre>
+<p>然后是各个工序的线程, 每个线程中弄一个自己的阻塞队列. 这是第一个线程, 为了方便投入原材料, 就直接继承了Thread类:</p>
+<pre>
+public static class First extends Thread {
+
+    private static BlockingQueue&lt;String> blockingQueue = new LinkedBlockingQueue&lt;>();
+
+    public void offerRawMaterial(String material) throws InterruptedException {
+        blockingQueue.put(material);
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            try {
+                //使用阻塞方法take
+                String message = blockingQueue.take();
+                message = message + "第一道工序";
+                //使用阻塞方法put
+                Second.blockingQueue.put(message);
+            } catch (InterruptedException e) {
+                System.out.println("被打断, 结束线程");
+                break;
+            }
+        }
+    }
+}
+</pre>
+<p>第二个线程就继承Runnable了, 和第一个线程几乎一样, 处理完以后向第三个线程中投放数据:</p>
+<pre>
+public static class Second implements Runnable {
+
+    private static BlockingQueue&lt;String> blockingQueue = new LinkedBlockingQueue&lt;>();
+
+    @Override
+    public void run() {
+        while (true) {
+
+            try {
+                //使用阻塞方法take
+                String message = blockingQueue.take();
+                message = message + "第二道工序";
+                //使用阻塞方法put
+                Third.blockingQueue.put(message);
+            } catch (InterruptedException e) {
+                System.out.println("被打断, 结束线程");
+                break;                }
+        }
+    }
+}
+</pre>
+<p>第三个线程处理之后直接打印结果.</p>
+<pre>
+public static class Third implements Runnable {
+
+    private static BlockingQueue&lt;String> blockingQueue = new LinkedBlockingQueue&lt;>();
+
+    @Override
+    public void run() {
+        while (true) {
+            try {
+                //使用阻塞方法take
+                String message = blockingQueue.take();
+                message = message + "第三道工序";
+                //使用阻塞方法put
+                System.out.println("有产品生产完成: " + message);
+            } catch (InterruptedException e) {
+                System.out.println("被打断, 结束线程");
+                break;                }
+        }
+    }
+}
+</pre>
+<p>这四个内部类外边套一个类, 用于启动:</p>
+<pre>
+public class AssemblyLine {
+
+    public static void main(String[] args) throws InterruptedException {
+        First first = new First();
+        Thread second = new Thread(new Second());
+        Thread third = new Thread(new Third());
+        //创建并启动三个线程, 一开始阻塞队列都是空, 所以三个线程都阻塞
+        first.start();
+        second.start();
+        third.start();
+
+        Scanner scanner = new Scanner(System.in);
+
+        //输入一行, 就向流水线中放入一个字符串
+        while (true) {
+            System.out.print("请输入字符串, 输入qqq退出: ");
+            String msg = scanner.nextLine();
+            if (msg.equals("qqq")) {
+                break;
+            }
+            System.out.println();
+            first.offerRawMaterial(msg);
+        }
+
+        //输入退出指令之后, 打断所有的线程, 根据之前编写的异常处理, 会直接退出
+        first.interrupt();
+        second.interrupt();
+        third.interrupt();
+
+        //等待所有的线程完成工作后退出
+        first.join();
+        second.join();
+        third.join();
+
+        System.out.println("完成工作");
+    }
+}
+</pre>
+<p>实际试验了一下, 确实可以像流水线一样操作, 同时也知道了, 配合while循环和阻塞, 可以让线程被动的等待工作.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
