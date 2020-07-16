@@ -10,7 +10,7 @@
 
 <ol>
     <li><a href="#con1">流水线模式</a></li>
-    <li><a href="#con2">ThreadLocal</a></li>
+    <li><a href="#con2">并行分工</a></li>
     <li><a href="#con3">无锁操作-CAS</a></li>
     <li><a href="#con4">AtomicInterger</a></li>
     <li><a href="#con5">AtomicReference与AtomicStampedReference</a></li>
@@ -151,9 +151,14 @@ public class AssemblyLine {
 </pre>
 <p>实际试验了一下, 确实可以像流水线一样操作, 同时也知道了, 配合while循环和阻塞, 可以让线程被动的等待工作.</p>
 
+<h2 style="text-align: center;" id="con2">流水线模式</h2>
+<p>所谓并行分工, 就是有点像之前的Fork/Join模式, 将任务分解, 不过与其不同的是, 并行分工除了类似递归的模式, 还能用普通分工的模式, 就是每个线程负责一部分工作, 然后共同看一个结果是不是被找到.</p>
+<p>在一些查找或者类似的工作中, 只要一个线程找到, 就可以通知其他线程或者使用一个共享变量, 然后集体结束任务并返回结果. 只要工作的各个部分不互相依赖, 就可以使用并发来操作.</p>
+<p>来写一个例子试验一下, 并行从一个数组中进行搜索, 返回找到的值的索引.</p>
+<p>先写最外层的类, 包含一个数组域, 以及一个表示是否找到的索引域, 这个索引需要用AtomicInteger:</p>
+<pre>
 
-
-
+</pre>
 
 
 
