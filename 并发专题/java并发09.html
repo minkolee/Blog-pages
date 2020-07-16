@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>并发 - Java并发设计模式</title>
+    <title>并发 - Java并发设计模式 流水线和并行分工</title>
 </head>
 <body>
 <p>Java毕竟还是偏工程和设计, 搞完一个基础理论, 接着就得上模式, 这里就跟着书外加自己写写来上点模式看看.</p>
@@ -11,10 +11,6 @@
 <ol>
     <li><a href="#con1">流水线模式</a></li>
     <li><a href="#con2">并行分工</a></li>
-    <li><a href="#con3">无锁操作-CAS</a></li>
-    <li><a href="#con4">AtomicInterger</a></li>
-    <li><a href="#con5">AtomicReference与AtomicStampedReference</a></li>
-    <li><a href="#con6">其他原子类</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">流水线模式</h2>
@@ -157,8 +153,153 @@ public class AssemblyLine {
 <p>来写一个例子试验一下, 并行从一个数组中进行搜索, 返回找到的值的索引.</p>
 <p>先写最外层的类, 包含一个数组域, 以及一个表示是否找到的索引域, 这个索引需要用AtomicInteger:</p>
 <pre>
+public class MultiSearch {
 
+    private final List&lt;Thread> threadList = new ArrayList&lt;>();
+    //表示找到的索引
+    private final AtomicInteger result = new AtomicInteger(-1);
+    //线程的数量
+    private final int numberOfThreads = 6;
+
+    private final int[] array;
+    
+    public MultiSearch(int[] array) {
+        this.array = array;
+    }
+}
 </pre>
+<p>然后在其中编写内部线程类:</p>
+<pre>
+public class SearchThread extends Thread {
+    private final int startIndex;
+    private final int endIndex;
+    private int target;
+
+    //每个线程在指定的startIndex与endIndex-1之间查找target
+    public SearchThread(int startIndex, int endIndex, int target) {
+        this.startIndex = startIndex;
+        this.endIndex = endIndex;
+        this.target = target;
+    }
+
+    @Override
+    public void run() {
+        System.out.println(Thread.currentThread().getName() + "开始运行From" + startIndex + " to " + endIndex);
+        boolean found = false;
+        for (int i = startIndex; i < endIndex; i++) {
+            //找到目标值
+            if (array[i] == target) {
+                //尝试使用CAS设置值, 只尝试一次, 然后直接结束即可
+                //如果成功设置了, 说明是第一个找到的线程
+                //如果没有成功, 说明其他线程已经先找到, 所以直接break即可
+                System.out.println(Thread.currentThread().getName() + "找到了 " + target + " 索引是: " + i);
+                result.compareAndSet(-1, i);
+                found = true;
+                break;
+            }
+        }
+        // 如果始终没有进过if, 运行到这里就是,一次都没找到, 直接结束了
+        if (!found) {
+            System.out.println(Thread.currentThread().getName() + "搜索结束, 没有找到");
+        }
+
+    }
+}
+</pre>
+<p>线程类的CAS是核心, 如果找到就尝试CAS更新result, 如果发现已经被其他线程更新, 就直接break并退出, 说明其他线程已经找到了结果.</p>
+<p>这里是为了打印过程, 所以加上了一些判断, 实际上found变量根本不需要, 只要找到就进行CAS, 然后直接break即可, 无需关心CAS是否成功.</p>
+<p>最后为MultiSearch编写一个方法, 用于调度线程进行查找:</p>
+<pre>
+//查找方法
+public int search(int target) throws InterruptedException {
+    //根据数组长度和线程数量, 数组长度小于1000就只创建一个线程进行查找, 没有必要创建多个线程
+    if (array.length <= 1000) {
+        Thread searchThread = new SearchThread(0, array.length - 1, target);
+        searchThread.start();
+        searchThread.join();
+        if (result.get() == -1) {
+            System.out.println("没有找到");
+        } else {
+            System.out.println("找到了, 索引是: " + result.get());
+        }
+    } else {
+        //长度超过1000, 分成按照步长的5个加上最后一个到末尾索引, 一共6个线程.
+        int step = array.length / numberOfThreads;
+
+        //创建前五个线程
+        for (int i = 0; i < numberOfThreads - 1; i++) {
+            System.out.println("索引范围是 " + i * step + "-->" + (step * (i + 1)));
+            Thread searchThread = new SearchThread(i * step, step * (i + 1), target);
+            threadList.add(searchThread);
+            searchThread.start();
+        }
+
+        //创建最后一个线程
+        System.out.println("索引范围是 " + step * (numberOfThreads - 1) + "-->" + array.length);
+        Thread searchThread = new SearchThread(step * (numberOfThreads - 1), array.length, target);
+        threadList.add(searchThread);
+        searchThread.start();
+
+    }
+
+    //等待所有线程完成工作
+    for (Thread t : threadList) {
+        t.join();
+    }
+
+    //返回result, 如果查找到, 这个就被更新为查找后的结果.
+    return result.get();
+
+    }
+</pre>
+<p>然后就可以实际编写一个测试来跑一下:</p>
+<pre>
+public class Test {
+
+    public static void main(String[] args) throws InterruptedException {
+
+        int[] array = new int[10000000];
+
+        for (int i = 0; i < 10000000; i++) {
+            array[i] = i;
+        }
+
+
+        MultiSearch searcher = new MultiSearch(array);
+
+
+        int index = searcher.search(9320420);
+
+        System.out.println("找到的索引是: "+index);
+
+    }
+}
+</pre>
+<p>创建了一个长度是一千万的数组, 然后可以看到执行结果如下:</p>
+<pre>
+索引范围是 0-->1666666
+索引范围是 1666666-->3333332
+索引范围是 3333332-->4999998
+索引范围是 4999998-->6666664
+索引范围是 6666664-->8333330
+索引范围是 8333330-->10000000
+Thread-3开始运行From4999998 to 6666664
+Thread-4开始运行From6666664 to 8333330
+Thread-0开始运行From0 to 1666666
+Thread-2开始运行From3333332 to 4999998
+Thread-5开始运行From8333330 to 10000000
+Thread-1开始运行From1666666 to 3333332
+Thread-3搜索结束, 没有找到
+Thread-2搜索结束, 没有找到
+Thread-1搜索结束, 没有找到
+Thread-4搜索结束, 没有找到
+Thread-0搜索结束, 没有找到
+Thread-5找到了 9320420 索引是: 9320420
+找到的索引是: 9320420
+</pre>
+<p>6个线程在不同的区域内进行查找, 然后有一个线程找到了. 如果各个线程的查找任务属于计算密集型的话, 这个程序的理论效率是单线程的6倍.</p>
+
+
 
 
 
