@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>并发 - Java并发 NIO </title>
+</head>
+<body>
+<p>NIO还不完全是为了并发而开发的, 而是一套全新的IO体系. 这里也就一并看看1.4之后新增的各种IO</p>
+
+<ol>
+    <li><a href="#con1">NIO包</a></li>
+    <li><a href="#con2">Path对象与工具类Paths - 操作路径</a></li>
+    <li><a href="#con3">Files类 - 读写文件</a></li>
+    <li><a href="#con4">Path与Files类搭配使用 - 操作文件系统</a></li>
+    <li><a href="#con5">Path与Files类搭配使用 - 访问目录中的项</a></li>
+    <li><a href="#con6">nio的目录流</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">NIO包</h2>
+<p>NIO包是Java 1.4开始引入的, 后来每一版都对其中进行了更新. Java SE 8的NIO包文档在<a
+        href="https://docs.oracle.com/javase/8/docs/api/java/nio/package-summary.html" target="_blank">这里</a>.</p>
+<p>根据官方文档的nio包组成, 有如下部分:</p>
+<ol>
+    <li><code>java.nio</code>, Java SE 4新增, 直接位于nio包内的是缓冲区相关的类</li>
+    <li><code>java.nio.channels</code>, Java SE 4新增, 定义channel和selector, 所谓channel, 就是连接到一个能够进行I/O操作的实体的数据通道,
+        比如文件或者socket. selector则类似多路复用的选择器.
+    </li>
+    <li><code>java.nio.charset</code>, Java SE 4新增, 定义字符集, 编码解码器, 用于在字节和字符之间转换</li>
+    <li><code>java.nio.file</code>, Java 7 新增, 用于方便快捷的操作路径和文件</li>
+</ol>
+<p>NIO最大的特点是可以实现不阻塞,不像老IO必定阻塞. 此外IO的概念变了, 老IO是流的概念, 而NIO定义了缓冲区buffer和管道channel, 另外还一个核心是selector. 新IO相当于从管道中获取数据,
+    放到缓冲区进行处理, 再重复这个过程.</p>
+<p><code>java.nio.file</code>是后来加的, 为了方便操作.</p>
+
+<h2 style="text-align: center;" id="con2">Path对象与工具类Paths - 操作路径</h2>
+<p>先不看NIO, 来看看新增的java.nio.file包, 这个包里有Path接口, Paths和Files等常用工具类.</p>
+<p>在做B站视频的时候, 使用了Python的Path包中的方法, 当时还在想如果Java也有就好了. 实际上Java SE 7 开始就提供了Path对象, 位于java.nio.file中.</p>
+<p>Path对象的使用很简单, 构造器接受字符串参数, 如果拼接起来能够解析成一个符合当前操作系统要求的路径(不一定要实际存在), 就算解析成功. 解析成功之后, 就得到了一个Path对象.</p>
+<pre>
+public static void main(String[] args) throws IOException {
+
+    Path path = <span style="color: red">Paths.get("D:", "anewfile.file");</span>
+
+    System.out.println(path.getRoot());
+    System.out.println(path.getParent());
+}
+</pre>
+<p>创建Path对象的时候, <code>"anewfile.file"</code>不存在也没有关系. 如果在windows系统下, 将上边改成:</p>
+<pre>Path path = Paths.get("D:", "test2||");</pre>
+<p>就会报异常, 因为||不能用于windows的文件名. </p>
+<p>还可以方便的解析或者说拼接路径, 比如当前路径是 d:\downloads, 想在其中找到存放暗杀神桌游信息的目录 d:\downloads\ascension, 可以不用写完整路径, 而是使用.resolve方法:</p>
+<pre>
+Path path = Paths.get("D:", "downloads");
+//将path拼接上相对路径ascension
+path = path.resolve("ascension");
+System.out.println(path.toAbsolutePath());
+</pre>
+<p>如果resolve的参数是一个绝对路径, 那么就得到绝对路径, 所以很方便. 与之类似的还有一个resolveSibling, 用于直接替代一串路径的最后一部分, 也比较方便.</p>
+<p>Path在旧的路径系统中对应的是File对象, 所以Path都有一个toFile()转换成File对象, 而File对象有toPath()转换成Path对象.</p>
+<p>以后如果想便捷的操作路径名, 就可以考虑使用Path对象.</p>
+
+<h2 style="text-align: center;" id="con3">Files类 - 读写文件</h2>
+<p>相比旧IO的FileInputStream+套壳的操作, nio中使用Files类提供了更简便的方法. 写到这里, 发现如果我前几天编写转换Foobar的cue文件编码的程序如果使用NIO会简便不少. 看几个操作.</p>
+
+<h3>1 读字节</h3>
+<p>读取一个文件的所有字节然后按照编码转换成字符串, Files需要操作Path对象:</p>
+<pre>
+byte[] bytes = Files.readAllBytes(Paths.get("D:\\downloads\\music\\王菲\\2000《寓言》内地引进版\\寓言 内地引进版.cue"));
+
+String content = new String(bytes, "GB2312");
+
+System.out.println(content);
+</pre>
+
+<h3>2 读字符</h3>
+<p>直接按照行和编码读出字符串, 这样就无需经过字节转换:</p>
+<pre>
+Path path = Paths.get("D:\\downloads\\music\\王菲\\2000《寓言》内地引进版\\寓言 内地引进版.cue");
+List&lt;String> content = Files.readAllLines(path, <span style="color: red">Charset.forName("GB2312")</span>);
+
+for (String s : content) {
+    System.out.println(s);
+}
+</pre>
+<p>红字部分也是NIO包中的方法, 可以用名称来查找对应的字符集. 注意使用这个方法读出行的时候, 换行符会被忽略. 还可以直接读全部字符串:</p>
+<pre>
+Files.readString(path, Charset.forName("GB2312"));
+</pre>
+
+<h3>3 写入</h3>
+<p>最常见的是写字符串, 直接将字符串按照指定的字符集转换后写入即可:</p>
+<pre>
+//写字节
+Files.write(path, content.getBytes(StandardCharsets.UTF_8));
+
+//直接写字符串的简易方法
+Files.write(path, content.getBytes(Charset.forName("GB2312")));
+</pre>
+<p>我前几天的那个程序, 如果采用nio, 实际上短短几行就能完成, 如下:</p>
+<pre>
+Path path = Paths.get("D:\\downloads\\music\\王菲\\2000《寓言》内地引进版\\寓言 内地引进版.cue");
+Path newPath = Paths.get("D:\\downloads\\music\\王菲\\2000《寓言》内地引进版\\寓言 内地引进版UTF-8.cue");
+String content = Files.readString(path, StandardCharsets.UTF_8);
+Files.writeString(newPath, content, Charset.forName("GB2312"));
+</pre>
+<p>write方法还有重载, 第三个参数是nio.file中的OpenOption接口的实现类, 可以选择写策略, 是追加还是完全覆盖, 默认是完全覆盖, 追加如下:</p>
+<pre>
+Files.writeString(newPath, content, Charset.forName("GB2312"), StandardOpenOption.APPEND);
+</pre>
+<p>write还有不指定字符集的重载, 默认会使用UTF-8. write还有重载可以一次写一个集合, 比如<code>write(path, lines)</code>, 万变不离其宗.</p>
+
+<h3>4 局限性</h3>
+<p>由于Files是一次性读出, 所以对于中等大小的文件操作比较方便, 但是大型文件, 还是要使用原有的内部带有缓冲区的老IO. Files也提供了从Path对象生成老IO对象的功能:</p>
+<ol>
+    <li><code>Files.newBufferedReader(path, charset)</code></li>
+    <li><code>Files.newBufferedWriter(path, charset)</code></li>
+    <li><code>Files.newInputStream(path)</code></li>
+    <li><code>Files.newOutputStream(path)</code></li>
+</ol>
+<p>可见Java的包设计者还是非常用心的, 新老包可转换, 互相融合, 非常好.</p>
+
+<h2 style="text-align: center;" id="con4">Path与Files类搭配使用 - 增删改文件和目录</h2>
+<p>操作文件系统不外乎增删改查, 也就是新建, 删除, 移动等方法.</p>
+<h3>1 新建目录和文件</h3>
+<p>Files中提供了简便的方法, 可以创建一个文件和目录, 并同时返回对应的Path对象, 可以用于后续操作.</p>
+<pre>
+//创建文件
+
+//仅仅只是一个path对象, 没有任何实际用途
+Path path = Paths.get("d:\\test.txt");
+//创建新文件
+<span style="color: red">Files.createFile(path);</span>
+</pre>
+<p>执行了<code>Files.createFile(path);</code>就已经创建了新文件, 如果文件已经存在, 就会报FileAlreadyExistsException异常. 调用这个方法是原子的, 要么创建成功,
+    要么抛异常.</p>
+<p>创建目录如下:</p>
+<pre>
+Path path = Paths.get("d:\\test.txt");
+//创建新目录
+Files.<span style="color: red">createDirectory</span>(path);
+</pre>
+<p>这个操作就不是创建一个test.txt文件, 而是创建了test.txt目录. 这个方法中的path除了最后一部分可解析内容之外, 都必须是实际存在的文件系统路径, 否则会报异常.</p>
+<p>如果要一次递归创建所有不存在的目录, 就使用:</p>
+<pre>
+Path path = Paths.get("d:\\a\\b\\c\\test.txt");
+
+//创建中间目录
+Files.createDirectories(path);
+</pre>
+<p>这个目录会在D盘下依次创建a,b,c,test.txt四个目录.</p>
+<h3>2 复制与剪切</h3>
+<p>复制和剪切的命令比较简单, 如下:</p>
+<pre>
+Files.copy(fromPath,toPath)
+
+//如果目标已存在, 会失败
+Files.move(fromPath,toPath)
+
+//可添加多个Options的重载方法, 比如ATOMIC_MOVE, 即原子移动, 还有很多
+Files.move(fromPath,toPath, Options...)
+</pre>
+<p>Options的详细使用方法, 可以查看Core Java 中文卷2的88页, 之前的write()方法中的option也可以接受不只一个.</p>
+<p>还可以在流和Path对象之间复制, 相当于将流存储到硬盘或者将文件发送到流中.</p>
+
+<h3>3 删除文件</h3>
+<p>直接删除的话, 如果不存在会报错, 所以可以用另外一个方法:</p>
+<pre>
+//如果不存在, 会报NoSuchFileException
+Files.delete(path);
+
+//文件不存在, 删除也不会报错的方法
+boolean deleted = Files.deleteIfExists(path);
+
+if (deleted) {
+    System.out.println("删除成功");
+} else {
+    System.out.println("删除失败");
+}
+</pre>
+
+<h3>4 其他方法</h3>
+<p>常用的就是静态方法<code>exists(path)</code>, 查看这个path对应的文件或者目录是否实际存在.</p>
+<pre>boolean deleted = Files.exists(path);</pre>
+<p>还有<code>size(path)</code>返回文件字节数, 其他的都是一些与文件属性相关的内容了, 操作要比原来简单一些.</p>
+<p>还有<code>isDirectory(path)</code>超经典的判断是不是一个目录.</p>
+
+<h2 style="text-align: center;" id="con5">Path与Files类搭配使用 - 访问目录中的项</h2>
+<p>除了操作单个path, 最常用的就是列出一个目录中所有的项目以便继续操作了.Files提供了静态方法, 针对一个path对象, 给出其内部各个项的<code>stream&lt;Path></code>对象, 这样就很方便了.</p>
+<pre>
+Path path = Paths.get("d:\\downloads");
+
+    Files.list(path).forEach(s->{
+        if (Files.isDirectory(s)) {
+            System.out.println("目录: " + s);
+        } else {
+            System.out.println("文件: " + s);
+        }
+    });
+</pre>
+<p>上边这个程序就可以区分目录还是文件, 然后列出D盘downloads目录下的所有文件和目录项目.</p>
+<p><code>Files.list(path)</code>仅仅针对一个目录, 当然还会有经典的walk也就是遍历所有目录了:</p>
+<pre>
+Path path = Paths.get("d:\\downloads");
+
+Files.<span style="color: red">walk</span>(path).forEach(s->{
+    if (Files.isDirectory(s)) {
+        System.out.println("目录: " + s);
+    } else {
+        System.out.println("文件: " + s);
+    }
+});
+</pre>
+<p><code>walk</code>方法的参数是一个起始目录, 以这个目录为根遍历其中所有文件. walk还可以重载, 第二个参数用于控制深度. 从结果来看, walk()的遍历实际上是深度优先.</p>
+
+<h2 style="text-align: center;" id="con6">nio的目录流</h2>
+<p>细粒度的控制分为两种, 一种是不递归, 仅仅访问某个目录下边一层, 可以直接使用过滤条件. 还有一种是访问者模式, 在递归访问的时候可以进行工作.</p>
+<h3>1 不递归的过滤显示</h3>
+<p><code>Stream&lt;Path></code>本质上还是流. nio中还提供了一个精细粒度控制的对象, 叫做<code>DirectoryStream&lt;Path></code>, 看名字好像是Stream的子类,
+    但其实不是.</p>
+<p>这是一个继承了<code>Iterable</code>接口的类, 所以可以用来迭代. 这个不是walk, 只能返回某一个目录的下一层. 这个目录流对象的好处在于可以直接传递过滤对象:</p>
+<pre>
+Path path = Paths.get("d:\\downloads");
+
+Files.<span style="color: red">newDirectoryStream</span>(path, <span style="color: red">"*.pdf"</span>).forEach(System.out::println);
+</pre>
+<p>后边的红色部分就是GLOB模式, 这里使用的是windows的GLOB模式, 也就是文件通配符. 这个直接返回了过滤后的, 由所有.pdf组成的一个<code>Iterable&lt;Path></code>对象.</p>
+<h3>2 递归的访问者模式</h3>
+<p>想要在递归访问也就是walk()过程中精细控制, <code>Files.walkFileTree()</code>方法就登场了. 这个方法有两个重载:</p>
+<pre>
+public static Path walkFileTree(Path start, FileVisitor&lt;? super Path> visitor)
+    
+public static Path walkFileTree(Path start,
+                                    Set&lt;FileVisitOption> options,
+                                    int maxDepth,
+                                    FileVisitor&lt;? super Path> visitor)
+</pre>
+<p>其中一个参数是一个<code>FileVisitor</code>接口类型, 这个接口也位于<code>java.nio.file</code>中, 根据JDK8官网文档, 目前已知的实现类就只有<code>SimpleFileVisitor</code>一个.
+</p>
+<p>这个接口中的各种方法会在不同的时候被调用, 比如遇到一个文件或者目录, 被处理前, 处理后, 访问发生错误, 等等.</p>
+<p>然后还可以指定<code>maxDepth</code>深度.</p>
+<p>还有一个参数是<code>FileVisitOption</code>, 一想就知道肯定来自于nio中的Options接口体系. 这个参数用于控制出现了上述几种情况的时候, 继续访问还是跳过等方法.</p>
+<p><code>SimpleFileVisitor</code>默认除了访问失败以外的其他情况, 不会做任何处理, 因此真想做精细粒度控制, 就需要自己继承接口来写了.</p>
+
+
+</body>
+</html>
