@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>并发 - Java并发 NIO的组件</title>
+</head>
+<body>
+<p>NIO还不完全是为了并发而开发的, 而是一套全新的IO体系. 这里也就一并看看1.4之后新增的各种IO</p>
+
+<ol>
+    <li><a href="#con1">NIO的N之处</a></li>
+    <li><a href="#con2">Buffers类</a></li>
+    <li><a href="#con3">Files类 - 读写文件</a></li>
+    <li><a href="#con4">Path与Files类搭配使用 - 操作文件系统</a></li>
+    <li><a href="#con5">Path与Files类搭配使用 - 访问目录中的项</a></li>
+    <li><a href="#con6">nio的目录流</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">NIO的N之处</h2>
+<p>来看看NIO的所有新组件, 也就是Buffer, Channel和Selector以及辅助类Charset.</p>
+<p>这里直接就看官网文档, 最正规核心. Java NIO的API有如下:</p>
+<ol>
+    <li><code>Buffers</code>, 表示存储数据的容器, 这些类定义在java.nio包内部</li>
+    <li><code>Charsets</code>, 表示一些解码器和编码器, 用于辅助字节和Unicode之间的转换, 主要用于字符处理. 这些类定义在java.nio.charset包中</li>
+    <li><code>Channels</code>, 表示连接到可以对其进行I/O操作的对象, 其实也可以认为Channel就代表那些可以进行I/O的对象, 比如文件, UDP, Socket等. 这些类定义在java.nio.channels中.</li>
+    <li><code>Selectors</code>, 还有与之搭配的<code>Selector keys</code>, 与Channel中的一类selectable channels 合并起来实现非阻塞IO. 其实就是I/O多路复用. selector的所有API与Channel结合紧密, 所以也位于java.nio.channels中.</li>
+</ol>
+<p>NIO的部分有阻塞也有非阻塞的部分, 非阻塞的部分需要使用支持Selector的Channel类来实现, 普通的Buffer-Channel则对应阻塞IO.</p>
+<p>除了上边几个nio的子包之外, 还有一个子包就是上一次看过的java.nio.file包了.</p>
+
+<h2 style="text-align: center;" id="con2">Buffers类</h2>
+<p>Buffers实际上就是字面意思的缓冲区, 一个Buffers会由一个Channel来写入, 或者向Buffers中写入, 在最终会被写入到一个Channel中.</p>
+<p>在java.nio中定义了所有基本类型对应的Buffer类型:</p>
+<ol>
+    <li><code>ByteBuffer</code></li>
+    <li><code>CharBuffer</code></li>
+    <li><code>DoubleBuffer</code></li>
+    <li><code>FloatBuffer</code></li>
+    <li><code>IntBuffer</code></li>
+    <li><code>LongBuffer</code></li>
+    <li><code>ShortBuffer</code></li>
+</ol>
+<p>此外还有针对一个内存映射文件的<code>MappedByteBuffer</code>.</p>
+<p>这些具体Buffer类都继承自java.nio.Buffer类, 并且实现了<code>Comparable&lt;自身类型></code>接口.</p>
+<p>要创建一个缓冲区对象, 可以使用缓冲区对象的allocate()方法, 其中可以传入一个大小, 表示对应数据类型的多少大的一个空间:</p>
+<pre>
+//分配42字节的缓冲区
+ByteBuffer buf = ByteBuffer.allocate(42);
+
+//分配999个short长度的缓冲区空间
+ShortBuffer sb = ShortBuffer.allocate(999);
+</pre>
+<p>读写缓冲区的方法如下:</p>
+<ol>
+    <li><code>get()</code>, 读入对应的一个数据类型的值</li>
+    <li><code>put()</code>, 写入一个对应数据类型的值</li>
+    <li><code>get(xxx[] dst)</code>, 读出一批数据到指定的目标数组</li>
+    <li><code>get(xxx[] dst, int offset, int length)</code>, 上一个方法的重载, 可以指定偏移量和长度</li>
+    <li><code>put(xxx[] src)</code>, 将指定目标数组的数据写入缓冲区</li>
+    <li><code>put(xxx[] src, int offset, int length)</code>, 上一个的重载, 可以指定偏移量和长度</li>
+    <li><code>channel.write(buffer)</code>, 用channel来向buffer中写入数据, 对于程序来说其实就是读出Channel中的内容.</li>
+</ol>
+<p>这其中的bytebuffer有一些特殊的方法, 就是将其中的内容作为任意的基本类型读出, 了解即可. 大多数IO其实都使用ByteBuffer, 很少有专门读其他类型的Buffer.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
