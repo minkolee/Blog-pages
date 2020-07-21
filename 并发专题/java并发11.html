@@ -2,18 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>并发 - Java并发 NIO的组件</title>
+    <title>并发 - Java并发 NIO - 同步API</title>
 </head>
 <body>
-<p>NIO还不完全是为了并发而开发的, 而是一套全新的IO体系. 这里也就一并看看1.4之后新增的各种IO</p>
+<p>马上高考成绩快要出来了, 又免不了到了报志愿的时候, 其实说实在现在如果真的很清楚的话, 志愿也没有什么好选的, 统一都推荐计算机. 实在上不了, 就自学吧.</p>
+<p>就连今天刚看的半泽直树, 也是一个自学开发做搜索引擎的例子. 这次就来看看NIO的异步内容.</p>
 
 <ol>
     <li><a href="#con1">NIO的N之处</a></li>
-    <li><a href="#con2">Buffers类</a></li>
-    <li><a href="#con3">Files类 - 读写文件</a></li>
-    <li><a href="#con4">Path与Files类搭配使用 - 操作文件系统</a></li>
-    <li><a href="#con5">Path与Files类搭配使用 - 访问目录中的项</a></li>
-    <li><a href="#con6">nio的目录流</a></li>
+    <li><a href="#con2">Buffers类简介</a></li>
+    <li><a href="#con3">Channel类简介</a></li>
+    <li><a href="#con4">NIO的基础操作逻辑</a></li>
+    <li><a href="#con5">缓冲区的更多细节</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">NIO的N之处</h2>
@@ -28,7 +28,7 @@
 <p>NIO的部分有阻塞也有非阻塞的部分, 非阻塞的部分需要使用支持Selector的Channel类来实现, 普通的Buffer-Channel则对应阻塞IO.</p>
 <p>除了上边几个nio的子包之外, 还有一个子包就是上一次看过的java.nio.file包了.</p>
 
-<h2 style="text-align: center;" id="con2">Buffers类</h2>
+<h2 style="text-align: center;" id="con2">Buffers类简介</h2>
 <p>Buffers实际上就是字面意思的缓冲区, 一个Buffers会由一个Channel来写入, 或者向Buffers中写入, 在最终会被写入到一个Channel中.</p>
 <p>在java.nio中定义了所有基本类型对应的Buffer类型:</p>
 <ol>
@@ -58,26 +58,84 @@ ShortBuffer sb = ShortBuffer.allocate(999);
     <li><code>get(xxx[] dst, int offset, int length)</code>, 上一个方法的重载, 可以指定偏移量和长度</li>
     <li><code>put(xxx[] src)</code>, 将指定目标数组的数据写入缓冲区</li>
     <li><code>put(xxx[] src, int offset, int length)</code>, 上一个的重载, 可以指定偏移量和长度</li>
-    <li><code>channel.write(buffer)</code>, 用channel来向buffer中写入数据, 对于程序来说其实就是读出Channel中的内容.</li>
+    <li><code>channel.read(buffer)</code>, 用channel来向buffer中读出数据, 对于程序来说其实就是读出Channel中的内容. 这个方法返回读出的长度, 如果是-1, 则表示没有数据被读入.</li>
+    <li><code>channel.write(buffer)</code>, 用channel来向buffer中读出数据, 对于程序来说其实就是写入Channel中的内容. 同样返回写入数据的长度.</li>
 </ol>
 <p>这其中的bytebuffer有一些特殊的方法, 就是将其中的内容作为任意的基本类型读出, 了解即可. 大多数IO其实都使用ByteBuffer, 很少有专门读其他类型的Buffer.</p>
+<p>除了读写之外, 缓冲区有一个flip()方法很重要, 涉及到内部的状态变量.每个缓冲区的内部有重要的状态变量, 就是记录缓冲区的的状态, 这些状态包括position=已经写了多少数据/下一个字节放到缓冲区的哪里.</p>
+<p>limit = 还有多少数据需要取出或者还有多少数据需要放入, postion一定会小于等于limit</p>
+<p>capacity = 缓冲区的总长度</p>
+<p>可以将缓冲区想象成为一个被包装过的数组, 那么position就是指向下一个可读取位置的索引, 而limit至少是已存在数据的最后一个索引. 而capacity就是整个数组的长度.</p>
+<p><a href="https://www.ibm.com/developerworks/cn/education/java/j-nio/j-nio.html" target="_blank">这里</a>的IBM网站讲解的很详细.
+    在缓冲区向外输出的时候, 需要先调用flip()方法, 读完成后, 需要调用clear()方法, 这些方法都是重设内部的状态变量.</p>
+<p>由此可见, 缓冲区的操作其实倒有点像C或者C++的基本I/O函数, 感觉还是万变不离其宗.</p>
 
+<h2 style="text-align: center;" id="con3">Channel类简介</h2>
+<p><a href="https://docs.oracle.com/javase/8/docs/api/java/nio/channels/package-summary.html" target="_blank">Channel的文档见此.</a>.由于一个Channel对应一个I/O对象, 所以可以将Channel认为就是一个I/O对象. Channel对象可以来自于文件, UDP和TCP等网络通信等.</p>
+<p>要创建Channel对象, 需要从一个I/O流中创建Channel对象, 常见的Channel对象有这么几种:</p>
+<ol>
+    <li><code>DatagramChannel</code>, 一看名字就知道, 用于UDP通信</li>
+    <li><code>ServerSocketChannel</code>, 服务端的TCP通信</li>
+    <li><code>SocketChannel</code>, 客户端的TCP通信</li>
+    <li><code>FileChannel</code>, 用于文件</li>
+    <li><code>SelectableChannel</code></li>
+    <li><code>SelectionKey</code></li>
+    <li><code>Selector</code>这三个是Select家族, 需要搭配使用来实现I/O多路复用.</li>
+    <li><code>AsynchronousChannelGroup</code></li>
+    <li><code>AsynchronousFileChannel</code></li>
+    <li><code>AsynchronousServerSocketChannel</code></li>
+    <li><code>AsynchronousSocketChannel</code>四个异步家族, 多路复用时候每个线程的I/O依然是阻塞, 这个异步可以让内部的I/O也不阻塞, 有点像Future.</li>
+</ol>
+<p>现在先不涉及网络编程, 看看本地的FileChannel使用.</p>
+<p>点开FileChannel的类, 可以发现通过<code>FileInputStream.getChannel(), FileOutputStream.getChannel(), RandomAccessFile.getChannel()</code>可以创建FileChannel.</p>
+<p>下边就可以来尝试一下编写NIO的读写操作了.</p>
 
+<h2 style="text-align: center;" id="con4">NIO的基础操作逻辑</h2>
+<p>NIO的基础操作逻辑如下:</p>
+<ol>
+    <li>通过流创建Channel对象</li>
+    <li>从Channel对象中将数据读入缓冲区</li>
+    <li>使用flip()让缓冲区处于就绪状态</li>
+    <li>使用缓冲区的数据, 比如打开另外一个Channel, 进行写入.</li>
+    <li>如果没有读完和写完, 重复2-3步骤</li>
+    <li>.clear()清除缓冲区, 准备好下一次读入</li>
+    <li>关闭所有Channel</li>
+</ol>
+<p>这里再来试验一下, 用NIO如何进行操作.写一个简单的复制文件的程序:</p>
+<pre>
+//从源文件中创建channel
+FileInputStream fileInputStream = new FileInputStream("D:\\downloads\\music\\王菲\\2000《寓言》内地引进版\\寓言 内地引进版.cue");
+FileChannel channel = fileInputStream.getChannel();
 
+//从目标文件创建channel
+FileChannel newChannel = new FileOutputStream(new File("new.txt")).getChannel();
+ByteBuffer buffer = ByteBuffer.allocate(100);
 
+while (channel.read(buffer) != -1) {
+    //做好写入准备
+    buffer.flip();
+    newChannel.write(buffer);
+    //写入完成后清除文件
+    buffer.clear();
+}
 
+channel.close();
+newChannel.close();
+</pre>
+<p>程序里就是按照上边的逻辑来进行操作, 每次也可以将缓冲区的内容转换成数组进行操作. 这其实就是C语言基础的IO模式.</p>
 
-
-
-
-
-
-
-
-
-
-
-
+<h2 style="text-align: center;" id="con5">缓冲区的更多细节</h2>
+<p>这里就简单记录一下, 需要用到的时候回来再看:</p>
+<ol>
+    <li>slice() 方法根据现有的缓冲区创建子缓冲区, 与原来缓冲区共享数据</li>
+    <li>asReadOnlyBuffer()将缓冲区转换为只读缓冲区, 其实返回的是一个与原来缓冲区共享的缓冲区, 但只读</li>
+    <li>ByteBuffer可以设置为直接或者间接缓冲区, 如果是直接缓冲区, JDK尽量会使用操作系统原生的方法直接来操作缓冲区</li>
+    <li>内存映射文件也可以作为缓冲区的来源, 搭配Channel使用, 比如: <code>MappedByteBuffer mbb = fc.map( FileChannel.MapMode.READ_WRITE, 0, 1024 );</code></li>
+</ol>
+<p>此外还有分散和聚集, 就是用缓冲区数组来当成缓冲区, 对于把数据分段处理很有效果.</p>
+<p>到目前为止, 使用的NIO都是同步的, 也就是说read()和write()方法都会阻塞.</p>
+<p>可见, 对于处理字节之类的, 使用NIO要方便很多, 如果要处理字符的话, NIO其实还不怎么方便, 因为固定长度的缓冲区很可能没法读出像UTF-8这种编码的完整字符. 不过nio为此也提供了Path, Paths和Files来进行辅助, 可以简单的操作一些不长的文本文件.</p>
+<p>下一次就来看看NIO真正的全新之处, 就是类似于I/O多路复用的Selector, 然后也来看看异步的I/O操作也就是Async开头的那些类.</p>
 
 
 
