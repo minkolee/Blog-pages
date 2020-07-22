@@ -39,23 +39,118 @@
     这里的第二个参数指的是监听什么事件, 对于Socket通信来说唯一可以监听的就是ACCEPT, 也就是连接有数据到达的事件. 这个注册会返回一个SelectionKey对象, 通过这个对象就可以知道是哪个Channel出现事件.</p>
 <p>这样三大组件即Channel, Selector, SelectorKey都知道如何创建和使用了, 下边就来看一下细节:</p>
 
-<p>第一步, 准备Channel</p>
+<p>第一步, 准备若干个Channel</p>
 <pre>
 //新创建一个ServerSocketChannel, 也就是TCP服务端
-ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+ServerSocketChannel serverSocketChannelAt8000 = ServerSocketChannel.open();
 
-<span style="color: red">//很重要, 将其设置为异步模式, 否则还是同步模式
-serverSocketChannel.configureBlocking(false);</span>
+//很重要, 将其设置为异步模式, 否则还是同步模式
+serverSocketChannelAt8000.configureBlocking(false);
 
-//只有了TCP服务端Channel, 还需要从中获取其内部包装的ServerSocket对象, 将其绑定到具体的端口8000
-ServerSocket socket = serverSocketChannel.socket();
+//只有了TCP服务端Channel, 还需要从中获取其内部包装的ServerSocket对象用来绑定端口
+ServerSocket socket = serverSocketChannelAt8000.socket();
 InetSocketAddress address = new InetSocketAddress(8000);
 socket.bind(address);
+
+//继续创建一个绑定7000, 8888端口的channel
+ServerSocketChannel serverSocketChannelAt7000 = ServerSocketChannel.open();
+serverSocketChannelAt7000.socket().bind(new InetSocketAddress(7000));
+serverSocketChannelAt7000.configureBlocking(false);
+
+ServerSocketChannel serverSocketChannelAt8888 = ServerSocketChannel.open();
+serverSocketChannelAt8888.socket().bind(new InetSocketAddress(8888));
+
+serverSocketChannelAt8888.configureBlocking(false);
 </pre>
 <p>到这里其实可以在后边加一句<code>serverSocketChannel.accept();</code>, 运行会发现程序直接结束, 这是因为设置了异步, 并没有等待TCP连接进入.</p>
-<p>如果改成同步, 则<code>serverSocketChannel.accept();</code>这句就会一直阻塞到有访问进来. 下边来配置Selector和进行注册绑定.</p>
+<p>如果改成同步, 则<code>serverSocketChannel.accept();</code>这句就会一直阻塞到有访问进来. </p>
+<p>第二步, 配置Selector和进行注册绑定.</p>
 <pre>
+//创建一个selector用于监听
+Selector selector = Selector.open();
+
+//channel调用自己的register方法向selector中注册, 并得到一个SelectionKey对象, 当然此时这个Key没有什么用, 实际用的是每个连接进来的描述符对应的Key
+//将三个Channel都注册到selector中
+SelectionKey key8000 = serverSocketChannelAt8000.register(selector, SelectionKey.OP_ACCEPT);
+SelectionKey key7000 = serverSocketChannelAt7000.register(selector, SelectionKey.OP_ACCEPT);
+SelectionKey key8888 = serverSocketChannelAt8888.register(selector, SelectionKey.OP_ACCEPT);
 </pre>
+<p>第三步, 启动服务器的主循环, 监听所有Channel, 然后每次对就绪的Channel进行操作:</p>
+<pre>
+while (true) {
+
+    //Selector进行监听, 返回一个int, 这个指有几个Channel出现了事件, 即IO可用
+    //注意这个方法是阻塞的, 也就是如果程序执行到了此行之后的语句, 一定会有可用的IO出现
+    int number = selector.select();
+
+    //获取所有可用的keys, 类似于获取所有就绪的Channel
+    Set&lt;SelectionKey> availableKeys = selector.selectedKeys();
+
+    //获取迭代器, 用于所有就绪的Channel
+    Iterator&lt;SelectionKey> iterable = availableKeys.iterator();
+
+    while (iterable.hasNext()) {
+        SelectionKey selectionKey = iterable.next();
+        //这里要注意, 处理完一个之后, 需要立刻将其从迭代中去除, 否则下一次还会继续监听到这个端口
+        iterable.remove();
+        if (selectionKey.isAcceptable()) {
+            //从SelectionKey中获取channel对象, 因为知道类型, 所以强制转换, 然后可以从其中获取连接的信息
+            ServerSocketChannel newChannel = (ServerSocketChannel) selectionKey.channel();
+            System.out.println("接受连接来自: "+ newChannel.socket().getLocalPort());
+            //从ServerSocketChannel中获取SocketChannel. 也就是TCP连接
+            SocketChannel socketChannel = newChannel.accept();
+
+
+            //将内容一次性读入到2048长度的字节中
+            ByteBuffer byteBufferIn = ByteBuffer.allocate(2048);
+            System.out.println(socketChannel.read(byteBufferIn));
+            byteBufferIn.flip();
+
+            //这一块也是NIO的用法, 和Charset相关
+            //将其按照UTF-8进行解码然后放到CharBuffer中, 打印出来
+            Charset utf8 = Charset.forName("UTF-8");
+            CharsetDecoder decoder = utf8.newDecoder();
+
+            CharBuffer charBufferin = decoder.decode(byteBufferIn);
+
+            System.out.println(charBufferin.array());
+
+            //直接关闭连接
+            socketChannel.close();
+
+        } else if (selectionKey.isValid() && selectionKey.isReadable()) {
+            System.out.println("可以读");
+        } else if (selectionKey.isValid() && selectionKey.isWritable()) {
+            System.out.println("可以写");
+        }
+    }
+}
+</pre>
+<p>然后就可以启动程序了, 启动之后, 这个selector会同时监听7000,8000,8888端口的三个Channel, 哪个有连接进来, 就会创建连接然后打印出传来的内容.</p>
+<p>用浏览器访问<code>http://localhost:8888/</code>, <code>http://localhost:8000/</code>, <code>http://localhost:7000/</code>. 不管哪一个访问进来, selector都可以创建连接.</p>
+<p>这样一个线程就可以监听很多IO通道, 而不用每来一个IO都用一个线程去响应. 这里还是使用了单线程进行处理, 实际上, 还可以在每一个SocketServerChannel出现ON_ACCEPT事件的时候, 将每一个Socket连接交给一个线程去处理, 这样就是一个线程监听多个Channel, 然后进行分发, 效率更高. 而且不会等待IO.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
