@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>并发 - Java并发 NIO - IO多路复用</title>
+</head>
+<body>
+<p>IO多路复用通过NIO的Selector相关API来实现, 先看一下基础的操作, 然后编写两个服务器来进行对比. 这里还涉及到Java的网络编程, 在后边也要专门看一下了.</p>
+<p>明天就要发布高考分数了, 这里还是大声疾呼一下, 不管多少分, 能报名计算机专业的报名计算机, 报不上和考文科的, 暑假里就报班学Java, 别等了, 真的.</p>
+
+<ol>
+    <li><a href="#con1">IO多路复用的基础结构</a></li>
+    <li><a href="#con2">Buffers类简介</a></li>
+    <li><a href="#con3">Channel类简介</a></li>
+    <li><a href="#con4">NIO的基础操作逻辑</a></li>
+    <li><a href="#con5">缓冲区的更多细节</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">IO多路复用的基础结构</h2>
+<p>IO多路复用的基础结构, 就是之前提到过的NIO中的Selector相关的API. 包括:</p>
+<ol>
+    <li>支持Selector特性的Channel:<code>SelectableChannel</code></li>
+    <li><code>Seletor</code>, 用于监听多路IO的选择器, 其名字来源于操作系统的系统调用select()函数</li>
+    <li><code>SelectionKey</code>, 用于让监听多路IO的选择器知道监听哪一路Channel(文件描述符)的对象, 代表被选择器监听的某一个Channel.</li>
+</ol>
+<p>在之前看过操作系统, Java里的操作逻辑实际上和C语言使用系统调用是一样的:</p>
+<ol>
+    <li>创建Selector对象和需要被其监听的一系列Channel对象</li>
+    <li>将Channel对象注册到Selector对象中, 每次注册都可以获取一个独立的SelectionKey, 用于标识某个Channel</li>
+    <li>调用select()方法, 这个方法会阻塞, 直到被监听的Channel中有至少一个可用, 然后返回所有可用的Channel</li>
+    <li>遍历Channel, 对每个Channel进行处理</li>
+</ol>
+<p>所以这个逻辑和系统调用select()返回可用的文件描述符的集合如出一辙, 只不过因为是面向对象包了很多东西, 所以在使用的时候还有一些小细节需要注意. 来看看具体的代码吧.</p>
+<p>首先是需要知道哪些Channel支持Selector特性, 通过查看文档可以知道, java.nio.channels中有一个类SelectableChannel, 是支持Selector(can be multiplexed via a Selector)的.</p>
+<p>然后这个类有一个子类也是一个抽象类AbstractSelectableChannel, 这个抽象类有五个实现类: DatagramChannel, Pipe.SinkChannel, Pipe.SourceChannel, ServerSocketChannel, SocketChannel.</p>
+<p>对于网络IO来说, 我们关心其中的DatagramChannel, ServerSocketChannel, SocketChannel, 也就是UDP端, TCP服务端和TCP客户端.</p>
+<p>然后是Selector类, java.nio.Channels中的Selector类, 有一个静态方法.open(), 用来创建一个Selector. 就使用这个方法来创建Selector.</p>
+<p>有了Channel和Selector之后, 就是将Channel注册到Selector上, 也就是调用<code>channel.ssc.register(selector, SelectionKey.OP_ACCEPT);</code>.
+    这里的第二个参数指的是监听什么事件, 对于Socket通信来说唯一可以监听的就是ACCEPT, 也就是连接有数据到达的事件. 这个注册会返回一个SelectionKey对象, 通过这个对象就可以知道是哪个Channel出现事件.</p>
+<p>这样三大组件即Channel, Selector, SelectorKey都知道如何创建和使用了, 下边就来看一下细节:</p>
+
+<p>第一步, 准备Channel</p>
+<pre>
+//新创建一个ServerSocketChannel, 也就是TCP服务端
+ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+
+<span style="color: red">//很重要, 将其设置为异步模式, 否则还是同步模式
+serverSocketChannel.configureBlocking(false);</span>
+
+//只有了TCP服务端Channel, 还需要从中获取其内部包装的ServerSocket对象, 将其绑定到具体的端口8000
+ServerSocket socket = serverSocketChannel.socket();
+InetSocketAddress address = new InetSocketAddress(8000);
+socket.bind(address);
+</pre>
+<p>到这里其实可以在后边加一句<code>serverSocketChannel.accept();</code>, 运行会发现程序直接结束, 这是因为设置了异步, 并没有等待TCP连接进入.</p>
+<p>如果改成同步, 则<code>serverSocketChannel.accept();</code>这句就会一直阻塞到有访问进来. 下边来配置Selector和进行注册绑定.</p>
+<pre>
+</pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
