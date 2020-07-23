@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>并发 - Java并发 NIO - AIO</title>
+</head>
+<body>
+<p>在上一个NIO服务器中, 已经实现了不会阻塞等待TCP连接传数据, 不过在doRead()和doWrite()中, 实际的I/O操作还是阻塞的, 比如返回一个文件给客户端, 那么在没有完成文件的读操作之前, 线程依然会阻塞在等待文件I/O操作处.</p>
+<p>NIO的最后一部分API, 也就是Channel类中Asynchronous开头的类, 就是为了彻底实现异步IO而准备的. 这些API不仅在Key(文件描述符)没有准备好的时候不阻塞, 就连正常的IO操作, 也不阻塞, 而是等待操作系统完成IO的时候注册一个回调函数来执行. 这样就实现了彻底的异步.</p>
+
+<ol>
+    <li><a href="#con1">AIO服务器</a></li>
+    <li><a href="#con2">不使用NIO的多线程Echo服务器</a></li>
+    <li><a href="#con3">将多线程Echo服务器使用NIO改造</a></li>
+    <li><a href="#con4">流程图总结</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">AIO服务器</h2>
+
+
+
+
+
+
+
+
+
+</body>
+</html>
