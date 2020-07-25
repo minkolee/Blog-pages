@@ -25,7 +25,7 @@ public interface Delayable {
 
     default void delay() {
         try {
-            Thread.sleep(1000);
+            Thread.sleep(3000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -77,16 +77,11 @@ public class Test {
             works.add(pool.submit(new HeavyWork1(String.valueOf(i * 1000))));
         }
 
-        //模拟主线程做自己的事情
-        for (int j = 0; j &lt; 10; j++) {
-            System.out.println("主线程做自己的事情");
-            Thread.sleep(1000);
-        }
 
         //模拟从Future中取结果
         try {
             for (Future&lt;Integer> work : works) {
-                int result = work.get(2, TimeUnit.SECONDS);
+                int result = work.get(5, TimeUnit.SECONDS);
                 System.out.println(work + "的结果是: " + result);
             }
         } catch (ExecutionException | TimeoutException e) {
@@ -101,7 +96,49 @@ public class Test {
 <p>这个时候就要请出Java 8 中新增的CompletableFuture了, 一个同样继承了Future接口的类, 采用流式的思想, 将对Future的操作类似于将集合流化一样.</p>
 
 <h2 style="text-align: center;" id="con2">使用CompletableFuture</h2>
-<p>使用CompletableFuture其实步骤也不难, 其核心在于要将所有返回的结果都用CompletableFuture包装, </p>
+<p>使用CompletableFuture其实步骤也不难, 其核心在于要将所有返回的结果都用CompletableFuture包装, 而不是像原来一样返回Future. 为了达成这个目的, 无需再使用Callable对象, 直接在方法中启动一个线程完成计算, 并使用CompletableFuture: </p>
+<pre>
+
+import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+
+public class AsyncHeavyWork implements Delayable {
+
+    private String rawMaterial;
+
+    public AsyncHeavyWork(String rawMaterial) {
+        this.rawMaterial = rawMaterial;
+    }
+
+    public static Random random = new Random();
+
+<span style="color: red">    public Future&lt;Integer> getPriceAsync() throws Exception {
+
+        CompletableFuture&lt;Integer> future = new CompletableFuture&lt;>();
+
+        new Thread(() -> {
+            int hash = rawMaterial.hashCode();
+            delay();
+            int result = random.nextInt(100) * hash / 10 + hash / (random.nextInt(50) + 1);
+            future.complete(result);
+        }).start();
+
+        return future;
+
+    }</span>
+
+}
+</pre>
+<p>注意这里最大的区别就是, 原来的模式是Callable对象提交给线程池, 返回Future对象. 这一次根本不需要创建Callable对象, 直接在方法中设置一个<code>CompletableFuture&lt;Integer></code>变量, 之后立刻启动新线程计算结果, 在计算完成之后, 调用
+<code>future.complete(result)</code>方法将结果交给CompletableFuture对象. 这个方法返回的是<code>Future&lt;Integer></code>类型, 因为CompletableFuture实现了了Future.</p>
+<p>这段代码初步看上去, 其实就是将Future的控制权从服务端移动到了客户端. 现在的使用如下:</p>
+<pre>
+
+</pre>
+
+
+
 
 
 
