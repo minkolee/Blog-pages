@@ -11,137 +11,174 @@
 <p>现在如果要最新, 就是要看JDK 11的内容了, 实际上我的电脑已经装了JDK 13了.</p>
 
 <ol>
-    <li><a href="#con1">流中的Future</a></li>
-    <li><a href="#con2">使用CompletableFuture</a></li>
-    <li><a href="#con3">AIO客户端</a></li>
+    <li><a href="#con1">CompletableFuture的基础</a></li>
+    <li><a href="#con2">CompletableFuture的新特点</a></li>
+    <li><a href="#con3">CompletableFuture的异常处理</a></li>
 </ol>
 
-<h2 style="text-align: center;" id="con1">流中的Future</h2>
-<p>在实践中, JDK 8依然是目前主流, 不过如果不使用流和函数式编程, 大概也就是用了个JDK 7甚至是4. 流中的一个.parallel()方法可以将流转换成多线程的, 这就是在流中的多线程编程.</p>
-<p>流在实际运行的时候, 依然是一个接一个元素进行处理, 如果任意一个地方出现阻塞, 整个程序就会阻塞, 想要不阻塞, 很显然会想到将流与Future对象组合起来.</p>
-<p>假如有一个比较耗时或者说会阻塞的程序实现这个阻塞1秒的接口:</p>
-<pre>
-public interface Delayable {
+<h2 style="text-align: center;" id="con1">CompletableFuture</h2>
+<p>之前使用Future对象已经可以知道, 搭配Callable使用, 可以进行异步计算, 直到去获取结果的时候, 才变成阻塞.</p>
+<p>CompletableFuture位于java.util.concurrent包中, 同时实现了<code>Future&lt;T></code>和<code>CompletionStage&lt;T></code>接口, 而<code>CompletionStage&lt;T></code>接口是一个非常大的工具类,专门就为了扩展各种函数式的流式调用而存在.</p>
+<p>由于同时实现两个接口, 很显然<code>CompletableFuture</code>可以当成Future来使用, 但如果仅仅是这样就太无趣了, <code>CompletableFuture</code>实际上对Future的控制更加精细, 可以做到Future难以做到的事情.</p>
+<p><code>CompletionStage</code>的<a href="https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletionStage.html" target="_blank">文档在此</a>.<code>CompletableFuture</code>的<a
+        href="https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html" target="_blank">文档在此</a>.</p>
 
-    default void delay() {
+<h2 style="text-align: center;" id="con2">CompletableFuture</h2>
+<p>看一下CompletableFuture的新特点.</p>
+<h3>可以直接设置完成结果</h3>
+<p>Future一旦提交之后, 只能通过get()来等待结果. 而CompletableFuture对象, 就算还没有算出来, 还可以直接设置结果, 一旦设置, 就导致从CompletableFuture对象可以获取该结果.</p>
+<p>看一个例子, 主线程去给一个<code>CompletableFuture</code>设置结果, 不设置之前, 一个线程会一直阻塞.</p>
+<pre>
+import java.util.Scanner;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+public class SetResultTest {
+
+    private static class Test extends Thread {
+
+        CompletableFuture&lt;Integer> future;
+
+        public Test(CompletableFuture&lt;Integer> future) {
+            this.future = future;
+        }
+
+        @Override
+        public void run() {
+            boolean got = false;
+
+            while (!got) {
+                try {
+                    int result = future.get(2, TimeUnit.SECONDS);
+                    System.out.println("成功获取结果: " + result);
+                    got = true;
+                } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        CompletableFuture&lt;Integer> future = new CompletableFuture&lt;>();
+        new Test(future).start();
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("随便输入点什么: ");
+        int l = scanner.nextLine().length();
+        System.out.println("将结果设置为输入的长度: "+l);
+        future.complete(l);
+    }
+}
+</pre>
+<p>这个程序创建了一个<code>CompletableFuture</code>任务, 但其实没有任何计算, 因此线程会一直获取不到结果, 2秒钟一次反复去获取. 如果是Future对象, 就一直卡住了.</p>
+<p>但是<code>CompletableFuture</code>对象即使获取不了结果, 可以强行给其设置一个结果. 在这个程序里, 主线程一直等待输入, 然后将输入的长度设置给<code>CompletableFuture</code>对象, 然后就会立刻结束副线程的阻塞状态.</p>
+
+<h3>简洁启动异步任务</h3>
+<p>如果使用Future对象的话, 需要使用Callable对象, 然后提交给线程池, 得到返回的Future对象再从其中获取结果.</p>
+<p><code>CompletableFuture</code>提供了一些工厂方法, 可以快速提交异步任务然后得到<code>CompletableFuture</code>对象, 再用get()获取结果即可.</p>
+<p>工厂方法有如下几种:</p>
+<ol>
+    <li><code>static &lt;U> CompletableFuture&lt;U> supplyAsync(Supplier&lt;U> supplier)</code></li>
+    <li><code>static &lt;U> CompletableFuture&lt;U> supplyAsync(Supplier&lt;U> supplier, Executor executor)</code></li>
+    <li><code>static CompletableFuture&lt;Void> runAsync(Runnable runnable)</code></li>
+    <li><code>static CompletableFuture&lt;Void> runAsync(Runnable runnable, Executor executor)</code></li>
+</ol>
+<p>有返回值的就直接返回泛型, 没有返回值的就返回泛型是Void的对象. 可见其中都不用传一个完整的线程对象, 只要传一个函数式接口就成.</p>
+<p>写点代码试验一下:</p>
+<pre>
+import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
+public class AsyncQuest {
+
+    private static Random random = new Random();
+
+    //模拟耗时运算
+    private static int cal(int param) {
+        int sleepTime = param * 1000;
         try {
-            Thread.sleep(3000);
+            Thread.sleep(sleepTime);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        return sleepTime;
+
+    }
+
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        //简便启动异步任务
+        CompletableFuture&lt;Integer> future1 = CompletableFuture.supplyAsync(() -> cal(2));
+        CompletableFuture&lt;Integer> future2 = CompletableFuture.supplyAsync(() -> cal(4));
+        CompletableFuture&lt;Integer> future3 = CompletableFuture.supplyAsync(() -> cal(6));
+
+        System.out.println("到此不阻塞");
+
+        //阻塞等待结果
+        System.out.println(future1.get());
+        System.out.println(future2.get());
+        System.out.println(future3.get());
+
     }
 }
-
 </pre>
-<p>实际程序如下, 传入一个名字, 返回一个int值:</p>
+<p>重载中的 Executor可以指定线程池, 如果不指定, 就是在系统的默认线程池中运行, 这个默认线程池在运行时来自于 <code>ForkJoinPool.common</code>. 注意这个线程池的所有线程都是守护线程, 所以不能让主线程提前结束, 否则任务不会执行.</p>
+
+<h3>连续异步调用</h3>
+<p>如果想在Future中实现连续异步调用, 那基本上不可能, 除非将所有异步都放到同一个Future对象中进行计算.</p>
+<p>而有了CompletableFuture后, 异步调用也可以进行分段, 类似于流式的调用, 可以认为CompletableFuture就是一个流式的Future.</p>
+<p>前边的<code>supplyAsync</code>和<code>runAsync</code>相当于一个开始, 一个数据生产, 之后可以再组合 <code>thenApply</code>, <code>thenAccept</code>等.</p>
+<p>文档中的thenApply签名:<code>thenApply(Function&lt;? super T,? extends U> fn)</code>, 就是接受上一个返回的结果, 返回最终需要的类型.</p>
+<p>文档中的thenAccept签名:<code>thenAccept(Consumer&lt;? super T> action)</code>, 这就是直接消费结果了, 消费之后返回的就是Void了.</p>
+<p>文档中的thenCompose签名:<code>thenCompose(Function&lt;? super T,? extends CompletionStage&lt;U>> fn)</code>, 这个是通过上一个结果, 返回一个新的CompletionStage&lt;U>对象</p>
+<p>文档中的thenCombine签名:<code>&lt;U,V> CompletionStage&lt;V> thenCombine(CompletionStage&lt;? extends U> other,
+    BiFunction&lt;? super T,? super U,? extends V> fn)</code>, 这个是将另外一个泛型为UCompletableFuture对象与当前类型为T的对象合并, 返回结果类型为V的对象. 这个也非常有用.</p>
+<p>来将上一段代码修改一下试试:</p>
 <pre>
-import java.util.Random;
-import java.util.concurrent.Callable;
+public static void main(String[] args) throws ExecutionException, InterruptedException {
 
-public class HeavyWork1 implements Delayable, Callable&lt;Integer> {
+    //把第一步计算得到的Integer转换成String类型, 注意最前边的结果类型就要同步将泛型修改成String类型
+    CompletableFuture&lt;String> future1 = CompletableFuture.supplyAsync(() -> cal(2)).thenApply(String::valueOf);
 
-    private String rawMaterial;
+    //把第一步计算得到的Integer消费掉, 注意最前边的结果类型就要同步将泛型修改成String类型. 消费掉之后, 泛型更改成Void
+    CompletableFuture&lt;Void> future2 = CompletableFuture.supplyAsync(() -> cal(4)).thenAccept(System.out::println);
 
-    public HeavyWork1(String rawMaterial) {
-        this.rawMaterial = rawMaterial;
-    }
+    //把第一步计算得到的Integer变成另外一个CompletableFuture对象
+    CompletableFuture&lt;Double> future3 = CompletableFuture.supplyAsync(() -> cal(6)).thenCompose(x ->
+            CompletableFuture.supplyAsync(() -> (double) x * 1000));
 
-    public static Random random = new Random();
+    //合并int泛型和double泛型的对象, 返回一个字符串泛型. 注意后边的BiFunction函数式接口的第一个参数是当前的类型也就是double, 第二个是另外一个CompletableFuture的泛型, 也就是int类型.
+    CompletableFuture&lt;Integer> future01 = CompletableFuture.supplyAsync(() -> 10);
+    CompletableFuture&lt;String> future02 = CompletableFuture.supplyAsync(() -> 10.00).thenCombine(future01, (x, y) -> String.valueOf(x) + "|" + String.valueOf(y));
 
-    @Override
-    public Integer call() throws Exception {
-        int hash = rawMaterial.hashCode();
-        //模拟阻塞1秒
-        delay();
-        return random.nextInt(100) * hash / 10 + hash / (random.nextInt(50) + 1);
-    }
+    System.out.println("到此不阻塞");
 
+    //阻塞等待结果
+    System.out.println(future1.get());
+    System.out.println(future2.get());
+    System.out.println(future3.get());
+    System.out.println(future02.get());
 }
 </pre>
-<p>传统的方式是启动一个线程池, 然后将其全部提交给线程池, 之后主线程在适当的时候等待所有Future对象完工, 然后组装结果并返回:</p>
+
+<h2 style="text-align: center;" id="con3">CompletableFuture的异常处理</h2>
+<p>CompletableFuture的异常处理也是采取函数式编程的方式, 提供了一个<code>exceptionally()</code>的方法, 在其中可以使用异常对象来进行异常处理, 这样就不会将异常处理暴露在外边,非常方便.</p>
+<p>类似于:</p>
 <pre>
-import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.*;
+public static void main(String[] args) throws ExecutionException, InterruptedException {
 
-public class Test {
-
-    public static void main(String[] args) throws InterruptedException {
-
-        ExecutorService pool = Executors.newCachedThreadPool();
-
-        List&lt;Future&lt;Integer>> works = new LinkedList&lt;>();
-
-        //向线程池用submit提交, 得到Future对象, 装入一个list中.用于后续处理结果
-        for (int i = 0; i &lt; 10; i++) {
-            works.add(pool.submit(new HeavyWork1(String.valueOf(i * 1000))));
-        }
-
-
-        //模拟从Future中取结果
-        try {
-            for (Future&lt;Integer> work : works) {
-                int result = work.get(5, TimeUnit.SECONDS);
-                System.out.println(work + "的结果是: " + result);
-            }
-        } catch (ExecutionException | TimeoutException e) {
-            e.printStackTrace();
-        }
-
-    }
-
-}
-</pre>
-<p>这个套路现在已经很明白了. 但是仅仅使用Future有的时候很难完成一些特定的工作, 或者需要编写额外的代码, 比如把Future的结果合并, 或者只有一个Future就可以当做完成, 还有一大问题就是.get()方法依然会阻塞到Future结束, 有没有办法像AIO一样在Future完成时候得到通知再运行后续代码.</p>
-<p>这个时候就要请出Java 8 中新增的CompletableFuture了, 一个同样继承了Future接口的类, 采用流式的思想, 将对Future的操作类似于将集合流化一样.</p>
-
-<h2 style="text-align: center;" id="con2">使用CompletableFuture</h2>
-<p>使用CompletableFuture其实步骤也不难, 其核心在于要将所有返回的结果都用CompletableFuture包装, 而不是像原来一样返回Future. 为了达成这个目的, 无需再使用Callable对象, 直接在方法中启动一个线程完成计算, 并使用CompletableFuture: </p>
-<pre>
-
-import java.util.Random;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-
-public class AsyncHeavyWork implements Delayable {
-
-    private String rawMaterial;
-
-    public AsyncHeavyWork(String rawMaterial) {
-        this.rawMaterial = rawMaterial;
-    }
-
-    public static Random random = new Random();
-
-<span style="color: red">    public Future&lt;Integer> getPriceAsync() throws Exception {
-
-        CompletableFuture&lt;Integer> future = new CompletableFuture&lt;>();
-
-        new Thread(() -> {
-            int hash = rawMaterial.hashCode();
-            delay();
-            int result = random.nextInt(100) * hash / 10 + hash / (random.nextInt(50) + 1);
-            future.complete(result);
-        }).start();
-
-        return future;
-
-    }</span>
+    CompletableFuture&lt;Void> future = CompletableFuture.supplyAsync(() -> cal(2)).exceptionally(ex -> {
+        System.out.println(ex.toString());
+        return -1;
+    }).thenAccept(System.out::println);
+    
+    future.get();
 
 }
 </pre>
-<p>注意这里最大的区别就是, 原来的模式是Callable对象提交给线程池, 返回Future对象. 这一次根本不需要创建Callable对象, 直接在方法中设置一个<code>CompletableFuture&lt;Integer></code>变量, 之后立刻启动新线程计算结果, 在计算完成之后, 调用
-<code>future.complete(result)</code>方法将结果交给CompletableFuture对象. 这个方法返回的是<code>Future&lt;Integer></code>类型, 因为CompletableFuture实现了了Future.</p>
-<p>这段代码初步看上去, 其实就是将Future的控制权从服务端移动到了客户端. 现在的使用如下:</p>
-<pre>
-
-</pre>
-
-
-
-
-
-
+<p>这里要注意的是, 在处理过程中, 除了捕获异常, 还必须返回一个默认值, 以便后续进行处理, 所以就可以返回一个特殊的值, 用于标记出现了错误, 而且这个也不影响最后从<code>CompletableFuture</code>中获取特殊的值.</p>
+<p>好, 到这里CompletableFuture的基本用法就看完了, Java的并发也暂时告一段落, 接下来准备看一下React, 还有乐理了. 五线谱看不懂是有点捉急的.</p>
 
 
 
