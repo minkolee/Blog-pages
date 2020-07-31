@@ -1,2 +1,6 @@
-const outer = "gogogogog";
-module.export = outer;
+const outer = {
+    saner:'saner',
+    sitong: 'sitong'
+};
+
+module.exports = outer;
