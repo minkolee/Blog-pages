@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Node 01</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>因为要看React, 之前花了点时间把JavaScript的ES6复习了一下, 其实ES6的内容就是让JS变得更像一门标准语言了, 不再有很多莫名其妙的地方, 还是很好掌握的, 至于什么数组参数和解构, 也都是Java里早就见过的玩意了, 不过一般还是尽量少用.</p>
+<p>不过node我没有仔细看过,只有在前端工程化的时候, 把node当成一个基础环境, 核心不是node, 而是通过node下载的webpack等工具, 这次借着机会好好把node看一下吧.</p>
+<p>这次是Udemy上的视频<a href="https://www.udemy.com/the-complete-nodejs-developer-course-2/" target="_blank">The Complete Node.Js Developer Course (3rd Edition)</a>, 在<a href="https://freecoursesite.com/the-complete-node-js-developer-course-2nd-edition-2/" target="_blank">这里</a>可以免费下载.</p>
+
+
+<ol>
+    <li><a href="#con1">安装node.js</a></li>
+    <li><a href="#con2"></a></li>
+    <li><a href="#con3"></a></li>
+    <li><a href="#con4"></a></li>
+    <li><a href="#con5"></a></li>
+    <li><a href="#con6"></a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">安装node.js</h2>
+<p>安装Node如果不是为了装那些需要C/C++编译的工具, 安装还是挺简单的. 到<a href="https://nodejs.org/" target="_blank">官网</a>下载node, 不管是linux还是windows都比较容易, 下载回来安装即可.</p>
+<p>之后在命令行中输入 node -v ,如果显示出来版本号, 说明就安装成功了, 视频里让我装vs code, 我就还是用webstorm好了. 另外发现视频里还是8.12版本, 有点老了, 后来出了更新, 是10.15.3版本, .</p>
+<p>正常情况下, JS的宿主是浏览器, 也就是浏览器同时是JS的解释引擎, 加上给JS提供了基于事件的单线程处理和异步调用, 很多时候JS的一些内容是浏览器的内部API来实现的.</p>
+<p>node.js实际上是一个独立于浏览器之外的JS引擎, 基于Chrome的V8引擎, 也是目前最好的JS引擎. 所以可以直接用node来运行js文件.</p>
+<p>当然, 因为其独立于浏览器, 所以API与普通的JS不同, 没有很多关于浏览器的操作, 但是作为一个编程语言环境, 提供了很多诸如系统调用等API, 这是浏览器中的JS做不到的.</p>
+<p>目前使用的12.18.3 LTS 版的node的<a href="https://nodejs.org/dist/latest-v12.x/docs/api/console.html#console_console_log_data_args" target="_blank">文档.</a>.</p>
+
+<h2 style="text-align: center;" id="con2"></h2>
+
+<h2 style="text-align: center;" id="con3"></h2>
+
+<h2 style="text-align: center;" id="con4"></h2>
+
+<h2 style="text-align: center;" id="con5"></h2>
+<h2 style="text-align: center;" id="con6"></h2>
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>

@@ -96,6 +96,8 @@ const renderMovie = (singleMovieItem) => {
     const posterlink = singleMovieItem.Poster === 'N/A' ? "http://iph.href.lu/300x447?text=NO%20IMAGE" : singleMovieItem.Poster;
 
     return `
+
+
     <article class=media>
         <figure class="media-left">
         <p class="image">
