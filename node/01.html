@@ -36,11 +36,51 @@
 <p>当然, 因为其独立于浏览器, 所以API与普通的JS不同, 没有很多关于浏览器的操作, 但是作为一个编程语言环境, 提供了很多诸如系统调用等API, 这是浏览器中的JS做不到的.</p>
 <p>目前使用的12.18.3 LTS 版的node的<a href="https://nodejs.org/dist/latest-v12.x/docs/api/console.html#console_console_log_data_args" target="_blank">文档.</a>.</p>
 
-<h2 style="text-align: center;" id="con2"></h2>
+<h2 style="text-align: center;" id="con2">第一个简单的node程序</h2>
+<p>编写一个超级短的js文件, 比如叫做hello.js:</p>
+<pre>
+console.log("Hello world!")
+</pre>
+<p>然后到终端里, 就像Python运行py文件一样, 使用node来运行:</p>
+<pre>node hello.js</pre>
+<p>就会在控制台中打印出<code>Hello world!</code>, 当然, 由于node被从浏览器环境中剥离出来, 一些操作DOM的东西就无法在node中实现, 反而普通编程语言附带的文件系统库等, 倒是可以在node中使用, 而在浏览器里, 是绝对不要想直接访问文件系统的.</p>
 
-<h2 style="text-align: center;" id="con3"></h2>
 
-<h2 style="text-align: center;" id="con4"></h2>
+<h2 style="text-align: center;" id="con3">模块化的node - 文件系统的简单例子</h2>
+<p>既然是一个JS解释器, 类似Python, 除了有内置的函数, 也就是不需要导入其他模块的内容, 比如上一节写的console对象, 其他还有很多包可以导入.</p>
+<p>在<a href="https://nodejs.org/dist/latest-v12.x/docs/api/" target="_blank">node的文档</a>中可以看到很多内容, 其中每一个内容其实都是一个包, 点进去后在例子中可以看到使用require()函数来导入包.</p>
+<p>require()函数就类似于很多其他语言的import, 只不过比较特别的是导入的内容用一个变量存放, 其实是一个对象, 然后调用这个对象的各种方法来完成工作.</p>
+<p>先来看一个最常用的文件系统相关的包, 文档在<a href="https://nodejs.org/dist/latest-v12.x/docs/api/fs.html" target="_blank">这里</a>, 其中提到The fs module provides an API for interacting with the file system in a manner closely modeled around standard POSIX functions. 可见基本上就是基于POSIX系统调用来编写的函数.</p>
+<p>导入语法是:</p>
+<pre>const fs = require('fs');</pre>
+<p>之后有几个最简单的函数:</p>
+<pre>
+//新建文件并写入内容
+fs.writeFileSync('notes.txt', 'This file is created by Node.js');
+//在文件尾部追加内容
+fs.appendFileSync('notes.txt', '\nThis is append');
+</pre>
+<p>这可以完成一个最基本的文本文件的读写, 格式都是UTF-8编码的.</p>
+
+
+<h2 style="text-align: center;" id="con4">模块化的node - 导入自己编写的js文件</h2>
+<p>除了库之外, 自然也需要导入自己编写的模块. 这里就需要了解Node.js的导出规则了, 并不像其他语言导入包, 实际上Node.js需要在被导入的文件或者包内设置特殊的被导入内容才行, 只有设置了被导出内容的东西, 才可以被导出.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <h2 style="text-align: center;" id="con5"></h2>
 <h2 style="text-align: center;" id="con6"></h2>
