@@ -20,7 +20,7 @@
 <ol>
     <li><a href="#con1">Node.js 命令行读取参数</a></li>
     <li><a href="#con2">用JSON存储数据</a></li>
-    <li><a href="#con3">模块化的node - 文件系统的简单例子</a></li>
+    <li><a href="#con3">开始编写一个简单的app  通过命令行添加和删除数据</a></li>
     <li><a href="#con4">模块化的node - 导入自己编写的js文件</a></li>
     <li><a href="#con5">模块化的node - npm</a></li>
     <li><a href="#con6">本地包与全局包</a></li>
@@ -109,6 +109,174 @@ Title: 321
 
 <h2 style="text-align: center;" id="con2">用JSON存储数据</h2>
 <p>用JavaScript不用JSON, 就好比用Java不用面向对象思想一样. JSON说实在还是挺好用的. 来看看Node.js里如何使用JSON吧.</p>
+<p>JSON对象在原版JS中就是一个内置的对象, 在Node中也是, 可以直接使用JSON.stringify()来将一个对象转换成JSON字符串, 用JSON.parse()来将一个JSON字符串转换成一个对象.</p>
+<p>和原版JS一样, JSON只能支持字符串和数值类型的转换. 所以语法就不用说了. 这里主要是和之前介绍的写入和读取文件函数来搭配使用:</p>
+<pre>
+const fs = require('fs');
+
+const game = {
+    name: "Baldur's Gate 3",
+    release: 2020
+
+};
+
+//从对象生成JSON字符串
+const bg3JSON = JSON.stringify(game);
+
+console.log(bg3JSON);
+
+//写入到文件
+fs.writeFileSync('data.json', bg3JSON);
+
+//读出文件 直接读出的是一个字节数组
+const content = fs.readFileSync('data.json');
+
+//这个字节数组有一个指定编码来将其转换成字符串的方法
+const dataJSON = content.toString("UTF-8");
+
+//将JSON字符串解析成对象
+const gamebg3 = JSON.parse(dataJSON);
+
+console.log(gamebg3);
+</pre>
+
+<h2 style="text-align: center;" id="con3">开始编写一个简单的app  通过命令行添加和删除数据</h2>
+<p>之前已经添加了yargs, 然后学会了JSON以及将JSON保存在文件中的操作, 现在就可以来编写一个简单的命令行指令, 用来记录一条条信息的应用了.</p>
+<p>这个应用的核心就是首先通过yargs来进行配置命令与对应的参数, 之后读出文件中的JSON, 添加记录后再写回JSON文件, 就是将上边了解过的东西组合起来.</p>
+<p>这里创建一个app.js, 然后创建一个notes.js, app.js作为主程序, 而notes.js, 将所有的与操作notes文件相关的内容都放入其中. 先来看一个最简单的添加记录的方法.</p>
+<pre>
+const fs = require("fs");
+
+//添加记录的函数
+const addNote = function (title, body) {
+    //加载文件转换而来的数组
+    const notes = loadNotes();
+
+    //向数组中添加一个对象
+    notes.push({
+        title: title,
+        body: body
+    });
+
+    //然后进行保存
+    saveNotes(notes);
+};
+
+//从文件中读出JSON并转换成对象的函数, 如果出现错误, 就返回一个空的数组
+const loadNotes = function () {
+    try {
+        return JSON.parse(fs.readFileSync("notes.json").toString());
+    } catch (e) {
+        return [];
+    }
+};
+
+//保存notes的工具函数
+const saveNotes = function (notes) {
+    fs.writeFileSync("notes.json", JSON.stringify(notes));
+};
+
+
+//导出的时候导出一个对象, addNote键对应的就是同名函数
+module.exports = {
+    addNote: addNote
+};
+</pre>
+<p>然后来编写app.js, 其核心思想如下:</p>
+<ol>
+    <li>先利用yargs来为add命令添加两个参数 --title 和 --body</li>
+    <li>然后将add命令的执行命令设置为notes.js中的添加函数</li>
+</ol>
+<p>这样就可以以命令行模式执行来添加title和body, 来编写一下看看, 其实之前也基本编写的差不多了:</p>
+<pre>
+const notes = require("./notes");
+const yargs = require("yargs");
+
+yargs.version("0.0.1");
+
+//注册一个add命令, 带两个选项title和body
+yargs.command({
+    command: 'add',
+    describe: 'Add a new note',
+    builder: {
+        title: {
+            describe: 'Note title',
+            demandOption: true,
+            type: 'string'
+        },
+        body: {
+            describe: 'Note body',
+            demandOption: true,
+            type: 'string'
+        }
+    },
+    handler: function (argv) {
+        notes.addNote(argv.title, argv.body)
+    }
+});
+
+//启动yargs的解析功能, 这一行不要忘记
+yargs.parse();
+</pre>
+<p>编写完之后, 用如下命令:</p>
+<pre>
+node app.js add --title="t" --body="fdsafsda"
+node app.js add --title="bg3" --body="hurry"
+</pre>
+<p>就可以看到生成了notes.json文件, 内容如下:</p>
+<pre>
+[{"title":"t","body":"fdsafsda"},{"title":"bg3","body":"hurry"}]
+</pre>
+<p>这里其实还有一个判断重复添加的过程, 可以规定当title相同的时候, 就算是重复, 则可以修改一下程序如下:</p>
+<pre>
+const addNote = function (title, body) {
+    const notes = loadNotes();
+
+    //检测是否有相同的内容
+
+    let isDuplicated = false;
+
+    for (let eachNote of notes) {
+        if (eachNote.title === title) {
+            isDuplicated = true;
+            console.log("Title: " + title + " is already taken.");
+            return;
+        }
+    }
+
+    notes.push({
+        title: title,
+        body: body
+    });
+    saveNotes(notes);
+
+};
+</pre>
+<p>在每次添加的时候,遍历数组检查是否有相同的标题, 有就直接退出.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
