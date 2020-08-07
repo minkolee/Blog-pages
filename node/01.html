@@ -22,11 +22,11 @@
 
 <ol>
     <li><a href="#con1">安装node.js</a></li>
-    <li><a href="#con2"></a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4"></a></li>
-    <li><a href="#con5"></a></li>
-    <li><a href="#con6"></a></li>
+    <li><a href="#con2">第一个简单的node程序</a></li>
+    <li><a href="#con3">模块化的node - 文件系统的简单例子</a></li>
+    <li><a href="#con4">模块化的node - 导入自己编写的js文件</a></li>
+    <li><a href="#con5">模块化的node - npm</a></li>
+    <li><a href="#con6">本地包与全局包</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">安装node.js</h2>
 <p>安装Node如果不是为了装那些需要C/C++编译的工具, 安装还是挺简单的. 到<a href="https://nodejs.org/" target="_blank">官网</a>下载node, 不管是linux还是windows都比较容易, 下载回来安装即可.</p>
@@ -51,7 +51,7 @@ console.log("Hello world!")
 <p>在<a href="https://nodejs.org/dist/latest-v12.x/docs/api/" target="_blank">node的文档</a>中可以看到很多内容, 其中每一个内容其实都是一个包, 点进去后在例子中可以看到使用require()函数来导入包.</p>
 <p>require()函数就类似于很多其他语言的import, 只不过比较特别的是导入的内容用一个变量存放, 其实是一个对象, 然后调用这个对象的各种方法来完成工作.</p>
 <p>先来看一个最常用的文件系统相关的包, 文档在<a href="https://nodejs.org/dist/latest-v12.x/docs/api/fs.html" target="_blank">这里</a>, 其中提到The fs module provides an API for interacting with the file system in a manner closely modeled around standard POSIX functions. 可见基本上就是基于POSIX系统调用来编写的函数.</p>
-<p>导入语法是:</p>
+<p>写一个最简单的app.js, 导入语法是:</p>
 <pre>const fs = require('fs');</pre>
 <p>之后有几个最简单的函数:</p>
 <pre>
@@ -65,25 +65,65 @@ fs.appendFileSync('notes.txt', '\nThis is append');
 
 <h2 style="text-align: center;" id="con4">模块化的node - 导入自己编写的js文件</h2>
 <p>除了库之外, 自然也需要导入自己编写的模块. 这里就需要了解Node.js的导出规则了, 并不像其他语言导入包, 实际上Node.js需要在被导入的文件或者包内设置特殊的被导入内容才行, 只有设置了被导出内容的东西, 才可以被导出.</p>
+<p>编写一个utils.js如下:</p>
+<pre>
+const name = "Minkopig";
 
+<span style="color: red">module.exports = name;</span>
+</pre>
+<p>注意第二行, 这是node的固定写法, module.exports后边的就是该模块可以导出的部分.</p>
+<p>每个JS文件在node中都由单独的scope, 像很多语言一样, 导入一个js模块实际上也是先运行那个文件, 之后再进行可以导入的部分.</p>
+<p>修改app.js如下:</p>
+<pre>
+const name = require('./utils');
 
+console.log(name)
+</pre>
+<p>运行之后为如下:</p>
+<pre>
+utils.js is loaded
+Minkopig
+</pre>
+<p>可见先运行了被导入的JS文件, 然后从其中获取了导出的name. 有了这个就可以知道, 导出的东西不一定是一个变量, 可以是一个对象等等, 很复杂.</p>
 
+<h2 style="text-align: center;" id="con5">模块化的node - npm</h2>
+<p>npm就不多说了, 就是Node.js的包管理器, 类似于Python与pip的关系. npm的官方网站是:<a href="https://www.npmjs.com/" target="_blank">https://www.npmjs.com/</a>.</p>
+<p>如果在webstorm中启动一个node项目, 会立刻相当于在目录之下运行<code>npm init</code>, 会创建一个<code>package.json</code>文件, 标志着这个目录已经变成了一个node项目.</p>
+<p>然后具体安装就可以使用 <code>npm install 包名</code> 来进行安装, 被安装的东西会位于目录内的 <code>node_modules</code>目录中, 同时还会生成一个 <code>package-lock.json</code>, 记录这个项目实际使用的包的版本.</p>
+<p>这里安装了两个包, 一个是<a href="https://www.npmjs.com/package/validator" target="_blank">validator</a>, 一个是<a
+        href="https://www.npmjs.com/package/chalk" target="_blank">chalk</a>.</p>
 
+<h2 style="text-align: center;" id="con6">本地包与全局包</h2>
+<p>像刚才一样, 直接安装的包位于当前的项目目录下, 这种包叫做本地包, 也就是只有当前项目可以使用.</p>
+<p>如果想安装全局包, 则需要使用另外的命令, 也就是在安装本地包的命令中加上一个参数 -g:</p>
+<p>这里以安装<a href="https://www.npmjs.com/package/nodemon" target="_blank">nodemon</a>为例:</p>
+<pre>
+npm install nodemon<span style="color: red">@2.0.4</span> <span style="color: orange">-g</span>
+</pre>
+<p>这其中红色的部分就是指定版本的方法, 最后的橙色-g就是全局变量的参数.</p>
+<p>安装之后, 在终端中使用nodemon来启动app.js, 而不是通过IDE来启动app.js. 然后就可以发现:</p>
+<pre>
+[nodemon] 2.0.4
+[nodemon] to restart at any time, enter `rs`
+[nodemon] watching path(s): *.*
+[nodemon] watching extensions: js,mjs,json
+[nodemon] starting `node app.js`
+Yay for orange colored text!
+Underlined reddish color
+Bold gray!
+[nodemon] clean exit - waiting for changes before restart
+</pre>
+<p>nodeman就会在后台自动监测所有js文件的变动, 然后重新执行:</p>
+<pre>
+[nodemon] restarting due to changes...
+[nodemon] starting `node app.js`
+Yay for orange colored text!
+Underlined reddish color
+[nodemon] clean exit - waiting for changes before restart
+</pre>
+<p>而且不仅可以检测app.js的变化, 还可以检测app.js所导入的其他模块. 这样对于编写一些持续性的应用就很方便. 在webstorm中, 编辑完之后必须按下Ctrl+S才可以触发nodeman的自动更新.</p>
+<p>之后就是和普通的编程语言一样了, 先学一下基础的IO(更基础的语句就不用看了), 之后是各种包的使用, 最后搭建一个APP. 接下来就是基础了.</p>
 
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con5"></h2>
-<h2 style="text-align: center;" id="con6"></h2>
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>

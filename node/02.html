@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Node 02 基础文件系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>学Node.js实际上就是另外一个环境的JS, 所以依然要看一看基础如何操作. 这里目的是要写一个小程序, 会用到最基本的内容, 比如命令行, JSON存储数据等.</p>
+
+<ol>
+    <li><a href="#con1">Node.js 命令行读取参数</a></li>
+    <li><a href="#con2">用JSON存储数据</a></li>
+    <li><a href="#con3">模块化的node - 文件系统的简单例子</a></li>
+    <li><a href="#con4">模块化的node - 导入自己编写的js文件</a></li>
+    <li><a href="#con5">模块化的node - npm</a></li>
+    <li><a href="#con6">本地包与全局包</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">Node.js 命令行读取参数</h2>
+<p>动态语言经常就有直接就可以使用的读取输入的函数, 好比Python的内建函数.</p>
+<p>Node.js有一个内建的全局对象process, 用其的.argv参数就可以获取命令行模式运行node时候传入的参数, 和静态语言的args一样, 这个process.argv也是一个数组, 放了字符串形式的所有内容. </p>
+<p>其中第一个固定是node.exe, 第二个是js文件名称, 第三个(也就是索引2)就是实际的参数. app.js改成如下试验一下:</p>
+<pre>
+const args = process.argv;
+
+for (let eachArg of args) {
+    console.log(eachArg);
+}
+</pre>
+<p>可以任意执行这个文件加上各种参数:</p>
+<pre>
+node app.js -l x fdkj
+</pre>
+<p>在我的机器上输出如下:</p>
+<pre>
+D:\coding\notes-app>node app.js -l x fdkj
+D:\software\node\node.exe
+D:\coding\notes-app\app.js
+-l
+x
+fdkj
+</pre>
+<p>如果靠process.argv, 一个一个分析也不是不可以, 不过有一些库可以方便的给命令行添加功能, 比如<a href="https://www.npmjs.com/package/yargs" target="_blank">yargs</a>.</p>
+<p>使用<code>npm i yargs</code>安装其为本地版本, 在其<a href="https://yargs.js.org/" target="_blank">官网</a>上有文档, 这就是一个增强版本的解析参数的工具, 其内部操作process.argv.</p>
+<p>app.js现在如下:</p>
+<pre>
+const yargs = require("yargs");
+console.log(yargs.argv);
+</pre>
+<p>以<code>node app.js 1 2</code>的方式运行, 会得到如下结果:</p>
+<pre>
+{ _: [ 1, 2 ], '$0': 'app.js' }
+</pre>
+<p>可见结果是一个对象, 键名为_的是参数的数组, 而$0固定对应的是JS文件的名称. 然后可以简单的添加指令:</p>
+<pre>
+yargs.version('1.1.0');
+yargs.command({
+    command: 'add',
+    describe: 'Add a new note',
+    handler: function () {
+        console.log('Adding a new note!')
+    }
+});
+
+yargs.command({
+    command: 'delete',
+    describe: 'Delete a note',
+    handler: function () {
+        console.log('Delete a note!')
+    }
+});
+</pre>
+<p>version在文档了对应的是 --version 这种选项, 而command就是对应的add delete这种参数. 对于具体的参数搭配, 可以在.command()命令中的对象添加具体的builder对象:</p>
+<pre>
+yargs.command({
+    command: 'add',
+    describe: 'Add a new note',
+    builder:{
+        title: {
+            describe: 'Note title',
+            demandOption: true,
+            type: 'string'
+        }
+    },
+    handler: function (argv) {
+        console.log("Title: " + argv.title);
+    }
+});
+</pre>
+<p>如此配置之后, 在add参数后边就可以加上 --title选项, 还可以在builder中添加多个选项. 然后handler对应的函数可以传入一个argv对象, argv对象就可以用选项名称获取选项的内容, 比如使用如下命令:</p>
+<pre>
+node app.js add  --title="321"
+</pre>
+<p>显示结果就是: </p>
+<pre>
+Title: 321
+{ _: [ 'add' ], title: '321', '$0': 'app.js' }
+</pre>
+<p>有了这个库之后, 就可以方便的操作一个命令+一批选项了.</p>
+
+<h2 style="text-align: center;" id="con2">用JSON存储数据</h2>
+<p>用JavaScript不用JSON, 就好比用Java不用面向对象思想一样. JSON说实在还是挺好用的. 来看看Node.js里如何使用JSON吧.</p>
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
