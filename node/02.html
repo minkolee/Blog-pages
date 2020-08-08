@@ -20,10 +20,11 @@
 <ol>
     <li><a href="#con1">Node.js 命令行读取参数</a></li>
     <li><a href="#con2">用JSON存储数据</a></li>
-    <li><a href="#con3">开始编写一个简单的app  通过命令行添加和删除数据</a></li>
-    <li><a href="#con4">模块化的node - 导入自己编写的js文件</a></li>
-    <li><a href="#con5">模块化的node - npm</a></li>
-    <li><a href="#con6">本地包与全局包</a></li>
+    <li><a href="#con3">简单app - 添加note功能</a></li>
+    <li><a href="#con4">简单app - 查看和删除note功能</a></li>
+    <li><a href="#con5">用箭头函数重构</a></li>
+    <li><a href="#con6">查找功能</a></li>
+    <li><a href="#con7">Node.js 的 debug功能</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">Node.js 命令行读取参数</h2>
 <p>动态语言经常就有直接就可以使用的读取输入的函数, 好比Python的内建函数.</p>
@@ -254,23 +255,274 @@ const addNote = function (title, body) {
 </pre>
 <p>在每次添加的时候,遍历数组检查是否有相同的标题, 有就直接退出.</p>
 
+<h2 style="text-align: center;" id="con4">简单app - 查看和删除note功能</h2>
+<p>根据相同的做法,继续添加对应的指令和notes.js中的函数:</p>
+<pre>
+yargs.command({
+    command: 'remove',
+    describe: 'Remove a new note',
+    builder: {
+        title: {
+            describe: 'Note title',
+            demandOption: true,
+            type: 'string'
+        },
+    },
+    handler: function (argv) {
+        notes.removeNote(argv.title);
+    }
+});
 
 
+yargs.command({
+    command: 'list',
+    describe: 'Remove a new note',
+    handler: function () {
+        notes.listNote()
+    }
+});
+</pre>
+<pre>
+const removeNote = function (title) {
+    const notes = loadNotes();
+
+    let counter = 0;
+
+    const filteredNotes = notes.filter(x => {
+        if (x.title === title) {
+            counter = counter + 1;
+            return false;
+        } else {
+            return true;
+        }
+    });
+    if (counter === 0) {
+        console.log("Title: " + title + "does not exists!");
+    } else {
+        saveNotes(filteredNotes);
+        console.log("note removed");
+    }
+}
+
+const listNote = function () {
+    const notes = loadNotes();
+
+    console.log(chalk.green('Notes List'));
+
+    for (let eachNote of notes) {
+        console.log(chalk.red(eachNote.title), '\t', chalk.blue(eachNote.body));
+    }
+
+};
+</pre>
+<p>这样一个最基础的app就做好了.</p>
+
+<h2 style="text-align: center;" id="con5">用箭头函数重构</h2>
+<p>ES6一大特点就是箭头函数, 这里就用箭头函数尽量将所有的内容重构. 新的notes.js如下:</p>
+<pre>
+const fs = require("fs");
+const chalk = require("chalk");
+
+const addNote = (title, body) => {
+    const notes = loadNotes();
+
+    let isDuplicated = false;
+
+    for (let eachNote of notes) {
+        if (eachNote.title === title) {
+            isDuplicated = true;
+            console.log("Title: " + title + " is already taken.");
+            return;
+        }
+    }
+
+    notes.push({
+        title: title,
+        body: body
+    });
+    saveNotes(notes);
+    console.log("note added");
+};
+
+const removeNote = (title) => {
+    const notes = loadNotes();
+
+    let counter = 0;
+
+    const filteredNotes = notes.filter(x => {
+        if (x.title === title) {
+            counter = counter + 1;
+            return false;
+        } else {
+            return true;
+        }
+    });
+    if (counter === 0) {
+        console.log("Title: " + title + "does not exists!");
+    } else {
+        saveNotes(filteredNotes);
+        console.log("note removed");
+    }
+}
+
+const listNote = () => {
+    const notes = loadNotes();
+
+    console.log(chalk.green('Notes List'));
+
+    for (let eachNote of notes) {
+        console.log(chalk.red(eachNote.title), '\t', chalk.blue(eachNote.body));
+    }
+
+};
 
 
+const loadNotes = () => {
+    try {
+        return JSON.parse(fs.readFileSync("notes.json").toString());
+    } catch (e) {
+        return [];
+    }
+};
+
+const saveNotes = (notes) => {
+    fs.writeFileSync("notes.json", JSON.stringify(notes));
+};
 
 
+module.exports = {
+    addNote: addNote,
+    removeNote: removeNote,
+    listNote: listNote
+};
+</pre>
+<p>新的app.js则使用ES6对象的新语法, 可以直接使用同名函数名称:</p>
+<pre>
+const notes = require("./notes");
+const yargs = require("yargs");
 
+yargs.version("0.0.1");
 
+yargs.command({
+    command: 'add',
+    describe: 'Add a new note',
+    builder: {
+        title: {
+            describe: 'Note title',
+            demandOption: true,
+            type: 'string'
+        },
+        body: {
+            describe: 'Note body',
+            demandOption: true,
+            type: 'string'
+        }
+    },
+    handler(argv) {
+        notes.addNote(argv.title, argv.body)
+    }
+});
 
+yargs.command({
+    command: 'remove',
+    describe: 'Remove a new note',
+    builder: {
+        title: {
+            describe: 'Note title',
+            demandOption: true,
+            type: 'string'
+        },
+    },
+    handler(argv) {
+        notes.removeNote(argv.title);
+    }
+});
 
+yargs.command({
+    command: 'list',
+    describe: 'Remove a new note',
+    handler() {
+        notes.listNote()
+    }
+});
 
+yargs.parse();
+</pre>
 
+<h2 style="text-align: center;" id="con6">查找功能</h2>
+<p>增删改查其实目前只有增删和列出功能, 改可以用先删后增来实现, 还有一个查找功能, 也很简单, 用title查找即可, 命令如下:</p>
+<pre>
+yargs.command({
+    command: 'search',
+    describe: 'Search a note by title',
+    builder: {
+        title: {
+            describe: 'Note title',
+            demandOption: true,
+            type: 'string'
+        },
+    },
+    handler(argv) {
+        notes.search(argv.title)
+    }
+});
+</pre>
+<p>notes.js添加一个新函数及引出对象也添加上该函数:</p>
+<pre>
+const search = (title) => {
+    const notes = loadNotes();
 
+    const result = notes.filter(s => s.title === title);
 
+    if (result.length === 0) {
+        console.log("Cannot find title: " + title);
+    } else {
+        for (let eachNote of result) {
+            console.log(chalk.red(eachNote.title), '\t', chalk.blue(eachNote.body));
+        }
+    }
+};
 
+module.exports = {
+    addNote: addNote,
+    removeNote: removeNote,
+    listNote: listNote,
+    <span style="color: red">search:search</span>
+};
+</pre>
 
-
+<h2 style="text-align: center;" id="con7">Node.js 的 debug功能</h2>
+<p>在node中debug, 有若干形式:</p>
+<ol>
+    <li>用console.log在很多地方输出变量值, 来进行debug. 太低级</li>
+    <li>Node.js 的inspect功能, 结合Chrome</li>
+</ol>
+<p>Node.js 有一个inspect功能, 对于这个app, 使用如下:</p>
+<pre>node inspect app.js</pre>
+<p>之后得到如下显示:</p>
+<pre>
+< Debugger listening on
+<  ws://127.0.0.1:9229/8c3f8ba7-388c-4c5a-b0bc-3cbd6d3b920f
+< For help, see: https://nodejs.org/en/docs/inspector
+< Debugger attached.
+Break on start in app.js:1
+> 1 const notes = require("./notes");
+  2 const yargs = require("yargs");
+  3
+debug>
+</pre>
+<p>这其实是启动了Node.js的debugger, 然后会在本地端口进行等待, 可以通过浏览器调试, 打开Chrome, 在地址栏输入 chrome://inspect, 会看到一个页面:</p>
+<pre>
+Remote Target
+#LOCALHOST
+Target (v12.18.3)
+trace
+app.js
+file:///D:/_Coding_notes-app-1_app.js
+</pre>
+<p>这说明本地端口有一个可以进行inspect的内容, 点击inspect就会打开一个debugger窗口, 然后就可以在其中看到代码.</p>
+<p>由于Chrome是V8引擎, 因此是目前唯一支持Node.js debugger的浏览器.</p>
+<p>在其中的sources中可以在行号前打断点. 然后点靠近右上部分的箭头可以执行并且跟踪变量.</p>
 
 
 
