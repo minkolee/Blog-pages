@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <title>Node 03 网络请求与express后端</title>
+    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <style>
+        body {
+            margin-left: 20px;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+<p>用Node肯定是要搞Web的, 视频到这里要写一个weather app, 但是我看了视频中提供的Dark Sky API的官网已经通知了, 被苹果收购, 所以不再接受新注册的API账号, 原来的API服务将在2020年年底结束....</p>
+<p>那就得看看视频里的Key能不能用了, 反正先跟着来, 不行就换一个免费的天气API来做</p>
+
+<ol>
+    <li><a href="#con1">Node.js 发起HTTP请求</a></li>
+    <li><a href="#con2">express搭建后端</a></li>
+    <li><a href="#con3">express中使用模板渲染</a></li>
+    <li><a href="#con4">express 添加404页面</a></li>
+</ol>
+<h2 style="text-align: center;" id="con1">Node.js 发起HTTP请求</h2>
+<p>这里其实是要写一个新的APP了, 也就是天气app. 最开始要解决的就是哪里去查询API.</p>
+<p>HTTP请求包有很多种, 视频里使用的是request包. 我自己安装一看, 结果发现<a href="https://github.com/request/request/issues/3142" target="_blank">request包</a>已经挂了....</p>
+<p>看来我自己用的话, 只能像之前看JS的教学的时候一样来使用axios了, 反正也是一直用过来的. 安装之:</p>
+<pre>
+npm install axios
+</pre>
+<p>安装的是 19.2版本. 然后我去注册了一个 <a href="https://home.openweathermap.org/" target="_blank">https://home.openweathermap.org/</a>的API.</p>
+<p>最简单的<a href="https://openweathermap.org/current" target="_blank">查询API文档里列出了如下查询方法:</a></p>
+<ol>
+    <li><code>api.openweathermap.org/data/2.5/weather?q={city name}&appid={your api key}</code>, 按名称查询</li>
+    <li><code>api.openweathermap.org/data/2.5/weather?id={city id}&appid={your api key}</code>, 按城市id查询</li>
+    <li><code>api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={your api key}</code>,按经纬度查询</li>
+</ol>
+<p>我尝试了一下在浏览器里查询Shanghai, 得到如下结果:</p>
+<pre>
+{
+  coord: { lon: 121.46, lat: 31.22 }, //经纬度
+  weather: [ { id: 800, main: 'Clear', description: 'clear sky', icon: '01d' } ], //天气情况的id, 参数, 描述和图标id
+  base: 'stations',
+  main: {
+    temp: 307.6, //气温, 默认是开尔文
+    feels_like: 313.35, //体感温度
+    temp_min: 306.15, //最低温度
+    temp_max: 310.37, //最高温度
+    pressure: 1002,  //气压hPa
+    humidity: 70     //湿度
+  },
+  visibility: 10000,  //可见度, 以米计量
+  wind: { speed: 4, deg: 230 }, //风向, 速度和角度
+  clouds: { all: 7 }, //云百分比
+  dt: 1597028871, //UTC时间戳
+  sys: {
+    type: 1,
+    id: 9659,
+    country: 'CN',      //国家代码
+    sunrise: 1597007802, //日升时间
+    sunset: 1597056147   //日落时间
+  },
+  timezone: 28800,  //时区与UTC时间差异
+  id: 1796236,      //城市id
+  name: 'Shanghai', //城市名称
+  cod: 200
+}
+</pre>
+<p>然后就可以编写针对上边三种查询的函数来尝试一下结果:</p>
+<pre>
+const axios = require("axios");
+
+const key = 'XXX'
+const url = 'http://api.openweathermap.org/data/2.5/weather'
+
+const byId = async (cityId) => {
+    return await axios.get(url, {
+        params: {
+            id: cityId,
+            appid: key
+        }
+    })
+};
+
+const byName = async (cityName) => {
+    return await axios.get(url, {
+        params: {
+            q: cityName,
+            appid: key
+        }
+    });
+};
+
+const byLatAndLon = async (lat, lon) => {
+    return await axios.get(url, {
+        params: {
+            lat: lat,
+            lon: lon,
+            appid: key
+        }
+    });
+};
+
+module.exports = {
+    byId:byId,
+    byLatAndLon: byLatAndLon,
+    byName: byName
+}
+</pre>
+<p>这样在主程序里, 就可以如下来使用:</p>
+<pre>
+const result = weather.byLatAndLon(31.22,  121.46);
+
+result.then(resolve => console.log(resolve.data)).catch((error) => console.log("出错"));
+</pre>
+<p>这样就可以查询到上海的天气情况了, 有了这个基础铺垫以后, 后边就可以来编写这个weather app的其他部分, 也就是一个web服务器了.</p>
+
+<h2 style="text-align: center;" id="con2">express搭建后端</h2>
+<p>后端说实在的当然是Java啦, 不过动态语言像Python和Node.js, 搭建后端的速度快一些, 而Java重在大型工程. 如果现在让我写处理Excel的程序, 那还只有快速用Python后端才行.</p>
+<p>Node.js里这次使用<a href="https://www.npmjs.com/package/express" target="_blank">express</a>来搭建后端, 像其文档里说的一样, 是一个Fast, unopinionated, minimalist web framework for node.</p>
+<p>老样子先安装, 既然是个框架, 那少不了对外暴露API的设置, 写处理请求的函数了.</p>
+<pre>npm i express</pre>
+<p>express的基础用法很简单, 先创建一个对象, 然后对于暴露的api编写函数即可, 如下:</p>
+<pre>
+const weather = require("./weather");
+const express = require("express");
+
+const app = express();
+const baseURL = '/'
+app.get(baseURL, (request, response) => {
+    console.log(request);
+    response.send("Hello world!");
+});
+app.listen(8000);
+</pre>
+<p>写了两年web应用的我们一看就知道是怎么回事了, 接下来就是看如何返回JSON.</p>
+<p>其实也很简单, 就是在send中传入一个对象,就会自动将其转换成JSON:</p>
+<pre>
+app.get(baseURL+"json", (request, response) => {
+    console.log(request);
+    response.send({
+        job: "cannot find",
+        timetofind: "3month"
+    });
+});
+</pre>
+<p>这样访问/json的时候, 就看到显示出了JSON字符串.</p>
+<p>然后是返回静态文件, 也就是HTML JS CSS这种东西, 其实也简单, express使用一个.static()函数, 其中传入静态资源所在的目录</p>
+<p>在项目下新建staticfiles目录, 然后在其中新建一个index.html文件, 然后编写如下代码:</p>
+<pre>
+const weather = require("./weather");
+<span style="color: red">const path = require("path");</span>
+
+const express = require("express");
+const app = express();
+<span style="color: red">const filePath = path.join(__dirname,'/staticfiles')</span>
+
+<span style="color: red">app.use(express.static(filePath));</span>
+
+const baseURL = '/'
+
+app.get(baseURL, (request, response) => {
+    console.log(request);
+    response.send("&lt;h1 style='text-align: center'>Hello world!&lt;/h1>");
+});
+
+app.get(baseURL+"json", (request, response) => {
+    console.log(request);
+    response.send({
+        job: "cannot find",
+        timetofind: "3month"
+    });
+});
+
+app.listen(8000);
+</pre>
+<p>再此启动服务器之后, 虽然下边写了对应路径的访问, 但是默认就会显示index.html的内容, 说明会覆盖根路径, 不过/json路径依然有效.</p>
+<p>对于单页面应用来说, 返回一个HTML也足够了, 所以可以把访问根目录的get方法删除了. 存在多个页面的情况下, 可以直接用html文件路径访问, 比如http://localhost:8000/about.html</p>
+<p>之后是载入js和css文件, 在staticfiles目录下创建css, 然后弄一个样式文件style.css:</p>
+<pre>
+h1 {
+    color: orangered;
+    font-size: 60px;
+}
+</pre>
+<p>这里关键是index.html中的路径设置, 要如何设置才能找到css文件呢, 其实已经知道根目录对应的实际目录, 在header标签中写上就行了:</p>
+<pre>
+&lt;link rel="stylesheet" href="/css/style.css">
+</pre>
+<p>这样就生效了, 知道了这个方式之后, 所有的静态文件都是一样. 由于Node.js主要开发的就是前后端分离, 所以一般不会重型的去渲染.</p>
+<p>然后在staticfiles中创建一个新的也叫app.js的JS文件, 将其也引入到页面来, 就可以来编写Web应用了.</p>
+<p>学过Web开发就是方便, 再看Web应用驾轻就熟, 还缺最后一个, 就是使用模板来渲染.</p>
+
+
+<h2 style="text-align: center;" id="con3">express中使用模板渲染</h2>
+<p>express自己是没有模板解析引擎和渲染库, 必须要搭配其他库使用. 常用的两个库是<a href="https://www.npmjs.com/package/handlebars" target="_blank">handlebars</a>和
+    <a href="https://www.npmjs.com/package/hbs" target="_blank">hbs</a>, 其中hbs和express搭配很方便, 可以做为模板渲染引擎.</p>
+<p>使用 <code>npm i hbs</code> 安装之后, 按照文档, 加上一行:</p>
+<pre>
+app.set('view engine', 'hbs');
+</pre>
+<p>这一行的意思是调用res.render方法的时候会使用hbs文件, 如果将HTML作为模板, 则需要改成:</p>
+<pre>
+app.set('view engine', 'html');
+</pre>
+<p>使用hbs之后, 在weather-app下边(不是静态文件夹下边), 需要创建一个固定的views文件夹, 其中用来存放模板.</p>
+<p>然后删除静态文件index.html, 之后访问根目录就需要使用res.render函数来渲染了:</p>
+<pre>
+app.get('', (req, res) => {
+    res.render('index');
+});
+</pre>
+<p>这个'index'需要与view中的'index.hbs'去掉后缀名的名称一致, 以方便找到模板. 可见Web应用都差不多,这个与Spring MVC也非常相似.</p>
+<p>有了模板, 然后就是渲染其中的内容了, render函数还接受第二个参数就是一个对象, 将模板中变量替换成实际的值:</p>
+<pre>
+app.get('', (req, res) => {
+    res.render('index',{
+        title: 'Weather App',
+        name: 'Minkopig'
+    });
+});
+</pre>
+<p>修改模板如下:</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html lang="en">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>express 测试首页&lt;/title>
+    &lt;link rel="stylesheet" href="/css/style.css">
+    &lt;script src="/js/app.js">&lt;/script>
+&lt;/head>
+&lt;body>
+&lt;h1 style="text-align: center">Express 模板文件 来自于 index.hbs&lt;/h1>
+&lt;p>This is {{title}}&lt;/p>
+&lt;p>Author: {{name}}&lt;/p>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>就可以渲染出来结果了.</p>
+<p>自定义视图目录也是可以的, 只要使用:</p>
+<pre>
+const viewsPath = path.join(__dirname,'/templates')
+app.set('views', viewsPath);
+</pre>
+<p>这样设置之后, 记得将原来的views目录改成templates目录即可.</p>
+<p>模板还可以使用partials来渲染一小段页面, 类似于Django中一小段, 了解即可.</p>
+
+<h2 style="text-align: center;" id="con4">express 添加404页面</h2>
+<p>这个其实就是路径匹配的顺序.</p>
+<p>express在内部写每个路由的时候, 是有顺序的, 就类似Django中path的匹配顺序, 目前顺序如下:</p>
+<pre>
+app.get('', (req, res) => {
+    res.render('index',{
+        title: 'Weather App',
+        name: 'Minkopig'
+    });
+});
+
+app.get('/json', (req, res) => {
+    res.send({
+        title: 'Weather App',
+        name: 'Minkopig'
+    });
+});
+</pre>
+<p>这表明先访问的根路径, 会渲染模板, /json路径则返回一个JSON字符串. 所以就和很多Web框架一下, 在最后加上一个接住所有匹配URL的路径就可以了:</p>
+<pre>
+app.get('*', (req, res) => {
+    res.render('page404');
+});
+</pre>
+<p>page404.hbs如下:</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html lang="en">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>express 404&lt;/title>
+    &lt;link rel="stylesheet" href="/css/style.css">
+    &lt;script src="/js/app.js">&lt;/script>
+&lt;/head>
+&lt;body>
+&lt;h1 style="text-align: center">找不到页面&lt;/h1>
+&lt;p>This is {{title}}&lt;/p>
+&lt;p>Author: {{name}}&lt;/p>
+&lt;p>&lt;a href="/">返回首页&lt;/a>&lt;/p>
+&lt;/body>
+&lt;/html>
+</pre>
+<p>这样就添加了一个错误页面, 只要匹配不了的URL都会到这个页面来. 这里涉及到express的路由匹配规则, 有兴趣就可以看文档, 不过确实用这个起一个后端还是挺快的.</p>
+<p>express还真是一个短小精悍的后端, 只要再挂上数据库就差不多了.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+
+</body>
+</html>
