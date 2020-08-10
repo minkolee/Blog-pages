@@ -23,6 +23,8 @@
     <li><a href="#con2">express搭建后端</a></li>
     <li><a href="#con3">express中使用模板渲染</a></li>
     <li><a href="#con4">express 添加404页面</a></li>
+    <li><a href="#con5">页面版的查询</a></li>
+    <li><a href="#con6">API版本的查询</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">Node.js 发起HTTP请求</h2>
 <p>这里其实是要写一个新的APP了, 也就是天气app. 最开始要解决的就是哪里去查询API.</p>
@@ -293,6 +295,157 @@ app.get('*', (req, res) => {
 </pre>
 <p>这样就添加了一个错误页面, 只要匹配不了的URL都会到这个页面来. 这里涉及到express的路由匹配规则, 有兴趣就可以看文档, 不过确实用这个起一个后端还是挺快的.</p>
 <p>express还真是一个短小精悍的后端, 只要再挂上数据库就差不多了.</p>
+
+<h2 style="text-align: center;" id="con5">页面版的查询</h2>
+
+<p>这里要写实际业务了, 实际业务可能会分为两块, 一块是渲染页面的, 也就是用户在页面上输入城市名称, 然后显示该城市的天气信息, 其他也是一样.</p>
+<p>还需要提供一个JSON接口, 可以像天气API一样, 使用URL参数来获取结果, 然后返回一个JSON字符串.</p>
+<p>其实对于我也都驾轻就熟了, 现在就可以来开始编写了.</p>
+<p>页面版的查询搞一个最简单的就可以, 也就是一个input框用于输入城市的名称, 然后点击一个按钮, 就可以在页面上显示出来查询的结果.</p>
+<p>这次就可以把那些练习代码全部都删除掉, 正式来编写, 首页返回index.hbs:</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html lang="en">
+&lt;head>
+    &lt;meta charset="UTF-8">
+    &lt;title>查询天气&lt;/title>
+    &lt;link rel="stylesheet" href="/css/style.css">
+    <span style="color: red">&lt;script src="https://cdn.bootcdn.net/ajax/libs/axios/0.20.0-0/axios.js">&lt;/script></span>
+
+&lt;/head>
+&lt;body>
+&lt;h1 style="text-align: center">查询天气&lt;/h1>
+&lt;div class="container">
+    &lt;input type="text" id="city">
+    &lt;button>查询&lt;/button>
+&lt;/div>
+
+&lt;script src="/js/app.js">&lt;/script>
+
+&lt;/body>
+&lt;/html>
+</pre>
+<p>然后要编写app.js, 注意app.js虽然在项目中, 但是实际上由浏览器导入, 所以无法使用像node这样的功能, 必须老实引入额外的axios文件在index.hbs中.</p>
+<p>然后就要编写业务代码了:</p>
+<pre>
+const input = document.querySelector('input');
+const button = document.querySelector('button');
+const key = '4bea17900b1c68b05c79eb7b7af7dd10'
+const url = 'http://api.openweathermap.org/data/2.5/weather'
+const resultArea = document.getElementById("result");
+input.value = 'shanghai';
+
+async function handleClick() {
+    button.disabled = true;
+    await axios.get(url, {
+        params: {
+            q: input.value,
+            appid: key
+        }
+    }).then(resolve => {
+        console.log(resolve.data);
+        renderResult(resolve.data);
+        button.disabled = false;
+    }).catch(() => {
+        resultArea.innerHTML = "Cannot find " + input.value;
+        button.disabled = false;
+    });
+}
+
+function renderResult(result) {
+    let temp = (parseFloat(result.main.temp) - 273.15).toFixed(2);
+    resultArea.innerHTML = `
+    &lt;p>City: ${result.sys.country} ${result.name}&lt;/p>
+    &lt;p>Temperature: ${temp}&lt;/p>
+    &lt;p>Weather: ${result.weather[0].main} ${result.weather[0].description}&lt;/p>
+    `
+}
+
+button.addEventListener('click', handleClick);
+</pre>
+<p>这个业务代码还是挺简单的, 发送异步请求同时阻挡住反复请求, 之后根据返回结果, 渲染结果区域或者显示找不到.</p>
+<p>样式稍微修饰了一下:</p>
+<pre>
+h1 {
+    color: grey;
+    font-size: 48px;
+}
+
+.container {
+    max-width: 960px;
+    margin: 2em auto;
+}
+
+input {
+    font-size: 1.2em;
+    color: orangered;
+    font-family: Tahoma, Geneva, sans-serif;
+}
+
+button {
+    background-color: dodgerblue;
+    font-size: 1.2em;
+    color: white;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    box-shadow: 0 0 4px white;
+}
+
+label {
+    font-size: 1.2em;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+</pre>
+
+<h2 style="text-align: center;" id="con6">API版本的查询</h2>
+<p>这个因为是直接通过express提供服务, 所以不是写在页面引入的app.js中, 而是写在启动node的app.js中. 这里我们仅仅就使用一个city参数, 然后是get请求, 来获取一下结果, 新的app.js如下:</p>
+<pre>
+const axios = require("axios");
+const url = 'http://api.openweathermap.org/data/2.5/weather'
+const path = require("path");
+const key = '4bea17900b1c68b05c79eb7b7af7dd10'
+const express = require("express");
+const app = express();
+const filePath = path.join(__dirname, '/staticfiles')
+const viewsPath = path.join(__dirname, '/templates')
+
+app.set('view engine', 'hbs');
+app.set('views', viewsPath);
+app.use(express.static(filePath));
+
+app.get('', (req, res) => {
+    res.render('index', {
+        title: 'Weather App',
+        name: 'Minkopig'
+    });
+});
+
+app.get('/api', (req, res) => {
+    if (req.query.city) {
+        axios.get(url, {
+            params: {
+                q: req.query.city,
+                appid: key
+            }
+        }).then(resolve => res.send(resolve.data)).catch(() => res.send({}));
+    } else {
+        res.send({});
+    }
+});
+
+
+app.listen(8000);
+</pre>
+<p>这样只需要以<code>http://localhost:8000/api?city=shanghai</code>这样的查询就可以得到JSON字符串了, 如果找不到, 就会返回空结果.</p>
+
+
+
+
+
+
+
 
 
 
