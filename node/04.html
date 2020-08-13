@@ -19,7 +19,7 @@
 
 <ol>
     <li><a href="#con1">NoSQL数据库与SQL数据库的对应关系</a></li>
-    <li><a href="#con2">API版本的查询</a></li>
+    <li><a href="#con2">在Node中使用MongoDB</a></li>
     <li><a href="#con3">express中使用模板渲染</a></li>
     <li><a href="#con4">express 添加404页面</a></li>
 </ol>
@@ -31,6 +31,34 @@
     <li>Row/Record - Document</li>
     <li>Column - Field</li>
 </ol>
+<p>MongoDB的官网在<a href="https://www.mongodb.com/" target="_blank">https://www.mongodb.com/</a>, 点击其中的Software - MongoDB Community Server,
+    这个是免费的版本, 然后下载安装, 先来安装CentOs版本, 选择旁边的4.4.0, CentOS 7+, 然后是tgz版本.
+    依照<a href="http://docs.mongodb.org/manual/tutorial/install-mongodb-on-linux" target="_blank">官网的安装指南</a>来进行安装:</p>
+<ol>
+    <li>在<code>/etc/yum.repos.d/</code>下创建<code>mongodb-org-4.4.repo</code>,内容如下:
+    <pre>
+    [mongodb-org-4.4]
+    name=MongoDB Repository
+    baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/4.4/x86_64/
+    gpgcheck=1
+    enabled=1
+    gpgkey=https://www.mongodb.org/static/pgp/server-4.4.asc
+    </pre>
+    </li>
+    <li>然后使用yum直接安装 <code>sudo yum install -y mongodb-org</code></li>
+</ol>
+<p>安装并启动成功之后, MongoDB默认绑定127.0.0.1, 即只能在本机访问, 在配置文件<code>/etc/mongod.conf</code>中修改如下:<code>bindIp: 0.0.0.0</code>, 这样就是绑定了所有IPv4和IPv6地址, 之后使用<code>systemctl
+    restart mongod</code>即可. 和MySQL安装有相似之处.</p>
+<p>启动、停止和检测状态在CentOS 7中如下:</p>
+<ol>
+    <li><code>systemctl start mongod</code></li>
+    <li><code>systemctl stop mongod</code></li>
+    <li><code>systemctl status mongod</code></li>
+</ol>
+<p>由于mongodb默认不需要用户名和密码就能访问， 所以如果在公网上公开mongodb的端口，小心会被攻击.</p>
+<p>不过个人测试用, 也可以了.下边就来看看Node.js中使用MongoDB的驱动然后使用.</p>
+
+<h2 style="text-align: center;" id="con2">在Node中使用MongoDB</h2>
 
 
 
@@ -41,7 +69,11 @@
 
 
 
-<h2 style="text-align: center;" id="con2">NoSQL数据库与SQL数据库的对应关系</h2>
+
+
+
+
+
 
 
 
