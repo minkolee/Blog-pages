@@ -20,7 +20,7 @@
 <ol>
     <li><a href="#con1">NoSQL数据库与SQL数据库的对应关系</a></li>
     <li><a href="#con2">在Node中使用MongoDB</a></li>
-    <li><a href="#con3">express中使用模板渲染</a></li>
+    <li><a href="#con3">CRUD</a></li>
     <li><a href="#con4">express 添加404页面</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">NoSQL数据库与SQL数据库的对应关系</h2>
@@ -57,8 +57,80 @@
 </ol>
 <p>由于mongodb默认不需要用户名和密码就能访问， 所以如果在公网上公开mongodb的端口，小心会被攻击.</p>
 <p>不过个人测试用, 也可以了.下边就来看看Node.js中使用MongoDB的驱动然后使用.</p>
+<p>想通过图形化操作的话, MongoDB官方有图形化工具, 还有第三方工具robomongo.org, 这个就略过了, 反正用程序操作和图形化没有关系.</p>
+
 
 <h2 style="text-align: center;" id="con2">在Node中使用MongoDB</h2>
+<p>和很多数据库一样, 首先还得装驱动. MongoDB官方提供了用于Node.js的驱动, 位于<a
+        href="https://docs.mongodb.com/drivers/" target="_blank">官网-doc-drivers</a>中.</p>
+<p>点击其中的Node.js, 再点击API Document就可以看详细情况, 官方驱动在npm中的包名是<a href="https://www.npmjs.com/package/mongodb" target="_blank">mongodb</a>. 先安装之. 写这篇博客的时候驱动是3.6版本.</p>
+<p>有了驱动, 就可以来搞一下连接, 连接之后就可以看CRUD了.</p>
+<pre>
+const mongodb = require("mongodb");
+//客户端
+const mongoClient = mongodb.MongoClient;
+
+//数据库的URL
+const url = 'mongodb://106.54.215.164:27017';
+
+//使用的数据库, 可以自定义
+const databaseName = 'weathers';
+
+//三个参数, 第一个是URL, 第二个是配置, 第三个是成功回调函数
+mongoClient.connect(url, {useNewUrlParser: true}, function (error, client) {
+    if (error) {
+        console.log("AN error");
+    }
+    console.log(url, "Connected.");
+});
+</pre>
+<p>连接套路就是这个, 然后有个提示:</p>
+<pre>
+(node:14928) DeprecationWarning: current Server Discovery and Monitoring engine is deprecated,
+and will be removed in a future version. To use the new Server Discover and Monitoring engine,
+pass option { useUnifiedTopology: true } to the MongoClient constructor.
+</pre>
+<p>看来就是option中的一个设置要被删除了, 以后要使用MongoClient的构造器传给它. 现在开始看CRUD</p>
+
+<h2 style="text-align: center;" id="con3">CRUD</h2>
+<p>mongo在内部使用一个数据库连接池连接到数据库, 所以CRUD的代码都可以写在成功连接的回调函数中, 而且需要用到其中默认的client参数.</p>
+<p>使用某个数据库, 并返回那个数据库链接的代码是:</p>
+<pre>
+mongoClient.connect(url, {useNewUrlParser: true}, function (error, client) {
+    if (error) {
+        console.log("AN error");
+    }
+    console.log(url, "Connected.");
+
+    //指定某个数据库, 如果没有就会创建
+    const db = client.db(databaseName);
+
+});
+</pre>
+<p>之后向一个collection中插入一个document:</p>
+<pre>
+const db = client.db(databaseName);
+
+//然后需要找一个表(collection), 向其中插入一条记录(Document)
+db.collection('users').insertOne({
+    name: "Cony",
+    age: 6
+});
+</pre>
+<p>使用可视化工具, 可以看到多了一个weathers数据库, 其中的Collections里有一个user, 点进去可以看到有1条Document, 其中有两个键值对就是刚刚写入的东西.还有一个内部自动生成的_id字段.</p>
+<p>当然insertOne也可以传入回调:</p>
+<pre>
+db.collection('users').insertOne({
+    name: "Jenny",
+    age: 36
+}, (error, result) =>{
+    if (error) {
+        return console.log("Unable to insert");
+    }
+    console.log(result.ops);
+});
+</pre>
+<p>文档可以看<a href="http://mongodb.github.io/node-mongodb-native/3.6/api/MongoClient.html" target="_blank">MongoClient的文档.</a></p>
 
 
 
@@ -77,7 +149,16 @@
 
 
 
-<h2 style="text-align: center;" id="con3">页面版的查询</h2>
+
+
+
+
+
+
+
+
+
+
 <h2 style="text-align: center;" id="con4">页面版的查询</h2>
 <h2 style="text-align: center;" id="con5">页面版的查询</h2>
 <h2 style="text-align: center;" id="con6">页面版的查询</h2>
