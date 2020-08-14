@@ -20,8 +20,11 @@
 <ol>
     <li><a href="#con1">NoSQL数据库与SQL数据库的对应关系</a></li>
     <li><a href="#con2">在Node中使用MongoDB</a></li>
-    <li><a href="#con3">CRUD</a></li>
-    <li><a href="#con4">express 添加404页面</a></li>
+    <li><a href="#con3">新建记录</a></li>
+    <li><a href="#con4">ObjectID</a></li>
+    <li><a href="#con5">查找记录</a></li>
+    <li><a href="#con6">Update</a></li>
+    <li><a href="#con7">Delete</a></li>
 </ol>
 <h2 style="text-align: center;" id="con1">NoSQL数据库与SQL数据库的对应关系</h2>
 <p>MongoDB用过, 但是没有好好看过. 这次就来结合Node一起用用, 这样Node后端基本就完整了.</p>
@@ -92,7 +95,7 @@ pass option { useUnifiedTopology: true } to the MongoClient constructor.
 </pre>
 <p>看来就是option中的一个设置要被删除了, 以后要使用MongoClient的构造器传给它. 现在开始看CRUD</p>
 
-<h2 style="text-align: center;" id="con3">CRUD</h2>
+<h2 style="text-align: center;" id="con3">新建记录</h2>
 <p>mongo在内部使用一个数据库连接池连接到数据库, 所以CRUD的代码都可以写在成功连接的回调函数中, 而且需要用到其中默认的client参数.</p>
 <p>使用某个数据库, 并返回那个数据库链接的代码是:</p>
 <pre>
@@ -131,39 +134,184 @@ db.collection('users').insertOne({
 });
 </pre>
 <p>文档可以看<a href="http://mongodb.github.io/node-mongodb-native/3.6/api/MongoClient.html" target="_blank">MongoClient的文档.</a></p>
+<p>除了insertOne之外, 还有insertMany方法, 使用方法类似, 只不过第一个参数换成对象数组, 就可以批量插入对象了.</p>
+<pre>
+db.collection("clusters").insertMany(
+    [{good:'working',bepatient:'tocony'},{good:'working2',bepatient:'tocony2'},{good:'working22',bepatient:'tocony22'}],
+    {},
+    (error, result) =>{
+        if(error)
+            return console.log("Unable to insert");
+        console.log(result.ops);
+    }
+)
+</pre>
+<p></p>
+
+<h2 style="text-align: center;" id="con4">ObjectID</h2>
+<p>在插入记录的时候, 都会有一个ObjectID, 这个东西其实就类似于SQL数据库中的主键. MongoDB中存储的文档必须有一个"_id"键。这个键的值可以是任何类型的，默认是个ObjectId对象:</p>
+<pre>
+{
+    "_id" : ObjectId("5f35554763e5c44d507585dc"),
+    "name" : "Cony",
+    "age" : 6
+}
+</pre>
+<p>在一个集合里面，每个文档都有唯一的"_id"值，来确保集合里面每个文档都能被唯一标识。由于是一个ObjectId对象, 所以也可以自己创建一个ObjectID对象来替代默认生成的对象.</p>
+<p>根据<a href="https://docs.mongodb.com/manual/reference/method/ObjectId/" target="_blank">官网文档</a>, 自动生成的ObjectID是一个12字节长的值, 构成如下:</p>
+<ol>
+    <li>4字节的时间戳, 有了这个, 无需特意保存每条记录的生成时间</li>
+    <li>5字节的随机值</li>
+    <li>3字节的计数器, 初始化为一个随机的值</li>
+</ol>
+<p>要创建一个ObjectID, 需要使用ObjectID对象:</p>
+<pre>
+const <span style="color: red">mongodb</span> = require("mongodb");
+const mongoClient = mongodb.MongoClient;
+const ObjectID = mongodb.ObjectID;
+</pre>
+<p>在ES6下, 上边这三行还可以这么写(如果不使用mongodb变量的话):</p>
+<pre>
+const {<span style="color: red">MongoClient</span>, ObjectID} = require("mongodb");
+</pre>
+<p>但是注意两处变量名称的不同, 需要与包中的类名一致才行. 然后就可以来创建自己的ObjectID了:</p>
+<pre>
+const id = ObjectID();
+
+console.log(id);
+</pre>
+<p>打印出来类似如下<code>5f3603b6cbdc9536f8915c0b</code>, 还可以给构造器传入一个参数, 要求是12字节的字符串或者24个十六进制字符.</p>
+<p>比如可以传入<code>"123456789012"</code>, 打印出来的是<code>313233343536373839303132</code>. 传入"<code>aabbccaabbccaabbccaabbcc</code>",
+    被识别为十六进制字符串, 打印出来依然是<code>aabbccaabbccaabbccaabbcc</code>.</p>
+<p>然后就可以来插入一个设置了自定义的ObjectID的对象:</p>
+<pre>
+const id = ObjectID("aabbccaabbccaabbccaabbcc");
+MongoClient.connect(url, {useNewUrlParser: true}, function (error, client) {
+    if (error) {
+        console.log("AN error");
+    }
+    console.log(url, "Connected.");
+
+    const db = client.db(databaseName);
+
+    db.collection("customId").insertOne(
+        {
+            <span style="color: red">_id: id,</span>
+            game: "Baldur's Gate 3",
+            release: 'unknown'
+        }, {}, (error, result) => {
+            if (error) {
+                return console.log("Unable to insert");
+            }
+            console.log(result.ops);
+        }
+    );
+ });
+</pre>
+<p>红字部分就覆盖了<code>_id</code>这个Field. 第一次执行可以插入, 第二次执行的时候, 由于ObjectId的值必须唯一, 但是我们没有更改过ObjectID, 因此就插入失败.</p>
+<p>所以使用ObjectID, 就可以让策略更灵活, 如果我们规定用户名不能重复, 就可以想办法在ObjectID的生成方面做文章, 而不用每次插入都先去寻找. </p>
+<p>对于系统生成的ObjectID,还有几个辅助方法可以方便的获取id或者十六进制字符串, 还有一个方便的功能就是其中自动记录了时间戳, 可以使用<code>.getTimestamp()</code>方法来快速获取时间戳:</p>
+<pre>
+const id = ObjectID();
+console.log(id.id);
+console.log(id.toHexString());
+console.log(id.getTimestamp());
+</pre>
+<p>结果是:</p>
+<pre>
+&lt;Buffer 5f 36 08 db 28 6f 69 3b 08 cc e0 d4>
+5f3608db286f693b08cce0d4
+2020-08-14T03:45:31.000Z
+</pre>
+<p>实际上Mongodb的这种ObjectID主要是为了分布式考虑的.</p>
 
 
 
+<h2 style="text-align: center;" id="con5">查找记录</h2>
+<p>能添加了接着就是来查找. 查找方法通过查看<a href="http://mongodb.github.io/node-mongodb-native/3.6/api/Collection.html" target="_blank">Collection</a>文档可以知道,
+有以<a href="http://mongodb.github.io/node-mongodb-native/3.6/api/Collection.html#find" target="_blank">Find</a>和<a
+            href="http://mongodb.github.io/node-mongodb-native/3.6/api/Collection.html#findOne" target="_blank">FindOne</a>为代表的方法.</p>
+<pre>
+db.collection("users").findOne({
+        name: 'Cony',
+        age:6
+    }, (e,user)=>{
+        if (e) {
+            return console.log(e);
+        }
+        console.log(user);
+    })
+</pre>
+<p>findOne的第一个参数是一个对象, 其中包含要查询的域和值, 如果像例子里一样是多个值, 则需要同时匹配才行. 如果这里将age改成1, 那么结果返回一个null, 注意, 找不到并不是发生错误, 也是一种正常的查询结果.</p>
+<p>之后的回调函数是两个参数, 第一个是错误对象. 第二个是查询到的结果.</p>
+<p>findOne固定返回1个结果, 所以如果查找结果有多个, 会返回第一个.</p>
+<p>也可以查询多个结果, 将findOne改成find方法, 如果打印user的话得到一个<a href="http://mongodb.github.io/node-mongodb-native/3.6/api/Cursor.html" target="_blank">Cursor对象</a>.</p>
+<pre>
+db.collection("users").find({
+        age: 36
+    }).toArray((error, users) => {
+        console.log(users);
+});
+
+db.collection("users").find({
+        age: 36
+    }).count((error, count) => {
+        console.log(count);
+});
+</pre>
+<p>第一行查出了所有的users, 使用toArray然后传入回调.</p>
+<p>第二行则是统计数量. 这样简单的查找也可以使用了.</p>
 
 
+<h2 style="text-align: center;" id="con6">Update</h2>
+<p>update方法也有一批, 分别是update, updateOne, updateMany</p>
+<p>update方法已经弃用, 现在使用updateOne和updateMany即可.</p>
+<p>这两个方法传入的参数都一样, 分别如下:</p>
+<ol>
+    <li><code>filter</code>, 用于选择要更新哪些document</li>
+    <li><code>update</code>, 如何更新</li>
+    <li><code>options</code>, 设置选项</li>
+    <li><code>callback</code>, 永远的回调函数</li>
+</ol>
+<p>看一个具体用法:</p>
+<pre>
+const updatePromise = db.collection("users").updateOne(
+    {
+        age: 36
+    }, {
+        $set: {
+            age: 37
+        },
 
+    }
+);
 
+updatePromise.then((result) => {
+    console.log(result)
+}).catch(()=>{console.log("Error")});
+</pre>
+<p>这个不传入回调函数的话, 返回一个Promise, 所以也可以采用Promise的形式. filter相当于条件, 就和查找一样, 更新则必须使用规定好的对象,
+    其中使用特殊的<a href="https://docs.mongodb.com/manual/reference/operator/update" target="_blank">update operators</a>, 读文档可以发现,
+    特殊的操作符除了这个方法, 还会用于<code>db.collection.findAndModify()</code>方法. 所以这个操作符是update的核心, 遇到需求到这里来看一下有没有.</p>
+<p>这个updateOne()如果查找到多个, 仅仅只会更新第一个,更新多个就使用updateMany().</p>
 
+<h2 style="text-align: center;" id="con7">Delete</h2>
+<p>一样先看collection的文档. 有一个drop方法用来删除collection.</p>
+<p>删除document则可以使用<code>deleteOne</code>和<code>deleteMany</code>.</p>
+<p>这两个都是三个参数: filter, options, callback. 所以用法很类似:</p>
+<pre>
+const deletePromise = db.collection("users").deleteOne(
+    {
+        age: 36
+    }, {
+    }
+);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con4">页面版的查询</h2>
-<h2 style="text-align: center;" id="con5">页面版的查询</h2>
-<h2 style="text-align: center;" id="con6">页面版的查询</h2>
-
-
+deletePromise.then((result) => {
+    console.log(result)
+}).catch(()=>{console.log("Error")});
+</pre>
+<p>增删改查全部都有了, 就可以来写点实际的东西了, React也可以逐步看起来了.</p>
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
