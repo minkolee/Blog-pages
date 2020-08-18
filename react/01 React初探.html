@@ -2,17 +2,268 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>01 React </title>
+    <title>01 React 初探</title>
 </head>
 <body>
-<p>终于可以开始看React了, 看了一遍ES6的Promise, 又看了一下Node, 现在终于可以搞起来React了. 相比Vue, 听认识的前端架构说, React学习成本更高, 但是也更具规模化和组织化, 考虑到面向未来的前端, 还是值得学React, 而不是一味沉溺在Vue中的.</p>
-<p>我也用Vue写过一些小玩意,  本地存储管理数据, 页面层级来进行HTTP请求, 成功之后父子组件通过事件传递数据, 就像之前自己写过的那个投票软件, 基本上知道了vue的玩法, 现在就看看React怎么玩.</p>
+<p>最近两个星期在搬家, 我记得在上小学还是什么时候, 家里搬过一次家, 那一次实际上只不过是同一个小区的房子搬到了另外一个房子. 至此以后, 在我的生活里除了出来上大学和换租的房子之外, 并没有真正的搬家, 因为那个时候, 还没有自己的家.</p>
+<p>每天晚上蚂蚁搬家一样一点一滴的把东西搬到新租的房子里, 然后看着老房子不断变空, 有很多角落旮旯, 从住进来之后从未看过. 现在到了离开的时候, 反而却显露在外边, 似乎就是在说,再多看我两眼吧,以后机会可就不多了.</p>
+<p>以前读的儿童心理学相关的书里会写, 小孩对于旧房子可能会有着特别的留恋, 还可能会在搬家之后提出来想过来看看. 由于后边女儿的英语课也快上完了, 昨天晚上很可能就是她在家里睡的最后一晚, 今天就要把她送去外婆家了.</p>
+<p>于是我给他提个建议, 可以拍一些照片留念, 晚上到了睡觉之前, 小家伙就缠着妈妈来拍照片. 她确认了现在家里的沙发不会搬到新家, 就要老妈拍在沙发上跳跃和站在沙发背上的照片, 然后就是在床上的照片.</p>
+<p>拍好了之后, 爱讲话的女儿自然还有连篇累牍的问题: 妈妈房子还能回来吗? 妈妈房子还能进来看吗? 妈妈我们有钥匙不就可以回来了吗? 哈哈, 她晚上例行睡前要和我聊天的时候说, 为什么要搬家的感觉有点伤心呢...</p>
+<p>在交房之前, 我们也已经商量好, 一家三口在老房子的各个地方合影留念. 现在的房子就是我和老婆的婚房, 2012年购入, 2013年5月住进来, 到现在7年多3个月. 如果算上在妈妈肚里的时间, 女儿也有整整七年的时间呆在这里了,
+    无论是婚姻还是孩子, 这个房子都见证了目前为止完整的历史, 想想要搬走还真的有点舍不得. 况且房子多层带电梯, 靠西双阳台, 虽然不算大, 94平米的两房, 但算是小区里最好的两房户型, 住起来也非常舒服.</p>
+<p>最近女儿喜欢看乘风破浪的姐姐, 然后天天唱其中的歌. 有两句话我印象深刻: 人生太多意外 来不及停留感慨... 不管怎么样, 新的起点, 再次出发吧!</p>
+<p>之前简单回看了一下ES6和Node, 基本的操作知道了, 现在来开始看React. 这次的视频是:
+    <a href="https://www.udemy.com/course/complete-react-developer-zero-to-mastery/" target="_blank"> Udemy - Complete React Developer in 2020 (w Redux,
+    Hooks, GraphQL)</a>, 可以在<a href="https://freecoursesite.com/1-complete-react-developer-in-2019-w-redux-hooks-graphql/" target="_blank">这里</a>下载.</p>
 
+
+<ol>
+    <li><a href="#con1">React</a></li>
+    <li><a href="#con2">简单的例子 默认创建项目的App.js</a></li>
+    <li><a href="#con3">将函数改成类</a></li>
+    <li><a href="#con4">渲染动态内容</a></li>
+    <li><a href="#con5">响应事件</a></li>
+    <li><a href="#con6">JSX</a></li>
+    <li><a href="#con7">做一个小App</a></li>
+</ol>
 
 <h2 style="text-align: center;" id="con1">React</h2>
-<h2 style="text-align: center;" id="con2">页面版的查询</h2>
-<h2 style="text-align: center;" id="con3">页面版的查询</h2>
-<h2 style="text-align: center;" id="con4">页面版的查询</h2>
+<p>如果要编写React App, 首先需要有一个编辑器, 使用WebStorm即可. 然后需要一个创建ReactApp的东西,
+    在React官网这里可以找到
+    <a href="https://reactjs.org/docs/create-a-new-react-app.html#create-react-app" target="_blank">Create
+        a New React App</a>, 需要安装一个 create-react-app, 然后在运行, 即可生成一个项目目录:</p>
+<pre>
+npx create-react-app my-app
+cd my-app
+npm start
+</pre>
+<p>如此做之后, 就会在my-app下生成一个node.js项目目录, 其中有node_modules, package.json等等很熟悉的文件.</p>
+<p>其中package.json中有:</p>
+<pre>
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+</pre>
+<p>说明可以来运行一下看看, 使用 <code>npm start</code>, 然后就会阻塞, 这事因为在后台启动了一个本地服务器: </p>
+<pre>
+> my-app@0.1.0 start D:\coding\my-app
+> react-scripts start
+
+i ｢wds｣: Project is running at http://192.168.1.198/
+i ｢wds｣: webpack output is served from
+i ｢wds｣: Content not from webpack is served from D:\coding\my-app\public
+i ｢wds｣: 404s will fallback to /
+Starting the development server...
+</pre>
+<p>然后会自动弹出来<code>localhost:3000</code>, 出现React的页面, 会提示Edit src/App.js and save to reload, 也就是编辑App.js就可以来写React应用了.</p>
+<p>下边就来看看这个App.js.</p>
+
+<h2 style="text-align: center;" id="con2">简单的例子 默认创建项目的App.js</h2>
+<p>App.js的内容不多:</p>
+<pre>
+import React from 'react';
+import logo from './logo.svg';
+import './App.css';
+
+function App() {
+  return (
+    &lt;div className="App">
+      &lt;header className="App-header">
+        &lt;img src={logo} className="App-logo" alt="logo" />
+        &lt;p>
+          Edit &lt;code>src/App.js&lt;/code> and save to reload.
+        &lt;/p>
+        &lt;a
+            className="App-link"
+            href="https://reactjs.org"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+          Learn React
+        &lt;/a>
+      &lt;/header>
+    &lt;/div>
+  );
+}
+
+export default App;
+</pre>
+<p>可以看到, 这其中只有一个函数, App, 然后导入了react, svg和css文件, 这个函数的返回值是用一个小括号包围的一段HTML代码, 但里边很多东西又不太像.</p>
+<p>然后再看同一个目录下边的index.js:</p>
+<pre>
+import React from 'react';
+import ReactDOM from 'react-dom';
+import './index.css';
+import App from './App';
+import * as serviceWorker from './serviceWorker';
+
+ReactDOM.render(
+  &lt;React.StrictMode>
+    &lt;App />
+  &lt;/React.StrictMode>,
+  document.getElementById('root')
+);
+
+serviceWorker.unregister();
+</pre>
+<p>这里的核心就是ReactDOM.render函数, 导入了App函数, 然后渲染了看上去像一个单独的XML标签, 以App作为标签名称的一个片段, 然后去获取#root对应的元素.</p>
+<p>最后来看一下页面是什么样子, 在项目的public目录下边找到index.html:</p>
+<pre>
+&lt;!DOCTYPE html>
+&lt;html lang="en">
+  &lt;head>
+    &lt;meta charset="utf-8" />
+    &lt;link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1" />
+    &lt;meta name="theme-color" content="#000000" />
+    &lt;meta
+            name="description"
+            content="Web site created using create-react-app"
+    />
+    &lt;link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    &lt;link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    &lt;title>React App&lt;/title>
+  &lt;/head>
+  &lt;body>
+    &lt;noscript>You need to enable JavaScript to run this app.&lt;/noscript>
+    <span style="color: red">&lt;div id="root">&lt;/div></span>
+  &lt;/body>
+&lt;/html>
+</pre>
+<p>去掉前边header, 整个body其实就一个标签, 也就是一个id=root的Div标签, 然后将其渲染成了App.js中的那些HTML.</p>
+<p>这其实就是一个React应用的雏形. 一般有一个主程序, 一个页面的各个部分, 作为组件被导入, 然后被渲染在指定的位置.</p>
+<p>使用WebStorm也可以直接创建ReactApp, 比较方便. 直接打开这个项目目录也可以, 只需要在右上角运行的地方添加一个npm start的运行就可以.</p>
+<p>npm build就是打包, npm eject是弹出所有内部的代码, 可以看到后台的代码. npm test就是test.</p>
+
+<h2 style="text-align: center;" id="con3">将函数改成类</h2>
+<p>使用一个函数和类都可以作为模板, 改成类的时候要注意, 必须使用指定名称的render()方法:</p>
+<pre>
+import React, {Component} from 'react';
+class App extends Component {
+  render() {
+    return (
+        &lt;div className="App">
+          &lt;header className="App-header">
+            &lt;img src={logo} className="App-logo" alt="logo" />
+            &lt;p>
+              Edit &lt;code>src/App.js&lt;/code> and save to reload.
+            &lt;/p>
+            &lt;a
+                    className="App-link"
+                    href="https://reactjs.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+            >
+              Learn React
+            &lt;/a>
+          &lt;/header>
+        &lt;/div>
+    );
+  }
+}
+</pre>
+<p>页面一样可以正常工作, 也就是说对于 &lt;App />这种渲染方式来说, 无论是函数形式还是类形式都可以.</p>
+
+<h2 style="text-align: center;" id="con4">渲染动态内容</h2>
+<p>在每个类中, 都有state属性, 保存着当前组件所使用的变量, 就和vue的data很像.</p>
+<p>可以将类简单修改一下, 在构造器中, 设置this.state, 然后使用{}将其渲染出来:</p>
+<pre>
+class App extends Component {
+
+    constructor() {
+        super();
+        <span style="color: red">this.state = {
+            string: 'Hello React!'
+        }</span>
+    }
+
+  render() {
+    return (
+        &lt;div className="App">
+          &lt;header className="App-header">
+            &lt;img src={logo} className="App-logo" alt="logo" />
+            &lt;p><span style="color: red">{this.state.string}</span>&lt;/p>
+              &lt;button>Change Text&lt;/button>
+          &lt;/header>
+        &lt;/div>
+    );
+  }
+}
+</pre>
+<p>如果渲染多个对象, 则可以使用map方法, 然后返回要渲染的内容, react就会认出来应该渲染多个:</p>
+<pre>
+class App extends Component {
+
+    constructor() {
+        super();
+        this.state = {
+            monsters: [
+                {
+                    name: 'Frankenstein',
+                    id: 'asc1'
+                },
+                {
+                    name: 'Dracula',
+                    id: 'asc2'
+                },
+                {
+                    name: 'Zombie',
+                    id: 'asc3'
+                },
+                {
+                    name: 'Frankenstein',
+                    id: 'asc4'
+                },
+            ],
+        }
+    }
+
+  render() {
+      return (
+          &lt;div className="App">
+              {
+                  this.state.monsters.map(monster => &lt;h1 key={monster.id}>{monster.name}&lt;/h1>)
+              }
+          &lt;/div>
+      );
+  }
+}
+</pre>
+<p>这里有一个JSX属性是key, 也和vue很类似, 用于标识唯一对应关系, 以及加快渲染速度, 就不用每次都更新整个虚拟DOM.</p>
+
+<h2 style="text-align: center;" id="con5">响应事件</h2>
+<p>动态Web页面一大好处就是可以互动, 现在来添加一个按钮用于更改显示的文字.</p>
+<pre>
+&lt;button onClick={()=>this.setState({string:'saner'})}>Change Text&lt;/button>
+</pre>
+<p>实际就是点击之后, 将当前组件的state对象更换成一个新的组件, 这样就会渲染出新的内容.</p>
+<p>自己尝试了一下发现setState()才能更改对象, 直接自行更改, 比如下边两个, 都是不行的:</p>
+<pre>
+&lt;button onClick={() => this.state.string = "gugugug"}>Change Text&lt;/button>
+&lt;button onClick={() => this.state = {string: "gugugug"}}>Change Text&lt;/button>
+</pre>
+<p>这个只是简单用法, 之后再慢慢来看新的了, 还有组件之间如何交换数据和事件.</p>
+
+<h2 style="text-align: center;" id="con6">JSX</h2>
+<p>render()函数中返回的类似于HTML的东西, 其实是一种JSX语言.</p>
+<p>注意观察HTML标签上的属性, 像className这种属性, 就是JSX属性而不是html属性, 而像 <code>src={}</code>, 花括号中的是变量或者表达式, 可以被替换成实际的值.</p>
+<p>注意其中的onClick, 是驼峰, 并不是HTML5里的onclick, 所以也不是HTML属性.</p>
+<p>所以在JSX中, 可以使用原版的HTML, 也可以使用JSX属性. 这个和Vue也很类似.</p>
+
+<h2 style="text-align: center;" id="con7">组件</h2>
+<p>对于像例子中, 继承了React.Component的, 就可以认为是一个组件.</p>
+<p>所以可以使用类, 构造器, render()方法等.</p>
+<p>最重要的是, 可以把组件使用在render()函数中, 将组件名作为一个自闭合标签渲染出来. 这是最重要的.</p>
+<p>这样就组成了组件与组件之间的层级关系, 一个页面全部都由组件构成, 组件拥有自己的内部状态.</p>
+
+
+
+
+
 
 </body>
 </html>
