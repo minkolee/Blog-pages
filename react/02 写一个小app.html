@@ -18,7 +18,7 @@
     <li><a href="#con3">Card组件</a></li>
     <li><a href="#con4">state vs props</a></li>
     <li><a href="#con5">直接实现搜索功能</a></li>
-    <li><a href="#con6">JSX</a></li>
+    <li><a href="#con6">将搜索框做成组件 - 传递事件处理函数给组件</a></li>
     <li><a href="#con7">做一个小App</a></li>
 </ol>
 
@@ -234,6 +234,50 @@ render() {
 <p>这样就完成了过滤的功能.</p>
 
 
+<h2 style="text-align: center;" id="con6">将搜索框做成组件 - 传递事件处理函数给组件</h2>
+<p>将搜索框做成组件的一大问题是, 组件无法访问app.js的state, 生命周期方法, 导致在render中直接更新变得比较困难.</p>
+<p>不管怎么说, 先来创建search-box目录, 然后将css文件放进去, 然后再创建search-box.component.jsx, 内容先把原来的input复制过来并加上样式:</p>
+<pre>
+import React from 'react';
+
+import './search-box.styles.css';
+
+export const SearchBox = (props) => (
+
+    &lt;input className='search' type="search" placeholder='search monsters'
+           onChange={event => this.setState({searchField: event.target.value})}/>
+);
+</pre>
+<p>由于组件中的this是组件本身, 所以onChange这里其实无法发挥作用. 这个时候很显然需要从父组件传进来什么, React这里可以把函数当成数据一样来传递. 由于onChange是一个特殊的名称, 所以需要另外起一个自定义名称用来传递函数, 修改search-box如下:</p>
+<pre>
+import React from 'react';
+
+import './search-box.styles.css';
+
+export const SearchBox = (props) => (
+
+    &lt;input className='search' type="search" <span style="color: red">placeholder={props.placeholder}</span>
+           <span style="color: red">onChange={props.handler}</span>/>
+);
+</pre>
+<p>然后修改app.js, 引入组件, 然后把函数和placeholder都传给组件:</p>
+<pre>
+import {SearchBox} from "./components/search-box/search-box.component"
+
+return (
+            &lt;div className="App">
+                &lt;SearchBox <span style="color: red">placeholder='search monsters'</span>
+                           <span style="color: red">handler={event => this.setState({searchField: event.target.value})}</span>/>
+                &lt;CardList monsters={filteredMonsters}/>
+            &lt;/div>
+        );
+    
+</pre>
+<p>由于type在组件中定义了, 所以就可以不传了.</p>
+<p>注意红色的部分, 其实是把普通的HTML属性placeholder的内容, 以及自定义的属性handler, 是一个函数, 都传递给了组件. 而且很有意思的是, 这个函数由于是在app.js中, 其this指向app.js组件, 而不是实际使用该函数的组件search-box.</p>
+<p>通过这一节和上边的例子, 可以知道组件通过props来传递, 可以传递所有的HTML属性, 数据对象, 甚至方法, 等于可以传递所有内容. 原版的内容就用引号, 而需要解析的部分, 就用花括号括起来.</p>
+<p>通过这个操作, app.js可以指定组件的处理函数, 这样就可以复用search-box组件, 其响应事件的处理函数可以由外部指定, 这样就更加突出了组件功能与外观分离的思想.</p>
+<p>而且这个本质, 依然是数据的流动, 从父组件通过props流动到子组件, 同时this还指向父组件, 特别有意思.</p>
 
 
 
@@ -241,7 +285,22 @@ render() {
 
 
 
-<h2 style="text-align: center;" id="con6">组件</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <h2 style="text-align: center;" id="con7">组件</h2>
 <h2 style="text-align: center;" id="con8">组件</h2>
 <h2 style="text-align: center;" id="con9">组件</h2>
