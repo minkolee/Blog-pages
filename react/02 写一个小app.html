@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>02 写一个小app </title>
+</head>
+<body>
+<p>以后打算在每篇博客之前记录一下最近的生活. 女儿的学校前两天通知要选身高125-133的女生参加海选, 来跳一场舞, 估计是什么汇报演出.</p>
+<p>女儿现在身高只有122cm, 不过还是问老师去报名, 得到的初次回复是身高不够, 不过后来又通知说明天上午过去参加一下海选.</p>
+<p>小家伙本身就灵活好动, 虽然妈妈总喷她坐不住, 不过这个年纪的小孩如果能仔细坐住那怕是精神上要出问题了吧. 跳舞表演这事我觉得还是挺适合她的.</p>
+<p>上一篇博文里刚写了8月17号是她最后一晚在老房子里睡觉的事实马上就要被打脸了, 至少今晚也要回来睡了. 照她一直以来超能来事的性格, 感觉晚上肯定又要重新拍一套照片了.</p>
+<p>从报名参加舞蹈海选就能看出来, 只要坚持, 总归会有机会....</p>
+<p>这一次根据那个课程, 来写一个简单的app, 可以通过名称来选择一些monster, 先写了看看吧.</p>
+
+<ol>
+    <li><a href="#con1">项目结构</a></li>
+    <li><a href="#con2">Card-List组件</a></li>
+    <li><a href="#con3">Card组件</a></li>
+    <li><a href="#con4">state vs props</a></li>
+    <li><a href="#con5">直接实现搜索功能</a></li>
+    <li><a href="#con6">JSX</a></li>
+    <li><a href="#con7">做一个小App</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">项目结构与准备数据</h2>
+<p>对于编写react应用来说, src内的可以创建一个专门放置组件的地方, 比如components目录. 在目录内部, 按照结构来存放各个组件.</p>
+<p>在每个具体的组件目录内, 可以将该组件使用到的js文件, 特殊的样式文件, 甚至还可以单独用一个js文件来存放jsx, 类似于模板一样, 来进行合理的组织.</p>
+<p>在编写组件之前, 还可以来使用<a href="https://jsonplaceholder.typicode.com/users" target="_blank">jsonplaceholder</a>的服务, 来自动获取人名.</p>
+<p>在例子里, 使用一个生命周期函数, 也就是<code>componentDidMount</code>, 在其中加入下列代码:</p>
+<pre>
+componentDidMount() {
+    fetch('https://jsonplaceholder.typicode.com/users').then(response => response.json()).then(users => this.setState({monsters: users}));
+}
+</pre>
+<p>就可以将组件中的monsters的值初始设置为空, 这样在渲染前, 会替换成从jsonplaceholder获取的值. 这里因为每个person对象带有id属性, 所以下边渲染的<code>key={monster.id}</code>也无需更改.</p>
+<p>具体看如何编写组件并且协同工作吧</p>
+
+<h2 style="text-align: center;" id="con2">Card-List组件</h2>
+<p>很显然每个怪物卡片是一个组件, 显然还有一个组件需要围绕着怪物卡片, 于是先来编写一个card-list.</p>
+<p>在src下创建components/card-list/card-list.component.jsx 目录及文件.</p>
+<p>然后在jsx文件中编写一段简单的程序:</p>
+<pre>
+import React from 'react';
+
+export const CardList = (props) =>{
+    console.log(props);
+
+    return (&lt;div>Hello&lt;/div>);
+}
+</pre>
+<p>这里是实际上是要看props是什么内容, 如何给组件传递数据.</p>
+<p>然后在app.js中导入CardList, 然后渲染这个组件试试:</p>
+<pre>
+import {CardList} from "./components/card-list/card-list.component";
+&lt;CardList />
+</pre>
+<p>这个时候可以看到控制台打印出了空白对象. 尝试通过标签传递一些内容:</p>
+<pre>
+&lt;CardList name="cony" />
+</pre>
+<p>可以看到打印出了<code>{name: "cony"}</code>. 注意还有一个传递方法, 这里组件使用了自闭合标签, 如果使用普通标签, 在标签中间传递内容, 则就是props.children的内容:</p>
+<pre>
+export const CardList = (props) =>{
+    console.log(props);
+    return (&lt;div><span style="color: red">{props.children}</span>&lt;/div>);
+}
+
+&lt;CardList name='cony'>
+    &lt;h1>Baldur's Gate3&lt;/h1>
+&lt;/CardList>
+</pre>
+<p>此时控制台打印出的是:</p>
+<pre>
+{name: "cony", children: {…}}
+</pre>
+<p>说明props对象带有了一个children属性. 这有点像vue的插槽和传递的值一样.</p>
+<p>不过现在还不知道如何传递一个对象, 先继续向下看.</p>
+<p>在card-list目录中创建card-list.style.css文件, 添加代码:</p>
+<pre>
+import './card-list.styles.css'
+
+export const CardList = (props) =>{
+    return (&lt;div <span style="color: red">className='card-list'</span>>{props.children}&lt;/div>);
+}
+</pre>
+<p>这样渲染出的组件就带有了css类. 现在就可以把一系列monster都传递给组件的props.children属性, 让其渲染出来:</p>
+<pre>
+&lt;CardList name='cony'>
+    {
+        this.state.monsters.map(monster => &lt;h1 key={monster.id}>{monster.name}&lt;/h1>)
+    }
+&lt;/CardList>
+</pre>
+<p>这样之后每一个人名就显示在一个grid里了, </p>
+
+<h2 style="text-align: center;" id="con3">Card组件</h2>
+<p>既然可以把一系列monster都传递给Card-List组件进行渲染, 那么很自然的想到如何可以传递一堆Card组件, 那么就能渲染出一个一个Card了.</p>
+<p>不过这里是app.js中强行插入了Card, 如果按照层级关系, 应该由Card-List的代码去控制其中显示的Card才对.</p>
+<p>这里首先要传递对象给Card-List组件, 然后使用自闭合标签, 写法如下:</p>
+<pre>
+&lt;CardList <span style="color: red">monsters = {this.state.monsters}</span> />
+</pre>
+<p>无需传递children, 然后要使用 Card-List来显示:</p>
+<pre>
+import React from 'react';
+import './card-list.styles.css'
+
+export const CardList = (props) =>{
+    return (&lt;div className='card-list'>
+        {
+            props.monsters.map(monster => &lt;h1 key={monster.id}>{monster.name}&lt;/h1>)
+        }
+    &lt;/div>);
+}
+</pre>
+<p>可以看到渲染的结果是一样的, 然后的任务就是要来创建Card组件, 然后把数据传递给它.</p>
+<p>card.component.jsx的内容如下:</p>
+<pre>
+import React from 'react';
+
+export  const Card = (props) =>{
+    console.log("Card:", props);
+    return (
+        &lt;div>
+        &lt;h1>{props.monster.name}&lt;/h1>
+        &lt;/div>
+    );
+}
+</pre>
+<p>然后需要修改card-list.component.jsx, 将从上一级组件获取的monsters, 使用渲染多个的方式, 每一次不是渲染一个h1标签了, 而是渲染一个Card组件:</p>
+<pre>
+import React from 'react';
+import './card-list.styles.css'
+<span style="color: red">import {Card} from "../card/card.component";</span>
+
+export const CardList = (props) =>{
+    console.log(props);
+    return (&lt;div className='card-list'>
+        {
+            props.monsters.map(monster => <span style="color: red">&lt;Card key={monster.id} monster={monster} /></span>)
+        }
+    &lt;/div>);
+}
+</pre>
+<p>在回头看一下这整个过程, app.js作为整个应用的根组件, 一开始负责去获取数据.</p>
+<p>获取数据之后, 将数据交给Card-List组件, Card-List分解数据, 将每个数据传递给一个Card组件并进行渲染, 一层套一层.</p>
+<p>这样组件的样式也变得独立, 一层一层非常好控制, 数据的流动已经他通了, 剩下就是把样式文件放到组件目录, 然后加上去即可:</p>
+<pre>
+import React from 'react';
+import './card.styles.css'
+
+export  const Card = (props) =>{
+    console.log("Card:", props);
+    return (
+        &lt;div <span style="color: red">className='card-container'</span>>
+            &lt;h1 >{props.monster.name}&lt;/h1>
+        &lt;/div>
+    );
+}
+</pre>
+<p>图像则来自<a href="https://robohash.org/">robohash</a>网站, 使用网站地址后边加上任意字符就可以得到图像, 所以可以修改一下, 添加一个img元素:</p>
+<pre>
+import React from 'react';
+import './card.styles.css'
+
+export  const Card = (props) =>{
+    console.log("Card:", props);
+    return (
+        &lt;div className='card-container'>
+            <span style="color: red">&lt;img src={`https://robohash.org/${props.monster.id}?set=set2`} alt={props.name}/></span>
+            &lt;h1 >{props.monster.name}&lt;/h1>
+        &lt;/div>
+    );
+}
+</pre>
+
+<h2 style="text-align: center;" id="con4">state 与 props</h2>
+<p>这里注意一点的是, 只有在app.js中使用了state, 而在下级组件接受和传递数据的时候, 都使用了props, 组件没有再使用自己的state进行保存.</p>
+<p>每个组件不保存自己的state并使用的原因是, 让数据可以单向流动, 任何时候只需要更新最上层的state, 所有与其相关的内容都会改变, 然后进而更新页面.</p>
+<p>所以一般来说, state只需要存在特定的地方, 然后集中使用state中的数据一层一层传递即可.</p>
+<p>Chrome安装完React开发工具之后,可以看到App组件有state属性, 但是其下的Card-List和Card都只有props属性.</p>
+
+<h2 style="text-align: center;" id="con5">直接实现搜索功能</h2>
+<p>这个实际上是使用事件来控制显示, 在app.js的state中添加一个searchField, 初始为空: </p>
+<pre>
+constructor() {
+    super();
+    this.state = {
+        monsters: [
+        ],
+        <span style="color: red">searchField: ''</span>
+    }
+}
+</pre>
+<p>然后添加一个input框, 这里边就有一个属性是onChange, 看一下是什么事件:</p>
+<pre>
+&lt;input type="search" placeholder='search monsters' onChange={event => console.log(event.target.value)}/>
+</pre>
+<p>可以看到获取的值, 然后将其保存在state中:</p>
+<pre>
+&lt;input type="search" placeholder='search monsters' onChange={event => this.setState({searchField: event.target.value})}/>
+</pre>
+<p>这样就可以进一步来操作, setState可以传入一个回调函数, 使用这个回调函数在更新state之后进行操作:</p>
+<pre>
+&lt;input type="search" placeholder='search monsters'
+   onChange={event => this.setState({searchField: event.target.value}, ()=>{
+       console.log(this.state)
+   })}/>
+</pre>
+<p>不过这里要注意的是, 回调函数会立刻进行操作, 而我们实际上不想继续操作, 这个可以用一个setTimeout来完成, 不过这里暂时不把焦点放在这里, 而是重在如何控制符合搜索条件的monster进行显示.</p>
+<p>React的所有事件都是SyntheticEvent, 是React进行包装的.</p>
+<p>这里也可以说明, 与用户交互的时候, 应该更改state, 而不是简单的更改props, 这样就能起到更新所有下级组件的内容.</p>
+<p>接下来就是进行过滤, 注意, 不能直接更改state中的monsters, 因为原始数据需要保留在这里供使用, 比如用户删除了input中的内容, 则应该全部显示出来.</p>
+<p>所以这里可以在render()函数中做文章, 新建两个变量, 用解构的方式, 然后根据这两个去创建一个过滤后的怪物名单, 传递给组件即可:</p>
+<pre>
+render() {
+    const {monsters, searchField} = this.state;
+
+    const <span style="color: red">filteredMonsters</span> = monsters.filter(
+        monster => monster.name.toLowerCase().includes(searchField.toLowerCase())
+    );
+
+
+    return (
+        &lt;div className="App">
+            &lt;input type="search" placeholder='search monsters'
+                   onChange={event => this.setState({searchField: event.target.value}, ()=>{
+                   })}/>
+            &lt;CardList monsters={<span style="color: red">filteredMonsters</span>}/>
+        &lt;/div>
+    );
+}
+</pre>
+<p>这样就完成了过滤的功能.</p>
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con6">组件</h2>
+<h2 style="text-align: center;" id="con7">组件</h2>
+<h2 style="text-align: center;" id="con8">组件</h2>
+<h2 style="text-align: center;" id="con9">组件</h2>
+
+
+
+
+
+
+</body>
+</html>
