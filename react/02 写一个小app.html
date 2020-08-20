@@ -19,7 +19,7 @@
     <li><a href="#con4">state vs props</a></li>
     <li><a href="#con5">直接实现搜索功能</a></li>
     <li><a href="#con6">将搜索框做成组件 - 传递事件处理函数给组件</a></li>
-    <li><a href="#con7">做一个小App</a></li>
+    <li><a href="#con7">补完样式</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">项目结构与准备数据</h2>
@@ -279,31 +279,51 @@ return (
 <p>通过这个操作, app.js可以指定组件的处理函数, 这样就可以复用search-box组件, 其响应事件的处理函数可以由外部指定, 这样就更加突出了组件功能与外观分离的思想.</p>
 <p>而且这个本质, 依然是数据的流动, 从父组件通过props流动到子组件, 同时this还指向父组件, 特别有意思.</p>
 
+<h2 style="text-align: center;" id="con7">补完样式</h2>
+<p>最后就补完样式, 在app.js里渲染上标题:</p>
+<pre>
+return (
+    &lt;div className="App">
+        <span style="color: red">&lt;h1> Monsters Rolodex &lt;/h1></span>
+        &lt;SearchBox placeholder='search monsters'
+                   handler={event => this.setState({searchField: event.target.value})}/>
+        &lt;CardList monsters={filteredMonsters}/>
+    &lt;/div>
+);
+</pre>
+<p>然后在index.html中添加字体链接:</p>
+<pre>
+&lt;link href="https://fonts.googleapis.com/css?family=Bigelow+Rules" rel="stylesheet">
+</pre>
+<p>最后更新css文件, app.css中更新h1的样式:</p>
+<pre>
+h1 {
+  font-family: 'Bigelow Rules';
+  font-size: 72px;
+  color: #0ccac4;
+}
+</pre>
+<p>index.css中更新背景渐变色的效果:</p>
+<pre>
+body {
+    ......
+    <span style="color: red">background: linear-gradient(
+            to left,
+            rgba(7, 27, 82, 1) 0%,
+            rgba(0, 128, 128, 1) 100%
+    );</span>
+}
+
+</pre>
+<p>整个小APP就做好了.</p>
+
+<p>这里最关键的就是组件之间的通信, 可以通过props以及props.children, 还有自定义属性可以传入对象数据或者方法.</p>
 
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con7">组件</h2>
-<h2 style="text-align: center;" id="con8">组件</h2>
-<h2 style="text-align: center;" id="con9">组件</h2>
 
 
 

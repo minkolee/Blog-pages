@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>03 React的一些概念</title>
+</head>
+<body>
+<p>今天女儿要去学校参加海选, 不知道有没有选上, 写下这篇文章的时候是下午两点20分, 折腾了一下公司的电脑发现还没法更换大一点的机箱, 那暂时就这样吧.</p>
+<p>本来今天想去看牙, 也因为要找老的销售合同而取消, 看看明天有没有机会去看牙吧.</p>
+
+<ol>
+    <li><a href="#con1">setState的异步更新</a></li>
+    <li><a href="#con2">React的生命周期方法</a></li>
+    <li><a href="#con3">Card组件</a></li>
+    <li><a href="#con4">state vs props</a></li>
+    <li><a href="#con5">直接实现搜索功能</a></li>
+    <li><a href="#con6">将搜索框做成组件 - 传递事件处理函数给组件</a></li>
+    <li><a href="#con7">补完样式</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">setState的异步更新</h2>
+<p>之前使用了setState命令, 实际上这个命令是异步更新的, 并不是直接就能更新成功. 想要在更新成功后进行一些操作, 需要在第二个参数位置传入回调函数.</p>
+<p>看一个最简单的, 默认创建的React App, 然后在state中添加一个couter变量, 用一个button来自每次将其增加1:</p>
+<pre>
+import React from 'react';
+import logo from './logo.svg';
+import './App.css';
+
+class App extends React.Component {
+    constructor() {
+        super();
+        this.state ={
+            counter: 1
+        }
+    }
+
+    handleClick = ()=>{
+        this.setState({counter: this.state.counter + 1})
+    }
+
+    render() {
+        return (
+            &lt;div className="App">
+                &lt;header className="App-header">
+                    &lt;img src={logo} className="App-logo" alt="logo"/>
+                    &lt;p>
+                        {this.state.counter}
+                    &lt;/p>
+                    &lt;button onClick={this.handleClick}>increase&lt;/button>
+                &lt;/header>
+            &lt;/div>
+        );
+    }
+}
+
+export default App;
+</pre>
+<p>这里如果修改一下, 在setState命令之后立刻打印出当前的state.counter:</p>
+<pre>
+handleClick = ()=>{
+    this.setState({counter: this.state.counter + 1});
+    console.log(this.state.counter)
+}
+</pre>
+<p>可以看到, 其打印出来的是原来的 state , 这是因为setState方法是一个异步方法, 并不是立刻就更新, 而是将更新权限交给react.</p>
+<p>如果想要看到更新后的结果, 就必须传入回调函数:</p>
+<pre>
+handleClick = ()=>{
+    this.setState({counter: <span style="color: red">this.state.counter</span> + 1}, () => console.log(this.state.counter));
+}
+</pre>
+<p>不过, 这里的红字部分, 未必能够读取到更新的结果, 加入还有其他的state需要更新, 因此这里最好是使用一个函数:</p>
+<pre>
+handleClick = ()=>{
+    this.setState((prevState, prevProp) => {
+        return {counter: <span style="color: red">prevState.counter</span> + 1}
+    },   () => console.log(this.state.counter));
+}
+</pre>
+<p>有了这个函数, 就能保证每次更新完state之后, 获取, 再显示.</p>
+<p>props也是类似, 可以传递一个prop给组件:</p>
+<pre>
+&lt;App increment={1} />
+</pre>
+<p>然后可以修改如下:</p>
+<pre>
+handleClick = ()=>{
+    this.setState((prevState, prevProp) => {
+        return {counter: prevState.counter + <span style="color: red">prevProp.increment</span>}
+    },   () => console.log(this.state.counter));
+}
+</pre>
+<p>搞清楚这个异步更新, 以及如何使用更新之前的值, 就可以方便的确保state不出现问题.</p>
+
+<h2 style="text-align: center;" id="con2">React的生命周期方法</h2>
+<p>在这里有<a href="https://projects.wojtekmaj.pl/react-lifecycle-methods-diagram/" target="_blank">React生命周期方法</a>的图表可供参考, 这个图表在<a
+        href="https://github.com/wojtekmaj/react-lifecycle-methods-diagram" target="_blank">git</a>上也有.</p>
+<p>生命周期可以分为三大块, 第一块是Mounting, 也就是创建组件并挂载, 这个时候会调用构造器, 之后不会再调用.</p>
+<p>Mounting会先render(), 即生成元素, 然后更新DOM, 之后就会调用componentDidMount()方法.</p>
+<p>第二块是更新, Mounting和Updating的整个过程里都会用到render()方法, render()完成之后调用componentDidUpdate()方法.</p>
+<p>最后是Unmounting, 会调用componentWillUnmount()方法.</p>
+<p>看一个例子, 用两个按钮控制一个组件显示或者不显示, 以及更新组件的内容:</p>
+<pre>
+import React from 'react';
+import logo from './logo.svg';
+import './App.css';
+import {Lifecycles} from './lifecycles.component'
+
+
+class App extends React.Component {
+    constructor() {
+        super();
+        this.state ={
+            showChild: true,
+            text: ''
+        }
+    }
+
+    handleClick = () => {
+        this.setState((prevState, prevProp) => {
+            return {showChild: !prevState.showChild};
+        })
+    };
+
+    render() {
+        return (
+            &lt;div className="App">
+                &lt;header className="App-header">
+                    &lt;img src={logo} className="App-logo" alt="logo"/>
+                    &lt;button onClick={this.handleClick}>Toggle Lifecycles&lt;/button>
+                    &lt;button onClick={() => {
+                        this.setState(state => ({text: state.text + "_hello"}))
+                    }}>Update Text
+                    &lt;/button>
+                    {this.state.showChild ? &lt;Lifecycles text={this.state.text} /> : null}
+                &lt;/header>
+            &lt;/div>
+        );
+    }
+}
+
+export default App;
+</pre>
+<p>关键是这个Lifecycles组件, 在其中可以覆盖各种生命周期方法:</p>
+<pre>
+import React from "react";
+
+export class Lifecycles extends React.Component {
+    constructor(props) {
+        super(props);
+        console.log("constructor")
+        this.props = props;
+    }
+
+    componentDidMount() {
+        console.log("componentDidMount");
+    }
+
+    componentDidUpdate(prevProps, prevState, snapshot) {
+        console.log("componentDidUpdate");
+    }
+
+    componentWillUnmount() {
+        console.log("componentWillUnmount");
+    }
+
+    shouldComponentUpdate(nextProps, nextState, nextContext) {
+        console.log("shouldComponentUpdate");
+        return true;
+    }
+
+    render() {
+        return (
+            &lt;h2>{this.props.text}&lt;/h2>
+        )
+    }
+}
+</pre>
+<p>运行app之后, 由于showChild是true, 可以看到控制台打印出了:</p>
+<pre>
+constructor
+componentDidMount
+</pre>
+<p>然后点击Update Text, 可以发现每次更新后, 控制台打印出:</p>
+<pre>
+shouldComponentUpdate
+componentDidUpdate
+</pre>
+<p>如果切换showChild, 会发现触发unmount, 这是因为组件直接就被从DOM中删除了.</p>
+<p>再切换, 构造器又会运行, 组件又会被渲染到DOM中.</p>
+<p>shouldComponentUpdate()是一个判断函数, 用于判断这个组件是否需要更新, 有三个参数, 就是即将要被更新的props, state以及上下文.</p>
+<p>所以可以使用一个判断, 返回要被更新的props是否等于原来的props之类.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h2 style="text-align: center;" id="con3">setState的异步更新</h2>
+<h2 style="text-align: center;" id="con4">setState的异步更新</h2>
+<h2 style="text-align: center;" id="con5">setState的异步更新</h2>
+<h2 style="text-align: center;" id="con6">setState的异步更新</h2>
+<h2 style="text-align: center;" id="con7">setState的异步更新</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
