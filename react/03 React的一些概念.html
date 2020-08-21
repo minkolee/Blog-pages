@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>03 React的一些概念</title>
+    <title>03 React的一些概念和新项目设置</title>
 </head>
 <body>
 <p>今天女儿要去学校参加海选, 不知道有没有选上, 写下这篇文章的时候是下午两点20分, 折腾了一下公司的电脑发现还没法更换大一点的机箱, 那暂时就这样吧.</p>
@@ -11,8 +11,8 @@
 <ol>
     <li><a href="#con1">setState的异步更新</a></li>
     <li><a href="#con2">React的生命周期方法</a></li>
-    <li><a href="#con3">Card组件</a></li>
-    <li><a href="#con4">state vs props</a></li>
+    <li><a href="#con3">新项目 - 拆分组件</a></li>
+    <li><a href="#con4">新项目 - 路由</a></li>
     <li><a href="#con5">直接实现搜索功能</a></li>
     <li><a href="#con6">将搜索框做成组件 - 传递事件处理函数给组件</a></li>
     <li><a href="#con7">补完样式</a></li>
@@ -191,14 +191,78 @@ componentDidUpdate
 <p>shouldComponentUpdate()是一个判断函数, 用于判断这个组件是否需要更新, 有三个参数, 就是即将要被更新的props, state以及上下文.</p>
 <p>所以可以使用一个判断, 返回要被更新的props是否等于原来的props之类.</p>
 
+<h2 style="text-align: center;" id="con3">新项目</h2>
+<p>课程接下来要写一个新的项目, 使用到SASS样式设置, 新创建一个项目, app.js中只返回一个div, 其他都删除掉, 这样就有了一个空项目. app.css中的样式也不要, div上的类名也去掉.</p>
+<p>然后是主页组件, 菜单部分分成了各个, 这个就跟着视频做就可以了, 创建组件homepage.component.jsx, CSS方面则是要使用sass,
+    官方网站是<a href="https://sass-lang.com" target="_blank">https://sass-lang.com</a>, 执行 <code>npm add node-sass</code>
+    即可将sass添加进来, 之后需要重新启动项目以获得sass支持.</p>
+<p>重新启动之后, 就可以来使用sass了, 创建homepage.styles.css:</p>
+<pre>
+.homepage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 80px;
+}
 
+.directory-menu {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
 
+.menu-item {
+  min-width: 30%;
+  height: 240px;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid black;
+  margin: 0 7.5px 15px;
 
+  <span style="color: red">&:first-child</span> {
+    margin-right: 7.5px;
+  }
 
+  &:last-child {
+    margin-left: 7.5px;
+  }
 
+  <span style="color: red">.content</span> {
+    height: 90px;
+    padding: 0 25px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid black;
 
+    .title {
+      font-weight: bold;
+      margin-bottom: 6px;
+      font-size: 22px;
+      color: #4a4a4a;
+    }
 
+    .subtitle {
+      font-weight: lighter;
+      font-size: 16px;
+    }
+  }
+}
+</pre>
+<p>scss中, &表示上一级选择器, SCSS即是SASS的新语法，是Sassy CSS的简写，是CSS3语法的超集. 选择器中套选择器比如第二个红字部分, 其实就相当于两个选择器加上空格.</p>
+<p>这里还是要注意CSS的display:flex和grid的使用, 然后一层一层把组件拆分, 结构是index.js在#root上挂载app组件->HomePage组件->Directory组件->Menu-Item组件.</p>
+<p>HomePage组件就使用display:flex让中间所有组件对齐并且居中, Directory组件也是flex, 最后是每个Item, 中间包含一个背景图片, 一个标题和一个小区域, 也是flex并居中.</p>
+<p>CSS这玩意还真得好好看看, 每次用的是很都要现想, 没办法, 谁让这东西是黑魔法呢.</p>
 
+<h2 style="text-align: center;" id="con4">新项目 - 路由</h2>
+<p>单页应用最大的问题就是在切换URL的时候, 如何拦截并且渲染, 这个是最重要的一环.</p>
+<p>路由其实是使用浏览器的History API来实现的. 对于前端来说, 其实就是将URL与组件绑定起来, 显示什么样的URL, 就使用什么样的组件来进行渲染.</p>
+<p>React和React-dom本身不支持路由功能, 仅仅是一个UI组件, 不过像Vue一样, React家族还有react-router-dom来实现路由功能:</p>
+<pre>npm add react-router-dom</pre>
 
 
 
@@ -221,48 +285,6 @@ componentDidUpdate
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con3">setState的异步更新</h2>
-<h2 style="text-align: center;" id="con4">setState的异步更新</h2>
 <h2 style="text-align: center;" id="con5">setState的异步更新</h2>
 <h2 style="text-align: center;" id="con6">setState的异步更新</h2>
 <h2 style="text-align: center;" id="con7">setState的异步更新</h2>
