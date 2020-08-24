@@ -263,7 +263,88 @@ componentDidUpdate
 <p>路由其实是使用浏览器的History API来实现的. 对于前端来说, 其实就是将URL与组件绑定起来, 显示什么样的URL, 就使用什么样的组件来进行渲染.</p>
 <p>React和React-dom本身不支持路由功能, 仅仅是一个UI组件, 不过像Vue一样, React家族还有react-router-dom来实现路由功能:</p>
 <pre>npm add react-router-dom</pre>
-
+<p>安装好之后, 在index.js, 也就是最外边的js文件处引入:</p>
+<pre>
+import {BrowserRouter} from 'react-router-dom'
+</pre>
+<p>这个东西是一个组件, 可以用来包裹其他的组件, 其中的组件就会获得路由功能. 这里就来包裹App组件:</p>
+<pre>
+ReactDOM.render(
+    <span style="color: red">&lt;BrowserRouter></span>
+        &lt;App />
+    <span style="color: red">&lt;/BrowserRouter></span>
+    , document.getElementById('root'));
+</pre>
+<p>然后在App.js中, 进行如下操作:</p>
+<pre>
+<span style="color: red">import {Route} from 'react-router-dom';</span>
+function App() {
+  return (
+    &lt;div>
+      <span style="color: red">&lt;Route exact path='/' component = {HomePage}/></span>
+    &lt;/div>
+  );
+}
+</pre>
+<p>实际上, 就是有Route组件来取代了原来直接渲染的HomePage组件. Route组件的path就是匹配的路径, exact可以等于true(默认)或者false, 表示精确匹配与否.</p>
+<p>现在重新启动服务器, 可以看到页面依然正常显示. 但是如果输入一些URL, 就会发现页面变空, 只有一个空白的div标签.</p>
+<p>可以再添加一个东西来看, 就会明白多了. 在app.js中追加一个函数:</p>
+<pre>
+const HatsPage = ()=>(
+    &lt;div>
+        &lt;h1>HATS PAGE&lt;/h1>
+    &lt;/div>
+)
+</pre>
+<p>然后为这个函数增加一条路径:</p>
+<pre>
+&lt;Route exact path='/' component = {HomePage}/>
+&lt;Route exact path='/' component = {HatsPage}/>
+</pre>
+<p>再到首页, 可以看到先后把两个都渲染出来了, 所以这里就可以来区分开了, 改成如下:</p>
+<pre>
+&lt;Route exact path='/' component = {HomePage}/>
+&lt;Route exact path='/hats' component = {HatsPage}/>
+</pre>
+<p>这样就可以访问根路径和/hats路径了. 详细的Router文档在<a href="https://reactrouter.com/web/guides/quick-start" target="_blank ">https://reactrouter.com/web/guides/quick-start</a></p>
+<p>然后是Switch组件, 说道Switch, 上周五(8月21号买了个NS)...老婆要招待朋友们家里玩, Hmmmm.....</p>
+<p>Switch组件用来包裹Route组件, 假如Route组件是这样:</p>
+<pre>
+&lt;Route path='/' component = {HomePage}/>
+&lt;Route path='/hats' component = {HatsPage}/>
+</pre>
+<p>由于都不是精确匹配, 访问根路径的时候, 会将两个组件都渲染出来, 但是用Switch包裹之后, 就只会渲染匹配的到的第一个组件.</p>
+<p>可以改成这样:</p>
+<pre>
+&lt;Switch>
+  &lt;Route exact path='/' component = {HomePage}/>
+  &lt;Route path='/hats' component = {HatsPage}/>
+&lt;/Switch>
+</pre>
+<p>或者:</p>
+<pre>
+&lt;Switch>
+    &lt;Route path='/hats' component = {HatsPage}/>
+    &lt;Route  path='/' component = {HomePage}/>
+&lt;/Switch>
+</pre>
+<p>然后是传递参数:</p>
+<pre>
+&lt;Route path='/hats/:hatsId' component = {HatsPage}/>
+</pre>
+<p>对于这种带参数的URL, 其实需要在函数中传入props, 然后打印出来可以发现其中的match.params, 就是参数名称和对应的值, 通过这个就可以进行处理了, 比如:</p>
+<pre>
+const HatsPage = (props)=>{
+    return(
+    &lt;div>
+        &lt;h1>HATS PAGE&lt;/h1>
+        &lt;p>This is No.{props.match.params.hatsId} hat.&lt;/p>
+    &lt;/div>
+)}
+</pre>
+<p>这样进行访问网页其实也是可以的, 比较方便.</p>
+<p>Link则是生成一个链接, 指向指定的路径: <code>&lt;Link to='/hats/11'>No.11&lt;/Link></code></p>
+<p>链接还有一种方式是使用props.history, 使用.push()方法, 传入路径即可, 这个方法需要使用事件.</p>
 
 
 
