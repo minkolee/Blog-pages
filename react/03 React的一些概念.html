@@ -11,9 +11,9 @@
 <ol>
     <li><a href="#con1">setState的异步更新</a></li>
     <li><a href="#con2">React的生命周期方法</a></li>
-    <li><a href="#con3">新项目 - 拆分组件</a></li>
-    <li><a href="#con4">新项目 - 路由</a></li>
-    <li><a href="#con5">直接实现搜索功能</a></li>
+    <li><a href="#con3">新项目</a></li>
+    <li><a href="#con4">路由相关组件</a></li>
+    <li><a href="#con5">用路由来修改项目</a></li>
     <li><a href="#con6">将搜索框做成组件 - 传递事件处理函数给组件</a></li>
     <li><a href="#con7">补完样式</a></li>
 </ol>
@@ -93,8 +93,9 @@ handleClick = ()=>{
 <p>搞清楚这个异步更新, 以及如何使用更新之前的值, 就可以方便的确保state不出现问题.</p>
 
 <h2 style="text-align: center;" id="con2">React的生命周期方法</h2>
-<p>在这里有<a href="https://projects.wojtekmaj.pl/react-lifecycle-methods-diagram/" target="_blank">React生命周期方法</a>的图表可供参考, 这个图表在<a
-        href="https://github.com/wojtekmaj/react-lifecycle-methods-diagram" target="_blank">git</a>上也有.</p>
+<p>在这里有<a href="https://projects.wojtekmaj.pl/react-lifecycle-methods-diagram/" target="_blank">React生命周期方法</a>的图表可供参考,
+    这个图表在<a
+            href="https://github.com/wojtekmaj/react-lifecycle-methods-diagram" target="_blank">git</a>上也有.</p>
 <p>生命周期可以分为三大块, 第一块是Mounting, 也就是创建组件并挂载, 这个时候会调用构造器, 之后不会再调用.</p>
 <p>Mounting会先render(), 即生成元素, 然后更新DOM, 之后就会调用componentDidMount()方法.</p>
 <p>第二块是更新, Mounting和Updating的整个过程里都会用到render()方法, render()完成之后调用componentDidUpdate()方法.</p>
@@ -258,7 +259,7 @@ componentDidUpdate
 <p>HomePage组件就使用display:flex让中间所有组件对齐并且居中, Directory组件也是flex, 最后是每个Item, 中间包含一个背景图片, 一个标题和一个小区域, 也是flex并居中.</p>
 <p>CSS这玩意还真得好好看看, 每次用的是很都要现想, 没办法, 谁让这东西是黑魔法呢.</p>
 
-<h2 style="text-align: center;" id="con4">新项目 - 路由</h2>
+<h2 style="text-align: center;" id="con4">路由相关组件</h2>
 <p>单页应用最大的问题就是在切换URL的时候, 如何拦截并且渲染, 这个是最重要的一环.</p>
 <p>路由其实是使用浏览器的History API来实现的. 对于前端来说, 其实就是将URL与组件绑定起来, 显示什么样的URL, 就使用什么样的组件来进行渲染.</p>
 <p>React和React-dom本身不支持路由功能, 仅仅是一个UI组件, 不过像Vue一样, React家族还有react-router-dom来实现路由功能:</p>
@@ -306,7 +307,8 @@ const HatsPage = ()=>(
 &lt;Route exact path='/' component = {HomePage}/>
 &lt;Route exact path='/hats' component = {HatsPage}/>
 </pre>
-<p>这样就可以访问根路径和/hats路径了. 详细的Router文档在<a href="https://reactrouter.com/web/guides/quick-start" target="_blank ">https://reactrouter.com/web/guides/quick-start</a></p>
+<p>这样就可以访问根路径和/hats路径了. 详细的Router文档在<a href="https://reactrouter.com/web/guides/quick-start" target="_blank ">https://reactrouter.com/web/guides/quick-start</a>
+</p>
 <p>然后是Switch组件, 说道Switch, 上周五(8月21号买了个NS)...老婆要招待朋友们家里玩, Hmmmm.....</p>
 <p>Switch组件用来包裹Route组件, 假如Route组件是这样:</p>
 <pre>
@@ -343,42 +345,87 @@ const HatsPage = (props)=>{
 )}
 </pre>
 <p>这样进行访问网页其实也是可以的, 比较方便.</p>
-<p>Link则是生成一个链接, 指向指定的路径: <code>&lt;Link to='/hats/11'>No.11&lt;/Link></code></p>
+<p>Link则是生成一个链接, 指向指定的路径: <code>&lt;Link to='/hats/11'>No.11&lt;/Link></code>, 有了这个东西之后, 就可以动态拼接URL, 比如:
+<pre>
+const HatsPage = (props) => {
+    let path = props.match.path.split(':')[0];
+    const lastPage = parseInt(props.match.params.hatsId)
+    return (
+        &lt;div>
+            &lt;h1>HATS PAGE&lt;/h1>
+&lt;p>This is No.{props.match.params.hatsId} hat.&lt;/p>
+&lt;Link to={`${path}${lastPage+1}`} >Next&lt;/Link>
+&lt;/div>
+)
+};
+</pre>
+<p>这个渲染就可以动态的拼接出下一个链接, 当然, 这还要看后端是否存在下一个链接, 中间还需要使用其他的东西.</p>
 <p>链接还有一种方式是使用props.history, 使用.push()方法, 传入路径即可, 这个方法需要使用事件.</p>
 
+<h2 style="text-align: center;" id="con5">用路由来修改项目</h2>
+<p>其核心逻辑就是把每个 SHOPNOW 所在的地方都加上链接, 要分如下几步, 首先在app.js添加上:</p>
+<pre>
+function App() {
+  return (
+    &lt;div>
+        &lt;Route exact path='/' component = {HomePage}/>
+    &lt;/div>
+  );
+}
+</pre>
+<p>之后比较方便的做法是, 在数据中给每个类别添加上url, 如下:</p>
+<pre>
+this.state = {
+      sections: [
+        {
+          title: 'hats',
+          imageUrl: 'https://i.ibb.co/cvpntL1/hats.png',
+          id: 1,
+          <span style="color: red">linkUrl: 'hats'</span>
+        },
+      ]
+    };
+</pre>
+<p>其他几个项目还没有制作, 不过可以以后再来添加, 因为要渲染的页面其实也是组件, 做好一个之后可以复用.</p>
+<p>然后就是把linkUrl传给menu-item:</p>
+<pre>
+render() {
+return (
+  &lt;div className='directory-menu'>
+    {this.state.sections.map(({ title, imageUrl, id, size, linkUrl }) => (
+      &lt;MenuItem key={id} title={title} imageUrl={imageUrl} size={size} <span style="color: red">linkUrl={linkUrl}</span> />
+    ))}
+  &lt;/div>
+);
+}
+</pre>
+<p>在menu-item组件中,添加一个事件给当中的小框, 使用history对象即可:</p>
+<pre>
+const MenuItem = ({ title, imageUrl, size, <span style="color: red">linkUrl</span>, history, match }) => (
+  &lt;div className={`${size} menu-item`} <span style="color: red">onClick={()=>history.push(`${linkUrl}`)</span>}>
+    &lt;div
+            className='background-image'
+            style={{
+            backgroundImage: `url(${imageUrl})`
+            }}
+    />
+    &lt;div className='content'>
+      &lt;h1 className='title'>{title.toUpperCase()}&lt;/h1>
+      &lt;span className='subtitle'>SHOP NOW&lt;/span>
+    &lt;/div>
+  &lt;/div>
+);
+</pre>
+<p>记得index.js中, 要用BrowserRouter组件来包裹App组件, 这样就做好了首页的链接功能.</p>
+<p>看到这里, 我也明白了, 像url这种东西, 还是写在数据组件里, 一次设置好, 然后逐层向下分发就行了.</p>
 
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h2 style="text-align: center;" id="con5">setState的异步更新</h2>
 <h2 style="text-align: center;" id="con6">setState的异步更新</h2>
 <h2 style="text-align: center;" id="con7">setState的异步更新</h2>
-
-
-
-
-
-
-
-
-
-
 
 
 </body>
