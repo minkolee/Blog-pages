@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>React 04 商品页面编制</title>
+</head>
+<body>
+<p>商店页面是一个综合的页面, 展示所有品类以及其中的四个商品, 很显然, 又是一些组件, 尤其这些组件可以复用, 只需要传递商品的类别即可.</p>
+<p>由于这个页面是个新的页面, 所以可以在pages目录中创建一个新的页面, 可见React在组织的时候, 依然可以按照根APP渲染不同的页面, 不同的页面中渲染不同的组件这样一种组织方式.</p>
+
+<ol>
+    <li><a href="#con1">商店页面</a></li>
+    <li><a href="#con2">collection-preview 组件</a></li>
+    <li><a href="#con3">collection-item 组件</a></li>
+    <li><a href="#con4">路由相关组件</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">商店页面</h2>
+<p>在pages目录中创建shop目录, 其中的组件充当shop页面, 然后在其中创建shop.component.jsx, 考虑用类来编写这个组件, 因为其中需要存放要展示的数据.</p>
+<p>对于展示的数据, 当然可以从后端取得, 这里为了方便, 将数据放在一个另外的JS文件shop.data.js中, 然后导入之:</p>
+<pre>
+import React from "react";
+import <span style="color: red">SHOP_DATA</span> from "./shop.data";
+
+class ShopPage extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            collections: <span style="color: red">SHOP_DATA</span>
+        }
+    }
+}
+</pre>
+<p>然后就要编写render()函数了, 先随便渲染一下, 然后添加app.js中的路由组件:</p>
+<pre>
+render() {
+    return (
+        &lt;div>
+            SHOP PAGE
+        &lt;/div>
+    );
+}
+</pre>
+<p>app.js中进行修改:</p>
+<pre>
+import React from 'react';
+import './App.css';
+import {Route, Switch, Link} from 'react-router-dom';
+
+
+import HomePage from './pages/homepage/homepage.component';
+<span style="color: red">import ShopPage from './pages/shop/shop.component';</span>
+
+
+function App() {
+    return (
+        &lt;div>
+            &lt;Switch>
+                &lt;Route exact path='/' component={HomePage}/>
+                <span style="color: red">&lt;Route exact path='/shop' component={ShopPage}/></span>
+            &lt;/Switch>
+        &lt;/div>
+    );
+}
+export default App;
+</pre>
+
+<h2 style="text-align: center;" id="con2">collection-preview 组件</h2>
+<p>然后就是编写一个用来展示商品类别和四个商品的组件, 很显然编写好之后, 只需要把ShopPage中的数据塞进去就行了.</p>
+<p>在components中创建collection-preview目录, 编写组件和对应的scss文件:</p>
+<pre>
+import React from "react";
+import './collection-preview.style.scss';
+
+const CollectionPreview = ({title,items}) => (
+    &lt;div className='collection-preview'>
+        &lt;h1 className='title'>{title.toUpperCase()}&lt;/h1>
+        &lt;div className='preview'>
+            {
+                items.map( item=>(
+                    &lt;div key={item.id}>{item.name}&lt;/div>
+                ))
+            }
+        &lt;/div>
+    &lt;/div>
+)
+
+export default CollectionPreview;
+</pre>
+<p>很显然接下来就是在ShopPage里尝试一下传入props:</p>
+<pre>
+import CollectionPreview from "../../components/collection-preview/collection-preview.component";
+
+render() {
+    const {collections} = this.state;
+    return (
+        &lt;div className='shop-page'>
+            {
+                collections.map(
+                    ({id, ...otherCollectionProps}) => (
+                        &lt;CollectionPreview key ={id} {...otherCollectionProps}/>
+                    )
+                )
+            }
+        &lt;/div>
+
+    );
+}
+</pre>
+<p>这里使用<code>...otherCollectionProps</code>, 相当于简写将所有的属性按照相同的名称传递给组件, 这样再运行一下项目, 看到调通了, 显示出了所有的项目.</p>
+<p>这里由于每次只需要显示4个项目, 因此还需要在collection-preview组件中, 加一个filter, 只剩4个就可以了:</p>
+<pre>
+items.<span style="color: red">filter((item, idx) => idx < 4)</span>.map(item => (
+    &lt;div key={item.id}>{item.name}&lt;/div>
+</pre>
+<p>这里利用的是filter自带的回调, 可以方便的控制数量多少, 可别忘记了. 现在每个商品类别只显示4个内容, 剩下就是要来装饰样式和内部的元素了.</p>
+<h2 style="text-align: center;" id="con3">collection-item 组件</h2>
+<p>和刚才一样, 要编写一个具体的item组件, 由上一级组件把图片内容等分发过去用于渲染, </p>
+<pre>
+import React from "react";
+import './collection-item.styles.scss';
+
+const CollectionItem = ({id, name, price, imageUrl}) =>(
+    &lt;div className='collection-item'>
+        &lt;div className='image' style={{backgroundImage: `url(${imageUrl}`}} />
+        &lt;div className='collection-footer'>
+            &lt;span className='name'>{name}&lt;/span>
+            &lt;span className='price'>{price}&lt;/span>
+        &lt;/div>
+    &lt;/div>
+)
+
+export default CollectionItem;
+</pre>
+<p>然后在collection-preview中使用这个组件:</p>
+<pre>
+const CollectionPreview = ({title, items}) => (
+    &lt;div className='collection-preview'>
+        &lt;h1 className='title'>{title.toUpperCase()}&lt;/h1>
+        &lt;div className='preview'>
+            {
+                items.filter((item, idx) => idx &lt; 4).map(({id, ...otherItemProps}) => (
+                    <span style="color: red">&lt;CollectionItem key={id} {...otherItemProps}/></span>
+                ))
+            }
+        &lt;/div>
+    &lt;/div>
+)
+</pre>
+
+<h2 style="text-align: center;" id="con4">header 组件</h2>
+<p>现在还有一个Header组件, 也就是导航条, 也是老样子, 将其作为一个组件. 这里主要是了解使用静态资源的方法.</p>
+<p>在src中可以新建一个assets目录, 用来存放所有的静态资源,比如图标, 本地图片等等, 将crown.svg放入其中, 然后就可以在Header组件中进行导入:</p>
+<pre>
+import {ReactComponent as Logo} from  '../../assets/crown.svg'
+</pre>
+<p>这是React中导入svg文件的特殊语法, 看起来就像是导入了一个组件一样.</p>
+<p>在放入页面的时候, 也像一个组件一样使用即可:</p>
+<pre>
+const Header = () => (
+    &lt;div className='header'>
+        &lt;Link className='logo-container' to='/'>
+            <span style="color: red">&lt;Logo className='logo'/></span>
+        &lt;/Link>
+        &lt;div className='options'>
+            &lt;Link className='option' to='/shop'>SHOP&lt;/Link>
+            &lt;Link className='option' to='/shop'>CONTACT&lt;/Link>
+        &lt;/div>
+    &lt;/div>
+
+);
+</pre>
+<p>这个东西在实际的页面中, 会渲染成为一个svg标签如下:</p>
+<pre>
+&lt;svg width="50px" height="39px" viewBox="0 0 50 39" class="logo">...&lt;/svg>
+</pre>
+<p>目前虽然就没有加上hover特效, 但是基础的页面部分已经制作好了, 接下来是在React中添加表单.</p>
+<p>在表单中, 依然是遵循思路, 也就是不断的分割成组件, 尽量复用, 然后再来添加事件和逻辑.</p>
+
+
+
+
+</body>
+</html>

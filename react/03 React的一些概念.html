@@ -5,8 +5,10 @@
     <title>03 React的一些概念和新项目设置</title>
 </head>
 <body>
-<p>今天女儿要去学校参加海选, 不知道有没有选上, 写下这篇文章的时候是下午两点20分, 折腾了一下公司的电脑发现还没法更换大一点的机箱, 那暂时就这样吧.</p>
-<p>本来今天想去看牙, 也因为要找老的销售合同而取消, 看看明天有没有机会去看牙吧.</p>
+<p>这几天女儿经历了跳舞海选通过初试然后又没通过复选的故事. 然后在顾村的新家也整理好了, 老婆还突然让我去买了一台NS, 结果又为ns配了一个手柄500多, 花钱真的快啊.</p>
+<p>昨天早上上班的路上, 镇坪路地铁站里, 看到一个女生靠着柱子坐着, 脸埋在包里, 不知道她此刻的心情, 不过没有过不去的坎, 少女也请继续加油吧.</p>
+<p>上个星期还去看了一次牙, 下周一又要再去补, 已经是今年坏的第四颗牙了, 是不是身体的零部件要迎来大保养的时刻了.</p>
+
 
 <ol>
     <li><a href="#con1">setState的异步更新</a></li>
@@ -14,8 +16,6 @@
     <li><a href="#con3">新项目</a></li>
     <li><a href="#con4">路由相关组件</a></li>
     <li><a href="#con5">用路由来修改项目</a></li>
-    <li><a href="#con6">将搜索框做成组件 - 传递事件处理函数给组件</a></li>
-    <li><a href="#con7">补完样式</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">setState的异步更新</h2>
@@ -387,8 +387,10 @@ this.state = {
     };
 </pre>
 <p>其他几个项目还没有制作, 不过可以以后再来添加, 因为要渲染的页面其实也是组件, 做好一个之后可以复用.</p>
-<p>然后就是把linkUrl传给menu-item:</p>
+<p>然后就是把linkUrl传给menu-item, 这里为了能直接使用history对象, 而不是浏览器的history对象, 需要添加一个导入, 然后在导出的地方用这个包裹导出对象即可 :</p>
 <pre>
+import {<span style="color: red">withRouter</span>} from 'react-router-dom';
+
 render() {
 return (
   &lt;div className='directory-menu'>
@@ -398,6 +400,9 @@ return (
   &lt;/div>
 );
 }
+
+export default <span style="color: red">withRouter</span>(MenuItem);
+
 </pre>
 <p>在menu-item组件中,添加一个事件给当中的小框, 使用history对象即可:</p>
 <pre>
@@ -418,14 +423,8 @@ const MenuItem = ({ title, imageUrl, size, <span style="color: red">linkUrl</spa
 </pre>
 <p>记得index.js中, 要用BrowserRouter组件来包裹App组件, 这样就做好了首页的链接功能.</p>
 <p>看到这里, 我也明白了, 像url这种东西, 还是写在数据组件里, 一次设置好, 然后逐层向下分发就行了.</p>
+<p>现在路由的基本用法掌握了, React确实还是比较清晰的, 下边来看看具体的商品页面如何编制.</p>
 
-
-
-
-
-
-<h2 style="text-align: center;" id="con6">setState的异步更新</h2>
-<h2 style="text-align: center;" id="con7">setState的异步更新</h2>
 
 
 </body>
