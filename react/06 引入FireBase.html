@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>React 06 Firebase的Google认证</title>
+</head>
+<body>
+<p>这次是使用FireBase来让我们可以方便的进行验证, 上次在翻译Django书的时候用过一次Google的Oauth, 然后在更久远的学习里使用过FireBase. 这次就来一起添加上登录功能吧.</p>
+<p>登录功能其实也写了很多, 主要还是一个登录状态的控制问题. 验证和发送信息其实还不算最核心的难点.</p>
+
+<ol>
+    <li><a href="#con1">Firebase准备</a></li>
+    <li><a href="#con2">在app中引入Firebase</a></li>
+    <li><a href="#con3">sign-in组件中使用Google验证</a></li>
+    <li><a href="#con4">保存认证状态</a></li>
+    <li><a href="#con5">使用状态更新页面</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Firebase准备</h2>
+<p>Firebase的文档里有<a href="https://firebase.google.com/docs/web/setup" target="_blank">在Web中使用Firebase的教程</a>. 来看看如何具体设置.</p>
+<p>这里先新开一个项目, 用google账号登录, 然后转到控制台, 之后就可以添加一个项目. 之前已经有一个练手的axios的项目, 这次就新建一个, crwn-db. </p>
+<p>创建好之后点击继续, 会自动跳转到当前项目的控制台. 左侧有开发菜单.核心就是认证Authenticattion和Database.</p>
+<p>中间还有三个白色图标, 表示用于IOS, 安卓和Web, 现在来点击web.</p>
+<p>然后要给应用设置一个别名, 这个名称只用于内部, 也叫做crwn-db好了, 然后无需Firebase托管, 点击注册应用, 之后
+会出现提示: 在使用任何 Firebase 服务之前，复制这些代码段，将其粘贴到您的 &lt;body> 标记底部.
+这里其实就是一些APIKEY还有其他内容. 不过由于我们是前端工程化开发, 所以不用这个, 而是要用npm来安装Firebase.</p>
+<p>输入<code>npm add firebase</code>, 安装后之后, 就是要把这些信息放入我们的app中了.</p>
+
+<h2 style="text-align: center;" id="con2">在app中引入Firebase</h2>
+<p>安装完成之后, 在src下新建一个目录叫做firebase, 然后为其编写一个js文件叫做firebase.utils.js, 这个文件作为使用firebase功能的程序文件.</p>
+<pre>
+import firebase from "firebase/app";
+import 'firebase/firestore';
+import 'firebase/auth';
+</pre>
+<p>如此导入是因为只需要使用app相关的内容, 以及存储和认证的功能. 如果导入根firebase, 则会把整个库都导进来, 过于庞大.</p>
+<p>然后把刚才得到的那些API KEY等配置数据放进去, 之后初始化:</p>
+<pre>
+const config = {
+    apiKey: "AIzaSyDsORpLnGZR6Kw1XvVj20yeAw1ePOuIDDU",
+    authDomain: "crwn-db-4e3f7.firebaseapp.com",
+    databaseURL: "https://crwn-db-4e3f7.firebaseio.com",
+    projectId: "crwn-db-4e3f7",
+    storageBucket: "crwn-db-4e3f7.appspot.com",
+    messagingSenderId: "333084045964",
+    appId: "XXXXX"
+};
+
+firebase.initializeApp(config);
+
+</pre>
+<p>然后是一些导出代码:</p>
+<pre>
+export const auth = firebase.auth();
+export const firestore = firebase.firestore();
+
+// 获取google验证器
+const provider = new firebase.auth.GoogleAuthProvider();
+provider.setCustomParameters({prompt: 'select_account'});
+
+export const singInWithGoogle = () => auth.signInWithPopup(provider);
+
+export default firebase;
+</pre>
+<p>这些不清楚也不要紧, 就是使用google验证的文档中的例子.然后回到firebase, 点击开发中的authenticattion,
+然后是设置登录方法, 点进去会选择登录的方式, 有很多种, 默认都停用, 点击Google那一行最右侧, 进行启动, 然后选一个自己的邮箱用来作为支持邮箱, 错误和其他信息会发到这个邮箱.
+然后点击Save, 就做好了Firebase的配置. 之后可以看到Google这一行变成了已启用.</p>
+
+<h2 style="text-align: center;" id="con3">sign-in组件中使用Google验证</h2>
+<p>在sign-in组件中导入刚才编写的firebase.utilsjs, 然后复制一个CustomeButton组件, 要设置onClick事件为signInWithGoogle:</p>
+<pre>
+import {singInWithGoogle} from "../../firebase/firebase.utils";
+
+render() {
+    return (
+        &lt;div className='sign-in'>
+            &lt;h2>I already have a account&lt;/h2>
+            &lt;span>Sign in with your email and password&lt;/span>
+            &lt;form onSubmit={this.handleSubmit}>
+                &lt;FormInput label='email' type="text" name='email' value = {this.state.email} handleChange={this.handleChange} required/>
+                &lt;FormInput label='password' type="password" name='password' value = {this.state.password} handleChange={this.handleChange} required/>
+
+                &lt;CustomButton type="submit">SIGN IN&lt;/CustomButton>
+                <span style="color: red">&lt;CustomButton onClick={singInWithGoogle}>SIGN IN WITH GOOGLE&lt;/CustomButton></span>
+            &lt;/form>
+        &lt;/div>
+    );
+}
+</pre>
+<p>这样点击事件就会变成导入的singInWithGoogle事件, 此时启动app, 点击按钮就会自动转向Google登录页面. 不过登录之后, 现在还没有什么返回或者数据可以使用.</p>
+<p>此时再到Firebase去查看, 就会发现刚才登录的用户被自动添加到了Firebase-authentication-users中, 然后就需要进行处理, 用刚刚得到的用户名和密码到Firebase中去进行验证.</p>
+
+<h2 style="text-align: center;" id="con4">与Firebase进行认证</h2>
+<p>刚才做的, 实际上是把google账户对应的用户添加到Firebase应用中, 下一步就需要来进行实际的认证.</p>
+<p>这里有一点要注意, 就是认证状态要保存在何处, 很显然必须保存在根组件也就是app.js组件中.</p>
+<p>不能因为用户切换到登录页面以为, 登录认证就失效, 所以这里要对app.js下手, 将function App改成一个类, 用这个类来存放登录数据, 然后分发给所有的页面, 因为在整个应用存续期间, 根组件一直存在的.</p>
+<pre>
+import {auth} from "./firebase/firebase.utils";
+
+class App extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            currentUser:null
+
+        };
+    }
+
+    render() {
+        return (
+            &lt;div>
+                &lt;Header/>
+                &lt;Switch>
+                    &lt;Route exact path='/' component={HomePage}/>
+                    &lt;Route exact path='/shop' component={ShopPage}/>
+                    &lt;Route exact path='/signin' component={SingInAndSignUpPage}/>
+                &lt;/Switch>
+            &lt;/div>
+        );
+    }
+}
+</pre>
+<p>这里有一点要注意的是, 又要使用生命周期函数了, componentDidMount, 也就是在app根组件成功挂载之后, 要在里边进行一些操作, 在之前的例子里是在其中设置了访问后端, 然后把结果去更新state.
+</p>
+<p>现在要做的事情就是利用firebase的库:</p>
+<pre>
+componentDidMount() {
+    auth.onAuthStateChanged(user => {
+        this.state.setState({currentUser: user});
+        console.log(user)
+    });
+}
+</pre>
+<p>然后到浏览器里去, 再进行一遍登录过程, 可以看到打印出了刚刚进行验证的google用户. 实际上firebase库相当于一个session, 保存了上次登录的用户信息,
+    只要登录状态还没变化, 就可以认为还是在登录状态, 这比自己去控制session要方便很多.</p>
+<p>然后目前App只要能够通过google验证, 那么当前用户就被设置上上一个登录的用户, 这样就等于取得了状态.尝试反复登录之后, 可以发现每次currentUser确实会发生变化.</p>
+<p>这里只需要再取得这个东西的引用, 以在需要的时候可以取消登录状态就可以了, 修改如下:</p>
+<pre>
+class App extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            currentUser: null
+        };
+    }
+
+    <span style="color: red">unsubscribeFromAuth = null;
+
+    componentDidMount() {
+        this.unsubscribeFromAuth = auth.onAuthStateChanged(user => {
+            this.setState({currentUser: user});
+            console.log(user)
+        });
+    }
+
+    componentWillUnmount() {
+        this.unsubscribeFromAuth()
+
+    }</span>
+
+    render() {
+        return (
+            &lt;div>
+                &lt;Header/>
+                &lt;Switch>
+                    &lt;Route exact path='/' component={HomePage}/>
+                    &lt;Route exact path='/shop' component={ShopPage}/>
+                    &lt;Route exact path='/signin' component={SingInAndSignUpPage}/>
+                &lt;/Switch>
+            &lt;/div>
+        );
+    }
+}
+
+</pre>
+
+
+<h2 style="text-align: center;" id="con5">使用状态更新页面</h2>
+<p>Header中, 有一个地方需要添加登录和登出菜单, 很显然, 登录之后需要变化成登出, 而登出之后需要显示登录.</p>
+<p>既然已经在app.js中有了当前用户, 那么就可以根据用户是不是null来判断是否需要登录.</p>
+<pre>
+&lt;Header currentUser={this.state.currentUser}/>
+</pre>
+<p>然后就是要在Header中做文章, 根据传入的用户对象来判断是不是显示哪个链接和对应事件.</p>
+<p>Header中, 注意也要导入auth库, 然后更改:</p>
+<pre>
+import {auth} from "../../firebase/firebase.utils";
+
+const Header = ({currentUser}) => (
+    &lt;div className='header'>
+        &lt;Link className='logo-container' to='/'>
+            &lt;Logo className='logo'/>
+        &lt;/Link>
+        &lt;div className='options'>
+            &lt;Link className='option' to='/shop'>SHOP&lt;/Link>
+            &lt;Link className='option' to='/shop'>CONTACT&lt;/Link>
+            <span style="color: red">{
+                currentUser ?
+                    &lt;Link className='option' onClick={()=>auth.signOut()}>SIGN OUT&lt;/Link>
+            :
+                    &lt;Link className='option' to='/signin'>SIGN IN&lt;/Link>
+            }</span>
+        &lt;/div>
+    &lt;/div>
+
+);
+</pre>
+<p>这里其实就是老套路, 判断是否存在用户对象, 有就渲染一个SIGN OUT, 而没有就渲染一个SIGN IN. 而且这里可以看到, 用户的状态被Firebase库保存了, 即使刷新页面, 用户的状态也还在.</p>
+<p>这个相比每次从本地存储取然后与后端进行比较, 还是方便一些的, 而且Firebase这个库是一直保存登录状态的.</p>
+<p>剩下就是调整一些样式, 显示蓝白色的Google登录按钮等等. 到现在为止, 完成了登录google的认证.</p>
+<p>再来梳理一下, 使用了Firebase的库, 然后会默认打开一个窗口进行验证, 验证成功之后, firebase库会返回一个google用户, 记录了上次验证成功的用户.</p>
+<p>使用这个用户传递给根组件的state来保存用户状态, 然后就可以传递给Header组件来进行显示登录和登出控制, 这里没有使用额外的状态库, 仅仅将登录状态保存在app.js中.</p>
+<p>下一步, 就来完成真正的用户名和密码验证, 也就是Firebase的用户身份验证.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

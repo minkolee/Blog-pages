@@ -11,8 +11,7 @@
 <ol>
     <li><a href="#con1">登录页</a></li>
     <li><a href="#con2">input组件</a></li>
-    <li><a href="#con3">collection-item 组件</a></li>
-    <li><a href="#con4">路由相关组件</a></li>
+    <li><a href="#con3">按钮组件</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">登录页</h2>
@@ -85,25 +84,64 @@ export default SignIn;
 <h2 style="text-align: center;" id="con2">input组件</h2>
 <p>接下来任务是编写一个通用的input组件, 然后只要给其传入各种参数, 就可以控制其成为普通的, email, 密码等各种格式, 一次编写好多次使用.</p>
 <p>创建组件目录form-input和内部的文件, </p>
+<pre>
+import React from "react";
 
+import './form-input.styles.scss';
 
+const FormInput = ({handleChange, label, ...otherProps}) =>{
+    return (
+        &lt;div className='group'>
+            &lt;input className='form-input' onChange={handleChange} {...otherProps} />
+            {
+                label ?
+                    (&lt;label className={`${otherProps.value.length ? 'shrink' : ""} form-input-label`}>{label}&lt;/label>) : null
+            }
+        &lt;/div>
+    );
+}
 
+export default FormInput;
+</pre>
+<p>这里的关键是利用样式来作出这个效果, 还有就是根据传入的label不同, 来是否显示label. 只要不传, 就不会渲染那个浮动的label标签.</p>
+<p>这里的样式很有意思, 将label标签固定在input框内部, 为焦点或者有输入内容的时候, 就让其浮动和变小到上边去. 学到了.</p>
 
+<h2 style="text-align: center;" id="con3">按钮组件</h2>
+<p>按钮组件需要搭配Input组件一起使用, 其关键的任务就是被按下之后, 需要将表单的内容进行提交, 由于表单组件已经设置了提交的事件, 因此就是将这个事件传递给按钮组件即可:</p>
+<p>而且按键组件也要做成一个无状态的组件, 类似于input组件, 这样可以在各处复用.</p>
+<pre>
+import React from "react";
 
+import './custom-button.styles.scss';
 
+const CustomButton = ({children, ...otherProps}) => (
+    &lt;button className='custom-button' {...otherProps}>
+        {children}
+    &lt;/button>
+);
 
+export default CustomButton;
+</pre>
+<p>很显然, 需要从父组件把内容传递过来, 这里不需要传递提交事件, 只需要把button设置为submit, 点击之后触发是的表单的事件, 而表单的事件是通过特殊的属性onSubmit来设置的, 所以这个button组件可以方便的在所有表单中使用.:</p>
+<pre>
+import CustomButton from "../custom-button/custom-button.component";
 
+render() {
+    return (
+        &lt;div className='sign-in'>
+            &lt;h2>I already have a account&lt;/h2>
+            &lt;span>Sign in with your email and password&lt;/span>
+            &lt;form onSubmit={this.handleSubmit}>
+                &lt;FormInput label='email' type="text" name='email' value = {this.state.email} handleChange={this.handleChange} required/>
+                &lt;FormInput label='password' type="password" name='password' value = {this.state.password} handleChange={this.handleChange} required/>
 
-
-
-
-
-<h2 style="text-align: center;" id="con3">登录页</h2>
-<h2 style="text-align: center;" id="con4">登录页</h2>
-<h2 style="text-align: center;" id="con5">登录页</h2>
-<h2 style="text-align: center;" id="con6">登录页</h2>
-<h2 style="text-align: center;" id="con7">登录页</h2>
-<p>在pages目录中创建s
+                <span style="color: red">&lt;CustomButton type="submit">SIGN IN&lt;/CustomButton></span>
+            &lt;/form>
+        &lt;/div>
+    );
+}
+</pre>
+<p>这样就完成了登录页面的编写, 下边要来使用FireBase的认证功能来完成登录功能了.</p>
 
 </body>
 </html>
