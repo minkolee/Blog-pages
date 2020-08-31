@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+</body>
+
+<button id="sumb">添加数据</button>
+
+<script src="https://www.gstatic.com/firebasejs/6.2.0/firebase.js"></script>
+
+<script>
+var config = {
+    apiKey: "AIzaSyDsORpLnGZR6Kw1XvVj20yeAw1ePOuIDDU",
+    authDomain: "crwn-db-4e3f7.firebaseapp.com",
+    databaseURL: "https://crwn-db-4e3f7.firebaseio.com",
+    projectId: "crwn-db-4e3f7",
+    storageBucket: "crwn-db-4e3f7.appspot.com",
+    messagingSenderId: "333084045964",
+    appId: "1:333084045964:web:bb44298d72fa2e1b8b01a9"
+};
+
+firebase.initializeApp(config);
+console.log("初始化完成");
+var database = firebase.database();
+
+document.querySelector("#sumb").addEventListener("click",(e)=>{
+    console.log("添加");
+    database.ref('/users').set({
+        username: 'cony',
+        startToPrimarySchool: '20200901'
+    })
+    console.log(database.ref('/users/displayName'));
+})
+
+
+
+
+</script>
+</html>
