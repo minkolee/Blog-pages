@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>React 07 Redux</title>
+</head>
+<body>
+<p>Redux有点类似于Vuex,是针对一个单页面应用统一的状态管理. 如果各个组件都需要保存自己的state, 而这些state之间互相需要同步, 那么一个潜在而且非常重要的问题就是万一组件的state没有得到同步会怎么样.</p>
+<p>与其将状态保存在各个组件, 然后互相通信来进行更新, 可以方便的采取一个统一的状态管理, 这就是Redux的特点.</p>
+<p>Redux的特点就是单向数据流, 所有的操作都从定义好的一个Action开始, 每个Action决定了要对状态库进行何种操作, 具体操作由Reducer决定, 然后将Action注册在状态库中, 每次只向库提交Action, 库更新成功后, 就会驱动渲染引擎去更新页面.</p>
+<p>听上去, Vuex和Redux的比较类似, 不过Redux的特点如下:</p>
+<ol>
+    <li>唯一数据源, 即一个单页面应用, 使用一个Store就可以了</li>
+    <li>保持状态只读, 更新状态只通过一个Reduce</li>
+    <li>数据改变只准通过纯函数完成, 纯函数就是一个Reducer.</li>
+</ol>
+
+<ol>
+    <li><a href="#con1">Redux的理念</a></li>
+    <li><a href="#con2">使用Redux的小程序</a></li>
+    <li><a href="#con3">为按钮添加更新Store的事件</a></li>
+    <li><a href="#con4">更改目标区域的颜色</a></li>
+</ol>
+
+<h2 style="text-align: center;" id="con1">Redux的理念</h2>
+<p>Redux的业务循环如下:</p>
+<ol>
+    <li>首先需要创建一个reducer, 这个reducer就是用来更新Store的纯函数, 这个函数签名如下:reducer(state, action),
+    其中的state是当前的状态, Action可以理解为一个要更新状态的动作, 这个纯函数要做的事情就是根据state和action来返回一个新的state. 这个新的state也就是更新后的Store中存储的当前应用的新状态.</li>
+    <li>其次需要创建一个Store对象, 这个就是整个单页面应用的状态库,
+        这个Store对象通过Redux库的createStore来创建, 其中的构造器需要两个参数, 一个是reducer, 一个是初始化的数据(可以用JS对象来表示), 相当于为其注册了一个reducer.</li>
+    <li>然后就是定义Action对象, 一般来说, Action对象就是一个JS对象, 其中应该带有一个标识, 用来表示当前的Action对象要如何更新state(比如加减某个变量, 更新其他等等), 好让reducer决定如何来处理新的state.</li>
+    <li>最后给要更新store的组件, 添加上更新store的事件代码, 也就是store.dispatch(Action), 即将Action使用store.dispatch发送给store.
+    store就会使用之前注册好的reducer, 接受这个Action, 进而来更新整个状态. 通过事件来更新Store中的状态, 这个所有组件都可以使用, 所以就形成了统一的状态管理.</li>
+</ol>
+
+<h2 style="text-align: center;" id="con2">使用Redux的小程序</h2>
+<p>这里搞个小例子来写一下, 比如输入三个数值, 来改变一块区域的颜色.</p>
+<p>首先需要设计一下, 需要一个独立的区域, 让其的颜色需要等于store中存储的三种颜色.</p>
+<p>然后有另外三组按钮, 每一组有两个按钮, 用于改变RGB三种颜色中的一种, 增加或者减少.</p>
+<p>这里的核心就是, 每一个input+按钮做成一个组件, 这个组件必须更新store中的某一个颜色, 如何知道更新哪一个颜色呢, 就需要通过Action中的一个属性来确定.</p>
+<p>启动一个新的React项目, 安装好Redux, 然后来创建一系列组件, 在src目录下创建page, store, component三个目录.</p>
+<p>先来看各种组件, HomePage.js如下:</p>
+<pre>
+import React from "react";
+import './HomePage.scss';
+import TargetArea from "../component/TargetArea";
+import ControlButtons from "../component/ControlButtons";
+
+const HomePage = () => {
+    return (
+        &lt;div className='wrapper'>
+            &lt;h1>测试改变区域颜色&lt;/h1>
+            &lt;TargetArea />
+            &lt;div className='buttonWrapper'>
+            &lt;ControlButtons/>
+            &lt;ControlButtons/>
+            &lt;ControlButtons/>
+            &lt;/div>
+        &lt;/div>
+    )
+};
+
+export default HomePage;
+</pre>
+<p>TargetArea组件如下:</p>
+<pre>
+import React from "react";
+import './TargetArea.scss';
+
+const TargetArea = () => {
+    return (
+        &lt;div className='target'/>
+    )
+};
+
+export default TargetArea;
+</pre>
+<p>ControlButtons组件如下:</p>
+<pre>
+import React from "react";
+import './ControlButtons.scss';
+
+class ControlButtons extends React.Component {
+    constructor(props) {
+        super(props);
+    }
+
+    render() {
+        console.log(this.props);
+        return (
+            &lt;div className='buttons'>
+                &lt;button>+&lt;/button>
+                &lt;button>-&lt;/button>
+            &lt;/div>
+        );
+    }
+}
+
+export default ControlButtons;
+</pre>
+<p>组件很简单, ControlButton和TargetArea还是同级别的组件, 这之间都没有什么交互, 然后要通过Redux来进行交互, 具体的做法就是三组button需要修改store中的三种颜色. 而且要限制于0-255之间.</p>
+<p>修改之后的颜色, 会作用到TargetArea上来, 看一下如何来给这个项目添加上Redux.</p>
+
+<h2 style="text-align: center;" id="con3">为按钮添加更新Store的事件</h2>
+<p>Action就是一个JS对象, 标识需要对Store进行什么操作, 所以其中得有一种标识符用来标识类型, 一般的做法是, 将标识符单独弄一个JS文件, 不同类型的Action对应着不同的操作.</p>
+<p>在src下新创建一个store目录, 所有redux相关的代码都放在其中, 在内部创建一个ActionTypes.js:</p>
+<pre>
+export const REDPLUS = 'REDPLUS';
+export const REDMINUS = 'REDMINUS';
+export const GREENPLUS = 'GREENPLUS';
+export const GREENMINUS = 'GREENMINUS';
+export const BLUEPLUS = 'BLUEPLUS';
+export const BLUEMINUS = 'BLUEMINUS';
+</pre>
+<p>这个其实代表了6种不同的事件, 分别是RGB的增加和减少, 一共六种情况.</p>
+<p>然后就可以来创建Action.js, 每个Action实际上就是返回一个对象, 一个对象中至少有一个标志ActionType的字段, 另外的数据字段可以自己选择, 由于一共就6种情况, 所以可以不需要额外的字段.</p>
+<pre>
+import * as ActionTypes from './ActionTypes';
+
+export const redIncrement = () =>{
+    return {
+        type: ActionTypes.REDPLUS
+    }
+}
+
+export const redDecrement = () =>{
+    return {
+        type: ActionTypes.REDMINUS
+    }
+}
+
+export const greenIncrement = () =>{
+    return {
+        type: ActionTypes.GREENPLUS
+    }
+}
+
+export const greenDecrement = () =>{
+    return {
+        type: ActionTypes.GREENMINUS
+    }
+}
+
+export const blueIncrement = () =>{
+    return {
+        type: ActionTypes.BLUEPLUS
+    }
+}
+
+export const blueDecrement = () =>{
+    return {
+        type: ActionTypes.BLUEMINUS
+    }
+}
+
+
+</pre>
+<p>这实际就是六个函数返回6个不同的Action, 其中标记了这个Action的类型.</p>
+<p>然后来创建Store和Reducer.js, 这两个文件其实需要交替来编写, 首先是Store.js:</p>
+<pre>
+import {createStore} from "redux";
+
+const initValue = {
+    red:128,
+    green:128,
+    blue: 128
+}
+</pre>
+<p>接下来创建Store对象的时候, 必须要编写reducer, 所以来编写Reducer.js:</p>
+<pre>
+import * as ActionTypes from './ActionTypes';
+
+const reducer = (state, action) =>{
+    switch (action.type) {
+        case ActionTypes.REDPLUS:
+            if (state.red === 255) {
+                return {...state};
+            } else {
+                return {...state, red: state.red + 1}
+            }
+
+        case ActionTypes.REDMINUS:
+            if (state.red === 0) {
+                return {...state};
+            } else {
+                return {...state, red: state.red - 1}
+            }
+
+        case ActionTypes.GREENPLUS:
+            if (state.green === 255) {
+                return {...state};
+            } else {
+                return {...state, green: state.green + 1}
+            }
+
+        case ActionTypes.GREENMINUS:
+            if (state.green === 0) {
+                return {...state};
+            } else {
+                return {...state, green: state.green - 1}
+            }
+
+        case ActionTypes.BLUEPLUS:
+            if (state.blue === 255) {
+                return {...state};
+            } else {
+                return {...state, blue: state.blue + 1}
+            }
+
+        case ActionTypes.BLUEMINUS:
+            if (state.blue === 0) {
+                return {...state};
+            } else {
+                return {...state, blue: state.blue - 1}
+            }
+
+        default:
+            return {...state};
+    }
+}
+</pre>
+<p>这个Reducer的意思是, 根据不同类型的Action, 对旧的state进行更新, 但是不是更改旧的state, 而是返回一个新的state对象, 因此这里根据不同类型的动作, 将原来的state拆解到新的对象中,
+然后更新了对应各个事件的减少或者增加值的结果, 返回的是一个新的对象. 这个对象将被替代成为新的Store中的state, 如果超出范文, 则不会更新state.</p>
+<p>有了Reducer之后, 就可以来继续编写Store.js了:</p>
+<pre>
+import {createStore} from "redux";
+import reducer from "./Reducer";
+
+const initValue = {
+    'red': 128,
+    'green': 128,
+    'blue': 128
+}
+
+const store = createStore(reducer, initValue);
+
+export default store;
+</pre>
+<p>这里使用reducer和初始化的值创建了一开始的Store, 也是这个APP里唯一的状态库, 有了这个Store之后, 剩下的就是来给按钮组件添加上事件:</p>
+<pre>
+import React from "react";
+import './ControlButtons.scss';
+import store from "../store/Store";
+import * as Actions from '../store/Action';
+
+class ControlButtons extends React.Component {
+    constructor(props) {
+        super(props);
+    }
+
+    render() {
+        return (
+            &lt;div className='buttons'>
+                &lt;button onClick={<span style="color: red">this.increment</span>}>+&lt;/button>
+                &lt;button onClick={<span style="color: red">this.decrement</span>}>-&lt;/button>
+            &lt;/div>
+        );
+    }
+
+    <span style="color: red">increment = ()=>{
+        switch (this.props.caption) {
+            case 'red':
+                store.dispatch(Actions.redIncrement());
+                break;
+            case 'green':
+                store.dispatch(Actions.greenIncrement());
+                break;
+            case 'blue':
+                store.dispatch(Actions.blueIncrement());
+                break;
+            default:
+        }
+    }
+
+    decrement = ()=>{
+        switch (this.props.caption) {
+            case 'red':
+                store.dispatch(Actions.redDecrement());
+                break;
+            case 'green':
+                store.dispatch(Actions.greenDecrement());
+                break;
+            case 'blue':
+                store.dispatch(Actions.blueDecrement());
+                break;
+            default:
+        }
+    }
+    </span>
+}
+
+export default ControlButtons;
+</pre>
+<p>注意红色的两个事件, 每按下增加或者减少按钮, 根据当前的按钮从父组件得到的caption, 组件可以知道自己对应的是六个事件中的哪一个.</p>
+<p>知道了之后, 调用Actions中的六个方法之一, 生成对应的Action对象, 然后使用store.dispatch()来把Action提交给Store用于更新状态.</p>
+<p>如果在reducer中加上打印语句就可以得到改变前的state用于检查是否生效. 这里成功的更改了store中的red, green, blue三个键对应的值.</p>
+
+<h2 style="text-align: center;" id="con4">更改目标区域的颜色</h2>
+<p>现在通过组件, 已经可以根据不同的事件类型来更新Store了, 下一步就是需要将store的内容渲染到TargetArea这个组件中, 也就是读取State的状态并且进行显示.</p>
+<p>这里有个最大的问题就是, 如何根据store的变化来同时更新目标区域的颜色呢? store对象有一个subscribe()方法, 其中可以传入一个回调函数, 只要store状态更新, 就会调用这个方法.</p>
+<p>同样也有一个unsubscribe用于取消订阅, 有了这两个方法, 搭配上store.getState()方法, 就可以被动的获取更新后的Store状态. 根据这个思路, 只需要在每次store变动的时候, 从中出去RGB三原色的值,
+然后使用字符串拼接成一个属性传递给当前的组件的style属性就可以了:</p>
+<pre>
+import React from "react";
+import './TargetArea.scss';
+import store from "../store/Store";
+
+class TargetArea extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            red: 128,
+            green: 128,
+            blue: 128
+        }
+    }
+
+    // 给store订阅的回调函数, 一旦有变化, 就更新自己的state与Store一致
+    subscribeToStore = () =>{
+        this.setState(store.getState());
+    }
+
+    //组件挂载完成后就要订阅
+    componentDidMount() {
+        store.subscribe(this.subscribeToStore);
+    }
+
+    //组件生命周期结束的时候取消订阅
+    componentWillUnmount() {
+        store.unsubscribe(this.subscribeToStore)
+    }
+
+    render() {
+        const style = {'backgroundColor': `rgb(${this.state.red},${this.state.green},${this.state.blue})`}
+
+        return (
+            &lt;div style={style} className='target'/>
+        );
+    }
+}
+
+export default TargetArea;
+</pre>
+<p>这里的核心就是注册这个回调函数, 然后在更新的时候, 从store中取出当前的状态更新到自己的状态中, 这样可以时刻保持子组件与唯一状态库store一致.</p>
+<p>而且这里也通过具体6种事件之一, 实现了子组件之间的互相通信.</p>
+
+
+
+
+
+</body>
+</html>
