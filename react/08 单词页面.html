@@ -2,23 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>React 08 单词页面</title>
+    <title>React 08 GRE 单词...</title>
 </head>
 <body>
-<p>为了提高英语阅读水平, 找朋友要了一个GRE 官方核心词汇3300个, 打算加上阅读来大量使用了.</p>
+<p>为了提高英语阅读水平, 找朋友要了一个GRE 官方核心词汇3300个的excel文件, 打算加上阅读来大量使用了.</p>
 <p>之前其实也做好了相关准备, 比如手机上装好了mdict, 电脑上有golden dict, 准备开始用透析法来阅读原著, 然后有事没事就开始听东西.</p>
 <p>不过由于单词都存放在Excel中, 因此准备写一段程序, 把单词提取出来, 然后做一个页面, 用来提醒自己, 顺便就练习一下React和material-ui吧.</p>
 
 <ol>
     <li><a href="#con1">提取单词成为JSON文件</a></li>
-    <li><a href="#con2">最基础的APP类</a></li>
-    <li><a href="#con3"></a></li>
-    <li><a href="#con4">更改目标区域的颜色</a></li>
+    <li><a href="#con2">导入material-ui</a></li>
+    <li><a href="#con3">准备基础数据</a></li>
+    <li><a href="#con4">Material-UI基础使用</a></li>
 </ol>
 
 <h2 style="text-align: center;" id="con1">提取单词成为JSON文件</h2>
 <p>这个用Python来操作就行了, 提取很方便. 准备提取成一个数组, 其中每个元素是一个对象, 属性如下: name是单词, meaning是单词的释义, 记住与否是该词是否记住, 是一个布尔值.</p>
-<p>在用Python处理的过程中, 发现了一些错误, 以及无法识别成unicode, 还发现一些单词缺少释义, 都补完了. </p>
+<p>在用Python处理的过程中, 发现了一些错误, 以及无法识别成unicode, 还发现一些单词缺少释义, 都补完了. 清洗数据的时候想到这文件不愧是英语高手常年维护的文件, 如果换成一本实体书的话, 怕不是都要翻烂了.
+    清洗数据这个动词短语用来对付这种包浆的excel文件, 绝妙啊.</p>
 <pre>
 import random
 import openpyxl
@@ -54,24 +55,241 @@ file.write('];\nexport default words;'.encode(encoding='UTF-8', errors='strict')
 file.close()
 
 newWb.save("result.xlsx")
-</pre>
+</pre>>
 <p>代码很简单, 读取一下全部的单词和释义, 拼接成JS的对象, 然后再把结果也保存一份成为excel文件, 这样就毫无感情的统计好了生词以及生成了JSON文件, 接下来就是渲染.</p>
 
-<h2 style="text-align: center;" id="con2">最基础的APP类</h2>
+<h2 style="text-align: center;" id="con2">导入material-ui</h2>
 <p>由于已经有了words.js, 就方便多了, 可以直接导入APP类中, 不过在此之前, 还是来使用一下<a href="https://material-ui.com/" target="_blank">material-ui</a>的搭配吧.</p>
-<p></p>
+<p>用NPM安装material-ui的命令是:</p>
+<pre>npm install @material-ui/core</pre>
+<p>之后需要使用字体, 字体可以通过npm安装, 也可以通过链接导入, 一般通过链接导入, 由于google的字体被墙, 所以这里找了一个国内的字体代理如下:</p>
+<pre>
+&lt;link rel="stylesheet" href="https://fonts.loli.net/css?family=Roboto:300,400,500,700&display=swap" />
+</pre>
+<p>其实就是用<span style="color: red">https://fonts.loli.net</span>来替换google的官方字体网站. </p>
+<p>然后是安装图标, 图标与上边的字体很类似:</p>
+<pre>
+npm install @material-ui/icons
+</pre>
+<p>图标可以通过链接来导入, 也使用上边提到的国内代理, 经过测试都没有问题:</p>
+<pre>
+&lt;link rel="stylesheet" href="https://fonts.loli.net/icon?family=Material+Icons" />
+</pre>
+<p>最后是如果不使用React开发, 纯粹CDN导入, 可以使用如下两个地址:</p>
+<pre>
+https://unpkg.com/@material-ui/core@latest/umd/material-ui.development.js
+https://unpkg.com/@material-ui/core@latest/umd/material-ui.production.min.js
+</pre>
+<p>最后就是略微的修改一下React项目默认的index.html的head标签中的meta元素:</p>
+<pre>
+&lt;meta
+        name="viewport"
+        content="minimum-scale=1, initial-scale=1, width=device-width"
+/>
+</pre>
+
+<p>下边就来使用material-ui美化一下吧. material-ui导入的实际上是React组件, 所以也是给其设置上不同的属性用来控制样式.</p>
+<p>最后我使用的方案是, 字体通过链接导入, 其他的用到再说. 不过要注意, 字体如果不使用NPM, 还是需要手工设置一下的.</p>
+
+<h2 style="text-align: center;" id="con3">准备基础数据</h2>
+<p>这里创建一个新的React项目, 把app.js清空, 改成如下:</p>
+<pre>
+import React from 'react';
+import './App.scss';
+import words from "./data/words";
+
+class App extends React.Component {
+
+    constructor(props, context) {
+        super(props, context);
+        this.state = {
+            words: words
+        }
+    }
+
+    render() {
+        return (
+            &lt;div className="App">
+                &lt;table className='word'>
+                    &lt;thead>
+                    &lt;tr>
+                        &lt;th>WORD&lt;/th>
+                        &lt;th>MEANING&lt;/th>
+                    &lt;/tr>
+                    &lt;/thead>
+                    &lt;tbody>
+
+                    {this.state.words.map(
+                        word => (
+                            &lt;tr key={word.name}>
+                                &lt;td>&lt;span className='name'>{word.name}&lt;/span>&lt;/td>
+                                &lt;td>&lt;span className='meaning'>{word.meaning}&lt;/span>&lt;/td>
+                            &lt;/tr>
+                        )
+                    )
+
+                    }
 
 
+                    &lt;/tbody>
+                &lt;/table>
+            &lt;/div>
+        );
+    }
+}
 
+export default App;
+</pre>
+<p>由于在第一节里全自动生成了包含所有单词的对象, 所以将其直接导入成为app.state, 后边就是如何来使用的问题.</p>
 
+<h2 style="text-align: center;" id="con4">Material-UI基础使用</h2>
+<p>自己琢磨了一下, 其实这个玩意本质和其他UI框架没什么区别, 也是要上断点外加Grid系统.</p>
+<p>我打算先一页显示一点图片试试, 最外层是一个container, 可以设置一个max的大小, 会自动居中, 这个比较常用. 有了material-ui之后, 项目自带的css也全部都可以删除了.</p>
+<p>默认的断点如下:
+** xs， ** 超小：0px
+** sm， **小：600px
+** md， **中等：960px
+** lg， **大：1280px
+** xl， **超大：1920px</p>
+<p>于是就可以把app.js里的最外层容器直接替换掉:</p>
+<pre>
+render() {
 
+    return (
+        &lt;Container maxWidth='md'>
+            
+        &lt;/Container>
+    );
+}
+</pre>
+<p>之后一个问题就是想把单词做成什么样子, 先尝试一下使用grid, xs屏幕上一行一个, sm及以上一行2个, 来试验一下:</p>
+<pre>
+&lt;Container maxWidth='md'>
+&lt;/Container>
+</pre>
+<p>最外层就是这个Container元素, 可以指定最大宽度, 然而这个组件通过prop.type规定了一定要有children, 所以还得往里边添加内容.</p>
+<p>之后先来一行:</p>
+<pre>
+&lt;Typography variant='h3' component='h3' gutterBottom align='center'>Words List Page {this.state.page}&lt;/Typography>
+</pre>
+<p>Typography是所有的文字排版组件, 根据要渲染成什么元素, 只要设置属性就可以了, 无论是标题还是普通文本都可以使用这个组件, 这就是复用的一大好处.</p>
+<p>另外Link组件也需要套在Typography中间. 之后放一个按钮组, 用于控制翻页, 现在是每天150个词语, 感觉确实太可怕了.</p>
+<pre>
+&lt;Box style={{'textAlign': 'center'}} m={2}>
+&lt;ButtonGroup color="primary" aria-label="outlined primary button group">
+    {this.state.page === 1 ? null:&lt;Button onClick={this.handleBack}>上一页&lt;/Button> }
+    {this.state.page === 22 ? null:&lt;Button onClick={this.handleForword}>下一页&lt;/Button> }
+&lt;/ButtonGroup>
+&lt;/Box>
+</pre>
+<p>之后要显示单词, 外层先套一个Grid, 属性为container:</p>
+<pre>
+&lt;Grid container spacing={2} >
+    {
+        this.state.words.slice((this.state.page - 1) * 150, this.state.page * 150).map(
+            word => (
+                &lt;WordCard name={word.name} key={word.name} mean={word.meaning}/>
+            )
+        )
+    }
+&lt;/Grid>
+</pre>
+<p>中间是一个组件, WordCard, 其内部实际上是一个Grid, 但是属性是item, 这个应该可以同时设置成item和container.</p>
+<p>组件不复杂, 其实就是传单词和释义进去, 然后用一个Grid来展示:</p>
+<pre>
+import Grid from "@material-ui/core/Grid";
+import React from "react";
+import Typography from "@material-ui/core/Typography";
 
+import './tap.scss'
 
+class WordCard extends React.Component {
 
-<h2 style="text-align: center;" id="con3">Redux的理念</h2>
-<h2 style="text-align: center;" id="con4">Redux的理念</h2>
+    constructor(props, context) {
+        super(props, context);
+        this.state = {
+            meaning: null
+        }
+    }
 
+    render() {
+        return (
+            &lt;Grid item xs={12} sm={6} md={4} lg={3}>
+                &lt;Typography variant='body1'>{this.props.name}&lt;/Typography>
+                &lt;Typography className='tap' variant='body1'>{this.props.mean}&lt;/Typography>
+            &lt;/Grid>
+        )
+    }
+}
 
+export default WordCard;
+</pre>
+<p>完整的App.js的类如下, state增加了计算总页数和控制当前页数的功能:</p>
+<pre>
+import React from 'react';
+import words from "./data/words";
+import Container from "@material-ui/core/Container";
+import Grid from "@material-ui/core/Grid";
+import Typography from "@material-ui/core/Typography";
+import WordCard from "./WordCard";
+import ButtonGroup from "@material-ui/core/ButtonGroup";
+import Button from "@material-ui/core/Button";
+import Box from "@material-ui/core/Box";
+
+class App extends React.Component {
+
+    constructor(props, context) {
+        super(props, context);
+        const maxPage = Math.floor(words.length / 150) + 1;
+        this.state = {
+            words: words,
+            number: words.length,
+            page: 1,
+            mapPage: maxPage
+        }
+    }
+
+    handleBack = () => {
+        if (this.state.page !== 1) {
+            this.setState({page: this.state.page - 1})
+        }
+    }
+
+    handleForword = () => {
+        if (this.state.page !== 22) {
+            this.setState({page: this.state.page + 1})
+        }
+    }
+
+    render() {
+
+        return (
+            &lt;Container maxWidth='md'>
+                &lt;Typography variant='h3' component='h3' gutterBottom align='center'>Words List Page {this.state.page}&lt;/Typography>
+                &lt;Box style={{'textAlign': 'center'}} m={2}>
+                    &lt;ButtonGroup color="primary" aria-label="outlined primary button group">
+                        {this.state.page === 1 ? null:&lt;Button onClick={this.handleBack}>上一页&lt;/Button> }
+                        {this.state.page === 22 ? null:&lt;Button onClick={this.handleForword}>下一页&lt;/Button> }
+                    &lt;/ButtonGroup>
+                &lt;/Box>
+                &lt;Grid container spacing={2} >
+                    {
+                        this.state.words.slice((this.state.page - 1) * 150, this.state.page * 150).map(
+                            word => (
+                                &lt;WordCard name={word.name} key={word.name} mean={word.meaning}/>
+                            )
+                        )
+                    }
+                &lt;/Grid>
+            &lt;/Container>
+        );
+    }
+}
+</pre>
+<p>两个按钮的事件用于控制state中的page, 用来按照150个单词一页的方式进行展示. 应该说这个渲染还是挺重型的, 所有单词都保存在页面中, 每翻一次页就立刻渲染几乎全部的单词列表.</p>
+<p>成品被我放在了<a href="https://conyli.cc/gre/words.html">https://conyli.cc/gre/words.html</a>, 点击或者用鼠标悬浮到单词下的空白区域就可以显示出中文释义.</p>
+<p>做这个东西的时候, 本来想使用翻译API, 后来发现没有免费的午餐, 开放的API全部都不支持跨域, 而想要使用基本都要交钱. 现在看来免费的数据真的也就剩下天气了.</p>
+<p>Material-UI基本搞清楚了, 就是自己没有网页设计这根筋, 还真的挺麻烦. 看来有时间要搭配后端一起来写了.</p>
 
 
 </body>
