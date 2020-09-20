@@ -4,15 +4,14 @@
     <meta charset="UTF-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <title>乐理 04 网站</title>
-    <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
-    <link href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons' rel="stylesheet">
+    <title>乐理 04 乐理学习网站和FL Studio 20</title>
+    <link rel="stylesheet" href="https://fonts.loli.net/css?family=Roboto:300,400,500,700&display=swap" />
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
     <style>
         body {
             margin-left: 20px;
             margin-right: 20px;
+            font-family: Roboto,serif;
         }
     </style>
 </head>
@@ -23,6 +22,114 @@
 <p>另外马上要开盘, 工作也要开始忙了, 不知道下半年还有多少时间看开发, 不过对于教女儿的程度是远远够了.</p>
 <p>最近又找到一个珍宝级的网站: <a href="https://www.52cmajor.com/zhuanlan/35488524492865266" target="_blank">基础乐理小讲堂-梁蓓禎</a>, 打算找点FL studio 20的教程一起看了.</p>
 <p>FL Studio 20有一个教程: <a href="https://ke.qq.com/course/355150" target="_blank">腾讯学院的FL studio 20 水果软件操作教程</a>先跟着看看了. </p>
+<p>关于FL Studio 20的破解版, 真的很难找, 所以中文圈的估计都被著名的思杰马克丁公司给和谐了, 然后就用英文搜, 最后在BT站里终于找到了破解版, 有需要的朋友可以留下邮箱, 我发送百度网盘链接. 需要先安装主程序, 然后</p>
+
+
+<ol>
+    <li><a href="#con1">基础设置</a></li>
+    <li><a href="#con2">菜单栏</a></li>
+    <li><a href="#con3">图形化按钮</a></li>
+    <li><a href="#con4">Material-UI基础使用</a></li>
+</ol>
+
+<h1 id="con1" style="text-align: center;">基础设置</h1>
+<p>第一次进入FL的时候, 会默认有一个演示工程, 可以听一下, 之后再次关闭进入程序, 就会默认打开一个空工程.</p>
+<p>有一些基础的东西需要注意:</p>
+<h3>设置音频插件</h3>
+<p>点击Options - Audio Settings 中, 就可以设置声音驱动, 一般Direct Sound都是内置的驱动和集成声卡, 如果有外置的声卡或者其他设备 ,都在ASIO设备中, 一般可以使用主声音驱动程序, 现在的FL 安装之后可以使用
+ASIOFORALL V2, 也是可以用的.</p>
+<h3>设置音源插件</h3>
+<p>宿主软件一大特点就是可以使用各种音源, 其实收费最贵的也就是各种音源, 设置音源在 Options - Manage Plugins中, 其中可以设置音源的目录, 然后进行扫描, 扫描之后的插件在左侧勾上之后, 在Channel Rack中就可以替换当前的音源或者添加新的音源了.</p>
+<h3>导入音效素材</h3>
+<p>素材很多时候是Wav格式, 有两种方法, 第一种是直接把声音拖拽到Channel Rack中, 然后就可以使用, 可以微调.</p>
+<p>第二种方法就是Options - File Settings, 进去之后会列出很多空文件夹, 然后点击文件夹图标, 可以添加素材所在的文件夹. 然后左侧栏就会显示出对应的文件夹和其中的素材. 之后就可以把素材拖到Channel Rack中来.</p>
+<p>注意素材不能直接替换软音源, 只能替换同样的素材.</p>
+<h3>MIDI键盘设置</h3>
+<p>在Options - MIDI Settings, 下边的Input中可以看到所有外置连接的设备, 选中需要的键盘, 点击下边的Enable, 就可以启用对应的设备了.</p>
+<h3>保存工程</h3>
+<p>File-Save , 默认保存在固定的工程目录, 这个就是普通的软件应用逻辑了.</p>
+
+<h1 id="con2" style="text-align: center;">菜单栏</h1>
+<p>FL的菜单还是挺复杂的, 毕竟是做音乐. 从左边的一个一个菜单看过来:</p>
+<h3>FILE菜单</h3>
+<p>File菜单还是比较简单的,都是最简单的.</p>
+<ol>
+    <li>new 创建新文件, 很简单</li>
+    <li>open 打开工程文件</li>
+    <li>Save Save as系列, 保存到工程文件夹里</li>
+    <li>Import 导入Midi文件, 可以用其他一些方法</li>
+    <li>Export, 生成最终文件</li>
+</ol>
+<h3>EDIT菜单</h3>
+<ol>
+    <li>Undo, 撤销一步, 在左侧中间的文件图标点了, 下边有History, 记录了所有的历史操作, 可以点击某一个步骤, 恢复到当时的状态.</li>
+    <li>cut, copy, paste就顾名思义了. 这里要提到的是, 选择不是直接按住左键拖动, 而是按住Ctrl, 然后按住左键不放, 就可以进行选择主轨上一部分的Pattern. 按Ctrl+B, 会把当前选中的部分,
+    直接复制并且接在当前选中的部分之后, 特别方便.</li>
+</ol>
+<h3>ADD菜单</h3>
+<p>这个菜单主要就是管理音源. 注意最下边, 有三个选择, Category, Simple, Tree, 其实就是控制菜单中如何显示这些音源.</p>
+<h3>Patterns菜单</h3>
+<p>在上方图形化Patterns左侧小三角点击之后出来的菜单, 和这里的是一样的, 主要用于pattern的设置.</p>
+<h3>view菜单</h3>
+<p>View菜单对应的都是在上边一排方形图标菜单中. 可以慢慢了解.</p>
+<h3>Option菜单</h3>
+<p>这个菜单其实就是软件设置. 用到的时候慢慢看. 下半部分的菜单基本不用看.  只要看其中的Project General Setting.</p>
+<p>在其中最关键的是设置几几拍, Project选项卡中第一个是 ?/x, 第二个是 x/? , </p>
+<h3>Tools和Help</h3>
+<p>这两个基本上用不上.</p>
+
+
+<h1 id="con3" style="text-align: center;">图形化按钮</h1>
+<p>左上方文字菜单右边的地方, 有着大量的图形化按键. 将鼠标放到这些按钮上, 菜单会显示出这些按钮的功能和当前的简单设置.</p>
+<p>Help右边的是Master Volume, 也就是主音量, 按住并上下移动鼠标可以调整音量, 右键点击可以直接设置具体的值.</p>
+<p>主音量下边的按钮是Master Pitch, 也就是可以整体降低或者升高项目中所有乐器的音高, 一般不太使用.</p>
+<p>主音量左边有一个PAT和SONG的两个上下按钮, 用于切换是播放Pattern还是播放整首歌. 然后是播放和停止.</p>
+<p>红色圆点是一个录制按钮, 用于录制外部设备的声音.</p>
+<p>录制按钮旁边是一个BPM按钮, 用于控制整个工程的速度, 不过速度的设置比较复杂, 有很多东西互相影响, 要后边再细看.</p>
+<p>下边的滑条是整个音乐的进度, 就是一个进度条, 拖动主轨上的绿色三角也是一样, 用于控制播放的起点.</p>
+<p>BPM按钮旁边的第一个方形图标按钮是节拍器, 点开之后, 在播放的时候就会带上节拍器的声效, 非常方便.</p>
+<p>第二个按钮也和录制有关, 是有输入才会开始录制, 再右边的321是预备录制, 有3拍的缓冲时间. 321点击右键, 如果点击two bars, 会重复两次321.</p>
+<p>这一片上下10个按钮基本都和外部设备有关, 就不介绍了.</p>
+<p>然后是一个类似钟表一样的显示, 这个第一个冒号之前的数字表示进行到的小节数. 冒号后边的数字表示走到小节的第几个四分之一拍.再后面的冒号后边是更细的节拍计算. 右键还可以改成显示时间.</p>
+<p>接下来右下方是一个Pattern, Pattern就是单轨, 可以认为是一个乐器, 总轨就是这些乐器协同演奏.</p>
+<p>再过去还有一个CPU占用和内存占用.</p>
+<p>最后是Pattern右侧的一排按钮, 很重要, 用于控制界面显示.</p>
+<h3>重要的一排按键</h3>
+<p>Pattern右侧有一排方形按钮, 依次来看:</p>
+<ol>
+    <li>显示总轨, 这个控制是否显示总轨界面</li>
+    <li>Piano Roll, 这个非常重要, 具体编曲就使用这个, 在Channel rack中只能编辑固定音高, 而使用Piano Roll搭配具体音色, 就像乐器演奏一样可以编写具体曲子.</li>
+    <li>Channel Rack , 即机架, 就是模仿放有所有乐器的地方, 可以在这里管理所有需要的乐器</li>
+    <li>调音台, 这个也很重要, 之后要来具体看</li>
+    <li>左侧栏显示与否</li>
+</ol>
+<p>后边几个都用不到. 菜单栏还是比较简单的, 真正难的其实就是使用上边这些窗口.</p>
+
+<h1 id="con4" style="text-align: center;">钢琴窗Piano Roll</h1>
+<p>钢琴窗下方的音量, 默认是Velocity, 即音量, 可以单独调节每一个音的大小.  还可以点击Control选Note Pan, 则是左右平衡</p>
+<p>这里有一个问题就是同时有多个音, 则要按住Ctrl框选, 将所要的音变成红色, 就可以单独调节音量.</p>
+<p>这里可以总结一下:</p>
+<ol>
+    <li>按住Ctrl加左键 - 框选多个音</li>
+    <li>按住Ctrl加Shift左键 - 反复多次框选多个音</li>
+    <li>框选后, 按住shift拖动, 是复制拖动</li>
+    <li>框选后, 按Ctrl+B, 复制并紧接在选中的后边</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+<h1 id="con5" style="text-align: center;">Node.js</h1>
+<h1 id="con6" style="text-align: center;">Node.js</h1>
+
+
 
 
 
