@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>简单例子</title>
+</head>
+<body>
+<div class='wrapper'>
+
+</div>
+
+<script>
+
+    const createDOMFromString = (domString) => {
+        const div = document.createElement('span');
+        div.innerHTML = domString;
+        return div;
+    };
+
+    class LikeButton {
+
+        constructor() {
+            this.state = {isLiked: false}
+        }
+
+        changeLikeText() {
+            const likeText = this.el.querySelector('.like-text');
+            this.state.isLiked = !this.state.isLiked;
+            likeText.innerHTML = this.state.isLiked ? '取消' : '点赞';
+        }
+
+        render() {
+            this.el = createDOMFromString(`<button class='like-btn'>
+                    <span class='like-text'>点赞</span>
+                    <span>👍</span>
+                </button>`);
+            this.el.addEventListener('click', () => this.changeLikeText(), false);
+            return this.el;
+        }
+    }
+
+    const wrapper = document.querySelector('.wrapper');
+
+    const likeButton1 = new LikeButton();
+    const likeButton2 = new LikeButton();
+
+    wrapper.appendChild(likeButton1.render());
+    wrapper.appendChild(likeButton2.render());
+
+
+
+
+
+
+
+
+    // const likeButton1 = new LikeButton();
+    // wrapper.innerHTML = likeButton1.render();
+    //
+    // const likeButton1 = new LikeButton();
+    // wrapper.innerHTML += likeButton2.render();
+
+    // const button = document.querySelector('.like-btn');
+    // const buttonText = document.querySelector('.like-text');
+    // console.log(button);
+    // console.log(buttonText);
+    //
+    // let isLiked = false;
+    // button.addEventListener('click', () => {
+    //     isLiked = !isLiked;
+    //     if (isLiked) {
+    //         buttonText.innerHTML = '取消';
+    //     } else {
+    //         buttonText.innerHTML = '点赞';
+    //     }
+    // }, false);
+
+</script>
+</body>
+</html>
