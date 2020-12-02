@@ -17,11 +17,14 @@
     </style>
 </head>
 <body>
-<p>不是问女儿, 我都不知道五线谱竟然有5种休止符....  其实五线谱就是音乐人的代码, 用符号语言记录音乐, 还保证可以以统一的方式得到解释和执行(认谱和演奏)</p>
+<p>不是问女儿, 我都不知道五线谱竟然有5种休止符.... 其实五线谱就是音乐人的代码, 用符号语言记录音乐, 还保证可以以统一的方式得到解释和执行(认谱和演奏)</p>
 <p>所以学习五线谱, 也就是像学编程一样是了解一个新的符号体系. 只要搞清楚符号体系与音乐实际内容的映射关系就可以了.</p>
-<p>认识五线谱的书面教程和视频都很多. 之前的基础乐理忘记说了, 我是看这个<a href="https://www.doyoudo.com/video/18" target="_blank">doyoudo.com的基础乐理教程</a>.</p>
-<p>五线谱的教程初看的是<a href="https://www.youtube.com/watch?v=qkt5X_4FJBY" target="_blank">好和弦YouTube上的教程</a>, 好和弦这个网站确实不错, 不过这个教程有够硬核.</p>
-<p>不过这玩意也是童子功, 女儿到了现在也要计算一下才能看, 而我更得一个一个数过来才行, 不过昨晚试验了FL Studio 20, 女儿站在旁边拿着谱一个小节一个小节的告诉我, 然后我敲到软件里, 很短的时间就把她练的一首曲子搞定了. 希望她以后也能熟练的使用DAW哈.</p>
+<p>认识五线谱的书面教程和视频都很多. 之前的基础乐理忘记说了, 我是看这个<a href="https://www.doyoudo.com/video/18" target="_blank">doyoudo.com的基础乐理教程</a>.
+</p>
+<p>五线谱的教程初看的是<a href="https://www.youtube.com/watch?v=qkt5X_4FJBY" target="_blank">好和弦YouTube上的教程</a>, 好和弦这个网站确实不错,
+    不过这个教程有够硬核.</p>
+<p>不过这玩意也是童子功, 女儿到了现在也要计算一下才能看, 而我更得一个一个数过来才行, 不过昨晚试验了FL Studio 20, 女儿站在旁边拿着谱一个小节一个小节的告诉我, 然后我敲到软件里, 很短的时间就把她练的一首曲子搞定了.
+    希望她以后也能熟练的使用DAW哈.</p>
 <p>先把这次看五线谱的精髓总结放在最前边: 用程序语言的角度来看, 音符相当于程序语句, 小节主要起到控制, 也就是循环和分支的作用.</p>
 
 
@@ -48,17 +51,36 @@
 <p>特殊的情况是, 如果同时演奏的两个音相差两度, 则必须左右错开写, 共用一个符干和符尾, 低音要写在左边.</p>
 
 <p>从乐理可以知道, 上边的音符本身就代表了时值, 不过音符的长度是相对概念. 决定了一个音符实际长度的是BPM和拍号(Time signature)的共同结果.</p>
-<p>搜了一下发现Unicode中对于音乐有完整的<a href="http://www.52unicode.com/musical-symbols-zifu" target="_blank">音乐符号</a>, 下边就用HTML来显示一下完整的音符列表, 也为了以后复制方便:</p>
+<p>搜了一下发现Unicode中对于音乐有完整的<a href="http://www.52unicode.com/musical-symbols-zifu" target="_blank">音乐符号</a>,
+    下边就用HTML来显示一下完整的音符列表, 也为了以后复制方便:</p>
 <ol>
-    <li>倍全音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119132;</span>, double whole note</li>
-    <li>全音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119133;</span>, whole note</li>
-    <li>二分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119134;</span>, half note</li>
-    <li>四分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119135;</span>, quarter note</li>
-    <li>八分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119136;</span>, eighth note</li>
-    <li>十六分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119137;</span>, sixteenth note</li>
-    <li>三十二分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119138;</span>, thirty-second note</li>
-    <li>六十四分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119139;</span>, sixty-fourth note</li>
-    <li>一百二十八分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119140;</span>, hundred twenty-eighth note</li>
+    <li>倍全音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119132;</span>,
+        double whole note
+    </li>
+    <li>全音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119133;</span>,
+        whole note
+    </li>
+    <li>二分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119134;</span>,
+        half note
+    </li>
+    <li>四分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119135;</span>,
+        quarter note
+    </li>
+    <li>八分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119136;</span>,
+        eighth note
+    </li>
+    <li>十六分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119137;</span>,
+        sixteenth note
+    </li>
+    <li>三十二分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119138;</span>,
+        thirty-second note
+    </li>
+    <li>六十四分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119139;</span>,
+        sixty-fourth note
+    </li>
+    <li>一百二十八分音符: <span style='font-size:64px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119140;</span>,
+        hundred twenty-eighth note
+    </li>
 </ol>
 <p>附点音符: dotted note, 就是在音符右侧下方加上一个点来改变音符的长度. 假如一个音符有n个附点, 实际长度是 <code>(2^(n+1)-1)/(2^n) 倍</code> 的原来音符长度.</p>
 <p>比如有一个点的时候, 倍率 = (2^2-1)/(2^1) = 3/2 = 1.5倍, 则实际演奏的时候就是这个音符的1.5倍长度, 对于一个四分音符来说, 实际演奏一个四分音符加一个八分音符的长度.</p>
@@ -66,15 +88,20 @@
 
 <h2 style="text-align: center;" id="con2">连音 tuplet 和 花音 grace note</h2>
 <h3>连音 Tuplet</h3>
-<p>连音记号用于把一段时间<span style="color: red">平均</span>分割成普通音符无法表示的时间. 例如在4/4拍号下, 一拍内平均弹3个音. 很显然无法用八分音符表示这个音. 此时就需要把若干次数的音连接起来, 然后在上边标注要弹的次数.</p>
+<p>连音记号用于把一段时间<span style="color: red">平均</span>分割成普通音符无法表示的时间. 例如在4/4拍号下, 一拍内平均弹3个音. 很显然无法用八分音符表示这个音. 此时就需要把若干次数的音连接起来,
+    然后在上边标注要弹的次数.</p>
 <p>最常见的连音是3:2和5:4的, 也就是4/4拍中一拍弹3个音或者一拍弹5个音.</p>
-<p>而符号, 就要使用大于实际长度且最接近实际长度的音符来进行连音. 比如4/4一拍平均弹3个音, 最接近四分音符的1/3的就是八分音符(如果四分音符=1, 则实际音符=0.33, 八分音符=0.5, 十六分音符=0.25, 十六分音符小于0.33所以不能用).
+<p>而符号, 就要使用大于实际长度且最接近实际长度的音符来进行连音. 比如4/4一拍平均弹3个音, 最接近四分音符的1/3的就是八分音符(如果四分音符=1, 则实际音符=0.33, 八分音符=0.5, 十六分音符=0.25,
+    十六分音符小于0.33所以不能用).
     如果弹5个音, 最接近四分音符且大于1/5的就是十六分音符(四分音符=1, 实际音符=0.2, 十六分音符=0.25, 八分音符-0.5, 都大于实际音符, 但十六分音符最接近.).</p>
 <p>连音符号如下:</p>
 <ol>
-    <li>八分音符连音符号: <span style='font-size:60px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119146;</span></li>
-    <li>十六分音符连音符号: <span style='font-size:60px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119147;</span></li>
-    <li>三十二分音符连音符号: <span style='font-size:60px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119148;</span></li>
+    <li>八分音符连音符号: <span style='font-size:60px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119146;</span>
+    </li>
+    <li>十六分音符连音符号: <span style='font-size:60px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119147;</span>
+    </li>
+    <li>三十二分音符连音符号: <span style='font-size:60px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119148;</span>
+    </li>
 </ol>
 <h3>花音 grace note</h3>
 <p>grace note分为两种, 一种是 appoggiatura, 一般翻译成倚音, 类似于(图片引用自wiki, 可能需要翻墙):</p>
@@ -86,38 +113,62 @@
 <h2 style="text-align: center;" id="con3">休止符 rest</h2>
 <p>休止符对应5种主要音符的休止符如下:</p>
 <ol>
-    <li>全休止符: <span style='font-size:32px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119099;</span>, whole note</li>
-    <li>二分休止符: <span style='font-size:32px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119100;</span>, half note</li>
-    <li>四分休止符: <span style='font-size:32px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119101;</span>, quarter note</li>
-    <li>八分休止符: <span style='font-size:32px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119102;</span>, eighth note</li>
-    <li>十六分休止符: <span style='font-size:32px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119103;</span>, sixteenth note</li>
+    <li>全休止符: <span style='font-size:32px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119099;</span>,
+        whole note
+    </li>
+    <li>二分休止符: <span style='font-size:32px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119100;</span>,
+        half note
+    </li>
+    <li>四分休止符: <span style='font-size:32px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119101;</span>,
+        quarter note
+    </li>
+    <li>八分休止符: <span style='font-size:32px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119102;</span>,
+        eighth note
+    </li>
+    <li>十六分休止符: <span style='font-size:32px;color:rgb(0, 0, 0);font-style:normal;font-weight:normal;'>&#119103;</span>,
+        sixteenth note
+    </li>
 </ol>
-<p>多小节休止符是这个样子: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119081;</span>, 上边会标数字, 表示休止多少个小节.</p>
+<p>多小节休止符是这个样子: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119081;</span>,
+    上边会标数字, 表示休止多少个小节.</p>
 
 <h2 style="text-align: center;" id="con4">五线谱 Five-line Staff - 线, 间 与 谱号</h2>
 <p>音符终于看完了, 该到五线谱了.</p>
 <p>五线谱又五线四间, 线和间都可以放音符. 可以上下加线, 加的线叫做 ledger line. 线越靠上, 音越高.</p>
 <p>但是五线谱的线和间并没有对应到具体的某个音, 必须用谱号=clef来设定线对应的音.</p>
-<p>最常用的是G谱号: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119070;</span>和 F谱号: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119074;</span>.</p>
+<p>最常用的是G谱号: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119070;</span>和 F谱号:
+    <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119074;</span>.</p>
 <p>G谱号的意思是, 通过其肚子的那根线要当做<span style="color: red">中央C往上的G</span>. 如果G谱号被放在第二线(肚子对准第二线), 就叫做高音谱号=Treble Clef.</p>
 <p style="color: red;">所以这暗示着G谱号不一定被放在第二线, 不过如今的乐谱基本见不到第二线以外的G谱号了.</p>
 <p>F谱号类似, 其两个点中间的那根线, 对应着<span style="color: red">中央C下边的F</span>. 一般F谱号对应第四线(第四线是中央C下边的F), 此时叫做低音谱号=Bass Clef</p>
-<p>除此之外, 还有一种叫做C谱号: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119073;</span>, 通过C谱号正中间的就是中央C.</p>
+<p>除此之外, 还有一种叫做C谱号: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119073;</span>,
+    通过C谱号正中间的就是中央C.</p>
 <p>这些谱号都可以放在任意一条线上. 所以<span>谱号放到线上之后, 形成的是绝对对应关系</span>, 即直接标明了一条线或者间与钢琴上一个键的对应关系.</p>
-<p>还有一种谱号专门用于没有音高的乐器的谱号, 比如打击乐器, 叫做打击谱号: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119077;</span>.</p>
-<p>所有的谱号在上方或者下方可以写8或者15, 如<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119071;</span>
-    <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119076;</span>,表示整个要高/低一个八度或者两个八度, 注意不是8和16, 是8和15, 8就表示一个八度, 15表示两个八度, 不要问为什么, 是规矩.</p>
+<p>还有一种谱号专门用于没有音高的乐器的谱号, 比如打击乐器, 叫做打击谱号: <span
+        style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119077;</span>.</p>
+<p>所有的谱号在上方或者下方可以写8或者15, 如<span
+        style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119071;</span>
+    <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119076;</span>,表示整个要高/低一个八度或者两个八度,
+    注意不是8和16, 是8和15, 8就表示一个八度, 15表示两个八度, 不要问为什么, 是规矩.</p>
 
 <h2 style="text-align: center;" id="con5">升降记号 sharp/flat sign</h2>
-<p>首先是符号本身的意思, <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#9839;</span> 叫做升记号sharp, 高一个半音. <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#9837;</span> 是降记号flat, 表示降半音. 还有一种还原记号natural <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#9838;</span>, 表示不升也不降.</p>
+<p>首先是符号本身的意思, <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#9839;</span>
+    叫做升记号sharp, 高一个半音. <span
+            style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#9837;</span> 是降记号flat,
+    表示降半音. 还有一种还原记号natural <span
+            style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#9838;</span>, 表示不升也不降.</p>
 <p>这些记号需要搭配具体哪个音来使用. 如果写英文, 升降记号需要放在英文之后, 比如E-flat, G-sharp, 写成音名就是Eb G#, 中文会说降E升G.</p>
 <p>还有低两个半音的重降记号 double flat: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119083;</span>
-以及高两个半音的重升记号double sharp: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119082;</span>. 用法与单独的一样.</p>
+    以及高两个半音的重升记号double sharp: <span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119082;</span>.
+    用法与单独的一样.</p>
 <h3>临时记号与调号</h3>
-<p><span style="color: red">升降记号的核心问题是写在哪里</span>. 如果直接写在谱子里的, 就是临时记号=accidental, 效果只有当下小节的同一个音(注意是同一个音, 而不是同一个音名, 比如升了C5, 不意味着C6也要升.)才有用. 过了这个小节就失效. 临时记号一定写在音符的正左边, 和音符对齐.</p>
+<p><span style="color: red">升降记号的核心问题是写在哪里</span>. 如果直接写在谱子里的, 就是临时记号=accidental, 效果只有当下小节的同一个音(注意是同一个音, 而不是同一个音名,
+    比如升了C5, 不意味着C6也要升.)才有用. 过了这个小节就失效. 临时记号一定写在音符的正左边, 和音符对齐.</p>
 <p>升降记号写在谱号后边, 拍号之前, 是永久性的, 影响全部乐谱. 此时就不称为升降记号, 而称为调号=key signature.</p>
-<p>从乐理可以知道, 升或者降CDEFGAB中的某些音, 就是大调或者小调, 即调号会改变. 由于五线谱是绝对对应关系, 高音谱号, 下加一线固定对应物理琴键中央C, 那么所有的间和线都是白键. 升降记号标在哪一个线或者间, 就对应的升或者降那一个音名. 一定要注意是升降那一个音名, 假如升记号标在对应F的线上, 则所有的F, 全部都要升.</p>
-<p>作为调号的时候, 标记有一定的顺序, 不能更改, 可以参见<a href="https://zh.wikipedia.org/wiki/%E8%B0%83%E5%8F%B7" target="_blank">wiki的调号,</a></p>
+<p>从乐理可以知道, 升或者降CDEFGAB中的某些音, 就是大调或者小调, 即调号会改变. 由于五线谱是绝对对应关系, 高音谱号, 下加一线固定对应物理琴键中央C, 那么所有的间和线都是白键. 升降记号标在哪一个线或者间,
+    就对应的升或者降那一个音名. 一定要注意是升降那一个音名, 假如升记号标在对应F的线上, 则所有的F, 全部都要升.</p>
+<p>作为调号的时候, 标记有一定的顺序, 不能更改, 可以参见<a href="https://zh.wikipedia.org/wiki/%E8%B0%83%E5%8F%B7" target="_blank">wiki的调号,</a>
+</p>
 <p>比如D大调需要升C和升F, 不能先标记C(三间C), 再标记F线, 是固定的必须先标记F线, 再是C.</p>
 
 
@@ -126,28 +177,48 @@
 <p>上边的数字表示一小节有几拍, 下边的数字表示哪个音符为一拍. 结合BPM后就可以得到每个音符的绝对时值. 音乐的快慢就来自于拍号和BPM(也称为tempo)的共同作用.</p>
 <p>这里注意有两种符号, 是一种简写:</p>
 <ol>
-    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119092;</span>, 这个就是4/4拍的简写</li>
-    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119093;</span>, 这个就是2/2拍的简写</li>
+    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119092;</span>,
+        这个就是4/4拍的简写
+    </li>
+    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119093;</span>,
+        这个就是2/2拍的简写
+    </li>
 </ol>
-<p>BPM就是一分钟有多少拍, 一般是搭配拍号来使用, 比如规定了4/4之后, 就会再标记<span style="font-size:20px;color:red;font-style:normal;font-weight:normal;">&#119135;=120</span>的样子, 就表示一分钟有多少拍, 即一分钟要演奏多少个四分音符的速度.</p>
+<p>BPM就是一分钟有多少拍, 一般是搭配拍号来使用, 比如规定了4/4之后, 就会再标记<span
+        style="font-size:20px;color:red;font-style:normal;font-weight:normal;">&#119135;=120</span>的样子, 就表示一分钟有多少拍,
+    即一分钟要演奏多少个四分音符的速度.</p>
 
 <h2 style="text-align: center;" id="con7">小节线 Bar</h2>
 <p>普通的小节线就是为了明确区分, 一般每小节中的拍数, 是与拍号的规定相等的. 小节线有如下几种:</p>
 <ol>
-    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119040;</span>: 普通小节线, 用于标注拍子的循环.</li>
-    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119041;</span>: 双小节线, 用于表示分段或者换调号.</li>
-    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119042;</span>: final bar, 表示整首曲子结束.</li>
-    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119046;</span>和<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119047;</span>: 成对出现, 表示范围内的谱子需要演奏两次, 也称为反复(重复)记号. 如果左边的反复记号没有出现, 则表示从头到右反复记号的部分演奏两次.</li>
+    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119040;</span>: 普通小节线,
+        用于标注拍子的循环.
+    </li>
+    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119041;</span>: 双小节线,
+        用于表示分段或者换调号.
+    </li>
+    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119042;</span>: final bar,
+        表示整首曲子结束.
+    </li>
+    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119046;</span>和<span
+            style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119047;</span>: 成对出现,
+        表示范围内的谱子需要演奏两次, 也称为反复(重复)记号. 如果左边的反复记号没有出现, 则表示从头到右反复记号的部分演奏两次.
+    </li>
 </ol>
 <p>小节还有一些辅助记号:</p>
 <ol>
-    <li><span style='font-size:20px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119050;</span> = Da capo = 从头开始</li>
-    <li><span style='font-size:20px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119049;</span> = Dal segno = 从<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119051;</span>开始</li>
+    <li><span style='font-size:20px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119050;</span> = Da capo =
+        从头开始
+    </li>
+    <li><span style='font-size:20px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119049;</span> = Dal segno
+        = 从<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119051;</span>开始
+    </li>
     <li>Fine = 结束</li>
 </ol>
 <p>DC和DS一般和Fine一起用, 表示满足DC或者DS的条件后, 再次到这里就结束.</p>
 <p>小节上边还会标有带有数字的框框, 和反复记号一起使用, 表示第一次演奏就演奏1号框中的东西, 第二次演奏要跳过1号框的时候继续演奏. 英文叫做First Ending, Second Ending.</p>
-<p>小节中如果仅标记一个<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119054;</span>, 表示重复前边一个小节.</p>
+<p>小节中如果仅标记一个<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119054;</span>,
+    表示重复前边一个小节.</p>
 
 <h2 style="text-align: center;" id="con8">线</h2>
 <h3>弧线</h3>
@@ -156,12 +227,17 @@
 <p>所以三个相同音符第一个和第二个, 第二个和第三个各用弧线连接, 依然只弹一个音. 直接把第一个和第三个连接起来, 要弹三个音.</p>
 <p>不是连接线的弧线, 都称为圆滑线, 不管连接相同音还是不同音. 圆滑线表示音不要断, 实际弹奏中一般是弹下一个音才放开上一个音.</p>
 <h3>锯齿线 - 滑音和琶音</h3>
-<p>锯齿线<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119217;</span><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119218;</span>指的是滑音, 表示连续滑过键盘.</p>
-<p>垂直的锯齿线<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119171;</span>会标记在几个音侧面, 表示琶音, 即快速弹完这几个音, 没有箭头的话表示从下到上, 带有下箭头<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119172;</span>就是从上到下.</p>
+<p>锯齿线<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119217;</span><span
+        style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119218;</span>指的是滑音, 表示连续滑过键盘.
+</p>
+<p>垂直的锯齿线<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119171;</span>会标记在几个音侧面,
+    表示琶音, 即快速弹完这几个音, 没有箭头的话表示从下到上, 带有下箭头<span
+            style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119172;</span>就是从上到下.</p>
 <p>在小节的上下标记带有8和15的虚线, 表示小节内的内容需要移高和移低一或者两个八度.</p>
 <h3>锯齿线 - 震颤</h3>
 <p>锯齿线开头像一个TR一样, 而且很长, 标记在音符上方, 表示本音和上方音快速交替震颤, 实际演奏从本音也可以从上音开始.</p>
-<p>如果短锯齿线标记在一个音符上, 表示上本上本/本上本的震颤. 短锯齿线中间有一竖表示本下本. 躺平的S<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119191;</span>表示弹上本下本/本上本下本</p>
+<p>如果短锯齿线标记在一个音符上, 表示上本上本/本上本的震颤. 短锯齿线中间有一竖表示本下本. 躺平的S<span
+        style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119191;</span>表示弹上本下本/本上本下本</p>
 <p>关于锯齿线还有很多奇怪用法, 可以到wiki查ornament.</p>
 
 <h2 style="text-align: center;" id="con9">颤音 tremolo</h2>
@@ -171,7 +247,8 @@
 <h2 style="text-align: center;" id="con10">断奏 强音 持音 延长</h2>
 <p>断奏就是音符上有一个点, 女儿称为跳音=staccato, 就是快速演奏, 不要充满时值, 与下一个音之间有间隔.</p>
 <p>强音用大于号表示, 表示该音需要强力演奏=accent. 一个横线叫做持音=tenuto, 表示该音至少要弹满时值, 甚至可以稍稍延长.</p>
-<p>像这样的一个符号:<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119056;</span>, 表示延长=fermata, 即可以一直按住, 直到自己想放开再放开.</p>
+<p>像这样的一个符号:<span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119056;</span>,
+    表示延长=fermata, 即可以一直按住, 直到自己想放开再放开.</p>
 
 <h2 style="text-align: center;" id="con11">强弱记号</h2>
 <p>基础的强弱记号有三个:</p>
@@ -195,25 +272,19 @@
 <h2 style="text-align: center;" id="con12">踏板相关</h2>
 <p>这17分钟音频的知识简直太爆炸了, 先都记录下来吧.</p>
 <ol>
-    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119214;</span> 表示踩下右踏板.</li>
-    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119215;</span> 表示放开右踏板.</li>
+    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119214;</span> 表示踩下右踏板.
+    </li>
+    <li><span style='font-size:40px;color:rgb(0,0,0);font-style:normal;font-weight:normal;'>&#119215;</span> 表示放开右踏板.
+    </li>
     <li><i>una corda</i> 表示踩左踏板.</li>
     <li><i>tre corda</i> 表示放开左踏板.</li>
 </ol>
 <p>终于把基础部分看完了, 剩下还是得实际看五线谱才能练出来.</p>
 
 
+<script>
 
-
-
-
-
-
-
-
-
-
-
+</script>
 
 
 </body>
