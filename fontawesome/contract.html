@@ -2,15 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>合同审核要点 - 财务角度</title>
+    <title>合同审核要点核对表</title>
     <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.0.0-beta2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        
+    </style>
 </head>
 <body>
 <div class="container">
-    <h1 class="ml-2 mt-3 text-center">合同审核要点</h1>
+    <h1 class="ml-2 mt-3 text-center">合同审核要点核对表</h1>
+    <button  class="btn btn-success d-print-none" id="complete">完成审核</button>
+    <button  class="btn btn-danger d-print-none" id="reset">重置</button>
+
     <hr>
     <h3>基础要件</h3>
-    <ol>
+    <ol style="list-style: none">
         <li>
             <div class="input-group mb-3">
                 <div class="input-group-text">
@@ -18,7 +24,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="我方公司名称、税号、地址、电话等基础信息是否正确，应当与税务登记、工商登记和营业执照一致。">
+                       style="color:#DC3545" value="我方公司名称、税号、地址、电话等基础信息是否正确，应当与税务登记、工商登记和营业执照一致。">
             </div>
         </li>
         <li>
@@ -28,7 +34,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="对方公司是否与合同中实际执行合同的当事方一致">
+                       style="color:#DC3545" value="对方公司是否与合同中实际执行合同的当事方一致">
             </div>
         </li>
         <li>
@@ -38,18 +44,8 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="对方发票信息与合同当事方是否一致，特殊情况产生不一致，应提供额外资料说明情况或签署补充协议。">
+                       style="color:#DC3545" value="对方发票信息与合同当事方是否一致，特殊情况产生不一致，应提供额外资料说明情况或签署补充协议。">
             </div>
-
-        </li>
-        <li>            <div class="input-group mb-3">
-            <div class="input-group-text">
-                <input class="form-check-input mt-0" type="checkbox" value=""
-                       aria-label="Checkbox for following text input">
-            </div>
-            <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                   value="合同标的是否清晰，比如工程量、土壤或水的量，采购物品清单和规格等。如果合同中没有详细约定，是否有额外附件支持。">
-        </div>
 
         </li>
         <li>
@@ -59,14 +55,25 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="双方联系人、地址邮箱、通信方式等是否清晰。我方合同负责人是否明确。">
+                       style="color:#DC3545" value="合同标的是否清晰，比如工程量、土壤或水的量，采购物品清单和规格等。如果合同中没有详细约定，是否有额外附件支持。">
+            </div>
+
+        </li>
+        <li>
+            <div class="input-group mb-3">
+                <div class="input-group-text">
+                    <input class="form-check-input mt-0" type="checkbox" value=""
+                           aria-label="Checkbox for following text input">
+                </div>
+                <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
+                       style="color:#DC3545" value="双方联系人、地址邮箱、通信方式等是否清晰。我方合同负责人是否明确。">
             </div>
 
         </li>
     </ol>
     <hr>
     <h3>价格条款</h3>
-    <ol>
+    <ol style="list-style: none">
         <li>
             <div class="input-group mb-3">
                 <div class="input-group-text">
@@ -74,7 +81,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="合同的总价是否清晰明确。合同标的与价格的关系是否清晰。">
+                       style="color:#DC3545" value="合同的总价是否清晰明确。合同标的与价格的关系是否清晰。">
             </div>
 
         </li>
@@ -85,7 +92,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="我方签订的EPC总包合同，总价款是否尽力做到开口，合同内有对应调整或者变更条款。">
+                       style="color:#DC3545" value="我方签订的EPC总包合同，总价款是否尽力做到开口，合同内有对应调整或者变更条款。">
             </div>
 
         </li>
@@ -96,7 +103,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="我方签订的采购合同，总价款是否尽力做到闭口。">
+                       style="color:#DC3545" value="我方签订的采购合同，总价款是否尽力做到闭口。">
             </div>
 
         </li>
@@ -107,7 +114,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="联合体中标是否清晰区分联合体各组成方的金额">
+                       style="color:#DC3545" value="联合体中标是否清晰区分联合体各组成方的金额">
             </div>
 
         </li>
@@ -118,7 +125,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="联合体中标的情况下是否签署了代收代付协议。">
+                       style="color:#DC3545" value="联合体中标的情况下是否签署了代收代付协议。">
             </div>
 
         </li>
@@ -129,7 +136,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="可能的情况下是否写明了合同总价、增值税价格、不含税价。">
+                       style="color:#DC3545" value="可能的情况下是否写明了合同总价、增值税价格、不含税价。">
             </div>
 
         </li>
@@ -140,7 +147,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="对发票类型和税率是否有明确约定，是否写明税率变动情况下根据国家规定。">
+                       style="color:#DC3545" value="对发票类型和税率是否有明确约定，是否写明税率变动情况下根据国家规定。">
             </div>
 
         </li>
@@ -151,7 +158,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="合同实际提供的服务或货物的税率与合同约定的税率是否相符。">
+                       style="color:#DC3545" value="合同实际提供的服务或货物的税率与合同约定的税率是否相符。">
             </div>
         </li>
         <li>
@@ -161,7 +168,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="是否写清币别。">
+                       style="color:#DC3545" value="是否写清币别。">
             </div>
         </li>
         <li>
@@ -171,7 +178,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="人民币合同的阿拉伯数字和人民币大写金额是否同时列明并核对一致。">
+                       style="color:#DC3545" value="人民币合同的阿拉伯数字和人民币大写金额是否同时列明并核对一致。">
             </div>
         </li>
         <li>
@@ -181,13 +188,13 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="合同列明的总价是否与按照单价、量等计算后的结果一致。">
+                       style="color:#DC3545" value="合同列明的总价是否与按照单价、量等计算后的结果一致。">
             </div>
         </li>
     </ol>
     <hr>
     <h3>合同其他条款</h3>
-    <ol>
+    <ol style="list-style: none">
         <li>
             <div class="input-group mb-3">
                 <div class="input-group-text">
@@ -195,7 +202,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="合同预付款条款的设置是否对我方有利，即预付款不需要开具发票。">
+                       style="color:#DC3545" value="合同预付款条款的设置是否对我方有利，即预付款不需要开具发票。">
             </div>
         </li>
         <li>
@@ -205,7 +212,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="采购及分包合同的预付款和付款条款是否对我方有利，即每次付款前应获取发票。">
+                       style="color:#DC3545" value="采购及分包合同的预付款和付款条款是否对我方有利，即每次付款前应获取发票。">
             </div>
         </li>
         <li>
@@ -215,7 +222,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="合同约定的付款方式是否符合公司政策规定（原则上不接受和开具商业承兑汇票）。">
+                       style="color:#DC3545" value="合同约定的付款方式是否符合公司政策规定（原则上不接受和开具商业承兑汇票）。">
             </div>
         </li>
         <li>
@@ -225,7 +232,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="合同款支付条件是否清晰，比如到货单、到货地点、验收，工程结算周期和文件等。">
+                       style="color:#DC3545" value="合同款支付条件是否清晰，比如到货单、到货地点、验收，工程结算周期和文件等。">
             </div>
         </li>
         <li>
@@ -235,7 +242,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="合同付款时点是否具有可操作性。">
+                       style="color:#DC3545" value="满足付款条件至付款的时间跨度是否合理。">
             </div>
         </li>
         <li>
@@ -245,7 +252,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="合同是否存在履约保函和质保金保函条款？如存在，合理评估其影响。">
+                       style="color:#DC3545" value="合同是否存在履约保函和质保金保函条款？如存在，合理评估其影响。">
             </div>
         </li>
         <li>
@@ -255,7 +262,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="合同对应的工程预算条目是否已经明确。">
+                       style="color:#DC3545" value="合同对应的工程预算条目是否已经明确。">
             </div>
         </li>
         <li>
@@ -265,7 +272,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="存在框架协议的情况下，合同是否未超出框架协议的范围。">
+                       style="color:#DC3545" value="存在框架协议的情况下，合同是否未超出框架协议的范围。">
             </div>
 
         </li>
@@ -276,14 +283,14 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="质保金比例是否在合理的范围内（上限3%，《建设工程质量保证金管理办法》建质[2016]295号）">
+                       style="color:#DC3545" value="质保金比例是否在合理的范围内（上限3%，《建设工程质量保证金管理办法》建质[2016]295号）">
             </div>
 
         </li>
     </ol>
     <hr>
     <h3>合同付款</h3>
-    <ol>
+    <ol style="list-style: none">
         <li>
             <div class="input-group mb-3">
                 <div class="input-group-text">
@@ -291,7 +298,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="算上本次付款后，项目总付款是否不超过项目总已收款项 X（1-项目利润率）。利润率来自项目责任书。">
+                       style="color:#DC3545" value="算上本次付款后，项目总付款是否不超过项目总已收款项 X（1-项目利润率）。利润率来自项目责任书。">
             </div>
         </li>
         <li>
@@ -301,7 +308,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="是否附上合同、合同中约定的支付条件对应的文件。">
+                       style="color:#DC3545" value="是否附上合同、合同中约定的支付条件对应的文件。">
             </div>
         </li>
         <li>
@@ -311,7 +318,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="合同有总价的，合同累计付款是否超过付款总金额。超过总金额的，是否有相应调整条款对应的文件。">
+                       style="color:#DC3545" value="合同有总价的，合同累计付款是否超过付款总金额。超过总金额的，是否有相应调整条款对应的文件。">
             </div>
         </li>
         <li>
@@ -321,7 +328,7 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="是否已写明对应的预算条目。">
+                       style="color:#DC3545" value="是否已写明对应的预算条目。">
             </div>
         </li>
         <li>
@@ -331,11 +338,66 @@
                            aria-label="Checkbox for following text input">
                 </div>
                 <input disabled type="text" class="form-control" aria-label="Text input with checkbox"
-                       value="算上本次付款后，对应预算是否超支。超支应提醒。">
+                       style="color:#DC3545" value="算上本次付款后，对应预算是否超支。超支应提醒。">
             </div>
         </li>
     </ol>
-
 </div>
+<script>
+    let divs = document.getElementsByClassName("input-group-text");
+
+    for (let eachDiv of divs) {
+        eachDiv.addEventListener("click", divch);
+    }
+
+    document.getElementById("reset").addEventListener("click", reset);
+    document.getElementById("complete").addEventListener("click", complete);
+
+    function divch(event) {
+        event.stopPropagation();
+        let target = null;
+        // 点击DIV，需要获取到input框，然后修改，如果点击的是checkbox就只需要判断后续的结果
+        if (event.target.tagName === "DIV") {
+            // 获取input框
+            target = event.target.childNodes[1];
+            target.checked = !target.checked;
+        } else {
+            target = event.target;
+        }
+        if (target.checked) {
+            target.parentNode.parentNode.childNodes[3].style.color = "#198754";
+        } else {
+            target.parentNode.parentNode.childNodes[3].style.color = "#DC3545";
+        }
+    }
+
+    function reset() {
+        let boxes = document.getElementsByClassName("form-check-input");
+        let descriptions = document.getElementsByClassName("form-control");
+
+        for (let box of boxes) {
+            box.checked = false;
+        }
+
+        for (let description of descriptions) {
+            description.style.color = "#DC3545";
+        }
+    }
+
+    function complete() {
+        let boxes = document.getElementsByClassName("form-check-input");
+        let descriptions = document.getElementsByClassName("form-control");
+
+        for (let box of boxes) {
+            box.checked = true;
+        }
+
+        for (let description of descriptions) {
+            description.style.color = "#198754";
+        }
+    }
+
+
+</script>
 </body>
 </html>
